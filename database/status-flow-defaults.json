@@ -1,0 +1,152 @@
+[
+ {
+  "actor": "customer",
+  "from": "closed",
+  "to": "reopened",
+  "requires_reason": true
+ },
+ {
+  "actor": "customer",
+  "from": "resolved",
+  "to": "closed",
+  "requires_reason": false
+ },
+ {
+  "actor": "customer",
+  "from": "resolved",
+  "to": "reopened",
+  "requires_reason": true
+ },
+ {
+  "actor": "staff",
+  "from": "closed",
+  "to": "reopened",
+  "requires_reason": true
+ },
+ {
+  "actor": "staff",
+  "from": "in_progress",
+  "to": "open",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "in_progress",
+  "to": "pending_customer",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "in_progress",
+  "to": "pending_internal",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "in_progress",
+  "to": "resolved",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "new",
+  "to": "closed",
+  "requires_reason": true
+ },
+ {
+  "actor": "staff",
+  "from": "new",
+  "to": "in_progress",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "new",
+  "to": "open",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "new",
+  "to": "pending_internal",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "open",
+  "to": "in_progress",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "open",
+  "to": "pending_customer",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "open",
+  "to": "pending_internal",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "open",
+  "to": "resolved",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "pending_customer",
+  "to": "closed",
+  "requires_reason": true
+ },
+ {
+  "actor": "staff",
+  "from": "pending_customer",
+  "to": "in_progress",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "pending_customer",
+  "to": "resolved",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "pending_internal",
+  "to": "in_progress",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "pending_internal",
+  "to": "resolved",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "reopened",
+  "to": "in_progress",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "reopened",
+  "to": "pending_customer",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "reopened",
+  "to": "pending_internal",
+  "requires_reason": false
+ },
+ {
+  "actor": "staff",
+  "from": "reopened",
+  "to": "resolved",
+  "requires_reason": false
+ }
+]

@@ -1,0 +1,8 @@
+{
+  "name": "ccs-v2-migration",
+  "private": true,
+  "type": "module",
+  "description": "Repeatable Supabase -> SQL Server migration for CCS v2 (run on the Windows server or a Windows admin PC)",
+  "scripts": { "migrate": "node migrate.mjs", "dry-run": "node migrate.mjs --dry-run" },
+  "dependencies": { "mssql": "^11.0.1", "msnodesqlv8": "^4.5.0", "pg": "^8.13.1" }
+}

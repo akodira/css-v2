@@ -1,0 +1,9 @@
+bin/
+obj/
+*.user
+.vs/
+node_modules/
+dist/
+.angular/
+appsettings.Production.json
+*.env
