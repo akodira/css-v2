@@ -124,6 +124,31 @@ jobs:
           $body = @{ identifier = 'admin@ccs.test'; password = 'Str0ng!Passw0rd' } | ConvertTo-Json
           $session = Invoke-RestMethod https://ccs.test/api/auth/sign-in -Method Post -ContentType 'application/json' -Body $body
           Check 'administrator signs in' ($session.accessToken -or $session.token -or $session.mfaToken)
+          if ($session.accessToken) {
+            $h = @{ Authorization = "Bearer $($session.accessToken)" }
+            function Api($m, $u, $b) { if ($null -eq $b) { Invoke-RestMethod "https://ccs.test/api/admin/$u" -Method $m -Headers $h } else { Invoke-RestMethod "https://ccs.test/api/admin/$u" -Method $m -Headers $h -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes(($b | ConvertTo-Json -Depth 5))) } }
+            $org = Api Post organizations @{ name = 'CI Org'; isActive = $true; sharedAccessEnabled = $false }
+            Check 'admin creates an organization' ($org.id)
+            $br = Api Post branches @{ organizationId = $org.id; name = 'CI Branch'; isActive = $true }
+            Check 'admin creates a branch' ($br.id)
+            $team = Api Post teams @{ nameEn = 'CI Team'; nameAr = 'فريق'; isActive = $true }
+            Check 'admin creates a team' ($team.id)
+            $agent = Api Post users @{ fullName = 'CI Agent'; email = 'agent@ccs.test'; password = 'Str0ng!Passw0rd'; role = 'agent' }
+            Check 'admin creates a staff member' ($agent.id)
+            Api Put "teams/$($team.id)/members" @{ members = @(@{ userId = $agent.id; isLeader = $false }) } | Out-Null
+            $teams = Api Get teams $null
+            Check 'team has the new member' (($teams.teams | Where-Object id -eq $team.id).members.Count -eq 1)
+            $types = Api Get account-types $null
+            $ty = Api Post account-types @{ nameEn = 'CI Type'; nameAr = 'نوع'; allAccess = $false; permissions = @('reply'); access = @(@{ organizationId = $org.id }) }
+            Api Put "account-types/$($ty.id)" @{ nameEn = 'CI Type 2'; nameAr = 'نوع 2'; allAccess = $true; permissions = @('reply','resolve'); access = @() } | Out-Null
+            Check 'account types list and edit' ($types.Count -ge 1)
+            $cust = Api Post users @{ fullName = 'CI Customer'; email = 'cust@ccs.test'; password = 'Str0ng!Passw0rd'; role = 'customer'; organizationId = $org.id; branchId = $br.id }
+            $list = Api Get 'users?kind=customers' $null
+            Check 'customers list shows the new customer' (@($list | Where-Object id -eq $cust.id).Count -eq 1)
+            Api Delete "users/$($cust.id)" $null | Out-Null
+            try { Api Delete "organizations/$($org.id)" $null | Out-Null; $code = 200 } catch { $code = [int]$_.Exception.Response.StatusCode }
+            Check "organization in use is protected (got $code)" ($code -eq 409)
+          } else { Write-Host 'SKIP  admin API checks (administrator needs a second sign-in step)' }
           $login = sqlcmd -S localhost -E -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'"
           Check 'API connects with the IIS APPPOOL\CcsApi Windows login' ("$login" -match 'CcsApi')
           $hf = sqlcmd -S localhost -E -d CCS -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.tables WHERE schema_id = SCHEMA_ID('HangFire')"

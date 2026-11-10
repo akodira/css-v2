@@ -23,7 +23,8 @@ public static class DependencyInjection
 
         services.AddDbContext<CcsDbContext>(o => o.UseSqlServer(cs, sql =>
         {
-            sql.EnableRetryOnFailure(3);
+            // No retrying strategy: SQL Server runs on the same machine, and a retrying strategy
+            // rejects the explicit transactions used by ticket and admin changes.
             sql.CommandTimeout(60);
         }));
         services.AddScoped<ICcsDbContext>(sp => sp.GetRequiredService<CcsDbContext>());

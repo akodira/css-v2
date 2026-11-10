@@ -211,7 +211,17 @@ export class Shell {
     ];
     if (this.auth.has('create_for_customer')) items.push({ path: '/console/tickets/new', label: t('Shell.newTicketForCustomer'), icon: 'plus', exact: true });
     items.push({ path: '/account', label: t('Shell.myAccount'), icon: 'users' });
-    return [{ items }];
+    const admin = !!this.auth.me()?.roles.includes('admin');
+    const adm: SideItem[] = [];
+    if (admin) adm.push({ path: '/admin/users', label: t('AdminV2.nav.staff'), icon: 'users' });
+    if (admin || this.auth.has('customers_view')) adm.push({ path: '/admin/customers', label: t('AdminV2.nav.customers'), icon: 'customers' });
+    if (admin || this.auth.has('approve_customers')) adm.push({ path: '/admin/approvals', label: t('AdminV2.nav.approvals'), icon: 'clock' });
+    if (admin) adm.push(
+      { path: '/admin/permissions', label: t('AdminV2.nav.permissions'), icon: 'settings' },
+      { path: '/admin/organizations', label: t('AdminV2.nav.organizations'), icon: 'dashboard' },
+      { path: '/admin/teams', label: t('AdminV2.nav.teams'), icon: 'customers' },
+    );
+    return adm.length ? [{ items }, { title: t('Shell.administration'), items: adm }] : [{ items }];
   });
 
   isHere(i: SideItem): boolean {

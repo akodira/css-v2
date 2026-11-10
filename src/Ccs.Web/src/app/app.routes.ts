@@ -7,6 +7,7 @@ import { ForgotPage, LoginCodePage, LoginPage, MfaPage, RegisterPage, ResetPage 
 import { MyTicketsPage, NewTicketPage, TicketDetailPage } from './pages/tickets/customer-pages';
 import { ConsoleQueuePage, ConsoleTicketPage } from './pages/console/console-pages';
 import { AccountPage, HomePage, NotificationsPage } from './pages/account-pages';
+import { AdminApprovalsPage, AdminCustomersPage, AdminOrgsPage, AdminStaffPage, AdminTeamsPage, AdminTypesPage } from './pages/admin/admin-pages';
 
 /** The language is the first part of every address: /en/... or /ar/... */
 const localeGuard: CanActivateFn = async (route) => {
@@ -57,6 +58,12 @@ export const routes: Routes = [
           { path: 'account', component: AccountPage },
           { path: 'console', canActivate: [requireRole(STAFF_ROLES)], component: ConsoleQueuePage },
           { path: 'console/tickets/:id', canActivate: [requireRole(STAFF_ROLES)], component: ConsoleTicketPage },
+          { path: 'admin/users', canActivate: [requireRole(['admin'])], component: AdminStaffPage },
+          { path: 'admin/customers', canActivate: [requireRole(STAFF_ROLES)], component: AdminCustomersPage },
+          { path: 'admin/approvals', canActivate: [requireRole(STAFF_ROLES)], component: AdminApprovalsPage },
+          { path: 'admin/permissions', canActivate: [requireRole(['admin'])], component: AdminTypesPage },
+          { path: 'admin/organizations', canActivate: [requireRole(['admin'])], component: AdminOrgsPage },
+          { path: 'admin/teams', canActivate: [requireRole(['admin'])], component: AdminTeamsPage },
         ],
       },
       { path: '**', redirectTo: '' },

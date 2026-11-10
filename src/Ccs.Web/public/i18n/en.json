@@ -3403,5 +3403,33 @@
       "spam": "Spam",
       "other": "Other"
     }
+  },
+  "AdminV2": {
+    "nav": {
+      "staff": "Staff",
+      "customers": "Customers",
+      "approvals": "Approvals",
+      "permissions": "Permissions",
+      "organizations": "Organizations",
+      "teams": "Teams"
+    },
+    "role": "Role",
+    "noType": "No account type",
+    "autoAssign": "Receives tickets automatically",
+    "canCreate": "Can create tickets for customers",
+    "resetPassword": "Reset password",
+    "passwordSet": "New password: {password}. Copy it now: it will not be shown again.",
+    "deleted": "Deleted.",
+    "approved": "Approved. The customer can sign in now.",
+    "rejected": "The account was rejected.",
+    "scopeLevel": "Admin scope",
+    "scopeNone": "None",
+    "scopeOrg": "Manages whole organizations",
+    "scopeBranch": "Manages single branches",
+    "scopeHelp": "Only for scoped administrators. Leave None for ordinary staff.",
+    "sharedAccess": "Customers of this organization can see each other's tickets",
+    "staffCount": "{n, plural, one {# staff member} other {# staff members}}",
+    "setLeader": "Make leader",
+    "unsetLeader": "Remove leader"
   }
 }
