@@ -110,6 +110,7 @@ jobs:
           function Check($name, $ok) { if ($ok) { Write-Host "PASS  $name" } else { throw "FAIL  $name" } }
           $home_ = Invoke-WebRequest https://ccs.test/en -UseBasicParsing
           Check 'home page /en serves Angular' ($home_.StatusCode -eq 200 -and $home_.Content -match '<app-root')
+          Check 'stylesheet loads without inline script (CSP-safe)' ($home_.Content -match '<link rel="stylesheet" href="styles-[^"]+\.css">' -and $home_.Content -notmatch 'media="print"')
           $deep = Invoke-WebRequest https://ccs.test/ar/tickets -UseBasicParsing
           Check 'deep link /ar/tickets falls back to index.html' ($deep.StatusCode -eq 200 -and $deep.Content -match '<app-root')
           $h = Invoke-WebRequest https://ccs.test/api/health -UseBasicParsing
