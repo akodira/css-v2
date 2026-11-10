@@ -257,7 +257,7 @@ jobs:
             # Attachments: staff create a ticket for the customer, add a file, download it back; a disallowed type is refused.
             $cat2 = Api Post categories @{ nameEn = 'CI Files'; nameAr = 'ملفات'; isActive = $true; sortOrder = 2; autoAssign = $false; isPrivate = $false }
             $tt2 = Api Post ticket-types @{ nameEn = 'CI Files Type'; nameAr = 'نوع ملفات'; sortOrder = 2; isActive = $true; categoryIds = @($cat2.id) }
-            $tkt = Invoke-RestMethod https://ccs.test/api/tickets -Method Post -Headers $h -ContentType 'application/json' -Body (@{ typeId = $tt2.id; categoryId = $cat2.id; subject = 'Printer is offline'; description = 'The office printer stopped working this morning.'; requesterId = $c2.id } | ConvertTo-Json)
+            try { $tkt = Invoke-RestMethod https://ccs.test/api/tickets -Method Post -Headers $h -ContentType 'application/json' -Body (@{ typeId = $tt2.id; categoryId = $cat2.id; subject = 'Printer is offline'; description = 'The office printer stopped working this morning.'; requesterId = $c2.id } | ConvertTo-Json) } catch { Write-Host "create ticket failed: $($_.ErrorDetails.Message)"; throw }
             Check 'staff create a ticket for a customer' ($tkt.id)
             $txt = Join-Path $env:RUNNER_TEMP 'ci-note.txt'; Set-Content $txt 'hello attachment' -NoNewline
             $att = Invoke-RestMethod "https://ccs.test/api/tickets/$($tkt.id)/attachments" -Method Post -Headers $h -Form @{ file = Get-Item $txt }
