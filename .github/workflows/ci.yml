@@ -211,6 +211,7 @@ jobs:
             Check 'system message override stored' (@((Invoke-RestMethod https://ccs.test/api/site).systemMessages | Where-Object { $_.key -eq 'Console.title' }).Count -eq 1)
             Cfg Put messages @{ key = 'Console.title'; en = ''; ar = '' } | Out-Null
             Cfg Put uploads @{ maxMb = 12; maxFiles = 4; extensions = @('pdf','png') } | Out-Null
+            Cfg Post menus @{ area = 'footer'; kind = 'link'; labelEn = 'Help'; labelAr = 'مساعدة'; href = '/kb'; audience = 'all'; newTab = $false; isVisible = $true; sortOrder = 10 } | Out-Null
             $menus = Cfg Get menus $null
             Check "menus listed ($(@($menus).Count))" (@($menus).Count -ge 1)
             Check 'handover screen data' ($null -ne (Cfg Get handover $null).demo)
