@@ -259,10 +259,10 @@ jobs:
             $tt2 = Api Post ticket-types @{ nameEn = 'CI Files Type'; nameAr = 'نوع ملفات'; sortOrder = 2; isActive = $true; categoryIds = @($cat2.id) }
             $tkt = Invoke-RestMethod https://ccs.test/api/tickets -Method Post -Headers $h -ContentType 'application/json' -Body (@{ typeId = $tt2.id; categoryId = $cat2.id; subject = 'Printer is offline'; description = 'The office printer stopped working this morning.'; requesterId = $c2.id } | ConvertTo-Json)
             Check 'staff create a ticket for a customer' ($tkt.id)
-            $txt = Join-Path $env:RUNNER_TEMP 'ci-note.txt'; Set-Content $txt 'hello attachment' -NoNewline
+            $txt = Join-Path $env:RUNNER_TEMP 'ci-note.pdf'; Set-Content $txt '%PDF-1.4 hello attachment' -NoNewline
             $att = Invoke-RestMethod "https://ccs.test/api/tickets/$($tkt.id)/attachments" -Method Post -Headers $h -Form @{ file = Get-Item $txt }
             $back = Invoke-WebRequest "https://ccs.test/api/tickets/$($tkt.id)/attachments/$($att.id)" -Headers $h -UseBasicParsing
-            Check 'attachment uploaded and downloaded' ([Text.Encoding]::UTF8.GetString($back.Content) -eq 'hello attachment')
+            Check 'attachment uploaded and downloaded' ([Text.Encoding]::UTF8.GetString($back.Content) -eq '%PDF-1.4 hello attachment')
             $det = Invoke-RestMethod "https://ccs.test/api/tickets/$($tkt.id)" -Headers $h
             Check 'attachment shown on the ticket' ((@($det.messages | Where-Object kind -eq 'ticket_files').attachments.id) -contains $att.id)
             $exe = Join-Path $env:RUNNER_TEMP 'ci-bad.exe'; Set-Content $exe 'MZ' -NoNewline
