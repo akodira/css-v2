@@ -9,6 +9,22 @@ public sealed class AuditService(ICcsDbContext db, ICurrentUser current, IClock 
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
 
+    /// <summary>Objects are serialized; a string that already holds a JSON object or array is stored as it is.</summary>
+    private static string? ToJson(object? v)
+    {
+        if (v is null) return null;
+        if (v is string s)
+        {
+            var t = s.TrimStart();
+            if (t.StartsWith('{') || t.StartsWith('['))
+            {
+                try { using var _ = JsonDocument.Parse(s); return s; } catch (JsonException) { }
+            }
+            return JsonSerializer.Serialize(new { value = s }, Json);
+        }
+        return JsonSerializer.Serialize(v, Json);
+    }
+
     /// <summary>Adds the row to the current unit of work; it is saved with the change it describes.</summary>
     public void Write(string action, string entityType, Guid? entityId, object? before, object? after, Guid? actorOverride = null)
     {
@@ -18,8 +34,8 @@ public sealed class AuditService(ICcsDbContext db, ICurrentUser current, IClock 
             Action = action,
             EntityType = entityType,
             EntityId = entityId,
-            Before = before is null ? null : JsonSerializer.Serialize(before, Json),
-            After = after is null ? null : JsonSerializer.Serialize(after, Json),
+            Before = ToJson(before),
+            After = ToJson(after),
             IpAddress = current.IpAddress,
             CreatedAt = clock.UtcNow,
         });

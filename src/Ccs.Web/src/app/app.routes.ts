@@ -7,6 +7,7 @@ import { ForgotPage, LoginCodePage, LoginPage, MfaPage, RegisterPage, ResetPage 
 import { MyTicketsPage, NewTicketPage, TicketDetailPage } from './pages/tickets/customer-pages';
 import { ConsoleQueuePage, ConsoleTicketPage } from './pages/console/console-pages';
 import { DashboardPage } from './pages/console/dashboard-page';
+import { AuditPage, MyTeamPage, ReportsPage, SlaReportPage } from './pages/console/insights-pages';
 import { AccountPage, HomePage, NotificationsPage } from './pages/account-pages';
 import { SettingsPage } from './pages/admin/settings-pages';
 import { AdminEscalationPage, AdminKbPage, AdminStatusPage } from './pages/admin/content-pages';
@@ -80,6 +81,10 @@ export const routes: Routes = [
           { path: 'admin/general/settings/:tab', canActivate: [requireRole(STAFF_ROLES)], component: SettingsPage },
           { path: 'admin/kb', canActivate: [requireRole(STAFF_ROLES)], component: AdminKbPage },
           { path: 'console/canned', canActivate: [requireRole(['agent', 'team_leader', 'admin'])], component: CannedPage },
+          { path: 'console/reports', canActivate: [requireRole(STAFF_ROLES)], component: ReportsPage },
+          { path: 'console/sla', canActivate: [requireRole(STAFF_ROLES)], component: SlaReportPage },
+          { path: 'console/team', canActivate: [requireRole(['admin', 'team_leader'])], component: MyTeamPage },
+          { path: 'admin/audit', canActivate: [requireRole(['admin', 'management_viewer'])], component: AuditPage },
           { path: 'console/dashboard', canActivate: [requireRole(STAFF_ROLES)], component: DashboardPage },
           { path: 'console/approvals', redirectTo: 'admin/approvals' },
           { path: 'console/customers', redirectTo: 'admin/customers' },

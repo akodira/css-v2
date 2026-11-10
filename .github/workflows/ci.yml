@@ -214,6 +214,18 @@ jobs:
             $menus = Cfg Get menus $null
             Check "menus listed ($(@($menus).Count))" (@($menus).Count -ge 1)
             Check 'handover screen data' ($null -ne (Cfg Get handover $null).demo)
+            $rep = Invoke-RestMethod 'https://ccs.test/api/reports/summary?days=30' -Headers $h
+            Check "reports overview ($(@($rep.daily).Count) days)" (@($rep.daily).Count -ge 30)
+            $bld = Invoke-RestMethod 'https://ccs.test/api/reports/builder?kind=organization' -Headers $h
+            Check 'report builder' ($null -ne $bld.rows)
+            $csv = Invoke-WebRequest 'https://ccs.test/api/reports/export?kind=builder&report=status' -Headers $h -UseBasicParsing
+            Check 'CSV export' ($csv.Headers['Content-Type'] -match 'text/csv')
+            $slar = Invoke-RestMethod https://ccs.test/api/reports/sla -Headers $h
+            Check 'SLA report' ($null -ne $slar.firstResponse)
+            $aud = Invoke-RestMethod https://ccs.test/api/admin/audit -Headers $h
+            Check "audit log ($($aud.total) entries)" ($aud.total -gt 0)
+            $mt = Invoke-RestMethod https://ccs.test/api/console/my-team -Headers $h
+            Check 'my team' ($null -ne $mt)
           } else { Write-Host 'SKIP  admin API checks (administrator needs a second sign-in step)' }
           $login = sqlcmd -S localhost -E -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'"
           Check 'API connects with the IIS APPPOOL\CcsApi Windows login' ("$login" -match 'CcsApi')

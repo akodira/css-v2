@@ -56,6 +56,7 @@ const ROUTE: Record<string, string> = {
   '/admin/organizations': '/admin/organizations', '/admin/escalation': '/admin/escalation', '/admin/catalog': '/admin/catalog', '/admin/ticket-types': '/admin/ticket-types',
   '/admin/priorities': '/admin/priorities', '/admin/ticket-status': '/admin/ticket-status', '/admin/kb': '/admin/kb', '/admin/sla': '/admin/sla',
   '/admin/general/settings': '/admin/general/settings',
+  '/console/reports': '/console/reports', '/console/sla': '/console/sla', '/console/team': '/console/team', '/admin/audit': '/admin/audit',
 };
 
 export interface SideItem { path: string; label: string; icon: string; exact?: boolean; badge?: number; also?: string[] }
@@ -285,10 +286,10 @@ export class Shell {
     const has = (p: string) => this.auth.has(p);
     const canKb = admin || has('manage_kb'), canCatalog = admin || has('manage_catalog'), canSettings = admin || has('manage_settings');
     const can: Record<string, boolean> = {
-      canned: admin || has('reply'), team: false, reports: false, kb_console: !canKb, users: admin, people: false, hierarchy: false, escalation: admin,
+      canned: admin || has('reply'), team: admin || roles.includes('team_leader'), reports: has('reports_own') || has('reports_all'), kb_console: !canKb, users: admin, people: false, hierarchy: false, escalation: admin,
       admin_customers: admin, customers: !admin && has('customers_view'), admin_teams: admin, permissions: admin, organizations: admin,
       catalog: canCatalog, ticket_types: canCatalog, priorities: canCatalog, ticket_status: canSettings, approvals: admin || has('approve_customers'),
-      kb_admin: canKb, sla_settings: canSettings, audit: false, settings: canSettings, help: false, help_center: false, sla: false,
+      kb_admin: canKb, sla_settings: canSettings, audit: admin || roles.includes('management_viewer'), settings: canSettings, help: false, help_center: false, sla: true,
     };
     const rows = [...this.site.menus()];
     // Ticket types has its own screen here; place it after Categories.

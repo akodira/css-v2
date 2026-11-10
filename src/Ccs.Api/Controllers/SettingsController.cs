@@ -68,22 +68,22 @@ public sealed partial class SettingsController(
             if (x.Length > max) throw Err("locationLong", field);
             return x;
         }
-        s.SiteNameEn = T(b.SiteNameEn, 120, "siteNameEn", true); s.SiteNameAr = T(b.SiteNameAr, 120, "siteNameAr", true);
-        s.HeaderNameEn = T(b.HeaderNameEn, 120, "headerNameEn"); s.HeaderNameAr = T(b.HeaderNameAr, 120, "headerNameAr");
-        s.HeaderSubEn = T(b.HeaderSubEn, 160, "headerSubEn"); s.HeaderSubAr = T(b.HeaderSubAr, 160, "headerSubAr");
-        s.FooterTextEn = T(b.FooterTextEn, 500, "footerTextEn"); s.FooterTextAr = T(b.FooterTextAr, 500, "footerTextAr");
+        s.SiteNameEn = T(b.SiteNameEn, 80, "siteNameEn", true); s.SiteNameAr = T(b.SiteNameAr, 80, "siteNameAr", true);
+        s.HeaderNameEn = T(b.HeaderNameEn, 60, "headerNameEn"); s.HeaderNameAr = T(b.HeaderNameAr, 60, "headerNameAr");
+        s.HeaderSubEn = T(b.HeaderSubEn, 80, "headerSubEn"); s.HeaderSubAr = T(b.HeaderSubAr, 80, "headerSubAr");
+        s.FooterTextEn = T(b.FooterTextEn, 300, "footerTextEn"); s.FooterTextAr = T(b.FooterTextAr, 300, "footerTextAr");
         var email = T(b.ContactEmail, 254, "contactEmail");
         if (email.Length > 0 && !email.Contains('@')) throw Err("required", "contactEmail");
         s.ContactEmail = email.Length == 0 ? null : email;
-        var phone = T(b.ContactPhone, 40, "contactPhone");
+        var phone = T(b.ContactPhone, 30, "contactPhone");
         s.ContactPhone = phone.Length == 0 ? null : phone;
-        s.ContactHoursEn = T(b.ContactHoursEn, 200, "contactHoursEn"); s.ContactHoursAr = T(b.ContactHoursAr, 200, "contactHoursAr");
+        s.ContactHoursEn = T(b.ContactHoursEn, 120, "contactHoursEn"); s.ContactHoursAr = T(b.ContactHoursAr, 120, "contactHoursAr");
         var color = T(b.BrandColor, 7, "brandColor");
         if (color.Length > 0 && !ColorRx().IsMatch(color)) throw Err("color", "brandColor");
         s.BrandColor = color.Length == 0 ? null : color.ToLowerInvariant();
-        s.HomeTitleEn = T(b.HomeTitleEn, 200, "homeTitleEn"); s.HomeTitleAr = T(b.HomeTitleAr, 200, "homeTitleAr");
-        s.HomeIntroEn = T(b.HomeIntroEn, 2000, "homeIntroEn"); s.HomeIntroAr = T(b.HomeIntroAr, 2000, "homeIntroAr");
-        s.LoginNoticeEn = T(b.LoginNoticeEn, 1000, "loginNoticeEn"); s.LoginNoticeAr = T(b.LoginNoticeAr, 1000, "loginNoticeAr");
+        s.HomeTitleEn = T(b.HomeTitleEn, 120, "homeTitleEn"); s.HomeTitleAr = T(b.HomeTitleAr, 120, "homeTitleAr");
+        s.HomeIntroEn = T(b.HomeIntroEn, 300, "homeIntroEn"); s.HomeIntroAr = T(b.HomeIntroAr, 300, "homeIntroAr");
+        s.LoginNoticeEn = T(b.LoginNoticeEn, 300, "loginNoticeEn"); s.LoginNoticeAr = T(b.LoginNoticeAr, 300, "loginNoticeAr");
         s.UpdatedAt = clock.UtcNow; s.UpdatedBy = c.UserId;
         audit.Write("settings.branding", "site_settings", null, before, b);
         await db.SaveChangesAsync(ct);
@@ -204,7 +204,7 @@ public sealed partial class SettingsController(
         var en = (b.LabelEn ?? "").Trim(); var ar = (b.LabelAr ?? "").Trim();
         if (en.Length is < 1 or > 60 || ar.Length is < 1 or > 60) throw Err("name", "labelEn");
         var href = (b.Href ?? "").Trim();
-        if (b.Kind == "link" && !(href.StartsWith('/') || href.StartsWith("https://") || href.StartsWith("mailto:"))) throw Err("required", "href");
+        if (b.Kind == "link" && (href.Length > 300 || !(href.StartsWith('/') || href.StartsWith("https://") || href.StartsWith("http://") || href.StartsWith("mailto:") || href.StartsWith("tel:")))) throw Err("required", "href");
         if (b.ParentId is Guid p && (p == m.Id || !await db.MenuItems.AnyAsync(x => x.Id == p && x.Kind == "group" && x.Area == b.Area, ct))) throw Err("notFound", "parentId");
         m.Area = b.Area; m.ParentId = b.ParentId; m.Kind = b.Kind; m.LabelEn = en; m.LabelAr = ar; m.Href = b.Kind == "link" ? href : null;
         m.Audience = b.Audience; m.NewTab = b.NewTab; m.IsVisible = b.IsVisible; m.SortOrder = Math.Clamp(b.SortOrder, 0, 10000);
@@ -308,9 +308,9 @@ public sealed partial class SettingsController(
         if (!EventRx().IsMatch(b.Event ?? "")) throw Err("required", "event");
         var subject = (b.Subject ?? "").Trim(); var body = (b.Body ?? "").Trim();
         if (subject.Length > 200) throw Err("title", "subject");
-        if (body.Length > 10000) throw Err("body", "body");
+        if (body.Length > 2000) throw Err("body", "body");
         var link = (b.Link ?? "").Trim();
-        if (link.Length > 0 && !(link.StartsWith('/') || link.StartsWith("https://"))) throw Err("required", "link");
+        if (link.Length > 300 || link.Length > 0 && !(link.StartsWith('/') || link.StartsWith("https://"))) throw Err("required", "link");
         var row = await db.EmailTemplates.FirstOrDefaultAsync(t => t.Event == b.Event && t.Locale == b.Locale, ct);
         var before = row is null ? null : new { row.Subject, row.Body, row.Button, row.Link };
         if (row is null) db.EmailTemplates.Add(row = new EmailTemplate { Event = b.Event!, Locale = b.Locale });
@@ -371,11 +371,11 @@ public sealed partial class SettingsController(
     public async Task<IActionResult> SaveMessage(MessageBody b, CancellationToken ct)
     {
         var c = await Need(ct);
-        if (!KeyRx().IsMatch(b.Key ?? "")) throw Err("required", "key");
+        if (b.Key is not { Length: <= 80 } || !KeyRx().IsMatch(b.Key)) throw Err("required", "key");
         foreach (var (loc, text) in new[] { ("en", b.En), ("ar", b.Ar) })
         {
             var body = (text ?? "").Trim();
-            if (body.Length > 4000) throw Err("body", loc);
+            if (body.Length > 1000) throw Err("body", loc);
             var row = await db.SystemMessages.FirstOrDefaultAsync(m => m.Key == b.Key && m.Locale == loc, ct);
             if (body.Length == 0) { if (row is not null) db.SystemMessages.Remove(row); continue; }
             if (row is null) db.SystemMessages.Add(row = new SystemMessage { Key = b.Key!, Locale = loc });
@@ -516,8 +516,8 @@ public sealed partial class SettingsController(
         if (b.Audience is not ("customers" or "all")) throw Err("required", "audience");
         if (b.CodeLength is < 4 or > 10) throw Err("number", "codeLength");
         if (b.ValidMinutes is < 1 or > 60) throw Err("number", "validMinutes");
-        if (b.MaxAttempts is < 1 or > 20) throw Err("number", "maxAttempts");
-        if (b.CooldownSeconds is < 0 or > 3600) throw Err("number", "cooldownSeconds");
+        if (b.MaxAttempts is < 1 or > 10) throw Err("number", "maxAttempts");
+        if (b.CooldownSeconds is < 0 or > 600) throw Err("number", "cooldownSeconds");
         if (b.DailyLimit is < 1 or > 100) throw Err("number", "dailyLimit");
         var s = await db.SigninCodeSettings.FirstOrDefaultAsync(ct) ?? db.SigninCodeSettings.Add(new SigninCodeSettings { Id = 1 }).Entity;
         var before = new { s.Enabled, s.Audience, s.CodeLength, s.ValidMinutes, s.MaxAttempts, s.CooldownSeconds, s.DailyLimit };
@@ -652,6 +652,6 @@ public sealed partial class SettingsController(
     }
 
     [GeneratedRegex("^#[0-9a-fA-F]{6}$")] private static partial Regex ColorRx();
-    [GeneratedRegex("^[a-z_][a-z0-9_]{1,60}$")] private static partial Regex EventRx();
+    [GeneratedRegex("^[a-z_]{3,40}$")] private static partial Regex EventRx();
     [GeneratedRegex(@"^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+){1,6}$")] private static partial Regex KeyRx();
 }
