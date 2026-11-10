@@ -24,6 +24,13 @@ export class I18n {
   readonly locale = signal<Locale>('en');
   readonly dir = computed(() => (this.locale() === 'ar' ? 'rtl' : 'ltr'));
   private readonly messages = signal<Messages>({});
+  /** Texts the administrator changed (system messages, e.g. status names), keyed "locale|Key.path". */
+  private readonly overrides = signal<Map<string, string>>(new Map());
+
+  setOverrides(rows: { key: string; locale: string; body: string }[]): void {
+    this.overrides.set(new Map(rows.map((r) => [`${r.locale}|${r.key}`, r.body])));
+    this.formats.clear();
+  }
 
   async use(locale: Locale): Promise<void> {
     if (!this.cache.has(locale)) {
@@ -38,7 +45,8 @@ export class I18n {
 
   /** t('Auth.login.title') or t('Nav.bellUnread', { count: 3 }). Missing keys show the key, like next-intl. */
   t(key: string, params?: Record<string, unknown>): string {
-    const raw = key.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Messages)[k] : undefined), this.messages());
+    const raw = this.overrides().get(`${this.locale()}|${key}`)
+      ?? key.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Messages)[k] : undefined), this.messages());
     if (typeof raw !== 'string') return key;
     if (!params && !raw.includes('{')) return raw;
     const id = `${this.locale()}|${key}`;
@@ -59,6 +67,7 @@ export class I18n {
   }
 
   has(key: string): boolean {
+    if (this.overrides().has(`${this.locale()}|${key}`)) return true;
     return typeof key.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Messages)[k] : undefined), this.messages()) === 'string';
   }
 

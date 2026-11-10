@@ -5,6 +5,7 @@ import { I18n, TPipe } from '../../core/i18n';
 import { Paged, TicketDetail, TicketListItem, TicketSummary, TicketsApi } from '../../core/api';
 import { Alert, PRIORITY_TONE, STATUS_STRIPE, SortTh, StatusBadge } from '../../shared/ui';
 import { autoRefresh } from '../tickets/customer-pages';
+import { CannedApi } from '../help-pages';
 
 const SLA_TONE: Record<string, string> = {
   on_track: 'bg-ok-soft text-ok', due_soon: 'bg-warn-soft text-warn-ink', breached: 'bg-danger-soft text-danger',
@@ -177,6 +178,13 @@ export class ConsoleQueuePage {
                   @if (tk.canReply) { <label class="flex items-center gap-2"><input type="radio" name="kind" value="public_reply" [checked]="kind() === 'public_reply'" (change)="kind.set('public_reply')" />{{ 'Console.reply.public' | t }}</label> }
                   @if (tk.canSeeInternalNotes) { <label class="flex items-center gap-2"><input type="radio" name="kind" value="internal_note" [checked]="kind() === 'internal_note'" (change)="kind.set('internal_note')" />{{ 'Console.reply.internal' | t }}</label> }
                 </fieldset>
+                @if (canned().length) {
+                  <label for="canned" class="sr-only">{{ 'Shell.cannedResponses' | t }}</label>
+                  <select id="canned" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-sm" (change)="insertCanned($any($event.target))">
+                    <option value="">{{ 'AdminV2.insertReply' | t }}</option>
+                    @for (c of canned(); track c.id) { <option [value]="c.id">{{ c.title }}</option> }
+                  </select>
+                }
                 <label for="body" class="sr-only">{{ 'Console.reply.body' | t }}</label>
                 <textarea id="body" rows="5" maxlength="10000" dir="auto" class="rounded-lg border border-line p-3" [class]="kind() === 'internal_note' ? 'bg-warn-soft' : 'bg-surface'" [value]="body()" (input)="body.set($any($event.target).value)"></textarea>
                 <div><button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ 'Console.reply.submit' | t }}</button></div>
@@ -248,6 +256,15 @@ export class ConsoleTicketPage {
   protected readonly t = signal<TicketDetail | null>(null);
   protected readonly missing = signal(false);
   protected readonly kind = signal<'public_reply' | 'internal_note'>('public_reply');
+  /** Saved replies (personal and shared) for the reply box; loaded once, ignored if not allowed. */
+  protected readonly canned = signal<{ id: string; title: string; body: string; language: string }[]>([]);
+  private readonly cannedApi = inject(CannedApi);
+  private readonly _loadCanned = this.cannedApi.list().then((r) => this.canned.set(r.items.filter((c) => c.language === 'any' || c.language === this.i18n.locale())), () => undefined);
+  protected insertCanned(sel: HTMLSelectElement): void {
+    const c = this.canned().find((x) => x.id === sel.value);
+    if (c) this.body.set(this.body() ? this.body().trimEnd() + '\n\n' + c.body : c.body);
+    sel.value = '';
+  }
   protected readonly body = signal('');
   protected readonly to = signal('');
   protected readonly reason = signal('');

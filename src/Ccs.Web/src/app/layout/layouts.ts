@@ -203,6 +203,7 @@ export class Shell {
         { path: '/tickets', label: t('Nav.tickets'), icon: 'tickets' },
         { path: '/tickets/new', label: t('Nav.newTicket'), icon: 'plus', exact: true },
         { path: '/notifications', label: t('Nav.notifications'), icon: 'bell' },
+        { path: '/kb', label: t('Nav.kb'), icon: 'kb' },
         { path: '/account', label: t('Nav.account'), icon: 'users' },
       ] }];
     }
@@ -210,6 +211,8 @@ export class Shell {
       { path: '/console', label: t('Shell.tickets'), icon: 'tickets', exact: true },
     ];
     if (this.auth.has('create_for_customer')) items.push({ path: '/console/tickets/new', label: t('Shell.newTicketForCustomer'), icon: 'plus', exact: true });
+    if (this.auth.isStaff() && this.auth.me()?.roles.some((r) => r !== 'management_viewer')) items.push({ path: '/console/saved-replies', label: t('Shell.cannedResponses'), icon: 'kb' });
+    items.push({ path: '/kb', label: t('Shell.knowledgeBase'), icon: 'kb' });
     items.push({ path: '/account', label: t('Shell.myAccount'), icon: 'users' });
     const admin = !!this.auth.me()?.roles.includes('admin');
     const adm: SideItem[] = [];
@@ -226,7 +229,12 @@ export class Shell {
       { path: '/admin/catalog', label: t('AdminV2.nav.catalog'), icon: 'kb' },
       { path: '/admin/priorities', label: t('AdminV2.nav.priorities'), icon: 'reports' },
     );
-    if (admin || this.auth.has('manage_settings')) adm.push({ path: '/admin/sla', label: t('AdminV2.nav.sla'), icon: 'clock' });
+    if (admin || this.auth.has('manage_settings')) adm.push(
+      { path: '/admin/sla', label: t('AdminV2.nav.sla'), icon: 'clock' },
+      { path: '/admin/ticket-status', label: t('AdminV2.nav.status'), icon: 'tickets' },
+    );
+    if (admin) adm.push({ path: '/admin/escalation', label: t('AdminV2.nav.escalation'), icon: 'reports' });
+    if (admin || this.auth.has('manage_kb')) adm.push({ path: '/admin/kb', label: t('AdminV2.nav.kb'), icon: 'kb' });
     return adm.length ? [{ items }, { title: t('Shell.administration'), items: adm }] : [{ items }];
   });
 

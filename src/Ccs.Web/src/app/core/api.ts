@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
+import { I18n } from './i18n';
 
 // ---- Contracts (mirror Ccs.Application DTOs, camelCase JSON) ----------------------------------
 
@@ -56,6 +57,7 @@ export interface SiteInfo {
   autoRefreshSeconds: number;
   minReplyChars: number;
   reopenWindowDays: number;
+  systemMessages?: { key: string; locale: string; body: string }[];
 }
 
 export interface MenuRow { id: string; area: string; parentId: string | null; kind: 'link' | 'group'; labelEn: string; labelAr: string; href: string | null; audience: string; newTab: boolean; sortOrder: number; systemKey: string | null }
@@ -65,6 +67,7 @@ export interface MenuRow { id: string; area: string; parentId: string | null; ki
 @Injectable({ providedIn: 'root' })
 export class SiteService {
   private readonly http = inject(HttpClient);
+  private readonly i18n = inject(I18n);
   readonly info = signal<SiteInfo | null>(null);
   readonly menus = signal<MenuRow[]>([]);
 
@@ -76,6 +79,7 @@ export class SiteService {
       ]);
       this.info.set(info);
       this.menus.set(menus);
+      this.i18n.setOverrides(info.systemMessages ?? []);
       if (info.site?.brandColor && /^#[0-9a-fA-F]{6}$/.test(info.site.brandColor)) applyBrand(info.site.brandColor);
     } catch {
       this.info.set(null);   // the shell still renders with the built-in defaults

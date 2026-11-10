@@ -1065,7 +1065,9 @@
       "typeTextLong": "Use 300 characters or fewer.",
       "refreshRange": "Enter 0 to turn it off, or a number from 10 to 3600.",
       "badColor": "Enter a colour like #1f64e6.",
-      "badButtonLink": "Enter a page like /kb, or an address starting with https://, mailto: or tel:."
+      "badButtonLink": "Enter a page like /kb, or an address starting with https://, mailto: or tel:.",
+      "flowNewStuck": "Staff must be able to move a ticket out of New.",
+      "flowNoResolve": "Staff must be able to reach Resolved."
     }
   },
   "AdminCatalog": {
@@ -3415,7 +3417,10 @@
       "ticketTypes": "Ticket types",
       "catalog": "Categories and fields",
       "priorities": "Priorities",
-      "sla": "SLA settings"
+      "sla": "SLA settings",
+      "status": "Ticket status",
+      "escalation": "Escalation",
+      "kb": "Knowledge base"
     },
     "role": "Role",
     "noType": "No account type",
@@ -3437,6 +3442,9 @@
     "unsetLeader": "Remove leader",
     "default": "Default",
     "defaultCalendar": "Default calendar (used when nothing else is set)",
-    "addCalendar": "Add working hours"
+    "addCalendar": "Add working hours",
+    "labelHint": "Leave a box empty to keep the standard text (shown in grey).",
+    "view": "View",
+    "insertReply": "Insert a saved reply…"
   }
 }

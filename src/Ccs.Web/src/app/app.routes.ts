@@ -2,11 +2,13 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router, Routes } from '@angular/router';
 import { Auth, STAFF_ROLES, requireRole } from './core/auth';
 import { I18n, isLocale } from './core/i18n';
-import { Coming, PublicLayout, Shell } from './layout/layouts';
+import { PublicLayout, Shell } from './layout/layouts';
 import { ForgotPage, LoginCodePage, LoginPage, MfaPage, RegisterPage, ResetPage } from './pages/auth/auth-pages';
 import { MyTicketsPage, NewTicketPage, TicketDetailPage } from './pages/tickets/customer-pages';
 import { ConsoleQueuePage, ConsoleTicketPage } from './pages/console/console-pages';
 import { AccountPage, HomePage, NotificationsPage } from './pages/account-pages';
+import { AdminEscalationPage, AdminKbPage, AdminStatusPage } from './pages/admin/content-pages';
+import { CannedPage, KbArticlePage, KbListPage } from './pages/help-pages';
 import { AdminCatalogPage, AdminPrioritiesPage, AdminSlaPage, AdminTicketTypesPage } from './pages/admin/catalog-pages';
 import { AdminApprovalsPage, AdminCustomersPage, AdminOrgsPage, AdminStaffPage, AdminTeamsPage, AdminTypesPage } from './pages/admin/admin-pages';
 
@@ -44,7 +46,8 @@ export const routes: Routes = [
           { path: 'register', canActivate: [guestOnly], component: RegisterPage },
           { path: 'forgot-password', component: ForgotPage },
           { path: 'reset-password', component: ResetPage },
-          { path: 'kb', component: Coming, data: { stage: 8 } },
+          { path: 'kb', component: KbListPage },
+          { path: 'kb/:slug', component: KbArticlePage },
         ],
       },
       {
@@ -69,6 +72,10 @@ export const routes: Routes = [
           { path: 'admin/catalog', canActivate: [requireRole(STAFF_ROLES)], component: AdminCatalogPage },
           { path: 'admin/priorities', canActivate: [requireRole(STAFF_ROLES)], component: AdminPrioritiesPage },
           { path: 'admin/sla', canActivate: [requireRole(STAFF_ROLES)], component: AdminSlaPage },
+          { path: 'admin/ticket-status', canActivate: [requireRole(STAFF_ROLES)], component: AdminStatusPage },
+          { path: 'admin/escalation', canActivate: [requireRole(['admin'])], component: AdminEscalationPage },
+          { path: 'admin/kb', canActivate: [requireRole(STAFF_ROLES)], component: AdminKbPage },
+          { path: 'console/saved-replies', canActivate: [requireRole(['agent', 'team_leader', 'admin'])], component: CannedPage },
         ],
       },
       { path: '**', redirectTo: '' },
