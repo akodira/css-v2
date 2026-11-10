@@ -3411,7 +3411,11 @@
       "approvals": "Approvals",
       "permissions": "Permissions",
       "organizations": "Organizations",
-      "teams": "Teams"
+      "teams": "Teams",
+      "ticketTypes": "Ticket types",
+      "catalog": "Categories and fields",
+      "priorities": "Priorities",
+      "sla": "SLA settings"
     },
     "role": "Role",
     "noType": "No account type",
@@ -3430,6 +3434,9 @@
     "sharedAccess": "Customers of this organization can see each other's tickets",
     "staffCount": "{n, plural, one {# staff member} other {# staff members}}",
     "setLeader": "Make leader",
-    "unsetLeader": "Remove leader"
+    "unsetLeader": "Remove leader",
+    "default": "Default",
+    "defaultCalendar": "Default calendar (used when nothing else is set)",
+    "addCalendar": "Add working hours"
   }
 }

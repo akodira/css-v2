@@ -9,7 +9,7 @@ import {
 import { Alert, Req } from '../../shared/ui';
 
 // Same look as the v1 admin screens: cards with a header that opens, forms inside.
-const CLS = {
+export const CLS = {
   input: 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base',
   label: 'text-sm font-semibold',
   btn: 'min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:cursor-wait disabled:opacity-60',
@@ -22,10 +22,10 @@ const CLS = {
   badgeWarn: 'rounded-full bg-warn-soft px-2 py-0.5 text-xs font-bold text-warn-ink',
 };
 
-type Msg = { tone: 'error' | 'success'; text: string } | null;
+export type Msg = { tone: 'error' | 'success'; text: string } | null;
 
 /** Shared plumbing: lookups, the message line, a busy flag and name helpers. */
-abstract class AdminBase {
+export abstract class AdminBase {
   protected readonly i18n = inject(I18n);
   protected readonly api = inject(AdminApi);
   protected readonly cls = CLS;
@@ -69,14 +69,14 @@ abstract class AdminBase {
   }
 }
 
-const HEADER = `
+export const HEADER = `
   <div>
     <h1 class="text-3xl font-bold tracking-tight">{{ title | t }}</h1>
     <p class="mt-1 max-w-prose text-muted">{{ subtitle | t }}</p>
   </div>
   @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }`;
 
-const SEARCH = `
+export const SEARCH = `
   <div class="flex flex-col gap-1.5">
     <label for="adm-q" class="sr-only">{{ 'Shell.searchPageLabel' | t }}</label>
     <input id="adm-q" type="search" dir="auto" [placeholder]="'Shell.searchPagePlaceholder' | t" [class]="cls.input" [value]="q()" (input)="q.set($any($event.target).value)" />

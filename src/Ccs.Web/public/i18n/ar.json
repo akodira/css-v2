@@ -3411,7 +3411,11 @@
       "approvals": "الموافقات",
       "permissions": "الصلاحيات",
       "organizations": "الجهات",
-      "teams": "الفرق"
+      "teams": "الفرق",
+      "ticketTypes": "أنواع التذاكر",
+      "catalog": "الفئات والحقول",
+      "priorities": "الأولويات",
+      "sla": "إعدادات اتفاقية الخدمة"
     },
     "role": "الدور",
     "noType": "بدون نوع حساب",
@@ -3430,6 +3434,9 @@
     "sharedAccess": "يرى عملاء هذه الجهة تذاكر بعضهم",
     "staffCount": "{n, plural, one {موظف واحد} two {موظفان} few {# موظفين} many {# موظفًا} other {# موظف}}",
     "setLeader": "تعيين قائدًا",
-    "unsetLeader": "إلغاء القيادة"
+    "unsetLeader": "إلغاء القيادة",
+    "default": "افتراضي",
+    "defaultCalendar": "التقويم الافتراضي (يُستخدم عند عدم تحديد غيره)",
+    "addCalendar": "إضافة ساعات عمل"
   }
 }

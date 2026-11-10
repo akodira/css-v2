@@ -7,6 +7,7 @@ import { ForgotPage, LoginCodePage, LoginPage, MfaPage, RegisterPage, ResetPage 
 import { MyTicketsPage, NewTicketPage, TicketDetailPage } from './pages/tickets/customer-pages';
 import { ConsoleQueuePage, ConsoleTicketPage } from './pages/console/console-pages';
 import { AccountPage, HomePage, NotificationsPage } from './pages/account-pages';
+import { AdminCatalogPage, AdminPrioritiesPage, AdminSlaPage, AdminTicketTypesPage } from './pages/admin/catalog-pages';
 import { AdminApprovalsPage, AdminCustomersPage, AdminOrgsPage, AdminStaffPage, AdminTeamsPage, AdminTypesPage } from './pages/admin/admin-pages';
 
 /** The language is the first part of every address: /en/... or /ar/... */
@@ -64,6 +65,10 @@ export const routes: Routes = [
           { path: 'admin/permissions', canActivate: [requireRole(['admin'])], component: AdminTypesPage },
           { path: 'admin/organizations', canActivate: [requireRole(['admin'])], component: AdminOrgsPage },
           { path: 'admin/teams', canActivate: [requireRole(['admin'])], component: AdminTeamsPage },
+          { path: 'admin/ticket-types', canActivate: [requireRole(STAFF_ROLES)], component: AdminTicketTypesPage },
+          { path: 'admin/catalog', canActivate: [requireRole(STAFF_ROLES)], component: AdminCatalogPage },
+          { path: 'admin/priorities', canActivate: [requireRole(STAFF_ROLES)], component: AdminPrioritiesPage },
+          { path: 'admin/sla', canActivate: [requireRole(STAFF_ROLES)], component: AdminSlaPage },
         ],
       },
       { path: '**', redirectTo: '' },

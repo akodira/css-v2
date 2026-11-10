@@ -221,6 +221,12 @@ export class Shell {
       { path: '/admin/organizations', label: t('AdminV2.nav.organizations'), icon: 'dashboard' },
       { path: '/admin/teams', label: t('AdminV2.nav.teams'), icon: 'customers' },
     );
+    if (admin || this.auth.has('manage_catalog')) adm.push(
+      { path: '/admin/ticket-types', label: t('AdminV2.nav.ticketTypes'), icon: 'tickets' },
+      { path: '/admin/catalog', label: t('AdminV2.nav.catalog'), icon: 'kb' },
+      { path: '/admin/priorities', label: t('AdminV2.nav.priorities'), icon: 'reports' },
+    );
+    if (admin || this.auth.has('manage_settings')) adm.push({ path: '/admin/sla', label: t('AdminV2.nav.sla'), icon: 'clock' });
     return adm.length ? [{ items }, { title: t('Shell.administration'), items: adm }] : [{ items }];
   });
 

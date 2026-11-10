@@ -148,6 +148,25 @@ jobs:
             Api Delete "users/$($cust.id)" $null | Out-Null
             try { Api Delete "organizations/$($org.id)" $null | Out-Null; $code = 200 } catch { $code = [int]$_.Exception.Response.StatusCode }
             Check "organization in use is protected (got $code)" ($code -eq 409)
+            $cat = Api Post categories @{ nameEn = 'CI Category'; nameAr = 'فئة'; isActive = $true; sortOrder = 1; autoAssign = $true; isPrivate = $false; defaultTeamId = $team.id }
+            $sub = Api Post subcategories @{ categoryId = $cat.id; nameEn = 'CI Sub'; nameAr = 'فرعية'; isActive = $true; sortOrder = 1 }
+            $tt = Api Post ticket-types @{ nameEn = 'CI Type'; nameAr = 'نوع تذكرة'; sortOrder = 1; isActive = $true; categoryIds = @($cat.id) }
+            $fld = Api Post fields @{ key = 'ci_choice'; labelEn = 'CI choice'; labelAr = 'اختيار'; type = 'dropdown'; options = @(@{ value = 'a'; labelEn = 'A' }, @{ value = 'b'; labelEn = 'B' }); visibleToCustomer = $true; isActive = $true; sortOrder = 1 }
+            $pr = Api Post priorities @{ nameEn = 'CI Urgent'; nameAr = 'عاجل جدا'; color = 'red'; icon = 'bolt'; sortOrder = 5; isActive = $true; firstResponseMinutes = 10; resolutionMinutes = 60 }
+            $cg = Api Get catalog $null
+            Check 'catalog: category, subcategory, type link and field' ((@($cg.categories | Where-Object { $_.id -eq $cat.id -and $_.subcategories.Count -eq 1 -and $_.typeIds -contains $tt.id }).Count -eq 1) -and (@($cg.fields | Where-Object id -eq $fld.id).Count -eq 1))
+            $sla = Api Get sla $null
+            Check 'new priority has SLA targets' (@($sla.policies | Where-Object { $_.priority -eq $pr.code -and $_.firstResponseMinutes -eq 10 }).Count -eq 1)
+            $bh = Api Post business-hours @{ name = 'CI Hours'; timezone = 'Africa/Cairo'; isDefault = $false; schedule = @{ sun = @(,@('08:00','16:00')); mon = @(,@('08:00','16:00')) } }
+            Api Post "business-hours/$($bh.id)/holidays" @{ date = '2030-01-01'; name = 'CI Holiday' } | Out-Null
+            Api Put "sla/$($pr.code)" @{ firstResponseMinutes = 15; resolutionMinutes = 90; warningThresholdPct = 75; pauseOnPendingCustomer = $true; pauseOnPendingInternal = $false; businessHoursId = $bh.id; warnNotify = @('agent'); breachNotify = @('agent','admin') } | Out-Null
+            $sla = Api Get sla $null
+            Check 'SLA target, calendar and holiday saved' ((@($sla.policies | Where-Object { $_.priority -eq $pr.code -and $_.resolutionMinutes -eq 90 -and $_.businessHoursId -eq $bh.id }).Count -eq 1) -and (@($sla.hours | Where-Object { $_.id -eq $bh.id -and $_.holidays.Count -eq 1 }).Count -eq 1))
+            Api Delete "priorities/$($pr.code)" $null | Out-Null
+            Api Delete "fields/$($fld.id)" $null | Out-Null
+            Api Delete "ticket-types/$($tt.id)" $null | Out-Null
+            Api Delete "categories/$($cat.id)" $null | Out-Null
+            Check 'catalog items without tickets can be deleted' ($true)
           } else { Write-Host 'SKIP  admin API checks (administrator needs a second sign-in step)' }
           $login = sqlcmd -S localhost -E -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'"
           Check 'API connects with the IIS APPPOOL\CcsApi Windows login' ("$login" -match 'CcsApi')
