@@ -1,4 +1,8 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { ChangeDetectionStrategy, Component, OnInit, computed, forwardRef, inject, input, output, signal } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { TicketsApi } from '../../core/api';
 import { FormsModule } from '@angular/forms';
 import { Auth } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
@@ -6,7 +10,7 @@ import {
   AccessRow, AccountTypeRow, AdminApi, AdminUser, BranchRow, Lookups, OrgRow, TeamRow, TeamsResult, TypeBody, UserBody,
   adminError, generatePassword,
 } from '../../core/admin-api';
-import { Alert, Req } from '../../shared/ui';
+import { Alert, Req, StatusBadge } from '../../shared/ui';
 import { WhereEditor } from './where-editor';
 
 // Same look as the v1 admin screens: cards with a header that opens, forms inside.
@@ -87,7 +91,7 @@ export const SEARCH = `
 
 @Component({
   selector: 'app-person-form',
-  imports: [FormsModule, TPipe, Req, WhereEditor],
+  imports: [FormsModule, TPipe, Req, WhereEditor, forwardRef(() => TurnBack)],
   template: `
     <form class="flex flex-col gap-4" (ngSubmit)="submit()">
       <div class="grid gap-4 md:grid-cols-2">
@@ -155,6 +159,7 @@ export const SEARCH = `
       </div>
       <p class="mt-2 text-sm text-muted">{{ 'Directory.deleteHintUser' | t }}</p>
       @if (mode() === 'staff' && u.role !== 'admin') { <app-where-editor [userId]="u.id" [lk]="lk()" /> }
+      @if (mode() === 'staff' && !u.isSelf) { <app-turn-back [userId]="u.id" (done)="act.emit({ kind: 'status', value: '__reload' })" /> }
     }`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
@@ -256,6 +261,7 @@ export class AdminStaffPage extends AdminBase implements OnInit {
   }
   protected update(u: AdminUser, body: UserBody): void { void this.run(() => this.api.put('users/' + u.id, body)); }
   protected action(u: AdminUser, a: { kind: string; value: string }): void {
+    if (a.value === '__reload') { this.ok(); void this.reload(); return; }
     if (a.kind === 'status') void this.run(() => this.api.post(`users/${u.id}/status`, { status: a.value }));
     else if (a.kind === 'password') void this.run(() => this.api.post(`users/${u.id}/password`, { password: a.value }), 'AdminV2.passwordSet', { password: a.value });
     else void this.run(() => this.api.del('users/' + u.id), 'AdminV2.deleted');
@@ -266,7 +272,7 @@ export class AdminStaffPage extends AdminBase implements OnInit {
 
 @Component({
   selector: 'app-admin-customers',
-  imports: [TPipe, Alert, PersonForm],
+  imports: [TPipe, Alert, PersonForm, RouterLink],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       ${HEADER}
@@ -294,6 +300,7 @@ export class AdminStaffPage extends AdminBase implements OnInit {
               </span>
             </summary>
             <div class="px-5 pb-5">
+              <a [routerLink]="'/' + i18n.locale() + '/console/customers/' + u.id" class="mb-3 inline-flex min-h-11 items-center font-semibold text-brand-ink underline">{{ 'Customers.history' | t }} · {{ 'Customers.edit' | t }}</a>
               @if (canManage()) { <app-person-form mode="customer" [user]="u" [lk]="lk()" [busy]="busy()" (save)="update(u, $event)" (act)="action(u, $event)" /> }
               @else { <p class="text-sm text-muted">{{ 'Customers.registered' | t }}: {{ i18n.date(u.createdAt) }}</p> }
             </div>
@@ -793,4 +800,161 @@ export class AdminTeamsPage extends AdminBase implements OnInit {
   }
   protected update(t: TeamRow): void { void this.run(() => this.api.put('teams/' + t.id, this.edit[t.id])); }
   protected remove(t: TeamRow): void { void this.run(() => this.api.del('teams/' + t.id), 'AdminV2.deleted'); }
+}
+
+
+// ================================================================== customer profile (v1 /console/customers/[id])
+
+interface CustomerProfile {
+  user: AdminUser; organizationName: string | null; branchName: string | null; canEdit: boolean; isAdmin: boolean;
+  tickets: { id: string; reference: string; subject: string; status: string; priority: string; createdAt: string }[];
+}
+
+@Component({
+  selector: 'app-customer-profile',
+  imports: [TPipe, Alert, PersonForm, RouterLink, StatusBadge, FormsModule],
+  template: `
+    <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
+      <a [routerLink]="'/' + i18n.locale() + '/admin/customers'" class="text-sm font-semibold text-brand-ink underline">{{ 'Customers.title' | t }}</a>
+      @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
+      @if (d(); as d) {
+        <header class="rounded-md border border-line bg-surface p-6">
+          <h1 class="text-2xl font-bold tracking-tight" dir="auto">{{ d.user.fullName || d.user.email }}</h1>
+          <dl class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div><dt class="text-sm text-muted">{{ 'Customers.email' | t }}</dt><dd dir="ltr" class="break-all font-semibold">{{ d.user.email }}</dd></div>
+            <div><dt class="text-sm text-muted">{{ 'Customers.phone' | t }}</dt><dd dir="ltr" class="font-semibold">{{ d.user.phone ?? '-' }}</dd></div>
+            <div><dt class="text-sm text-muted">{{ 'Customers.organization' | t }}</dt><dd class="font-semibold" dir="auto">{{ d.organizationName ?? '-' }}</dd></div>
+            <div><dt class="text-sm text-muted">{{ 'Customers.branch' | t }}</dt><dd class="font-semibold" dir="auto">{{ d.branchName ?? '-' }}</dd></div>
+            <div><dt class="text-sm text-muted">{{ 'Customers.statusHeader' | t }}</dt><dd class="font-semibold">{{ 'Status.' + d.user.status | t }}</dd></div>
+            <div><dt class="text-sm text-muted">{{ 'Customers.registered' | t }}</dt><dd class="font-semibold">{{ i18n.date(d.user.createdAt) }}</dd></div>
+          </dl>
+        </header>
+
+        @if (d.canEdit && lk()) {
+          <section aria-labelledby="edit" class="rounded-md border border-line bg-surface p-6"><h2 id="edit" class="mb-3 text-xl font-bold">{{ 'Customers.edit' | t }}</h2>
+            <app-person-form mode="customer" [user]="d.user" [lk]="lk()" [busy]="busy()" (save)="update($event)" (act)="action($event)" />
+          </section>
+        }
+
+        @if (d.isAdmin && !d.user.isSelf && lk()) {
+          <section aria-labelledby="promote" class="rounded-md border border-line bg-surface p-6">
+            <h2 id="promote" class="mb-1 text-xl font-bold">{{ 'Promote.title' | t }}</h2>
+            <p class="mb-4 max-w-prose text-sm text-muted">{{ 'Promote.intro' | t }}</p>
+            <form class="flex flex-col gap-4" (ngSubmit)="promote()">
+              <fieldset class="flex flex-col gap-2">
+                <legend class="mb-1 text-sm font-semibold">{{ 'Promote.roles' | t }}</legend>
+                <div class="flex flex-wrap gap-2">
+                  @for (r of staffRoles; track r) {
+                    <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4" [class]="pm.role === r ? 'border-brand bg-brand-soft' : 'border-line'">
+                      <input type="radio" name="role" [value]="r" [(ngModel)]="pm.role" /> {{ 'Roles.' + r | t }}</label>
+                  }
+                </div>
+                <p class="text-sm text-muted">{{ 'Promote.note' | t }}</p>
+              </fieldset>
+              @if (pm.role) {
+                <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div class="flex flex-col gap-1.5"><label for="pr-t" [class]="cls.label">{{ 'Promote.accountType' | t }}</label>
+                    <select id="pr-t" name="type" [class]="cls.input" [(ngModel)]="pm.accountTypeId">
+                      <option [ngValue]="null">{{ 'Promote.noType' | t }}</option>
+                      @for (t of lk()!.types; track t.id) { <option [ngValue]="t.id">{{ i18n.pick(t.nameEn, t.nameAr) }}</option> }
+                    </select></div>
+                  @if (pm.role === 'agent' || pm.role === 'team_leader') {
+                    <div class="flex flex-col gap-1.5"><label for="pr-team" [class]="cls.label">{{ 'Promote.team' | t }}</label>
+                      <select id="pr-team" name="team" [class]="cls.input" [(ngModel)]="pm.teamId">
+                        <option [ngValue]="null">{{ 'Promote.noTeam' | t }}</option>
+                        @for (t of activeTeams(); track t.id) { <option [ngValue]="t.id">{{ i18n.pick(t.nameEn, t.nameAr) }}</option> }
+                      </select></div>
+                    <label class="flex min-h-11 items-center gap-2 md:col-span-2"><input type="checkbox" name="auto" class="h-5 w-5" [(ngModel)]="pm.autoAssign" /> {{ 'Promote.auto' | t }}</label>
+                  }
+                </div>
+              }
+              <div><button type="submit" [class]="cls.btn" [disabled]="busy() || !pm.role">{{ 'Promote.button' | t }}</button></div>
+            </form>
+          </section>
+        }
+
+        <section aria-labelledby="hist"><h2 id="hist" class="mb-3 text-xl font-bold">{{ 'Customers.history' | t }}</h2>
+          @if (!d.tickets.length) { <p class="text-muted">{{ 'Customers.noTickets' | t }}</p> }
+          @else {
+            <ul class="flex flex-col gap-2">
+              @for (r of d.tickets; track r.id) {
+                <li class="flex flex-wrap items-center justify-between gap-2 rounded border border-line bg-surface p-4">
+                  <a [routerLink]="'/' + i18n.locale() + '/console/tickets/' + r.id" class="font-semibold text-brand-ink underline" dir="auto"><span dir="ltr">{{ r.reference }}</span> · {{ r.subject }}</a>
+                  <span class="flex items-center gap-2"><span class="rounded-full bg-bg px-3 py-1 text-xs font-semibold text-muted">{{ priorityName(r.priority) }}</span><app-status-badge [status]="r.status" [staff]="true" /></span>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      }
+    </main>`,
+  changeDetection: ChangeDetectionStrategy.Default,
+})
+export class CustomerProfilePage extends AdminBase implements OnInit {
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly http = inject(HttpClient);
+  private readonly tickets = inject(TicketsApi);
+  private readonly prios = signal<{ code: string; nameEn: string; nameAr: string }[]>([]);
+  protected readonly d = signal<CustomerProfile | null>(null);
+  protected readonly staffRoles = ['agent', 'team_leader', 'admin', 'management_viewer'];
+  protected readonly activeTeams = computed(() => (this.lk()?.teams ?? []).filter((t) => t.isActive));
+  protected pm = { role: '', accountTypeId: null as string | null, teamId: null as string | null, autoAssign: false };
+  private readonly id = this.route.snapshot.paramMap.get('id') ?? '';
+
+  async ngOnInit(): Promise<void> {
+    void this.tickets.options().then((o) => this.prios.set(o.priorities)).catch(() => undefined);
+    await Promise.all([this.loadLookups(), this.reload()]);
+  }
+  protected async reload(): Promise<void> {
+    try { this.d.set(await firstValueFrom(this.http.get<CustomerProfile>('/api/console/customers/' + this.id))); } catch (e) { this.fail(e); }
+  }
+  protected priorityName(code: string): string {
+    const p = this.prios().find((x) => x.code === code);
+    return p ? this.i18n.pick(p.nameEn, p.nameAr) : code;
+  }
+  protected update(body: UserBody): void { void this.run(() => this.api.put('users/' + this.id, body)); }
+  protected action(a: { kind: string; value: string }): void {
+    if (a.kind === 'status') void this.run(() => this.api.post(`users/${this.id}/status`, { status: a.value }));
+    else if (a.kind === 'password') void this.run(() => this.api.post(`users/${this.id}/password`, { password: a.value }), 'AdminV2.passwordSet', { password: a.value });
+    else void this.api.del('users/' + this.id).then(() => this.router.navigateByUrl(`/${this.i18n.locale()}/admin/customers`)).catch((e) => this.fail(e));
+  }
+  protected promote(): void {
+    void this.api.post(`users/${this.id}/promote`, this.pm).then(() => this.router.navigateByUrl(`/${this.i18n.locale()}/admin/users`)).catch((e) => this.fail(e));
+  }
+}
+
+/** Staff → customer, with a confirmation step (v1 TurnBack). */
+@Component({
+  selector: 'app-turn-back',
+  imports: [TPipe, Alert],
+  template: `
+    <div class="mt-4 flex flex-col gap-2 border-t border-line pt-4">
+      <p class="text-sm font-semibold">{{ 'Promote.turnBack' | t }}</p>
+      <p class="text-sm text-muted">{{ 'Promote.turnBackNote' | t }}</p>
+      @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
+      <div class="flex flex-wrap items-center gap-3">
+        @if (ask()) {
+          <button type="button" [disabled]="busy()" (click)="go()" class="min-h-11 cursor-pointer rounded-lg bg-danger px-5 font-semibold text-white disabled:opacity-60">{{ 'Promote.turnBackYes' | t }}</button>
+          <button type="button" (click)="ask.set(false)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-5 font-semibold">{{ 'Promote.cancel' | t }}</button>
+        } @else {
+          <button type="button" (click)="ask.set(true)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-5 font-semibold hover:bg-bg">{{ 'Promote.turnBack' | t }}</button>
+        }
+      </div>
+    </div>`,
+})
+export class TurnBack {
+  private readonly api = inject(AdminApi);
+  private readonly i18n = inject(I18n);
+  readonly userId = input.required<string>();
+  readonly done = output<void>();
+  protected readonly ask = signal(false);
+  protected readonly busy = signal(false);
+  protected readonly msg = signal<Msg>(null);
+  protected async go(): Promise<void> {
+    this.busy.set(true); this.msg.set(null);
+    try { await this.api.post(`users/${this.userId()}/demote`, {}); this.ask.set(false); this.done.emit(); }
+    catch (e) { this.msg.set({ tone: 'error', text: adminError(this.i18n, e) }); }
+    finally { this.busy.set(false); }
+  }
 }

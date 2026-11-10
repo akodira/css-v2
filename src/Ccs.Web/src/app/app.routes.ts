@@ -13,7 +13,7 @@ import { SettingsPage } from './pages/admin/settings-pages';
 import { AdminEscalationPage, AdminKbPage, AdminStatusPage } from './pages/admin/content-pages';
 import { CannedPage, KbArticlePage, KbListPage } from './pages/help-pages';
 import { AdminCatalogPage, AdminPrioritiesPage, AdminSlaPage, AdminTicketTypesPage } from './pages/admin/catalog-pages';
-import { AdminApprovalsPage, AdminCustomersPage, AdminOrgsPage, AdminStaffPage, AdminTeamsPage, AdminTypesPage } from './pages/admin/admin-pages';
+import { AdminApprovalsPage, AdminCustomersPage, AdminOrgsPage, AdminStaffPage, CustomerProfilePage, AdminTeamsPage, AdminTypesPage } from './pages/admin/admin-pages';
 
 /** The language is the first part of every address: /en/... or /ar/... */
 const localeGuard: CanActivateFn = async (route) => {
@@ -93,6 +93,11 @@ export const routes: Routes = [
           { path: 'console/people', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/console/people-page').then((m) => m.PeoplePage) },
           { path: 'console/notifications', redirectTo: 'notifications' },
           { path: 'admin/ticket-status/guide', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/status-guide-page').then((m) => m.StatusGuidePage) },
+          { path: 'console/customers/:id', canActivate: [requireRole(STAFF_ROLES)], component: CustomerProfilePage },
+          { path: 'console/account', redirectTo: 'account' },
+          { path: 'console/kb', redirectTo: 'kb' },
+          { path: 'console/kb/:slug', redirectTo: 'kb/:slug' },
+          { path: 'admin/settings', redirectTo: 'admin/general/settings/system' },
           { path: 'console/approvals', redirectTo: 'admin/approvals' },
           { path: 'console/customers', redirectTo: 'admin/customers' },
         ],

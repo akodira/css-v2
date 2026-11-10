@@ -268,6 +268,15 @@ jobs:
             $exe = Join-Path $env:RUNNER_TEMP 'ci-bad.exe'; Set-Content $exe 'MZ' -NoNewline
             try { Invoke-RestMethod "https://ccs.test/api/tickets/$($tkt.id)/attachments" -Method Post -Headers $h -Form @{ file = Get-Item $exe } | Out-Null; $code = 200 } catch { $code = [int]$_.Exception.Response.StatusCode }
             Check "disallowed file type refused (got $code)" ($code -eq 400)
+            # Customer profile, promote to staff and turn back.
+            $prof = Invoke-RestMethod "https://ccs.test/api/console/customers/$($c2.id)" -Headers $h
+            Check 'customer profile with ticket history' ($prof.user.email -eq 'phone@ccs.test' -and @($prof.tickets).Count -ge 1)
+            Api Post "users/$($c2.id)/promote" @{ role = 'agent'; accountTypeId = $null; teamId = $team.id; autoAssign = $false } | Out-Null
+            $st = @(Api Get 'users?kind=staff' $null)
+            Check 'customer promoted to staff' (@($st | Where-Object { $_.id -eq $c2.id -and $_.role -eq 'agent' -and $_.teamIds -contains $team.id }).Count -eq 1)
+            Api Post "users/$($c2.id)/demote" @{} | Out-Null
+            $cs = @(Api Get 'users?kind=customers' $null)
+            Check 'staff member turned back into a customer' (($cs.id -contains $c2.id) -and -not ((@(Api Get 'users?kind=staff' $null)).id -contains $c2.id))
           } else { Write-Host 'SKIP  admin API checks (administrator needs a second sign-in step)' }
           $login = sqlcmd -S localhost -E -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'"
           Check 'API connects with the IIS APPPOOL\CcsApi Windows login' ("$login" -match 'CcsApi')
