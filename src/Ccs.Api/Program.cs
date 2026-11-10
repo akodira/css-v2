@@ -88,6 +88,18 @@ builder.Services.AddHsts(o => { o.MaxAge = TimeSpan.FromDays(365); o.IncludeSubD
 
 var app = builder.Build();
 
+// Hosted in IIS as the /api application inside the web site (no reverse proxy). IIS hands the app PathBase=/api;
+// put it back into the path so the routes stay "api/...", the same as when the API runs on its own.
+app.Use((ctx, next) =>
+{
+    if (ctx.Request.PathBase.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase))
+    {
+        ctx.Request.Path = ctx.Request.PathBase.Add(ctx.Request.Path);
+        ctx.Request.PathBase = PathString.Empty;
+    }
+    return next();
+});
+
 // ---- Pipeline --------------------------------------------------------------------------------
 app.UseForwardedHeaders(new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto });
 app.UseExceptionHandler();

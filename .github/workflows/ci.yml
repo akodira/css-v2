@@ -3,7 +3,7 @@ name: CI
 # All checks run on Windows Server 2022 build machines (rented from GitHub for each run, then deleted),
 # the same OS as production:
 #   1. build      - compile, run the unit tests, build Angular, make the IIS release package
-#   2. deploy-test - install SQL Server 2022 (with Full-Text Search), IIS, Hosting Bundle, URL Rewrite and ARR,
+#   2. deploy-test - install SQL Server 2022 (with Full-Text Search), IIS, Hosting Bundle and URL Rewrite,
 #                    run deploy/Install-Ccs.ps1 exactly as on the real server, then test through HTTPS
 on:
   push:
@@ -56,7 +56,7 @@ jobs:
           Copy-Item database/* release/database/ -Recurse
           Copy-Item migration/* release/migration/ -Recurse
           Copy-Item docs/* release/docs/ -Recurse
-          Copy-Item deploy/Install-Ccs.ps1 release/
+          Copy-Item deploy/Install-Ccs.ps1, deploy/Install-Ccs.cmd release/
           "commit $env:GITHUB_SHA built $(Get-Date -Format o)" | Set-Content release/VERSION.txt
       - uses: actions/upload-artifact@v5
         with:
@@ -85,7 +85,7 @@ jobs:
           if ($LASTEXITCODE -notin 0, 3010) { throw "SQL Server install failed: $LASTEXITCODE" }
           $tools = Get-ChildItem 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC' -Recurse -Filter sqlcmd.exe -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($tools) { $tools.DirectoryName | Out-File -Append $env:GITHUB_PATH }
-      - name: Install IIS roles, Hosting Bundle, URL Rewrite, ARR
+      - name: Install IIS roles, Hosting Bundle, URL Rewrite
         shell: pwsh
         run: |
           Install-WindowsFeature Web-Server, Web-Default-Doc, Web-Static-Content, Web-Http-Errors, Web-Http-Logging, `
@@ -93,17 +93,17 @@ jobs:
             Web-Mgmt-Console -IncludeManagementTools | Out-Null
           Invoke-WebRequest https://aka.ms/dotnet/10.0/dotnet-hosting-win.exe -OutFile $env:TEMP\hosting.exe
           Start-Process $env:TEMP\hosting.exe -ArgumentList '/install', '/quiet', '/norestart' -Wait
-          choco install urlrewrite iis-arr -y --no-progress
-          if ($LASTEXITCODE -ne 0) { throw "URL Rewrite / ARR install failed: $LASTEXITCODE" }
+          choco install urlrewrite -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "URL Rewrite install failed: $LASTEXITCODE" }
           net stop was /y; net start w3svc
       - name: Run Install-Ccs.ps1 (same script as production)
         shell: pwsh
         run: |
           Add-Content "$env:windir\System32\drivers\etc\hosts" "`n127.0.0.1 ccs.test"
-          & D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -SelfSignedForTest
+          & D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -Quiet
       - name: Run it again (update path must be safe)
         shell: pwsh
-        run: '& D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -SelfSignedForTest'
+        run: '& D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -Quiet'
       - name: Smoke tests through https://ccs.test
         shell: pwsh
         run: |
@@ -113,7 +113,7 @@ jobs:
           $deep = Invoke-WebRequest https://ccs.test/ar/tickets -UseBasicParsing
           Check 'deep link /ar/tickets falls back to index.html' ($deep.StatusCode -eq 200 -and $deep.Content -match '<app-root')
           $h = Invoke-WebRequest https://ccs.test/api/health -UseBasicParsing
-          Check 'API health through ARR' ($h.Content -match 'Healthy')
+          Check 'API health at /api' ($h.Content -match 'Healthy')
           Check 'HSTS header' ($home_.Headers['Strict-Transport-Security'] -match 'max-age')
           Check 'CSP header' ($home_.Headers['Content-Security-Policy'] -match "default-src 'self'")
           $site = Invoke-RestMethod https://ccs.test/api/site
@@ -131,5 +131,5 @@ jobs:
         if: failure()
         shell: pwsh
         run: |
-          Get-ChildItem D:\CcsData\logs -ErrorAction SilentlyContinue | ForEach-Object { "--- $($_.Name)"; Get-Content $_.FullName -Tail 80 }
+          Get-ChildItem C:\CcsData\logs -ErrorAction SilentlyContinue | ForEach-Object { "--- $($_.Name)"; Get-Content $_.FullName -Tail 80 }
           Get-WinEvent -LogName Application -MaxEvents 40 -ErrorAction SilentlyContinue | Where-Object { $_.ProviderName -match 'IIS|ASP.NET|\.NET' } | Format-List TimeCreated, ProviderName, Message

@@ -1,248 +1,191 @@
 <#
-.SYNOPSIS
-  Installs or updates CCS v2 on one Windows Server: SQL Server database, IIS API site, IIS web site.
+  CCS v2 installer: double-click Install-Ccs.cmd (it asks for administrator rights and opens a small window).
+  Needs on the server: IIS, ASP.NET Core 10 Hosting Bundle, URL Rewrite, SQL Server. Nothing else.
 
-.DESCRIPTION
-  Run from the unzipped release package (the folder that holds ccs-api, ccs-web and database), in an elevated
-  PowerShell. Safe to run again: the first run installs, later runs update files and keep existing secrets.
+  One IIS site "ccs-web": the Angular files at / and the API as the IIS application /api (own app pool).
+  Run it again for every new release: it updates the files and keeps the database data and the secrets.
 
-  What it does, in order (the Deployment Guide explains each step):
-    1. Checks prerequisites: IIS, ASP.NET Core Hosting Bundle, URL Rewrite, ARR, sqlcmd
-    2. Enables the ARR proxy and the X-Forwarded-Proto server variable
-    3. Creates D:\CcsData\{attachments,keys,logs} and the app pools CcsApi and CcsWeb
-    4. Database: creates it on first run, runs 01_schema (first run only), 02_seed, 03_fulltext, 04_logins
-    5. Copies the API and web files (app_offline.htm while the API is updated)
-    6. App pool environment variables (keeps an existing Jwt signing key), before anything starts
-    7. Loopback certificate for the API, HTTPS bindings, preload
-    8. Starts everything and checks /api/health through the public address
-
-.EXAMPLE
-  .\Install-Ccs.ps1 -HostName ccs.example.com -CertThumbprint 3F2A...C9
+  Unattended use (same result, no window):
+    .\Install-Ccs.ps1 -HostName ccs.example.com -CertThumbprint 3F2A...C9 -Quiet
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)] [string] $HostName,                   # public name, e.g. ccs.example.com
-    [string] $CertThumbprint,                                     # public certificate in LocalMachine\My
-    [switch] $SelfSignedForTest,                                  # test servers only: make a self-signed public certificate
+    [string] $HostName = 'localhost',                # site address; localhost = test on this machine
+    [string] $CertThumbprint,                        # empty = make a self-signed test certificate
     [string] $SqlInstance = 'localhost',
     [string] $Database = 'CCS',
-    [string] $DataRoot = 'D:\CcsData',
-    [string] $ApiRoot = 'C:\inetpub\ccs-api',
-    [string] $WebRoot = 'C:\inetpub\ccs-web',
-    [int]    $ApiPort = 8443,
-    [string] $PublicUrl,                                          # default https://<HostName>
-    [switch] $SkipDatabase
+    [string] $DataRoot = 'C:\CcsData',
+    [string] $SiteRoot = 'C:\inetpub\ccs',
+    [switch] $Quiet                                  # no window
 )
-
 $ErrorActionPreference = 'Stop'
 
-# The IIS module (WebAdministration, IIS: drive) works fully only in Windows PowerShell 5.1.
-# Started from PowerShell 7? Run the same script again in Windows PowerShell with the same arguments.
+# IIS management works fully only in Windows PowerShell 5.1: restart there if started from PowerShell 7.
 if ($PSVersionTable.PSEdition -eq 'Core') {
-    $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
-    foreach ($k in $PSBoundParameters.Keys) {
-        $v = $PSBoundParameters[$k]
-        if ($v -is [System.Management.Automation.SwitchParameter]) { if ($v.IsPresent) { $argList += "-$k" } }
-        else { $argList += "-$k"; $argList += "$v" }
-    }
-    & "$env:windir\System32\WindowsPowerShell\v1.0\powershell.exe" @argList
-    exit $LASTEXITCODE
+    $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+    foreach ($k in $PSBoundParameters.Keys) { $v = $PSBoundParameters[$k]; if ($v -is [switch]) { if ($v) { $a += "-$k" } } else { $a += "-$k", "$v" } }
+    & "$env:windir\System32\WindowsPowerShell\v1.0\powershell.exe" @a; exit $LASTEXITCODE
 }
+
 $Package = $PSScriptRoot
-if (-not $PublicUrl) { $PublicUrl = "https://$HostName" }
+Get-ChildItem $Package -Recurse -File | Unblock-File -ErrorAction SilentlyContinue   # files from a downloaded zip
+
+#---------------------------------------------------------------- window
+if (-not $Quiet) {
+    Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+    $f = New-Object Windows.Forms.Form -Property @{ Text = 'Install CCS v2'; Width = 520; Height = 300; StartPosition = 'CenterScreen'; FormBorderStyle = 'FixedDialog'; MaximizeBox = $false; Font = New-Object Drawing.Font('Segoe UI', 10) }
+    $script:y = 20
+    function Row($label, $value) {
+        $l = New-Object Windows.Forms.Label -Property @{ Text = $label; Left = 20; Top = $script:y + 3; Width = 170 }
+        $t = New-Object Windows.Forms.TextBox -Property @{ Text = $value; Left = 195; Top = $script:y; Width = 290 }
+        $f.Controls.AddRange(@($l, $t)); $script:y += 38; return $t
+    }
+    $tHost = Row 'Site address' $HostName
+    $tSql  = Row 'SQL Server' $SqlInstance
+    $tDb   = Row 'Database name' $Database
+    $l = New-Object Windows.Forms.Label -Property @{ Text = 'Certificate'; Left = 20; Top = $script:y + 3; Width = 170 }
+    $cCert = New-Object Windows.Forms.ComboBox -Property @{ Left = 195; Top = $script:y; Width = 290; DropDownStyle = 'DropDownList' }
+    [void]$cCert.Items.Add('Create a test certificate (testing only)')
+    $certs = @(Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) -and $_.FriendlyName -notlike 'CCS test*' })
+    foreach ($c in $certs) { [void]$cCert.Items.Add("$($c.GetNameInfo('SimpleName', $false))  (until $($c.NotAfter.ToString('yyyy-MM-dd')))") }
+    $cCert.SelectedIndex = 0
+    $f.Controls.AddRange(@($l, $cCert)); $script:y += 48
+    $b = New-Object Windows.Forms.Button -Property @{ Text = 'Install'; Left = 385; Top = $script:y; Width = 100; Height = 32; DialogResult = 'OK' }
+    $f.AcceptButton = $b; $f.Controls.Add($b)
+    if ($f.ShowDialog() -ne 'OK') { exit 1 }
+    $HostName = $tHost.Text.Trim(); $SqlInstance = $tSql.Text.Trim(); $Database = $tDb.Text.Trim()
+    if ($cCert.SelectedIndex -gt 0) { $CertThumbprint = $certs[$cCert.SelectedIndex - 1].Thumbprint }
+}
+
 function Step($t) { Write-Host "`n=== $t" -ForegroundColor Cyan }
 function Ok($t) { Write-Host "    $t" -ForegroundColor Green }
+function Fail($t) {
+    Write-Host "`nFAILED: $t" -ForegroundColor Red
+    if (-not $Quiet) { [Windows.Forms.MessageBox]::Show("Installation failed:`n`n$t", 'CCS v2', 'OK', 'Error') | Out-Null }
+    exit 1
+}
 
-#--------------------------------------------------------------------------------------------- 1
-Step '1. Prerequisites'
-$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'Run this script in an elevated PowerShell.' }
-foreach ($f in 'ccs-api\Ccs.Api.dll', 'ccs-web\index.html', 'database\01_schema.sql') {
-    if (-not (Test-Path (Join-Path $Package $f))) { throw "Package incomplete: $f not found next to this script." }
+try {
+#---------------------------------------------------------------- 1 prerequisites
+Step '1/6 Checking the server'
+$need = [ordered]@{
+    'IIS'                         = "$env:windir\system32\inetsrv\w3wp.exe"
+    'ASP.NET Core Hosting Bundle' = "$env:ProgramFiles\IIS\Asp.Net Core Module\V2\aspnetcorev2.dll"
+    'IIS URL Rewrite'             = "$env:windir\system32\inetsrv\rewrite.dll"
 }
-$checks = [ordered]@{
-    'IIS'                          = "$env:windir\system32\inetsrv\w3wp.exe"
-    'ASP.NET Core Hosting Bundle'  = "$env:ProgramFiles\IIS\Asp.Net Core Module\V2\aspnetcorev2.dll"
-    'IIS URL Rewrite'              = "$env:windir\system32\inetsrv\rewrite.dll"
-    'Application Request Routing'  = "$env:ProgramFiles\IIS\Application Request Routing\requestRouter.dll"
-}
-$missing = @($checks.Keys | Where-Object { -not (Test-Path $checks[$_]) })
-if ($missing) { throw "Install first (Deployment Guide, section 2): $($missing -join ', ')" }
+$missing = @($need.Keys | Where-Object { -not (Test-Path $need[$_]) })
+if ($missing) { Fail "Install first: $($missing -join ', ')" }
 $sqlcmd = (Get-Command sqlcmd -ErrorAction SilentlyContinue).Source
-if (-not $SkipDatabase -and -not $sqlcmd) { throw 'sqlcmd not found. Install SQL Server command-line tools.' }
+if (-not $sqlcmd) { Fail 'sqlcmd not found. Install SQL Server Command Line Utilities (comes with SSMS).' }
+foreach ($x in 'ccs-api\Ccs.Api.dll', 'ccs-web\index.html', 'database\01_schema.sql') { if (-not (Test-Path "$Package\$x")) { Fail "Run this from the unzipped release folder ($x missing)." } }
 Import-Module WebAdministration
-Ok 'all present'
+Ok 'IIS, Hosting Bundle, URL Rewrite, sqlcmd found'
 
-#--------------------------------------------------------------------------------------------- 2
-Step '2. ARR proxy'
-$apphost = 'MACHINE/WEBROOT/APPHOST'
-Set-WebConfigurationProperty -PSPath $apphost -Filter 'system.webServer/proxy' -Name enabled -Value $true
-Set-WebConfigurationProperty -PSPath $apphost -Filter 'system.webServer/proxy' -Name preserveHostHeader -Value $true
-Set-WebConfigurationProperty -PSPath $apphost -Filter 'system.webServer/proxy' -Name reverseRewriteHostInResponseHeaders -Value $false
-$sv = Get-WebConfiguration -PSPath $apphost -Filter "system.webServer/rewrite/allowedServerVariables/add[@name='HTTP_X_FORWARDED_PROTO']"
-if (-not $sv) { Add-WebConfigurationProperty -PSPath $apphost -Filter 'system.webServer/rewrite/allowedServerVariables' -Name '.' -Value @{ name = 'HTTP_X_FORWARDED_PROTO' } }
-Ok 'proxy on, HTTP_X_FORWARDED_PROTO allowed'
+#---------------------------------------------------------------- 2 database
+Step '2/6 Database'
+$help = & $sqlcmd '-?' 2>&1 | Out-String
+function Sql([string]$file, [string]$db = 'master', [string]$q) {
+    $sa = @('-S', $SqlInstance, '-E', '-b', '-I', '-d', $db)
+    if ($help -match '\[-C\]|\s-C\s') { $sa += '-C' }
+    if ($file) { $sa += '-i', $file } else { $sa += '-h', '-1', '-W', '-Q', "SET NOCOUNT ON; $q" }
+    $o = & $sqlcmd @sa 2>&1
+    if ($LASTEXITCODE -ne 0) { Fail "SQL error ($file$q):`n$($o | Out-String)" }
+    ($o | Out-String).Trim()
+}
+if ((Sql -q "SELECT COUNT(*) FROM sys.databases WHERE name = N'$Database'") -eq '0') {
+    Sql -q "CREATE DATABASE [$Database] COLLATE Latin1_General_100_CI_AS_SC; ALTER DATABASE [$Database] SET READ_COMMITTED_SNAPSHOT ON;" | Out-Null
+    Ok "database $Database created"
+}
+if ((Sql -db $Database -q "SELECT COUNT(*) FROM sys.tables WHERE name = 'tickets' AND schema_id = SCHEMA_ID('ccs')") -eq '0') {
+    Sql -db $Database -file "$Package\database\01_schema.sql" | Out-Null; Ok 'tables created'
+}
+Sql -db $Database -file "$Package\database\02_seed.sql" | Out-Null; Ok 'reference data'
+if ((Sql -q "SELECT CONVERT(int, SERVERPROPERTY('IsFullTextInstalled'))") -eq '1') { Sql -db $Database -file "$Package\database\03_fulltext.sql" | Out-Null; Ok 'knowledge base search' }
+else { Write-Warning 'Full-Text Search is not installed in SQL Server: knowledge base search stays off until you add it and run the installer again.' }
 
-#--------------------------------------------------------------------------------------------- 3
-Step '3. Folders and app pools'
-foreach ($d in "$DataRoot\attachments", "$DataRoot\keys", "$DataRoot\logs", $ApiRoot, $WebRoot) { New-Item $d -ItemType Directory -Force | Out-Null }
-foreach ($pool in 'CcsApi', 'CcsWeb') {
-    if (-not (Test-Path "IIS:\AppPools\$pool")) { New-WebAppPool -Name $pool | Out-Null }
-    Set-ItemProperty "IIS:\AppPools\$pool" -Name managedRuntimeVersion -Value ''
+#---------------------------------------------------------------- 3 app pools and settings
+Step '3/6 App pools and settings'
+foreach ($pool in 'CcsWeb', 'CcsApi') {
+    if (-not (Test-Path "IIS:\AppPools\$pool")) { New-WebAppPool $pool | Out-Null }
+    Set-ItemProperty "IIS:\AppPools\$pool" managedRuntimeVersion ''
+    if ((Get-WebAppPoolState $pool).Value -eq 'Started') { Stop-WebAppPool $pool }
 }
 $p = 'IIS:\AppPools\CcsApi'
-Set-ItemProperty $p -Name startMode -Value AlwaysRunning
-Set-ItemProperty $p -Name processModel.idleTimeout -Value ([TimeSpan]::Zero)
-Set-ItemProperty $p -Name recycling.periodicRestart.time -Value ([TimeSpan]::Zero)
-Clear-WebConfiguration -PSPath $apphost -Filter "system.applicationHost/applicationPools/add[@name='CcsApi']/recycling/periodicRestart/schedule"
-Add-WebConfigurationProperty -PSPath $apphost -Filter "system.applicationHost/applicationPools/add[@name='CcsApi']/recycling/periodicRestart/schedule" -Name '.' -Value @{ value = '03:30:00' }
-foreach ($pool in 'CcsApi', 'CcsWeb') {
-    if ((Get-WebAppPoolState $pool).Value -ne 'Stopped') { Stop-WebAppPool $pool }
+Set-ItemProperty $p startMode AlwaysRunning                                  # background jobs run every minute
+Set-ItemProperty $p processModel.idleTimeout ([TimeSpan]::Zero)
+Set-ItemProperty $p recycling.periodicRestart.time ([TimeSpan]::Zero)
+$apphost = 'MACHINE/WEBROOT/APPHOST'
+$ef = "system.applicationHost/applicationPools/add[@name='CcsApi']/environmentVariables"
+function Var($n) { (Get-WebConfiguration -PSPath $apphost -Filter "$ef/add[@name='$n']").value }
+function SetVar($n, $v) {
+    if ($null -ne (Var $n)) { Remove-WebConfigurationProperty -PSPath $apphost -Filter $ef -Name '.' -AtElement @{ name = $n } }
+    Add-WebConfigurationProperty -PSPath $apphost -Filter $ef -Name '.' -Value @{ name = $n; value = $v }
 }
-Ok "pools ready (stopped until step 8), data in $DataRoot"
+$server = if ($SqlInstance -in '.', '(local)') { 'localhost' } else { $SqlInstance }
+SetVar 'ConnectionStrings__Ccs' "Server=$server;Database=$Database;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;Application Name=ccs-api"
+if (-not (Var 'Jwt__SigningKey')) { $k = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($k); SetVar 'Jwt__SigningKey' ([Convert]::ToBase64String($k)) }
+SetVar 'App__PublicUrl' "https://$HostName"
+SetVar 'FileStore__Root' "$DataRoot\attachments"
+SetVar 'DataProtection__KeysFolder' "$DataRoot\keys"
+SetVar 'Serilog__WriteTo__0__Args__path' "$DataRoot\logs\api-.log"
+foreach ($n in 'ConnectionStrings__Ccs', 'Jwt__SigningKey', 'App__PublicUrl') { if (-not (Var $n)) { Fail "App pool setting $n was not saved." } }
+Ok 'settings stored on the CcsApi app pool (not in files)'
 
-#--------------------------------------------------------------------------------------------- 4
-function Invoke-Sql([string] $file, [string] $db = 'master', [string] $query) {
-    $help = & $sqlcmd '-?' 2>&1 | Out-String
-    $sqlArgs = @('-S', $SqlInstance, '-E', '-b', '-I', '-d', $db)
-    if ($help -match '(?m)^\s*-C\b|\[-C\]') { $sqlArgs += '-C' }     # newer sqlcmd encrypts by default
-    if ($file) { $sqlArgs += @('-i', $file) } else { $sqlArgs += @('-h', '-1', '-W', '-Q', "SET NOCOUNT ON; $query") }
-    $out = & $sqlcmd @sqlArgs 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "sqlcmd failed ($file$query):`n$($out | Out-String)" }
-    return ($out | Out-String).Trim()
-}
-if (-not $SkipDatabase) {
-    Step '4. Database'
-    $exists = Invoke-Sql -query "SELECT COUNT(*) FROM sys.databases WHERE name = N'$Database'"
-    if ($exists -eq '0') {
-        Invoke-Sql -query "CREATE DATABASE [$Database] COLLATE Latin1_General_100_CI_AS_SC; ALTER DATABASE [$Database] SET READ_COMMITTED_SNAPSHOT ON; ALTER DATABASE [$Database] SET RECOVERY FULL;" | Out-Null
-        Ok "created $Database"
-    }
-    $hasSchema = Invoke-Sql -db $Database -query "SELECT COUNT(*) FROM sys.tables t JOIN sys.schemas s ON s.schema_id = t.schema_id WHERE s.name = 'ccs' AND t.name = 'tickets'"
-    if ($hasSchema -eq '0') { Invoke-Sql -db $Database -file "$Package\database\01_schema.sql" | Out-Null; Ok '01_schema.sql' }
-    else { Ok '01_schema.sql skipped (schema exists; later releases ship numbered change scripts)' }
-    Invoke-Sql -db $Database -file "$Package\database\02_seed.sql" | Out-Null; Ok '02_seed.sql'
-    $fts = Invoke-Sql -query "SELECT CONVERT(int, SERVERPROPERTY('IsFullTextInstalled'))"
-    if ($fts -eq '1') { Invoke-Sql -db $Database -file "$Package\database\03_fulltext.sql" | Out-Null; Ok '03_fulltext.sql' }
-    else { Write-Warning 'Full-Text Search is not installed on SQL Server: knowledge base search will not work until it is added and 03_fulltext.sql is run.' }
-    $logins = Get-Content "$Package\database\04_logins.sql" -Raw
-    if ($SqlInstance -notin 'localhost', '.', '(local)', $env:COMPUTERNAME) {
-        Write-Warning "SQL Server is remote: edit 04_logins.sql for a gMSA or SQL login and run it yourself (Deployment Guide, section 3)."
-    } else {
-        $tmp = Join-Path $env:TEMP 'ccs-04_logins.sql'
-        $logins.Replace('USE CCS;', "USE [$Database];") | Set-Content $tmp -Encoding UTF8
-        Invoke-Sql -file $tmp | Out-Null; Ok '04_logins.sql (IIS APPPOOL\CcsApi)'
-    }
-}
+# Database login for the API's app pool: Windows login, no password
+$loginSql = (Get-Content "$Package\database\04_logins.sql" -Raw).Replace('USE CCS;', "USE [$Database];")
+$tmp = Join-Path $env:TEMP 'ccs-logins.sql'; Set-Content $tmp $loginSql -Encoding UTF8
+Sql -file $tmp | Out-Null; Ok 'SQL login IIS APPPOOL\CcsApi'
 
-#--------------------------------------------------------------------------------------------- 5
-Step '5. Files'
-$offline = Join-Path $ApiRoot 'app_offline.htm'
-$firstApi = -not (Test-Path (Join-Path $ApiRoot 'Ccs.Api.dll'))
-if (-not $firstApi) { Set-Content $offline 'Updating, back in a minute.'; Start-Sleep 5 }
-robocopy "$Package\ccs-api" $ApiRoot /MIR /XF app_offline.htm /NFL /NDL /NJH /NJS /NP | Out-Null
-if ($LASTEXITCODE -ge 8) { throw "robocopy ccs-api failed ($LASTEXITCODE)" }
-robocopy "$Package\ccs-web" $WebRoot /MIR /NFL /NDL /NJH /NJS /NP | Out-Null
-if ($LASTEXITCODE -ge 8) { throw "robocopy ccs-web failed ($LASTEXITCODE)" }
-if ($ApiPort -ne 8443) {
-    $wc = Join-Path $WebRoot 'web.config'
-    (Get-Content $wc -Raw).Replace('https://localhost:8443/', "https://localhost:$ApiPort/") | Set-Content $wc -Encoding UTF8
-}
-& icacls $DataRoot /grant 'IIS AppPool\CcsApi:(OI)(CI)M' /T /Q | Out-Null
-& icacls $ApiRoot /grant 'IIS AppPool\CcsApi:(OI)(CI)RX' /T /Q | Out-Null
-& icacls $WebRoot /grant 'IIS AppPool\CcsWeb:(OI)(CI)RX' /T /Q | Out-Null
+#---------------------------------------------------------------- 4 files
+Step '4/6 Files'
+foreach ($d in "$DataRoot\attachments", "$DataRoot\keys", "$DataRoot\logs", "$SiteRoot\web", "$SiteRoot\api") { New-Item $d -ItemType Directory -Force | Out-Null }
+robocopy "$Package\ccs-web" "$SiteRoot\web" /MIR /NFL /NDL /NJH /NJS /NP | Out-Null; if ($LASTEXITCODE -ge 8) { Fail 'copying web files failed' }
+robocopy "$Package\ccs-api" "$SiteRoot\api" /MIR /NFL /NDL /NJH /NJS /NP | Out-Null; if ($LASTEXITCODE -ge 8) { Fail 'copying API files failed' }
+icacls $DataRoot /grant 'IIS AppPool\CcsApi:(OI)(CI)M' /T /Q | Out-Null
+icacls "$SiteRoot\api" /grant 'IIS AppPool\CcsApi:(OI)(CI)RX' /T /Q | Out-Null
+icacls "$SiteRoot\web" /grant 'IIS AppPool\CcsWeb:(OI)(CI)RX' /T /Q | Out-Null
 $global:LASTEXITCODE = 0
-Ok "API -> $ApiRoot, web -> $WebRoot"
+Ok "$SiteRoot\web and $SiteRoot\api"
 
-#--------------------------------------------------------------------------------------------- 6
-Step '6. Settings and secrets (app pool environment variables, written before anything starts)'
-$envFilter = "system.applicationHost/applicationPools/add[@name='CcsApi']/environmentVariables"
-function Get-PoolVar($name) {
-    (Get-WebConfiguration -PSPath $apphost -Filter "$envFilter/add[@name='$name']" -ErrorAction SilentlyContinue).value
+#---------------------------------------------------------------- 5 site
+Step '5/6 IIS site'
+if (-not $CertThumbprint) {
+    $c = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.FriendlyName -eq "CCS test $HostName" -and $_.NotAfter -gt (Get-Date).AddDays(30) } | Select-Object -First 1
+    if (-not $c) {
+        $c = New-SelfSignedCertificate -DnsName $HostName -CertStoreLocation Cert:\LocalMachine\My -NotAfter (Get-Date).AddYears(2) -FriendlyName "CCS test $HostName"
+        $r = New-Object Security.Cryptography.X509Certificates.X509Store Root, LocalMachine; $r.Open('ReadWrite'); $r.Add($c); $r.Close()
+    }
+    $CertThumbprint = $c.Thumbprint; Ok "test certificate for $HostName (trusted on this machine only)"
 }
-function Set-PoolVar($name, $value) {
-    if ($null -ne (Get-PoolVar $name)) { Remove-WebConfigurationProperty -PSPath $apphost -Filter $envFilter -Name '.' -AtElement @{ name = $name } }
-    Add-WebConfigurationProperty -PSPath $apphost -Filter $envFilter -Name '.' -Value @{ name = $name; value = $value }
-}
-$sqlServer = if ($SqlInstance -in '.', '(local)') { 'localhost' } else { $SqlInstance }
-$trust = if ($sqlServer -eq 'localhost') { 'True' } else { 'False' }
-Set-PoolVar 'ConnectionStrings__Ccs' "Server=$sqlServer;Database=$Database;Integrated Security=True;Encrypt=True;TrustServerCertificate=$trust;Application Name=ccs-api"
-if (-not (Get-PoolVar 'Jwt__SigningKey')) {
-    $bytes = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-    Set-PoolVar 'Jwt__SigningKey' ([Convert]::ToBase64String($bytes)); Ok 'new Jwt signing key generated'
-} else { Ok 'existing Jwt signing key kept' }
-Set-PoolVar 'App__PublicUrl' $PublicUrl
-Set-PoolVar 'FileStore__Root' "$DataRoot\attachments"
-Set-PoolVar 'DataProtection__KeysFolder' "$DataRoot\keys"
-Set-PoolVar 'Serilog__WriteTo__0__Args__path' "$DataRoot\logs\api-.log"
-$names = @((Get-WebConfiguration -PSPath $apphost -Filter "$envFilter/add").name)
-foreach ($n in 'ConnectionStrings__Ccs', 'Jwt__SigningKey', 'App__PublicUrl', 'FileStore__Root', 'DataProtection__KeysFolder') {
-    if ($names -notcontains $n) { throw "App pool setting $n was not written." }
-}
-Ok "set on CcsApi: $($names -join ', ')"
-
-#--------------------------------------------------------------------------------------------- 7
-Step '7. Certificates and sites'
-function Add-ToRoot($cert) {
-    $root = New-Object System.Security.Cryptography.X509Certificates.X509Store Root, LocalMachine
-    $root.Open('ReadWrite'); $root.Add($cert); $root.Close()
-}
-$loop = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.FriendlyName -eq 'CCS API loopback' -and $_.NotAfter -gt (Get-Date).AddDays(30) } | Select-Object -First 1
-if (-not $loop) {
-    $loop = New-SelfSignedCertificate -DnsName localhost -CertStoreLocation Cert:\LocalMachine\My -NotAfter (Get-Date).AddYears(5) -FriendlyName 'CCS API loopback'
-    Add-ToRoot $loop
-}
-if ($SelfSignedForTest -and -not $CertThumbprint) {
-    $pub = New-SelfSignedCertificate -DnsName $HostName -CertStoreLocation Cert:\LocalMachine\My -NotAfter (Get-Date).AddYears(1) -FriendlyName "CCS TEST $HostName"
-    Add-ToRoot $pub
-    $CertThumbprint = $pub.Thumbprint
-}
-if (-not $CertThumbprint) { throw 'Pass -CertThumbprint of the public certificate (LocalMachine\My), or -SelfSignedForTest on a test server.' }
-if (-not (Test-Path "Cert:\LocalMachine\My\$CertThumbprint")) { throw "Certificate $CertThumbprint not found in LocalMachine\My." }
-
-if (-not (Test-Path 'IIS:\Sites\ccs-api')) {
-    New-Website -Name ccs-api -PhysicalPath $ApiRoot -ApplicationPool CcsApi -IPAddress 127.0.0.1 -Port $ApiPort -Ssl | Out-Null
-}
-function Set-BindingCert($binding, $thumb) {
-    try { $binding.RemoveSslCertificate() } catch { }                # re-run: replace the certificate
-    $binding.AddSslCertificate($thumb, 'My')
-}
-Set-BindingCert (Get-WebBinding -Name ccs-api -Protocol https) $loop.Thumbprint
-Set-ItemProperty IIS:\Sites\ccs-api -Name applicationDefaults.preloadEnabled -Value $true
-
-if (Get-Website -Name 'Default Web Site' -ErrorAction SilentlyContinue) {
-    $def = Get-WebBinding -Name 'Default Web Site' | Where-Object { $_.bindingInformation -like '*:443:*' -or $_.bindingInformation -like '*:80:' }
-    if ($def) { Stop-Website 'Default Web Site' }
+if (Get-Website 'Default Web Site' -ErrorAction SilentlyContinue) {
+    if (Get-WebBinding -Name 'Default Web Site' -Port 443) { Stop-Website 'Default Web Site' }
 }
 if (-not (Test-Path 'IIS:\Sites\ccs-web')) {
-    New-Website -Name ccs-web -PhysicalPath $WebRoot -ApplicationPool CcsWeb -HostHeader $HostName -Port 443 -Ssl -SslFlags 1 | Out-Null
+    New-Website -Name ccs-web -PhysicalPath "$SiteRoot\web" -ApplicationPool CcsWeb -HostHeader $HostName -Port 443 -Ssl -SslFlags 1 | Out-Null
 }
-Set-BindingCert (Get-WebBinding -Name ccs-web -Protocol https -HostHeader $HostName) $CertThumbprint
-Ok "ccs-api on https://localhost:$ApiPort, ccs-web on https://$HostName"
+$bind = Get-WebBinding -Name ccs-web -Protocol https
+try { $bind.RemoveSslCertificate() } catch { }
+$bind.AddSslCertificate($CertThumbprint, 'My')
+if (-not (Get-WebApplication -Site ccs-web -Name api)) { New-WebApplication -Site ccs-web -Name api -PhysicalPath "$SiteRoot\api" -ApplicationPool CcsApi | Out-Null }
+Set-ItemProperty 'IIS:\Sites\ccs-web\api' preloadEnabled $true
+Ok "https://$HostName  (API at https://$HostName/api)"
 
-#--------------------------------------------------------------------------------------------- 8
-Step '8. Start and check'
-if (Test-Path $offline) { Remove-Item $offline }
-foreach ($pool in 'CcsApi', 'CcsWeb') {
-    for ($i = 0; $i -lt 30 -and (Get-WebAppPoolState $pool).Value -eq 'Stopping'; $i++) { Start-Sleep 1 }
-    if ((Get-WebAppPoolState $pool).Value -eq 'Started') { Stop-WebAppPool $pool; Start-Sleep 3 }
-    Start-WebAppPool $pool
+#---------------------------------------------------------------- 6 start and check
+Step '6/6 Starting and checking'
+Start-WebAppPool CcsWeb; Start-WebAppPool CcsApi; Start-Website ccs-web -ErrorAction SilentlyContinue
+$okHealth = $false
+for ($i = 0; $i -lt 45 -and -not $okHealth; $i++) {
+    try { $okHealth = (Invoke-WebRequest "https://$HostName/api/health" -UseBasicParsing -TimeoutSec 10).Content -match 'Healthy' } catch { Start-Sleep 2 }
 }
-foreach ($site in 'ccs-api', 'ccs-web') { Start-Website $site -ErrorAction SilentlyContinue }
-
-function Wait-Healthy($url) {
-    for ($i = 0; $i -lt 45; $i++) {
-        try { $r = Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 10; if ($r.Content -match 'Healthy') { return $true } } catch { }
-        Start-Sleep 2
-    }
-    return $false
+if (-not $okHealth) {
+    $log = Get-ChildItem "$DataRoot\logs\api-*.log" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
+    $tail = if ($log) { (Get-Content $log.FullName -Tail 15) -join "`n" } else { 'See Windows Event Viewer, Application log.' }
+    Fail "The site was installed but https://$HostName/api/health is not healthy.`n$tail"
 }
-if (-not (Wait-Healthy "https://localhost:$ApiPort/api/health")) {
-    Write-Warning "API not healthy. Last log lines:"; Get-ChildItem "$DataRoot\logs\api-*.log" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Tail 40
-    throw 'API did not become healthy (see the Troubleshooting section of the Deployment Guide).'
+Ok 'healthy'
+Write-Host "`nDone: https://$HostName/en" -ForegroundColor Green
+if (-not $Quiet) {
+    [Windows.Forms.MessageBox]::Show("CCS v2 is installed and healthy.`n`nOpen https://$HostName/en", 'CCS v2', 'OK', 'Information') | Out-Null
+    Start-Process "https://$HostName/en"
 }
-Ok "API healthy on https://localhost:$ApiPort"
-if (Wait-Healthy "https://$HostName/api/health") { Ok "Public address healthy: https://$HostName/api/health" }
-else { Write-Warning "https://$HostName/api/health not reachable from this server. Check DNS (or the hosts file), the certificate and the ARR proxy." }
-
-Write-Host "`nDone. Open $PublicUrl/en and run the verification checklist (Deployment Guide, section 9)." -ForegroundColor Green
+} catch { Fail $_.Exception.Message }
