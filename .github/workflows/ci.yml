@@ -83,7 +83,7 @@ jobs:
           ASPNETCORE_ENVIRONMENT: Production
         run: |
           mkdir -p /tmp/ccs/attachments /tmp/ccs/keys
-          dotnet run --project src/Ccs.Api -c Release > api.log 2>&1 &
+          dotnet run --project src/Ccs.Api -c Release --no-launch-profile > api.log 2>&1 &
           for i in $(seq 1 60); do
             if curl -fsS http://localhost:5080/api/health >/dev/null 2>&1; then echo "healthy after ${i}s"; break; fi
             sleep 2
