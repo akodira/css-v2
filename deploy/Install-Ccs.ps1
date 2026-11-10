@@ -17,6 +17,8 @@ param(
     [string] $DataRoot = 'C:\CcsData',
     [string] $SiteRoot = 'C:\inetpub\ccs',
     [int]    $Port = 443,
+    [string] $AdminEmail,                            # optional: create (or reset) this administrator
+    [string] $AdminPassword,
     [switch] $Quiet                                  # no window
 )
 $ErrorActionPreference = 'Stop'
@@ -34,7 +36,7 @@ Get-ChildItem $Package -Recurse -File | Unblock-File -ErrorAction SilentlyContin
 #---------------------------------------------------------------- window
 if (-not $Quiet) {
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-    $f = New-Object Windows.Forms.Form -Property @{ Text = 'Install CCS v2'; Width = 520; Height = 340; StartPosition = 'CenterScreen'; FormBorderStyle = 'FixedDialog'; MaximizeBox = $false; Font = New-Object Drawing.Font('Segoe UI', 10) }
+    $f = New-Object Windows.Forms.Form -Property @{ Text = 'Install CCS v2'; Width = 520; Height = 420; StartPosition = 'CenterScreen'; FormBorderStyle = 'FixedDialog'; MaximizeBox = $false; Font = New-Object Drawing.Font('Segoe UI', 10) }
     $script:y = 20
     function Row($label, $value) {
         $l = New-Object Windows.Forms.Label -Property @{ Text = $label; Left = 20; Top = $script:y + 3; Width = 170 }
@@ -45,6 +47,9 @@ if (-not $Quiet) {
     $tSql  = Row 'SQL Server' $SqlInstance
     $tDb   = Row 'Database name' $Database
     $tPort = Row 'HTTPS port' $Port
+    $tAdmin = Row 'Admin email (optional)' $AdminEmail
+    $tPass = Row 'Admin password' ''
+    $tPass.UseSystemPasswordChar = $true
     $l = New-Object Windows.Forms.Label -Property @{ Text = 'Certificate'; Left = 20; Top = $script:y + 3; Width = 170 }
     $cCert = New-Object Windows.Forms.ComboBox -Property @{ Left = 195; Top = $script:y; Width = 290; DropDownStyle = 'DropDownList' }
     [void]$cCert.Items.Add('Create a test certificate (testing only)')
@@ -56,6 +61,7 @@ if (-not $Quiet) {
     $f.AcceptButton = $b; $f.Controls.Add($b)
     if ($f.ShowDialog() -ne 'OK') { exit 1 }
     $HostName = $tHost.Text.Trim(); $SqlInstance = $tSql.Text.Trim(); $Database = $tDb.Text.Trim(); $Port = [int]$tPort.Text.Trim()
+    $AdminEmail = $tAdmin.Text.Trim(); $AdminPassword = $tPass.Text
     if ($cCert.SelectedIndex -gt 0) { $CertThumbprint = $certs[$cCert.SelectedIndex - 1].Thumbprint }
 }
 
@@ -203,6 +209,17 @@ if (-not $okHealth) {
     Fail "The site was installed but $Base/api/health is not healthy.`n$tail"
 }
 Ok 'healthy'
+
+if ($AdminEmail -and $AdminPassword) {
+    Step 'Administrator account'
+    # Same settings as the API's app pool; this window's Windows account must be allowed into SQL Server.
+    $env:ConnectionStrings__Ccs = (Var 'ConnectionStrings__Ccs')
+    $env:Jwt__SigningKey = (Var 'Jwt__SigningKey')
+    $env:DataProtection__KeysFolder = "$DataRoot\keys"
+    $out = & dotnet "$SiteRoot\api\Ccs.Api.dll" create-admin $AdminEmail $AdminPassword 2>&1
+    if ($LASTEXITCODE -ne 0) { Fail "Could not create the administrator:`n$($out | Out-String)" }
+    Ok "administrator $AdminEmail can sign in"
+}
 Write-Host "`nDone: $Base/en" -ForegroundColor Green
 if (-not $Quiet) {
     [Windows.Forms.MessageBox]::Show("CCS v2 is installed and healthy.`n`nOpen $Base/en", 'CCS v2', 'OK', 'Information') | Out-Null

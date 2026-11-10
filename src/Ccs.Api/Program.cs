@@ -14,6 +14,13 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
+// Server command for the installer (first administrator); does not start the web server.
+if (args.Length > 0 && args[0] == "create-admin")
+{
+    Environment.ExitCode = await Ccs.Api.AdminSetup.RunAsync(args);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ---- Logging: Serilog to rolling files (spec 10) -------------------------------------------------

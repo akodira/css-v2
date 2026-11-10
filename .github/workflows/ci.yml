@@ -100,7 +100,7 @@ jobs:
         shell: pwsh
         run: |
           Add-Content "$env:windir\System32\drivers\etc\hosts" "`n127.0.0.1 ccs.test"
-          & D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -Quiet
+          & D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -AdminEmail admin@ccs.test -AdminPassword 'Str0ng!Passw0rd' -Quiet
       - name: Run it again (update path must be safe)
         shell: pwsh
         run: '& D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -Quiet'
@@ -121,6 +121,9 @@ jobs:
           Check 'site settings JSON' ($null -ne $site)
           try { Invoke-WebRequest https://ccs.test/api/tickets -UseBasicParsing | Out-Null; $code = 200 } catch { $code = [int]$_.Exception.Response.StatusCode }
           Check "anonymous /api/tickets refused (got $code)" ($code -eq 401)
+          $body = @{ identifier = 'admin@ccs.test'; password = 'Str0ng!Passw0rd' } | ConvertTo-Json
+          $session = Invoke-RestMethod https://ccs.test/api/auth/sign-in -Method Post -ContentType 'application/json' -Body $body
+          Check 'administrator signs in' ($session.accessToken -or $session.token -or $session.mfaToken)
           $login = sqlcmd -S localhost -E -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'"
           Check 'API connects with the IIS APPPOOL\CcsApi Windows login' ("$login" -match 'CcsApi')
           $hf = sqlcmd -S localhost -E -d CCS -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.tables WHERE schema_id = SCHEMA_ID('HangFire')"
