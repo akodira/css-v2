@@ -262,7 +262,10 @@ if ($SupabaseUrl) {
     $imp = @('import-supabase', $SupabaseUrl)
     if ($RealOnly) { $imp += '--real-only' }
     if ($SupabaseServiceKey) { $imp += '--service-key', $SupabaseServiceKey }
+    # Native tool: its messages on stderr must be shown, not treated as a script error (Windows PowerShell 5.1)
+    $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     & dotnet "$SiteRoot\api\Ccs.Api.dll" @imp 2>&1 | ForEach-Object { Write-Host "    $_" }
+    $code = $LASTEXITCODE; $ErrorActionPreference = $eap; $global:LASTEXITCODE = $code
     if ($LASTEXITCODE -ne 0) { Fail 'The import did not finish cleanly. The lines above name the table; nothing else was changed in IIS.' }
     icacls "$DataRoot\attachments" /grant 'IIS AppPool\CcsApi:(OI)(CI)M' /T /Q | Out-Null
     Restart-WebAppPool CcsApi
@@ -275,7 +278,9 @@ if ($AdminEmail -and $AdminPassword) {
     $env:ConnectionStrings__Ccs = (Var 'ConnectionStrings__Ccs')
     $env:Jwt__SigningKey = (Var 'Jwt__SigningKey')
     $env:DataProtection__KeysFolder = "$DataRoot\keys"
+    $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $out = & dotnet "$SiteRoot\api\Ccs.Api.dll" create-admin $AdminEmail $AdminPassword 2>&1
+    $code = $LASTEXITCODE; $ErrorActionPreference = $eap; $global:LASTEXITCODE = $code
     if ($LASTEXITCODE -ne 0) { Fail "Could not create the administrator:`n$($out | Out-String)" }
     Ok "administrator $AdminEmail can sign in"
 }

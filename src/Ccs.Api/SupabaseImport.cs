@@ -71,7 +71,14 @@ public static class SupabaseImport
         var (pgCs, projectRef) = ToNpgsql(args[1]);
 
         await using var pg = new NpgsqlConnection(pgCs);
-        await pg.OpenAsync();
+        try { await pg.OpenAsync(); }
+        catch (Exception e) when (e is System.Net.Sockets.SocketException || e.InnerException is System.Net.Sockets.SocketException)
+        {
+            throw new InvalidOperationException(
+                "Cannot reach the Supabase database at " + new Uri(args[1]).Host + ". " +
+                "Use the 'Session pooler' connection string (Supabase > Connect > Direct > Session pooler, host ...pooler.supabase.com): " +
+                "the 'Direct connection' address (db.<project>.supabase.co) works over IPv6 only. (" + e.Message + ")");
+        }
         await using var ms = new SqlConnection(msCs);
         await ms.OpenAsync();
         Log($"Connected. Copying {(realOnly ? "real data only (demo users skipped)" : "all data")}.");
