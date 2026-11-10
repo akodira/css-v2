@@ -35,6 +35,19 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# The IIS module (WebAdministration, IIS: drive) works fully only in Windows PowerShell 5.1.
+# Started from PowerShell 7? Run the same script again in Windows PowerShell with the same arguments.
+if ($PSVersionTable.PSEdition -eq 'Core') {
+    $argList = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $PSCommandPath)
+    foreach ($k in $PSBoundParameters.Keys) {
+        $v = $PSBoundParameters[$k]
+        if ($v -is [System.Management.Automation.SwitchParameter]) { if ($v.IsPresent) { $argList += "-$k" } }
+        else { $argList += "-$k"; $argList += "$v" }
+    }
+    & "$env:windir\System32\WindowsPowerShell\v1.0\powershell.exe" @argList
+    exit $LASTEXITCODE
+}
 $Package = $PSScriptRoot
 if (-not $PublicUrl) { $PublicUrl = "https://$HostName" }
 function Step($t) { Write-Host "`n=== $t" -ForegroundColor Cyan }
