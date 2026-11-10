@@ -47,9 +47,9 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
     }
 
     /// <summary>One row per ticket created in the period, with what every report needs.</summary>
-    private async Task<List<Row>> RowsAsync(IQueryable<Ticket> q, DateTimeOffset from, DateTimeOffset to, CancellationToken ct)
+    private async Task<List<Row>> RowsAsync(IQueryable<Ticket> q, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct)
     {
-        var rows = await (from t in q.Where(t => t.CreatedAt >= from && t.CreatedAt < to)
+        var rows = await (from t in q.Where(t => t.CreatedAt >= fromAt && t.CreatedAt < toAt)
                           join p in db.Profiles on t.RequesterId equals p.Id
                           join s in db.TicketSlaRecords on t.Id equals s.TicketId into ss
                           from s in ss.DefaultIfEmpty()
