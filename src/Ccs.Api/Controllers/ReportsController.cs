@@ -7,6 +7,7 @@ using Ccs.Application.Common;
 using Ccs.Domain;
 using Ccs.Domain.Entities;
 using Ccs.Domain.Rules;
+using Ccs.Infrastructure.Identity;
 using Ccs.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -314,7 +315,7 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
         if (!string.IsNullOrEmpty(entity) && types.Contains(entity)) q = q.Where(a => a.EntityType == entity);
         var total = await q.CountAsync(ct);
         var rows = await (from a in q
-                          join p in db.Profiles on a.ActorId equals p.Id into pp
+                          join p in db.Profiles on a.ActorId equals (Guid?)p.Id into pp
                           from p in pp.DefaultIfEmpty()
                           orderby a.CreatedAt descending, a.Id descending
                           select new { a.Id, a.Action, a.EntityType, a.EntityId, a.Before, a.After, a.CreatedAt, Actor = p == null ? null : p.FullName })
