@@ -4,13 +4,17 @@ import { provideRouter, withComponentInputBinding, withInMemoryScrolling } from 
 import { routes } from './app.routes';
 import { Auth, authInterceptor } from './core/auth';
 import { SiteService } from './core/api';
+import { apiBaseInterceptor, loadApiBase } from './core/api-base';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor, apiBaseInterceptor])),
     provideRouter(routes, withComponentInputBinding(), withInMemoryScrolling({ scrollPositionRestoration: 'top' })),
     // Before the first screen: site settings (branding, rules) and the session from the refresh cookie.
-    provideAppInitializer(() => Promise.all([inject(SiteService).load(), inject(Auth).restore()]).then(() => undefined)),
+    provideAppInitializer(() => {
+      const site = inject(SiteService), auth = inject(Auth);
+      return loadApiBase().then(() => Promise.all([site.load(), auth.restore()])).then(() => undefined);
+    }),
   ],
 };

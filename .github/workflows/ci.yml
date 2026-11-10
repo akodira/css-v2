@@ -155,6 +155,20 @@ jobs:
           Check "Hangfire created its tables ($hf)" ([int]"$hf".Trim() -gt 0)
           $ft = sqlcmd -S localhost -E -d CCS -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.fulltext_indexes"
           Check "full-text index exists ($ft)" ([int]"$ft".Trim() -ge 1)
+      - name: Separate API site (api.ccs.test), then back to one site
+        shell: pwsh
+        run: |
+          function Check($name, $ok) { if ($ok) { Write-Host "PASS  $name" } else { throw "FAIL  $name" } }
+          & D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -ApiHostName api.ccs.test -Quiet
+          Check 'API answers on its own site' ((Invoke-WebRequest https://api.ccs.test/api/health -UseBasicParsing).Content -match 'Healthy')
+          Check 'website knows the API address' ((Invoke-RestMethod https://ccs.test/config.json).apiBase -eq 'https://api.ccs.test')
+          $pre = Invoke-WebRequest https://api.ccs.test/api/auth/refresh -Method Options -UseBasicParsing -Headers @{ Origin = 'https://ccs.test'; 'Access-Control-Request-Method' = 'POST' }
+          Check 'API allows the website (CORS)' ("$($pre.Headers['Access-Control-Allow-Origin'])" -eq 'https://ccs.test' -and "$($pre.Headers['Access-Control-Allow-Credentials'])" -eq 'true')
+          $csp = (Invoke-WebRequest https://ccs.test/en -UseBasicParsing).Headers['Content-Security-Policy']
+          Check 'browser rule allows calls to the API' ("$csp" -match "connect-src 'self' https://api.ccs.test")
+          & D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -Quiet
+          Check 'back to one site: API under /api' ((Invoke-WebRequest https://ccs.test/api/health -UseBasicParsing).Content -match 'Healthy')
+          Check 'one site: separate API site removed' (-not (Get-Website -Name ccs-api))
       - name: Logs on failure
         if: failure()
         shell: pwsh

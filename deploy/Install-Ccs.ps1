@@ -11,6 +11,7 @@
 [CmdletBinding()]
 param(
     [string] $HostName = 'localhost',                # site address; localhost = test on this machine
+    [string] $ApiHostName,                           # optional: run the API as its own IIS site (e.g. api.example.com); empty = under /api
     [string] $CertThumbprint,                        # empty = make a self-signed test certificate
     [string] $SqlInstance = 'localhost',
     [string] $Database = 'CCS',
@@ -39,7 +40,7 @@ Get-ChildItem $Package -Recurse -File | Unblock-File -ErrorAction SilentlyContin
 #---------------------------------------------------------------- window
 if (-not $Quiet) {
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-    $f = New-Object Windows.Forms.Form -Property @{ Text = 'Install CCS v2'; Width = 520; Height = 500; StartPosition = 'CenterScreen'; FormBorderStyle = 'FixedDialog'; MaximizeBox = $false; Font = New-Object Drawing.Font('Segoe UI', 10) }
+    $f = New-Object Windows.Forms.Form -Property @{ Text = 'Install CCS v2'; Width = 520; Height = 540; StartPosition = 'CenterScreen'; FormBorderStyle = 'FixedDialog'; MaximizeBox = $false; Font = New-Object Drawing.Font('Segoe UI', 10) }
     $script:y = 20
     function Row($label, $value) {
         $l = New-Object Windows.Forms.Label -Property @{ Text = $label; Left = 20; Top = $script:y + 3; Width = 170 }
@@ -47,6 +48,7 @@ if (-not $Quiet) {
         $f.Controls.AddRange(@($l, $t)); $script:y += 38; return $t
     }
     $tHost = Row 'Site address' $HostName
+    $tApi  = Row 'API address (optional)' $ApiHostName
     $tSql  = Row 'SQL Server' $SqlInstance
     $tDb   = Row 'Database name' $Database
     $tPort = Row 'HTTPS port' $Port
@@ -67,7 +69,7 @@ if (-not $Quiet) {
     $b = New-Object Windows.Forms.Button -Property @{ Text = 'Install'; Left = 385; Top = $script:y; Width = 100; Height = 32; DialogResult = 'OK' }
     $f.AcceptButton = $b; $f.Controls.Add($b)
     if ($f.ShowDialog() -ne 'OK') { exit 1 }
-    $HostName = $tHost.Text.Trim(); $SqlInstance = $tSql.Text.Trim(); $Database = $tDb.Text.Trim(); $Port = [int]$tPort.Text.Trim()
+    $ApiHostName = $tApi.Text.Trim(); $HostName = $tHost.Text.Trim(); $SqlInstance = $tSql.Text.Trim(); $Database = $tDb.Text.Trim(); $Port = [int]$tPort.Text.Trim()
     $AdminEmail = $tAdmin.Text.Trim(); $AdminPassword = $tPass.Text
     $SupabaseUrl = $tPg.Text.Trim(); $SupabaseServiceKey = $tKey.Text.Trim()
     if ($cCert.SelectedIndex -gt 0) { $CertThumbprint = $certs[$cCert.SelectedIndex - 1].Thumbprint }
@@ -84,6 +86,10 @@ function Fail($t) {
 try {
 #---------------------------------------------------------------- 1 prerequisites
 $Base = if ($Port -eq 443) { "https://$HostName" } else { "https://${HostName}:$Port" }
+if ($ApiHostName -eq $HostName) { $ApiHostName = '' }
+$Separate = [bool]$ApiHostName
+$ApiBase = if (-not $Separate) { $Base } elseif ($Port -eq 443) { "https://$ApiHostName" } else { "https://${ApiHostName}:$Port" }
+$Names = @($HostName) + @($ApiHostName | Where-Object { $_ })
 Step '1/6 Checking the server'
 $need = [ordered]@{
     'IIS'                         = "$env:windir\system32\inetsrv\w3wp.exe"
@@ -142,6 +148,7 @@ $server = if ($SqlInstance -in '.', '(local)') { 'localhost' } else { $SqlInstan
 SetVar 'ConnectionStrings__Ccs' "Server=$server;Database=$Database;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;Application Name=ccs-api"
 if (-not (Var 'Jwt__SigningKey')) { $k = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($k); SetVar 'Jwt__SigningKey' ([Convert]::ToBase64String($k)) }
 SetVar 'App__PublicUrl' $Base
+SetVar 'Cors__WebOrigin' $(if ($Separate) { $Base } else { '' })   # a separate API accepts calls from the website only
 SetVar 'FileStore__Root' "$DataRoot\attachments"
 SetVar 'DataProtection__KeysFolder' "$DataRoot\keys"
 SetVar 'Serilog__WriteTo__0__Args__path' "$DataRoot\logs\api-.log"
@@ -162,21 +169,28 @@ icacls $DataRoot /grant 'IIS AppPool\CcsApi:(OI)(CI)M' /T /Q | Out-Null
 icacls "$SiteRoot\api" /grant 'IIS AppPool\CcsApi:(OI)(CI)RX' /T /Q | Out-Null
 icacls "$SiteRoot\web" /grant 'IIS AppPool\CcsWeb:(OI)(CI)RX' /T /Q | Out-Null
 $global:LASTEXITCODE = 0
+# Where the website finds the API, and the browser rule (CSP) that lets it call there
+Set-Content "$SiteRoot\web\config.json" ('{ "apiBase": "' + $(if ($Separate) { $ApiBase } else { '' }) + '" }') -Encoding ASCII
+if ($Separate) {
+    $wc = "$SiteRoot\web\web.config"
+    (Get-Content $wc -Raw).Replace("connect-src 'self'", "connect-src 'self' $ApiBase") | Set-Content $wc -Encoding UTF8
+}
 Ok "$SiteRoot\web and $SiteRoot\api"
 
 #---------------------------------------------------------------- 5 site
 Step '5/6 IIS site'
 if (-not $CertThumbprint) {
-    $c = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.FriendlyName -eq "CCS test $HostName" -and $_.NotAfter -gt (Get-Date).AddDays(30) } | Select-Object -First 1
+    $fn = "CCS test $($Names -join ' ')"
+    $c = Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.FriendlyName -eq $fn -and $_.NotAfter -gt (Get-Date).AddDays(30) } | Select-Object -First 1
     if (-not $c) {
-        $c = New-SelfSignedCertificate -DnsName $HostName -CertStoreLocation Cert:\LocalMachine\My -NotAfter (Get-Date).AddYears(2) -FriendlyName "CCS test $HostName"
+        $c = New-SelfSignedCertificate -DnsName $Names -CertStoreLocation Cert:\LocalMachine\My -NotAfter (Get-Date).AddYears(2) -FriendlyName $fn
         $r = New-Object Security.Cryptography.X509Certificates.X509Store Root, LocalMachine; $r.Open('ReadWrite'); $r.Add($c); $r.Close()
     }
-    $CertThumbprint = $c.Thumbprint; Ok "test certificate for $HostName (trusted on this machine only)"
+    $CertThumbprint = $c.Thumbprint; Ok "test certificate for $($Names -join ', ') (trusted on this machine only)"
 }
 # Is the port free? Another IIS site on the same port without a host name, or another program, blocks the start.
-$otherSites = @(Get-Website | Where-Object { $_.Name -ne 'ccs-web' -and $_.State -eq 'Started' } | Where-Object {
-    $_.Bindings.Collection | Where-Object { $_.protocol -eq 'https' -and $_.bindingInformation -match ":$Port`:" -and ($_.bindingInformation -split ':')[-1] -in '', $HostName } })
+$otherSites = @(Get-Website | Where-Object { $_.Name -notin 'ccs-web', 'ccs-api' -and $_.State -eq 'Started' } | Where-Object {
+    $_.Bindings.Collection | Where-Object { $_.protocol -eq 'https' -and $_.bindingInformation -match ":$Port`:" -and ($_.bindingInformation -split ':')[-1] -in @('') + $Names } })
 if ($otherSites) { Fail "Port $Port is already used by the IIS site '$($otherSites[0].Name)'. Stop that site in IIS Manager, or run the installer again and choose another HTTPS port (for example 8443)." }
 $listener = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Where-Object { $_.OwningProcess -ne 4 } | Select-Object -First 1
 if ($listener) {
@@ -184,10 +198,12 @@ if ($listener) {
     Fail "Port $Port is already used by the program '$proc' (process id $($listener.OwningProcess)). Close it, or run the installer again and choose another HTTPS port (for example 8443)."
 }
 # A test name such as "ccs" must resolve to this machine
-$resolves = $true; try { [void][Net.Dns]::GetHostAddresses($HostName) } catch { $resolves = $false }
-if (-not $resolves) {
-    Add-Content "$env:windir\System32\drivers\etc\hosts" "`r`n127.0.0.1`t$HostName`t# added by CCS installer"
-    Ok "$HostName added to the hosts file (points to this machine)"
+foreach ($n in $Names) {
+    $resolves = $true; try { [void][Net.Dns]::GetHostAddresses($n) } catch { $resolves = $false }
+    if (-not $resolves) {
+        Add-Content "$env:windir\System32\drivers\etc\hosts" "`r`n127.0.0.1`t$n`t# added by CCS installer"
+        Ok "$n added to the hosts file (points to this machine)"
+    }
 }
 if (-not (Test-Path 'IIS:\Sites\ccs-web')) {
     New-Website -Name ccs-web -PhysicalPath "$SiteRoot\web" -ApplicationPool CcsWeb -HostHeader $HostName -Port $Port -Ssl -SslFlags 1 | Out-Null
@@ -199,22 +215,41 @@ if (-not (Test-Path 'IIS:\Sites\ccs-web')) {
 $bind = Get-WebBinding -Name ccs-web -Protocol https
 try { $bind.RemoveSslCertificate() } catch { }
 $bind.AddSslCertificate($CertThumbprint, 'My')
-if (-not (Get-WebApplication -Site ccs-web -Name api)) { New-WebApplication -Site ccs-web -Name api -PhysicalPath "$SiteRoot\api" -ApplicationPool CcsApi | Out-Null }
-Set-ItemProperty 'IIS:\Sites\ccs-web\api' preloadEnabled $true
-Ok "$Base  (API at $Base/api)"
+if ($Separate) {
+    # API as its own site: same files, same app pool, own address
+    if (Get-WebApplication -Site ccs-web -Name api) { Remove-WebApplication -Site ccs-web -Name api }
+    if (-not (Test-Path 'IIS:\Sites\ccs-api')) {
+        New-Website -Name ccs-api -PhysicalPath "$SiteRoot\api" -ApplicationPool CcsApi -HostHeader $ApiHostName -Port $Port -Ssl -SslFlags 1 | Out-Null
+    } else {
+        Get-WebBinding -Name ccs-api -Protocol https | Remove-WebBinding
+        New-WebBinding -Name ccs-api -Protocol https -Port $Port -HostHeader $ApiHostName -SslFlags 1
+    }
+    $ab = Get-WebBinding -Name ccs-api -Protocol https
+    try { $ab.RemoveSslCertificate() } catch { }
+    $ab.AddSslCertificate($CertThumbprint, 'My')
+    Set-ItemProperty 'IIS:\Sites\ccs-api' applicationDefaults.preloadEnabled $true
+    $p1 = ($HostName -split '\.', 2)[-1]; $p2 = ($ApiHostName -split '\.', 2)[-1]
+    if ($p1 -ne $p2 -or $HostName -notmatch '\.') { Write-Host "    Note: use two names under one domain (e.g. ccs.example.com and api.example.com), or sign-in will not stay signed in." -ForegroundColor Yellow }
+    Ok "$Base  (API at $ApiBase/api, its own site ccs-api)"
+} else {
+    if (Test-Path 'IIS:\Sites\ccs-api') { Remove-Website ccs-api }
+    if (-not (Get-WebApplication -Site ccs-web -Name api)) { New-WebApplication -Site ccs-web -Name api -PhysicalPath "$SiteRoot\api" -ApplicationPool CcsApi | Out-Null }
+    Set-ItemProperty 'IIS:\Sites\ccs-web\api' preloadEnabled $true
+    Ok "$Base  (API at $Base/api)"
+}
 
 #---------------------------------------------------------------- 6 start and check
 Step '6/6 Starting and checking'
 Start-WebAppPool CcsWeb; Start-WebAppPool CcsApi
-try { Start-Website ccs-web } catch { Fail "IIS could not start the site on port $Port ($($_.Exception.Message)). Another program may hold the port: run the installer again with another HTTPS port, for example 8443." }
+try { Start-Website ccs-web; if ($Separate) { Start-Website ccs-api } } catch { Fail "IIS could not start the site on port $Port ($($_.Exception.Message)). Another program may hold the port: run the installer again with another HTTPS port, for example 8443." }
 $okHealth = $false
 for ($i = 0; $i -lt 45 -and -not $okHealth; $i++) {
-    try { $okHealth = (Invoke-WebRequest "$Base/api/health" -UseBasicParsing -TimeoutSec 10).Content -match 'Healthy' } catch { Start-Sleep 2 }
+    try { $okHealth = (Invoke-WebRequest "$ApiBase/api/health" -UseBasicParsing -TimeoutSec 10).Content -match 'Healthy' } catch { Start-Sleep 2 }
 }
 if (-not $okHealth) {
     $log = Get-ChildItem "$DataRoot\logs\api-*.log" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
     $tail = if ($log) { (Get-Content $log.FullName -Tail 15) -join "`n" } else { 'See Windows Event Viewer, Application log.' }
-    Fail "The site was installed but $Base/api/health is not healthy.`n$tail"
+    Fail "The site was installed but $ApiBase/api/health is not healthy.`n$tail"
 }
 Ok 'healthy'
 
