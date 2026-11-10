@@ -164,7 +164,8 @@ jobs:
             Check 'SLA target, calendar and holiday saved' ((@($sla.policies | Where-Object { $_.priority -eq $pr.code -and $_.resolutionMinutes -eq 90 -and $_.businessHoursId -eq $bh.id }).Count -eq 1) -and (@($sla.hours | Where-Object { $_.id -eq $bh.id -and $_.holidays.Count -eq 1 }).Count -eq 1))
             Api Delete "priorities/$($pr.code)" $null | Out-Null
             Api Delete "fields/$($fld.id)" $null | Out-Null
-            Api Delete "ticket-types/$($tt.id)" $null | Out-Null
+            try { Api Delete "ticket-types/$($tt.id)" $null | Out-Null; $code = 200 } catch { $code = [int]$_.Exception.Response.StatusCode }
+            Check "the last visible ticket type is protected (got $code)" ($code -eq 400)
             Api Delete "categories/$($cat.id)" $null | Out-Null
             Check 'catalog items without tickets can be deleted' ($true)
           } else { Write-Host 'SKIP  admin API checks (administrator needs a second sign-in step)' }
