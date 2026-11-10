@@ -19,6 +19,9 @@ param(
     [int]    $Port = 443,
     [string] $AdminEmail,                            # optional: create (or reset) this administrator
     [string] $AdminPassword,
+    [string] $SupabaseUrl,                           # optional: copy all data from the old system (empties the CCS tables first)
+    [string] $SupabaseServiceKey,                    # optional: also copy the ticket attachments
+    [switch] $RealOnly,                              # with -SupabaseUrl: skip the demo users (@demo.cts.test) and their tickets
     [switch] $Quiet                                  # no window
 )
 $ErrorActionPreference = 'Stop'
@@ -36,7 +39,7 @@ Get-ChildItem $Package -Recurse -File | Unblock-File -ErrorAction SilentlyContin
 #---------------------------------------------------------------- window
 if (-not $Quiet) {
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
-    $f = New-Object Windows.Forms.Form -Property @{ Text = 'Install CCS v2'; Width = 520; Height = 420; StartPosition = 'CenterScreen'; FormBorderStyle = 'FixedDialog'; MaximizeBox = $false; Font = New-Object Drawing.Font('Segoe UI', 10) }
+    $f = New-Object Windows.Forms.Form -Property @{ Text = 'Install CCS v2'; Width = 520; Height = 500; StartPosition = 'CenterScreen'; FormBorderStyle = 'FixedDialog'; MaximizeBox = $false; Font = New-Object Drawing.Font('Segoe UI', 10) }
     $script:y = 20
     function Row($label, $value) {
         $l = New-Object Windows.Forms.Label -Property @{ Text = $label; Left = 20; Top = $script:y + 3; Width = 170 }
@@ -50,6 +53,10 @@ if (-not $Quiet) {
     $tAdmin = Row 'Admin email (optional)' $AdminEmail
     $tPass = Row 'Admin password' ''
     $tPass.UseSystemPasswordChar = $true
+    $tPg = Row 'Supabase DB URL (import)' $SupabaseUrl
+    $tPg.UseSystemPasswordChar = $true
+    $tKey = Row 'Supabase service key (files)' $SupabaseServiceKey
+    $tKey.UseSystemPasswordChar = $true
     $l = New-Object Windows.Forms.Label -Property @{ Text = 'Certificate'; Left = 20; Top = $script:y + 3; Width = 170 }
     $cCert = New-Object Windows.Forms.ComboBox -Property @{ Left = 195; Top = $script:y; Width = 290; DropDownStyle = 'DropDownList' }
     [void]$cCert.Items.Add('Create a test certificate (testing only)')
@@ -62,6 +69,7 @@ if (-not $Quiet) {
     if ($f.ShowDialog() -ne 'OK') { exit 1 }
     $HostName = $tHost.Text.Trim(); $SqlInstance = $tSql.Text.Trim(); $Database = $tDb.Text.Trim(); $Port = [int]$tPort.Text.Trim()
     $AdminEmail = $tAdmin.Text.Trim(); $AdminPassword = $tPass.Text
+    $SupabaseUrl = $tPg.Text.Trim(); $SupabaseServiceKey = $tKey.Text.Trim()
     if ($cCert.SelectedIndex -gt 0) { $CertThumbprint = $certs[$cCert.SelectedIndex - 1].Thumbprint }
 }
 
@@ -209,6 +217,20 @@ if (-not $okHealth) {
     Fail "The site was installed but $Base/api/health is not healthy.`n$tail"
 }
 Ok 'healthy'
+
+if ($SupabaseUrl) {
+    Step 'Copying all data from Supabase'
+    $env:ConnectionStrings__Ccs = (Var 'ConnectionStrings__Ccs')
+    $env:FileStore__Root = "$DataRoot\attachments"
+    $imp = @('import-supabase', $SupabaseUrl)
+    if ($RealOnly) { $imp += '--real-only' }
+    if ($SupabaseServiceKey) { $imp += '--service-key', $SupabaseServiceKey }
+    & dotnet "$SiteRoot\api\Ccs.Api.dll" @imp 2>&1 | ForEach-Object { Write-Host "    $_" }
+    if ($LASTEXITCODE -ne 0) { Fail 'The import did not finish cleanly. The lines above name the table; nothing else was changed in IIS.' }
+    icacls "$DataRoot\attachments" /grant 'IIS AppPool\CcsApi:(OI)(CI)M' /T /Q | Out-Null
+    Restart-WebAppPool CcsApi
+    Ok 'all users, tickets and settings copied; users keep their passwords'
+}
 
 if ($AdminEmail -and $AdminPassword) {
     Step 'Administrator account'

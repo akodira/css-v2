@@ -12,6 +12,8 @@
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.*" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.*" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.*" />
+    <!-- Only for the one-time import from Supabase (import-supabase command). -->
+    <PackageReference Include="Npgsql" Version="9.*" />
     <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.*" />
   </ItemGroup>
 </Project>

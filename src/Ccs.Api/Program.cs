@@ -15,9 +15,10 @@ using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
 // Server command for the installer (first administrator); does not start the web server.
-if (args.Length > 0 && args[0] == "create-admin")
+if (args.Length > 0 && args[0] is "create-admin" or "import-supabase")
 {
-    Environment.ExitCode = await Ccs.Api.AdminSetup.RunAsync(args);
+    try { Environment.ExitCode = args[0] == "create-admin" ? await Ccs.Api.AdminSetup.RunAsync(args) : await Ccs.Api.SupabaseImport.RunAsync(args); }
+    catch (Exception e) { Console.Error.WriteLine(e.Message); Environment.ExitCode = 1; }
     return;
 }
 
