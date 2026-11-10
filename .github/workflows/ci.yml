@@ -138,10 +138,10 @@ jobs:
             Api Put "teams/$($team.id)/members" @{ members = @(@{ userId = $agent.id; isLeader = $false }) } | Out-Null
             $teams = Api Get teams $null
             Check 'team has the new member' (($teams.teams | Where-Object id -eq $team.id).members.Count -eq 1)
-            $types = Api Get account-types $null
             $ty = Api Post account-types @{ nameEn = 'CI Type'; nameAr = 'نوع'; allAccess = $false; permissions = @('reply'); access = @(@{ organizationId = $org.id }) }
             Api Put "account-types/$($ty.id)" @{ nameEn = 'CI Type 2'; nameAr = 'نوع 2'; allAccess = $true; permissions = @('reply','resolve'); access = @() } | Out-Null
-            Check 'account types list and edit' ($types.Count -ge 1)
+            $types = @(Api Get account-types $null)
+            Check 'account types list and edit' (@($types | Where-Object { $_.id -eq $ty.id -and $_.nameEn -eq 'CI Type 2' -and $_.permissions.Count -eq 2 }).Count -eq 1)
             $cust = Api Post users @{ fullName = 'CI Customer'; email = 'cust@ccs.test'; password = 'Str0ng!Passw0rd'; role = 'customer'; organizationId = $org.id; branchId = $br.id }
             $list = Api Get 'users?kind=customers' $null
             Check 'customers list shows the new customer' (@($list | Where-Object id -eq $cust.id).Count -eq 1)
