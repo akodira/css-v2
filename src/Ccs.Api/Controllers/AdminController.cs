@@ -262,20 +262,19 @@ public sealed class AdminController(
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         try
         {
-            db.TeamMembers.RemoveRange(db.TeamMembers.Where(m => m.UserId == id));
-            db.StaffPlacements.RemoveRange(db.StaffPlacements.Where(m => m.UserId == id));
-            db.AdminScopes.RemoveRange(db.AdminScopes.Where(m => m.UserId == id));
-            db.CcsUserRoles.RemoveRange(db.CcsUserRoles.Where(m => m.UserId == id));
-            db.Notifications.RemoveRange(db.Notifications.Where(m => m.UserId == id));
-            db.RefreshTokens.RemoveRange(db.RefreshTokens.Where(m => m.UserId == id));
-            db.Profiles.Remove(p);
+            await db.TeamMembers.Where(m => m.UserId == id).ExecuteDeleteAsync(ct);
+            await db.StaffPlacements.Where(m => m.UserId == id).ExecuteDeleteAsync(ct);
+            await db.AdminScopes.Where(m => m.UserId == id).ExecuteDeleteAsync(ct);
+            await db.CcsUserRoles.Where(m => m.UserId == id).ExecuteDeleteAsync(ct);
+            await db.Notifications.Where(m => m.UserId == id).ExecuteDeleteAsync(ct);
+            // The sign-in account row; profiles, tokens and codes follow it (ON DELETE CASCADE).
+            await db.Users.Where(u => u.Id == id).ExecuteDeleteAsync(ct);
             audit.Write("user.delete", "profile", id, new { p.FullName, p.Email, role }, null);
+            db.Entry(p).State = EntityState.Detached;
             await db.SaveChangesAsync(ct);
-            var u = await users.FindByIdAsync(id.ToString());
-            if (u is not null && !(await users.DeleteAsync(u)).Succeeded) throw Err("inUse", null, 409);
             await tx.CommitAsync(ct);
         }
-        catch (DbUpdateException)
+        catch (Exception e) when (e is DbUpdateException or Microsoft.Data.SqlClient.SqlException)
         {
             await tx.RollbackAsync(ct);
             throw Err("inUse", null, 409);
