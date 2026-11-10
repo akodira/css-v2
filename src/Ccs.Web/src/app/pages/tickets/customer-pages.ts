@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { problemOf } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
@@ -145,18 +147,55 @@ export class MyTicketsPage {
   }
 }
 
+interface DirRow { id: string; fullName: string; email: string; organizationId: string | null; organizationName: string | null; branchId: string | null; branchName: string | null }
+
 @Component({
   selector: 'app-new-ticket',
   imports: [RouterLink, TPipe, Req, ReqNote, Alert],
   template: `
     <main class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
-      <a [routerLink]="link('/tickets')" class="text-sm font-semibold text-brand-ink underline">{{ 'Tickets.title' | t }}</a>
+      @if (!staff) { <a [routerLink]="link('/tickets')" class="text-sm font-semibold text-brand-ink underline">{{ 'Tickets.title' | t }}</a> }
       <div>
-        <h1 class="text-3xl font-bold tracking-tight">{{ 'NewTicket.title' | t }}</h1>
-        <p class="mt-1 text-muted">{{ 'NewTicket.subtitle' | t }}</p>
+        <h1 class="text-3xl font-bold tracking-tight">{{ (staff ? 'StaffTicket.title' : 'NewTicket.title') | t }}</h1>
+        <p class="mt-1 text-muted">{{ (staff ? 'StaffTicket.subtitle' : 'NewTicket.subtitle') | t }}</p>
       </div>
-      @if (opts(); as o) {
+      @if (created(); as c) {
+        <section class="flex flex-col gap-4 rounded-md border border-line bg-surface p-6">
+          <app-alert tone="success">{{ 'StaffTicket.created' | t: { reference: c.reference } }}</app-alert>
+          <div class="flex flex-wrap gap-2">
+            <a [routerLink]="link('/console/tickets/' + c.id)" class="flex min-h-11 items-center rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'StaffTicket.view' | t }}</a>
+            <button type="button" (click)="another()" class="flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg">{{ 'StaffTicket.another' | t }}</button>
+          </div>
+        </section>
+      } @else if (opts(); as o) {
         <form class="flex flex-col gap-5 rounded-md border border-line bg-surface p-6" novalidate (submit)="$event.preventDefault(); submit()">
+          @if (staff) {
+            <div class="flex flex-col gap-1.5">
+              <label for="st-org" class="text-sm font-semibold">{{ 'StaffTicket.organization' | t }}</label>
+              <select id="st-org" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [value]="orgId()" (change)="pickOrg($any($event.target).value)">
+                <option value="">{{ 'StaffTicket.selectOrganization' | t }}</option>
+                @for (x of dirOrgs(); track x.id) { <option [value]="x.id">{{ x.name }}</option> }
+              </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="st-branch" class="text-sm font-semibold">{{ 'StaffTicket.branch' | t }}</label>
+              <select id="st-branch" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base disabled:bg-bg" [value]="branchId()" [disabled]="!orgId() || (!dirBranches().length && !hasNoBranch())"
+                (change)="branchId.set($any($event.target).value); customerId.set('')">
+                <option value="">{{ 'StaffTicket.selectBranch' | t }}</option>
+                @for (x of dirBranches(); track x.id) { <option [value]="x.id">{{ x.name }}</option> }
+                @if (hasNoBranch()) { <option [value]="NONE">{{ 'StaffTicket.noBranch' | t }}</option> }
+              </select>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="st-customer" class="text-sm font-semibold">{{ 'StaffTicket.customer' | t }}<app-req /></label>
+              <select id="st-customer" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base disabled:bg-bg" [value]="customerId()" [disabled]="!branchReady()"
+                (change)="customerId.set($any($event.target).value)" [attr.aria-invalid]="err()['customerId'] ? true : null">
+                <option value="">{{ 'StaffTicket.selectCustomer' | t }}</option>
+                @for (x of dirCustomers(); track x.id) { <option [value]="x.id">{{ x.fullName }} ({{ x.email }})</option> }
+              </select>
+              @if (err()['customerId']) { <p class="text-sm font-medium text-danger">{{ 'StaffTicket.errors.customerRequired' | t }}</p> }
+            </div>
+          }
           <fieldset class="flex flex-col gap-2">
             <legend class="mb-2 text-sm font-semibold">{{ 'TicketTypes.label' | t }}<app-req /></legend>
             <div class="grid gap-2 sm:grid-cols-2">
@@ -235,7 +274,7 @@ export class MyTicketsPage {
             </div>
           }
 
-          @if (error()) { <app-alert>{{ ('NewTicket.errors.' + error()) | t }}</app-alert> }
+          @if (error()) { <app-alert>{{ ((staff ? 'StaffTicket.errors.' : 'NewTicket.errors.') + error()) | t }}</app-alert> }
           <div class="flex flex-wrap items-center gap-3">
             <button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ (pending() ? 'NewTicket.submitting' : 'NewTicket.submit') | t }}</button>
             <app-req-note />
@@ -261,6 +300,23 @@ export class NewTicketPage {
   protected readonly error = signal<string | null>(null);
   protected readonly pending = signal(false);
 
+  // Staff "new ticket for a customer" (route data staff: true): organization, then branch, then the customer.
+  protected readonly staff = inject(ActivatedRoute).snapshot.data['staff'] === true;
+  protected readonly NONE = 'none';
+  private readonly http = inject(HttpClient);
+  protected readonly dir = signal<DirRow[]>([]);
+  protected readonly orgId = signal('');
+  protected readonly branchId = signal('');
+  protected readonly customerId = signal('');
+  protected readonly created = signal<{ id: string; reference: string } | null>(null);
+  private orgKey(r: DirRow): string { return r.organizationId ?? this.NONE; }
+  protected readonly dirOrgs = computed(() => [...new Map(this.dir().map((r) => [this.orgKey(r), r.organizationName ?? this.i18n.t('StaffTicket.noOrganization')])).entries()].map(([id, name]) => ({ id, name })));
+  private readonly inOrg = computed(() => this.dir().filter((r) => this.orgKey(r) === this.orgId()));
+  protected readonly dirBranches = computed(() => [...new Map(this.inOrg().filter((r) => r.branchId).map((r) => [r.branchId!, r.branchName ?? ''])).entries()].map(([id, name]) => ({ id, name })));
+  protected readonly hasNoBranch = computed(() => this.inOrg().some((r) => !r.branchId));
+  protected readonly dirCustomers = computed(() => this.inOrg().filter((r) => (this.branchId() === this.NONE ? !r.branchId : r.branchId === this.branchId())));
+  protected readonly branchReady = computed(() => this.orgId() !== '' && (this.dirBranches().length === 0 || this.branchId() !== ''));
+
   // Type first, then the categories that type offers, then subcategory and custom fields.
   protected readonly categories = computed(() => {
     const o = this.opts(); const t = o?.types.find((x) => x.id === this.typeId());
@@ -269,7 +325,19 @@ export class NewTicketPage {
   protected readonly subcategories = computed(() => this.opts()?.categories.find((c) => c.id === this.categoryId())?.subcategories ?? []);
   protected readonly fields = computed(() => (this.opts()?.fields ?? []).filter((f) => f.visibleToCustomer && (!f.categoryId || f.categoryId === this.categoryId())));
 
-  constructor() { void this.api.options().then((o) => this.opts.set(o)); }
+  constructor() {
+    void this.api.options().then((o) => this.opts.set(o));
+    if (this.staff) void firstValueFrom(this.http.get<DirRow[]>('/api/tickets/customers')).then((d) => this.dir.set(d)).catch(() => this.error.set('notAllowed'));
+  }
+  protected pickOrg(v: string): void {
+    this.orgId.set(v); this.customerId.set('');
+    const list = this.dir().filter((r) => this.orgKey(r) === v);
+    this.branchId.set(v && !list.some((r) => r.branchId) ? this.NONE : '');
+  }
+  protected another(): void {
+    this.created.set(null); this.orgId.set(''); this.branchId.set(''); this.customerId.set(''); this.typeId.set(''); this.categoryId.set(''); this.subcategoryId.set('');
+    this.priority.set(''); this.subject.set(''); this.description.set(''); this.values.set({}); this.err.set({}); this.error.set(null);
+  }
 
   link(p: string): string { return `/${this.i18n.locale()}${p}`; }
   pickType(id: string): void { this.typeId.set(id); if (!this.categories().some((c) => c.id === this.categoryId())) { this.categoryId.set(''); this.subcategoryId.set(''); } }
@@ -283,6 +351,7 @@ export class NewTicketPage {
 
   submit(): void {
     const e: Record<string, boolean> = {};
+    if (this.staff && !this.customerId()) e['customerId'] = true;
     if (!this.typeId()) e['typeId'] = true;
     if (!this.categoryId()) e['categoryId'] = true;
     const s = this.subject().trim(), d = this.description().trim();
@@ -299,12 +368,13 @@ export class NewTicketPage {
     const custom = Object.fromEntries(Object.entries(this.values()).filter(([, v]) => v !== '' && v !== null && v !== undefined));
     this.api.create({
       typeId: this.typeId(), categoryId: this.categoryId(), subcategoryId: this.subcategoryId() || null,
-      subject: s, description: d, customValues: custom, priority: this.priority() || null,
-    }).then((r) => this.router.navigateByUrl(this.link('/tickets/' + r.id)))
+      subject: s, description: d, customValues: custom, priority: this.priority() || null, requesterId: this.staff ? this.customerId() : null,
+    }).then((r) => { if (this.staff) this.created.set(r); else void this.router.navigateByUrl(this.link('/tickets/' + r.id)); })
       .catch((err) => {
         const p = problemOf(err);
         const map: Record<string, string> = { typeId: 'typeInvalid', categoryId: 'categoryInvalid', priority: 'priorityRequired', subject: 'subjectLength', description: 'descriptionLength' };
-        this.error.set(p.field && map[p.field] ? map[p.field] : p.status === 403 ? 'notCustomer' : 'generic');
+        if (this.staff && p.field === 'requesterId') { this.error.set('notAllowed'); return; }
+        this.error.set(p.field && map[p.field] ? map[p.field] : p.status === 403 ? (this.staff ? 'notAllowed' : 'notCustomer') : 'generic');
       })
       .finally(() => this.pending.set(false));
   }

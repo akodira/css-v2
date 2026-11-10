@@ -66,6 +66,11 @@ export class I18n {
     }
   }
 
+  /** The message value itself (an object or list, e.g. guide sections), like next-intl's t.raw(). */
+  raw<T = unknown>(key: string): T | undefined {
+    return key.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Messages)[k] : undefined), this.messages()) as T | undefined;
+  }
+
   has(key: string): boolean {
     if (this.overrides().has(`${this.locale()}|${key}`)) return true;
     return typeof key.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Messages)[k] : undefined), this.messages()) === 'string';

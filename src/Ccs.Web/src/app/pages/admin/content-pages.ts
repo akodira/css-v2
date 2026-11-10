@@ -1,3 +1,4 @@
+import { RouterLink } from '@angular/router';
 import { ChangeDetectionStrategy, Component, OnInit, WritableSignal, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
@@ -19,10 +20,14 @@ const blankReason = (): ReasonModel => ({ nameEn: '', nameAr: '', customerMayReo
 
 @Component({
   selector: 'app-admin-status',
-  imports: [TPipe, Alert, FormsModule, Req, NgTemplateOutlet],
+  imports: [TPipe, Alert, FormsModule, Req, NgTemplateOutlet, RouterLink],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       ${HEADER}
+      <section aria-labelledby="guide" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface p-5 shadow-card">
+        <div><h2 id="guide" class="text-lg font-bold">{{ 'StatusGuide.title' | t }}</h2><p class="max-w-prose text-sm text-muted">{{ 'StatusGuide.openHelp' | t }}</p></div>
+        <a [routerLink]="'/' + i18n.locale() + '/admin/ticket-status/guide'" class="inline-flex min-h-11 items-center rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'StatusGuide.open' | t }}</a>
+      </section>
       <details [class]="cls.card">
         <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'AdminStatus.howTitle' | t }}</span></summary>
         <ul class="list-disc px-10 pb-5 text-sm leading-relaxed">
