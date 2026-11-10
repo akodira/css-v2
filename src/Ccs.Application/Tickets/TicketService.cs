@@ -145,6 +145,8 @@ public sealed class TicketService(
             UpdatedAt = now,
         };
         db.Tickets.Add(ticket);
+        // No navigation properties: save the ticket first so its rows (fields, history) never reach SQL Server before it.
+        await db.SaveChangesAsync(ct);
         foreach (var (fieldId, json) in toStore)
             db.TicketCustomFieldValues.Add(new TicketCustomFieldValue { TicketId = ticket.Id, FieldId = fieldId, Value = json });
 
