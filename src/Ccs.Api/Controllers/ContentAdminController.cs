@@ -461,6 +461,15 @@ public sealed class KbController(CcsDbContext db, AccessService access, IClock c
         return new { categories = cats, items };
     }
 
+    /// <summary>Most helpful published articles the caller may read (home page "popular").</summary>
+    [HttpGet("popular")]
+    public async Task<object> Popular([FromQuery] int take, CancellationToken ct)
+    {
+        var n = Math.Clamp(take == 0 ? 3 : take, 1, 12);
+        return await (await VisibleAsync(ct)).OrderByDescending(a => a.HelpfulCount).ThenByDescending(a => a.PublishedAt).Take(n)
+            .Select(a => new { a.Id, a.Slug, a.TitleEn, a.TitleAr }).ToListAsync(ct);
+    }
+
     [HttpGet("{slug}")]
     public async Task<object> Get(string slug, CancellationToken ct)
     {

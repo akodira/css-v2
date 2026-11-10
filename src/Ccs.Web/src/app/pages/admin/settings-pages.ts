@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { NgTemplateOutlet } from '@angular/common';
@@ -27,7 +27,13 @@ abstract class Tab {
   protected readonly cls = CLS;
   protected readonly msg = signal<Msg>(null);
   protected readonly busy = signal(false);
-  protected get<T>(p: string): Promise<T> { return firstValueFrom(this.http.get<T>('/api/admin/settings/' + p)); }
+  private readonly cdr = inject(ChangeDetectorRef);
+  /** Loads data and schedules a re-render: tabs keep plain fields, which zoneless Angular does not track on its own. */
+  protected async get<T>(p: string): Promise<T> {
+    const r = await firstValueFrom(this.http.get<T>('/api/admin/settings/' + p));
+    this.cdr.markForCheck();
+    return r;
+  }
   protected put(p: string, b: unknown): Promise<unknown> { return firstValueFrom(this.http.put('/api/admin/settings/' + p, b)); }
   protected post<T = unknown>(p: string, b: unknown): Promise<T> { return firstValueFrom(this.http.post<T>('/api/admin/settings/' + p, b)); }
   protected del(p: string): Promise<unknown> { return firstValueFrom(this.http.delete('/api/admin/settings/' + p)); }
