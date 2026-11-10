@@ -212,6 +212,16 @@ export class HomePage {
             <span class="rounded-full px-3 py-1 text-xs font-semibold" [class]="me.mfaEnabled ? 'bg-ok-soft text-ok' : 'bg-bg text-muted border border-line'">{{ (me.mfaEnabled ? 'Mfa.on' : 'Mfa.off') | t }}</span>
           </div>
           <p class="mb-4 text-muted">{{ 'Mfa.intro' | t }}</p>
+          @if (me.mfaEnabled) {
+            @if (confirmOff()) {
+              <div class="flex flex-wrap items-center gap-2"><span class="text-sm font-semibold">{{ 'Mfa.confirmOff' | t }}</span>
+                <button type="button" (click)="disableMfa()" class="min-h-11 cursor-pointer rounded-lg bg-danger px-5 font-semibold text-white">{{ 'Mfa.yesOff' | t }}</button>
+                <button type="button" (click)="confirmOff.set(false)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-5 font-semibold hover:bg-bg">{{ 'Mfa.cancel' | t }}</button></div>
+            } @else {
+              <button type="button" (click)="confirmOff.set(true)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-5 font-semibold hover:bg-bg">{{ 'Mfa.turnOff' | t }}</button>
+            }
+            @if (mfaErr()) { <app-alert>{{ 'Mfa.errors.' + mfaErr() | t }}</app-alert> }
+          }
           @if (!me.mfaEnabled && !qr()) {
             <button type="button" (click)="startMfa()" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-5 font-semibold hover:bg-bg">{{ 'Mfa.turnOn' | t }}</button>
           }
@@ -253,6 +263,13 @@ export class AccountPage {
   protected readonly secret = signal('');
   protected readonly otp = signal('');
   protected readonly mfaErr = signal<string | null>(null);
+  protected readonly confirmOff = signal(false);
+  protected disableMfa(): void {
+    this.mfaErr.set(null);
+    firstValueFrom(this.http.post('/api/auth/mfa/disable', {}))
+      .then(() => { this.confirmOff.set(false); return this.auth.loadMe(); })
+      .catch(() => this.mfaErr.set('disable'));
+  }
   protected readonly roles = computed(() => (this.auth.me()?.roles ?? []).map((r) => this.i18n.t('Roles.' + r)).join(', '));
 
   changePassword(): void {

@@ -614,6 +614,10 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
                   @if (!h.isDefault) { <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="remove('business-hours/' + h.id)">{{ 'Directory.delete' | t }}</button> }
                 </div>
               </form>
+              <div class="flex flex-col gap-2 border-t border-line pt-4">
+                <p class="text-sm text-muted">{{ 'AdminSla.calendars.recalcHelp' | t }}</p>
+                <div><button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="recalc(h)">{{ 'AdminSla.calendars.recalc' | t }}</button></div>
+              </div>
               <section class="border-t border-line pt-4">
                 <h3 class="text-lg font-bold">{{ 'AdminSla.holidays' | t }}</h3>
                 @if (!h.holidays.length) { <p class="text-sm text-muted">{{ 'AdminSla.noHolidays' | t }}</p> }
@@ -634,6 +638,32 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
             </div>
           </details>
         }
+        @if (asg(); as a) {
+          <details [class]="cls.card">
+            <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'AdminSla.calendars.assignTitle' | t }}</span>
+              <span class="mt-0.5 block text-sm text-muted">{{ 'AdminSla.calendars.assignHelp' | t }}</span></summary>
+            <ul class="flex flex-col gap-2 px-5 pb-5">
+              @for (o of a.organizations; track o.id) {
+                <ng-container *ngTemplateOutlet="assignRow; context: { kind: 'organization', id: o.id, label: o.name, current: o.businessHoursId, indent: false }" />
+                @for (b of branchesIn(o.id); track b.id) {
+                  <ng-container *ngTemplateOutlet="assignRow; context: { kind: 'branch', id: b.id, label: b.name, current: b.businessHoursId, indent: true }" />
+                }
+              }
+              @for (t of a.teams; track t.id) {
+                <ng-container *ngTemplateOutlet="assignRow; context: { kind: 'team', id: t.id, label: i18n.pick(t.nameEn, t.nameAr), current: t.businessHoursId, indent: false }" />
+              }
+            </ul>
+          </details>
+        }
+        <ng-template #assignRow let-kind="kind" let-id="id" let-label="label" let-current="current" let-indent="indent">
+          <li class="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3" [class.ms-6]="indent">
+            <span class="min-w-48 flex-1 font-semibold" dir="auto">{{ label }}</span>
+            <select [attr.aria-label]="label" [class]="cls.input + ' w-56'" (change)="assign(kind, id, $any($event.target).value)">
+              <option value="" [selected]="!current">{{ 'AdminSla.calendars.followDefault' | t }}</option>
+              @for (h of hours(); track h.id) { <option [value]="h.id" [selected]="h.id === current">{{ h.name }}</option> }
+            </select>
+          </li>
+        </ng-template>
         <details [class]="cls.card" #addh>
           <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'AdminV2.addCalendar' | t }}</span></summary>
           <form class="flex flex-col gap-3 px-5 pb-5" (ngSubmit)="createHours(addh)">
@@ -657,8 +687,23 @@ export class AdminSlaPage extends AdminBase implements OnInit {
   protected cal: Record<string, HoursModel> = {};
   protected hol: Record<string, { date: string; name: string }> = {};
   protected nwCal: HoursModel = blankHours();
+  protected readonly asg = signal<{ organizations: { id: string; name: string; businessHoursId: string | null }[];
+    branches: { id: string; organizationId: string; name: string; businessHoursId: string | null }[];
+    teams: { id: string; nameEn: string; nameAr: string; businessHoursId: string | null }[] } | null>(null);
 
-  async ngOnInit(): Promise<void> { await this.reload(); }
+  async ngOnInit(): Promise<void> {
+    await this.reload();
+    try { this.asg.set(await this.api.get('calendar-assignments')); } catch { /* optional */ }
+  }
+  protected branchesIn(org: string) { return (this.asg()?.branches ?? []).filter((b) => b.organizationId === org); }
+  protected assign(kind: string, id: string, cal: string): void {
+    void this.run(() => this.api.put('calendar-assignments', { kind, id, calendarId: cal || null }), 'AdminSla.calendars.applied');
+  }
+  protected async recalc(h: HoursRow): Promise<void> {
+    let n = 0;
+    await this.run(async () => { n = (await this.api.post<{ count: number }>(`business-hours/${h.id}/recalculate`, {})).count; });
+    if (this.msg()?.tone === 'success') this.ok('AdminSla.calendars.recalcDone', { count: n });
+  }
   protected async reload(): Promise<void> {
     try {
       const d = await this.api.get<{ policies: SlaRow[]; hours: HoursRow[] }>('sla');

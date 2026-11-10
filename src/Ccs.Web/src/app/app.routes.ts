@@ -9,8 +9,6 @@ import { ConsoleQueuePage, ConsoleTicketPage } from './pages/console/console-pag
 import { DashboardPage } from './pages/console/dashboard-page';
 import { AuditPage, MyTeamPage, ReportsPage, SlaReportPage } from './pages/console/insights-pages';
 import { AccountPage, HomePage, NotificationsPage } from './pages/account-pages';
-import { SettingsPage } from './pages/admin/settings-pages';
-import { AdminEscalationPage, AdminKbPage, AdminStatusPage } from './pages/admin/content-pages';
 import { CannedPage, KbArticlePage, KbListPage } from './pages/help-pages';
 import { AdminCatalogPage, AdminPrioritiesPage, AdminSlaPage, AdminTicketTypesPage } from './pages/admin/catalog-pages';
 import { AdminApprovalsPage, AdminCustomersPage, AdminOrgsPage, AdminStaffPage, CustomerProfilePage, AdminTeamsPage, AdminTypesPage } from './pages/admin/admin-pages';
@@ -76,11 +74,11 @@ export const routes: Routes = [
           { path: 'admin/catalog', canActivate: [requireRole(STAFF_ROLES)], component: AdminCatalogPage },
           { path: 'admin/priorities', canActivate: [requireRole(STAFF_ROLES)], component: AdminPrioritiesPage },
           { path: 'admin/sla', canActivate: [requireRole(STAFF_ROLES)], component: AdminSlaPage },
-          { path: 'admin/ticket-status', canActivate: [requireRole(STAFF_ROLES)], component: AdminStatusPage },
-          { path: 'admin/escalation', canActivate: [requireRole(['admin'])], component: AdminEscalationPage },
-          { path: 'admin/general/settings', canActivate: [requireRole(STAFF_ROLES)], component: SettingsPage },
-          { path: 'admin/general/settings/:tab', canActivate: [requireRole(STAFF_ROLES)], component: SettingsPage },
-          { path: 'admin/kb', canActivate: [requireRole(STAFF_ROLES)], component: AdminKbPage },
+          { path: 'admin/ticket-status', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/content-pages').then((m) => m.AdminStatusPage) },
+          { path: 'admin/escalation', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/content-pages').then((m) => m.AdminEscalationPage) },
+          { path: 'admin/general/settings', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/settings-pages').then((m) => m.SettingsPage) },
+          { path: 'admin/general/settings/:tab', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/settings-pages').then((m) => m.SettingsPage) },
+          { path: 'admin/kb', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/content-pages').then((m) => m.AdminKbPage) },
           { path: 'console/canned', canActivate: [requireRole(['agent', 'team_leader', 'admin'])], component: CannedPage },
           { path: 'console/reports', canActivate: [requireRole(STAFF_ROLES)], component: ReportsPage },
           { path: 'console/sla', canActivate: [requireRole(STAFF_ROLES)], component: SlaReportPage },

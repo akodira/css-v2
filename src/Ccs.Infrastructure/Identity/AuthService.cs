@@ -31,7 +31,8 @@ public sealed record RegisterRequest(string FullName, string Email, string? Phon
 /// </summary>
 public sealed class AuthService(
     UserManager<AppUser> users, CcsDbContext db, TokenService tokens, TemplateMailer mailer, IEmailSender sender,
-    NotificationService notifications, AuditService audit, IClock clock, ILogger<AuthService> log)
+    NotificationService notifications, AuditService audit, IClock clock, ILogger<AuthService> log,
+    Ccs.Application.Settings.SettingsService settings)
 {
     private const int ResetCodeLength = 6, ResetCodeMinutes = 60, ResetCodeAttempts = 5;
 
@@ -50,6 +51,14 @@ public sealed class AuthService(
         }
         await users.ResetAccessFailedCountAsync(user);
         if (!user.EmailConfirmed) throw new AuthError("emailNotConfirmed", 403);
+        if (await PasswordExpiredAsync(user.Id, ct))
+        {
+            // Same as v1: an expired password cannot sign in; a one-time code is emailed and the renewal step opens.
+            var lastMinute = clock.UtcNow.AddSeconds(-60);
+            if (!await db.AuthCodes.AnyAsync(c => c.UserId == user.Id && c.Purpose == "recovery" && c.CreatedAt > lastMinute, ct))
+                await SendCodeAsync(user, "recovery", "auth_recovery", ct);
+            throw new AuthError("passwordExpired", 403);
+        }
         return await CompleteFirstFactorAsync(user, userAgent, ip, ct);
     }
 
@@ -247,6 +256,15 @@ public sealed class AuthService(
                       where r.Code == RoleCode.Admin && pr.AccountStatus == AccountStatus.Active select ur.UserId).ToListAsync(ct);
     }
 
+    /// <summary>my_password_status().expired: expiry switched on and the password is older than the allowed days.</summary>
+    private async Task<bool> PasswordExpiredAsync(Guid userId, CancellationToken ct)
+    {
+        var policy = await settings.GetPasswordPolicyAsync(ct);
+        if (!policy.ExpiryEnabled) return false;
+        var changed = await db.Profiles.Where(p => p.Id == userId).Select(p => (DateTimeOffset?)p.PasswordChangedAt).FirstOrDefaultAsync(ct);
+        return changed is DateTimeOffset at && clock.UtcNow >= at.AddDays(policy.ExpiryDays);
+    }
+
     // ------------------------------------------------------------------ password reset by code
 
     public async Task ForgotPasswordAsync(string email, CancellationToken ct = default)
@@ -315,14 +333,15 @@ public sealed class AuthService(
     }
 
     /// <summary>admin_reset_mfa(): an administrator removes a person's factor.</summary>
-    public async Task ResetMfaAsync(Guid userId, CancellationToken ct = default)
+    /// <param name="self">The person turning it off themselves (v1 disableMfaAction) stays signed in; an administrator's reset signs them out everywhere.</param>
+    public async Task ResetMfaAsync(Guid userId, CancellationToken ct = default, bool self = false)
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new NotFoundException();
         await users.SetTwoFactorEnabledAsync(user, false);
         await users.ResetAuthenticatorKeyAsync(user);
-        audit.Write("user.mfa_reset", "user", userId, null, null);
+        audit.Write(self ? "auth.mfa_disabled" : "user.mfa_reset", "user", userId, null, null);
         await db.SaveChangesAsync(ct);
-        await tokens.RevokeAllAsync(userId, ct);
+        if (!self) await tokens.RevokeAllAsync(userId, ct);
     }
 
     // ------------------------------------------------------------------ helpers

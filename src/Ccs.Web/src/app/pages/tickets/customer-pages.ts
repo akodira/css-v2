@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, injec
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { problemOf } from '../../core/auth';
+import { Auth, problemOf } from '../../core/auth';
+import { CommentActions, CustomerLifecycle, LifecycleApi, TicketLifecycle, TicketLinksNotice } from './lifecycle';
 import { I18n, TPipe } from '../../core/i18n';
 import { NewTicketOptions, Paged, SiteService, TicketDetail, TicketListItem, TicketSummary, TicketsApi } from '../../core/api';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
@@ -170,6 +171,7 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
           </div>
         </section>
       } @else if (opts(); as o) {
+        @if (followUp(); as fu) { <p class="rounded-md border border-line bg-brand-soft p-4 text-sm">{{ 'Lifecycle.customer.followUpNotice' | t: { reference: fu.reference } }}</p> }
         <form class="flex flex-col gap-5 rounded-md border border-line bg-surface p-6" novalidate (submit)="$event.preventDefault(); submit()">
           @if (staff) {
             <div class="flex flex-col gap-1.5">
@@ -245,9 +247,15 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
           <div class="flex flex-col gap-1.5">
             <label for="subject" class="text-sm font-semibold">{{ 'NewTicket.subject' | t }}<app-req /></label>
             <input id="subject" maxlength="200" dir="auto" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base aria-[invalid=true]:border-danger"
-              [value]="subject()" (input)="subject.set($any($event.target).value)" [attr.aria-invalid]="err()['subject'] ? true : null" />
+              [value]="subject()" (input)="subject.set($any($event.target).value); suggestFor($any($event.target).value)" [attr.aria-invalid]="err()['subject'] ? true : null" />
             <p class="text-sm" [class]="err()['subject'] ? 'font-medium text-danger' : 'text-muted'">{{ (err()['subject'] ? 'NewTicket.errors.subjectLength' : 'NewTicket.subjectHint') | t }}</p>
           </div>
+          @if (hints().length) {
+            <div class="rounded-lg border border-brand/30 bg-brand-soft p-4 text-sm" aria-live="polite">
+              <p class="font-semibold">{{ 'NewTicket.suggestions' | t }}</p>
+              <ul class="mt-2 flex flex-col gap-1">@for (h of hints(); track h.slug) { <li><a [href]="link('/kb/' + h.slug)" target="_blank" rel="noopener" class="font-semibold text-brand-ink underline" dir="auto">{{ i18n.pick(h.titleEn, h.titleAr) }}</a></li> }</ul>
+            </div>
+          }
 
           <div class="flex flex-col gap-1.5">
             <label for="desc" class="text-sm font-semibold">{{ 'NewTicket.description' | t }}<app-req /></label>
@@ -316,6 +324,16 @@ export class NewTicketPage {
   private readonly uploads = inject(Uploads);
   protected readonly files = signal<File[]>([]);
   protected readonly failedFiles = signal<string[]>([]);
+  private readonly lcApi = inject(LifecycleApi);
+  protected readonly hints = signal<{ slug: string; titleEn: string; titleAr: string | null }[]>([]);
+  private hintTimer: ReturnType<typeof setTimeout> | null = null;
+  protected readonly followUp = signal<{ id: string; reference: string } | null>(null);
+  protected suggestFor(v: string): void {
+    if (this.staff) return;
+    if (this.hintTimer) clearTimeout(this.hintTimer);
+    if (v.trim().length < 3) { this.hints.set([]); return; }
+    this.hintTimer = setTimeout(() => void this.lcApi.suggest(v).then((h) => this.hints.set(h)).catch(() => undefined), 400);
+  }
   private orgKey(r: DirRow): string { return r.organizationId ?? this.NONE; }
   protected readonly dirOrgs = computed(() => [...new Map(this.dir().map((r) => [this.orgKey(r), r.organizationName ?? this.i18n.t('StaffTicket.noOrganization')])).entries()].map(([id, name]) => ({ id, name })));
   private readonly inOrg = computed(() => this.dir().filter((r) => this.orgKey(r) === this.orgId()));
@@ -334,6 +352,8 @@ export class NewTicketPage {
 
   constructor() {
     void this.api.options().then((o) => this.opts.set(o));
+    const fu = inject(ActivatedRoute).snapshot.queryParamMap.get('followUp');
+    if (!this.staff && fu && /^[0-9a-f-]{36}$/.test(fu)) void this.api.get(fu).then((t) => this.followUp.set({ id: t.id, reference: t.reference })).catch(() => undefined);
     if (this.staff) void firstValueFrom(this.http.get<DirRow[]>('/api/tickets/customers')).then((d) => this.dir.set(d)).catch(() => this.error.set('notAllowed'));
   }
   protected pickOrg(v: string): void {
@@ -377,6 +397,8 @@ export class NewTicketPage {
       typeId: this.typeId(), categoryId: this.categoryId(), subcategoryId: this.subcategoryId() || null,
       subject: s, description: d, customValues: custom, priority: this.priority() || null, requesterId: this.staff ? this.customerId() : null,
     }).then(async (r) => {
+      const fu = this.followUp();
+      if (fu) await this.lcApi.post(r.id, 'follow-up', { of: fu.id }).catch(() => undefined);
       const failed = this.files().length ? await this.uploads.upload(r.id, null, this.files()) : [];
       this.failedFiles.set(failed);
       if (this.staff || failed.length) this.created.set(r); else void this.router.navigateByUrl(this.link('/tickets/' + r.id));
@@ -393,7 +415,7 @@ export class NewTicketPage {
 
 @Component({
   selector: 'app-ticket-detail',
-  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, CustomerLifecycle, TicketLinksNotice, CommentActions],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -433,6 +455,8 @@ export class NewTicketPage {
           <app-attachments [ticketId]="tk.id" [items]="ticketFiles()" />
         </section>
 
+        <app-ticket-links-notice [lc]="lc()" />
+
         @if ((tk.status === 'resolved' || tk.status === 'closed') && tk.resolutionSummary) {
           <section aria-labelledby="resolution" class="rounded-md border border-brand bg-brand-soft p-6">
             <h2 id="resolution" class="text-lg font-bold text-brand-ink">{{ 'Ticket.resolution' | t }}</h2>
@@ -448,8 +472,9 @@ export class NewTicketPage {
                 <span class="font-semibold" dir="auto">{{ m.authorId === tk.requesterId ? ('Ticket.you' | t) : (m.authorName ?? ('Ticket.support' | t)) }}</span>
                 <span class="text-muted">{{ i18n.date(m.createdAt) }}</span>
               </header>
-              <p class="whitespace-pre-wrap leading-relaxed" dir="auto">{{ m.body }}</p>
+              <p class="whitespace-pre-wrap leading-relaxed" dir="auto">{{ m.body }}@if (m.editedAt) { <span class="ms-1 text-xs text-muted">({{ 'Comments.edited' | t }})</span> }</p>
               <app-attachments [ticketId]="tk.id" [items]="m.attachments" />
+              <app-comment-actions [ticketId]="tk.id" [message]="m" [me]="auth.me()?.id ?? null" (changed)="load()" />
             </article>
           } @empty { <p class="rounded-md border border-line bg-surface p-4 text-muted">{{ 'Ticket.noReplies' | t }}</p> }
         </section>
@@ -487,6 +512,7 @@ export class NewTicketPage {
         } @else if (tk.status === 'closed' && !tk.names.closureAllowsReopen) {
           <p class="rounded-md border border-line bg-surface p-6 text-muted">{{ 'Ticket.cannotReopen' | t: { reason: i18n.pick(tk.names.closureEn, tk.names.closureAr) } }}</p>
         }
+        <app-customer-lifecycle [ticket]="tk" [lc]="lc()" (changed)="load()" />
       </main>
     } @else if (notFound()) {
       <main class="mx-auto w-full max-w-3xl px-4 py-12"><app-alert>{{ 'Ticket.errors.notFound' | t }}</app-alert></main>
@@ -505,6 +531,9 @@ export class TicketDetailPage {
   protected readonly msg = signal<string | null>(null);
   protected readonly msgTone = signal<'error' | 'success'>('success');
   private readonly uploads = inject(Uploads);
+  protected readonly auth = inject(Auth);
+  private readonly lcApi = inject(LifecycleApi);
+  protected readonly lc = signal<TicketLifecycle | null>(null);
   protected readonly files = signal<File[]>([]);
   protected readonly ticketFiles = computed(() => (this.t()?.messages ?? []).find((m) => m.kind === 'ticket_files')?.attachments ?? []);
   protected readonly replies = computed(() => (this.t()?.messages ?? []).filter((m) => m.kind === 'public_reply'));
@@ -520,6 +549,7 @@ export class TicketDetailPage {
 
   load(): void {
     this.api.get(this.id).then((t) => this.t.set(t)).catch(() => this.notFound.set(true));
+    this.lcApi.get(this.id).then((l) => this.lc.set(l)).catch(() => undefined);
   }
 
   send(): void {

@@ -17,7 +17,7 @@ namespace Ccs.Api.Controllers;
 /// </summary>
 [ApiController]
 [Authorize]
-public sealed class CustomerProfileController(CcsDbContext db, AccessService access, AuditService audit) : ControllerBase
+public sealed class CustomerProfileController(CcsDbContext db, AccessService access, AuditService audit, AuthService auth) : ControllerBase
 {
     public sealed record PromoteBody(string Role, Guid? AccountTypeId, Guid? TeamId, bool AutoAssign);
     private static AuthError Err(string code, string? field = null, int status = 400) => new(code, status, field);
@@ -83,6 +83,15 @@ public sealed class CustomerProfileController(CcsDbContext db, AccessService acc
             db.TeamMembers.Add(new TeamMember { TeamId = t2, UserId = id, IsLeader = false });
         audit.Write("user.promoted", "user", id, before, new { roles = new[] { b.Role }, accountTypeId = b.AccountTypeId, teamId = b.TeamId });
         await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>admin_reset_mfa(): switch off someone's two-step verification, e.g. after a lost phone.</summary>
+    [HttpPost("api/admin/users/{id:guid}/reset-mfa")]
+    public async Task<IActionResult> ResetMfa(Guid id, CancellationToken ct)
+    {
+        await AdminAsync(ct);
+        await auth.ResetMfaAsync(id, ct);
         return NoContent();
     }
 

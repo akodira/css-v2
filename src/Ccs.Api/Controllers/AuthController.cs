@@ -124,6 +124,14 @@ public sealed class AuthController(AuthService auth, CcsDbContext db, CaptchaVer
         return new { secret, otpauthUri = uri };
     }
 
+    [HttpPost("mfa/disable")]
+    [Authorize]
+    public async Task<IActionResult> DisableMfa(CancellationToken ct)
+    {
+        await auth.ResetMfaAsync(Me, ct, self: true);
+        return NoContent();
+    }
+
     [HttpPost("mfa/enroll/verify")]
     [Authorize]
     public async Task<IActionResult> CompleteMfa(CodeBody body, CancellationToken ct)

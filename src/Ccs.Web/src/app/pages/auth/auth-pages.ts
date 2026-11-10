@@ -79,7 +79,17 @@ export class LoginPage extends FormBase {
     if (!this.password()) fe['password'] = 'required';
     if (Object.keys(fe).length) { this.fieldErrors.set(fe); return; }
     void this.run(async () => {
-      const s = await this.auth.signIn(this.identifier().trim(), this.password());
+      let s;
+      try { s = await this.auth.signIn(this.identifier().trim(), this.password()); }
+      catch (e) {
+        // Expired password: a code was emailed; open the renewal step (v1 /reset-password?expired=1).
+        if (problemOf(e).code === 'passwordExpired') {
+          const id = this.identifier().trim();
+          await this.router.navigate([this.link('/reset-password')], { queryParams: { email: id.includes('@') ? id : null, expired: 1 } });
+          return;
+        }
+        throw e;
+      }
       if (s.mfaRequired) await this.router.navigate([this.link('/mfa')], { queryParamsHandling: 'preserve' });
       else await this.goHome();
     });
@@ -300,6 +310,7 @@ export class ForgotPage extends FormBase {
           <app-alert tone="success">{{ 'V2.resetDone' | t }}</app-alert>
           <a [routerLink]="link('/login')" class="text-sm font-semibold text-brand-ink underline">{{ 'Auth.register.login' | t }}</a>
         } @else {
+          @if (expired) { <app-alert>{{ 'Auth.code.expired' | t }}</app-alert> }
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
             <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" dir="ltr" [required]="true" [(value)]="email" />
             <app-text-field name="code" [label]="'Auth.code.label' | t" [hint]="'Auth.code.hint' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="6" [required]="true" [(value)]="code" />
@@ -314,6 +325,7 @@ export class ForgotPage extends FormBase {
 export class ResetPage extends FormBase {
   private readonly http = inject(HttpClient);
   protected readonly email = signal(this.route.snapshot.queryParamMap.get('email') ?? '');
+  protected readonly expired = this.route.snapshot.queryParamMap.get('expired') === '1';
   protected readonly code = signal('');
   protected readonly password = signal('');
   protected readonly done = signal(false);

@@ -118,6 +118,7 @@ public sealed class AdminController(
             .Select(g => new { Id = g.Key, Total = g.Count(), Open = g.Count(t => t.Status != TicketStatus.Resolved && t.Status != TicketStatus.Closed) })
             .ToListAsync(ct);
         var tk = tickets.ToDictionary(t => t.Id);
+        var mfa = (await users.Users.Where(u => u.TwoFactorEnabled && ids.Contains(u.Id)).Select(u => u.Id).ToListAsync(ct)).ToHashSet();
         return list.Select(u => new
         {
             u.Id, u.FullName, u.Email, u.Phone, u.Status, u.Role, u.AccountTypeId, u.OrganizationId, u.BranchId,
@@ -126,6 +127,7 @@ public sealed class AdminController(
             Tickets = tk.TryGetValue(u.Id, out var t) ? t.Total : 0,
             OpenTickets = tk.TryGetValue(u.Id, out var o) ? o.Open : 0,
             IsSelf = u.Id == c.UserId,
+            MfaEnabled = mfa.Contains(u.Id),
         });
     }
 

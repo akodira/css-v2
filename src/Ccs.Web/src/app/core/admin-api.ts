@@ -19,7 +19,7 @@ export interface Lookups {
 export interface AdminUser {
   id: string; fullName: string; email: string; phone: string | null; status: string; role: string | null;
   accountTypeId: string | null; organizationId: string | null; branchId: string | null; autoAssign: boolean;
-  canCreateForCustomers: boolean; createdAt: string; teamIds: string[]; tickets: number; openTickets: number; isSelf: boolean;
+  canCreateForCustomers: boolean; createdAt: string; teamIds: string[]; tickets: number; openTickets: number; isSelf: boolean; mfaEnabled?: boolean;
 }
 export interface UserBody {
   fullName: string; email: string; phone: string; password: string; role: string; accountTypeId: string | null;

@@ -461,6 +461,23 @@ public sealed class KbController(CcsDbContext db, AccessService access, IClock c
         return new { categories = cats, items };
     }
 
+    /// <summary>Up to 3 articles matching any word of what the customer is typing (v1 suggestArticlesAction, mode "any").</summary>
+    [HttpGet("suggest")]
+    public async Task<object> Suggest([FromQuery] string? q, CancellationToken ct)
+    {
+        var c = await access.GetContextAsync(ct);
+        if (c.UserId == Guid.Empty || string.IsNullOrWhiteSpace(q) || q.Trim().Length < 3) return Array.Empty<object>();
+        var words = q.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(w => w.Length >= 3).Select(w => w.Length > 40 ? w[..40] : w).Distinct().Take(6).ToList();
+        if (words.Count == 0) return Array.Empty<object>();
+        var arts = (await VisibleAsync(ct)).Select(a => new { a.Id, a.Slug, a.TitleEn, a.TitleAr, a.BodyEn, a.BodyAr, a.HelpfulCount });
+        var list = await arts.ToListAsync(ct);
+        return list.Select(a => new { a, Score = words.Count(w => a.TitleEn.Contains(w, StringComparison.OrdinalIgnoreCase) || (a.TitleAr ?? "").Contains(w, StringComparison.OrdinalIgnoreCase)) * 3
+                                                + words.Count(w => a.BodyEn.Contains(w, StringComparison.OrdinalIgnoreCase) || (a.BodyAr ?? "").Contains(w, StringComparison.OrdinalIgnoreCase)) })
+            .Where(x => x.Score > 0).OrderByDescending(x => x.Score).ThenByDescending(x => x.a.HelpfulCount).Take(3)
+            .Select(x => new { x.a.Slug, x.a.TitleEn, x.a.TitleAr }).ToList();
+    }
+
     /// <summary>Most helpful published articles the caller may read (home page "popular").</summary>
     [HttpGet("popular")]
     public async Task<object> Popular([FromQuery] int take, CancellationToken ct)

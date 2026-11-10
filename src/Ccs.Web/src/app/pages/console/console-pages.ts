@@ -9,6 +9,8 @@ import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, SlaChip, SortTh, Sta
 import { autoRefresh } from '../tickets/customer-pages';
 import { CannedApi } from '../help-pages';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
+import { NewTicketOptions } from '../../core/api';
+import { CommentActions, LifecycleApi, StaffLifecycle, TicketLifecycle } from '../tickets/lifecycle';
 
 const SLA_TONE: Record<string, string> = {
   on_track: 'bg-ok-soft text-ok', due_soon: 'bg-warn-soft text-warn-ink', breached: 'bg-danger-soft text-danger',
@@ -204,7 +206,7 @@ export class ConsoleQueuePage {
 /** Ticket workspace: reply or internal note, status change, claim (spec 7). Escalation, links and fields arrive in stage 4. */
 @Component({
   selector: 'app-console-ticket',
-  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
@@ -230,8 +232,9 @@ export class ConsoleQueuePage {
                       <span class="ms-2 rounded bg-surface/70 px-1.5 py-0.5 text-xs font-semibold text-muted">{{ (m.kind === 'internal_note' ? 'Console.ticket.internalNote' : m.authorIsStaff ? 'Console.ticket.staffLabel' : 'Console.ticket.customerLabel') | t }}</span></span>
                     <span class="text-muted">{{ i18n.date(m.createdAt) }}</span>
                   </header>
-                  <p class="whitespace-pre-wrap leading-relaxed" dir="auto">{{ m.body }}</p>
+                  <p class="whitespace-pre-wrap leading-relaxed" dir="auto">{{ m.body }}@if (m.editedAt) { <span class="ms-1 text-xs text-muted">({{ 'Comments.edited' | t }})</span> }</p>
                   <app-attachments [ticketId]="tk.id" [items]="m.attachments" />
+                  <app-comment-actions [ticketId]="tk.id" [message]="m" [me]="auth.me()?.id ?? null" (changed)="load()" />
                 </article>
               }
             } @empty { <p class="text-muted">{{ 'Console.ticket.noComments' | t }}</p> }
@@ -308,6 +311,7 @@ export class ConsoleQueuePage {
               </form>
             </section>
           }
+          <app-staff-lifecycle [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
         </aside>
       </main>
     } @else if (missing()) {
@@ -354,7 +358,14 @@ export class ConsoleTicketPage {
 
   link(p: string): string { return `/${this.i18n.locale()}${p}`; }
   prio(c: string | null): string { return PRIORITY_TONE[c ?? 'grey'] ?? PRIORITY_TONE['grey']; }
-  load(): void { this.api.get(this.id).then((t) => { this.t.set(t); if (!t.canReply && t.canSeeInternalNotes) this.kind.set('internal_note'); }).catch(() => this.missing.set(true)); }
+  private readonly lcApi = inject(LifecycleApi);
+  protected readonly lc = signal<TicketLifecycle | null>(null);
+  protected readonly opts = signal<NewTicketOptions | null>(null);
+  load(): void {
+    this.api.get(this.id).then((t) => { this.t.set(t); if (!t.canReply && t.canSeeInternalNotes) this.kind.set('internal_note'); }).catch(() => this.missing.set(true));
+    this.lcApi.get(this.id).then((l) => this.lc.set(l)).catch(() => undefined);
+    if (!this.opts()) this.api.options().then((o) => this.opts.set(o)).catch(() => undefined);
+  }
 
   private done(key: string): void { this.noticeTone.set('success'); this.notice.set(this.i18n.t(key)); this.load(); }
   private fail(e: unknown): void {

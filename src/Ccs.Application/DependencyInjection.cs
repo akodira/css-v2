@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<SlaService>();
         services.AddScoped<LifecycleService>();
         services.AddScoped<TicketService>();
+        services.AddScoped<TicketLifecycleService>();
         services.AddScoped<TicketQueries>();
         services.AddScoped<CatalogQueries>();
         return services;

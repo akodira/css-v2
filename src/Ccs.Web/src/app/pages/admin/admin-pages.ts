@@ -147,6 +147,7 @@ export const SEARCH = `
           @else { <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="act.emit({ kind: 'status', value: 'active' })">{{ 'AdminUsers.reactivate' | t }}</button> }
         }
         <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="act.emit({ kind: 'password', value: gen() })">{{ 'AdminV2.resetPassword' | t }}</button>
+        @if (u.mfaEnabled && !u.isSelf) { <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="act.emit({ kind: 'mfa', value: '' })">{{ 'Mfa.reset' | t }}</button> }
         @if (!u.isSelf) {
           @if (confirmDelete()) {
             <span class="text-sm font-semibold">{{ 'Directory.deleteConfirm' | t }}</span>
@@ -172,7 +173,7 @@ export class PersonForm implements OnInit {
   readonly lk = input<Lookups | null>(null);
   readonly busy = input(false);
   readonly save = output<UserBody>();
-  readonly act = output<{ kind: 'status' | 'password' | 'delete'; value: string }>();
+  readonly act = output<{ kind: 'status' | 'password' | 'delete' | 'mfa'; value: string }>();
   protected readonly confirmDelete = signal(false);
   protected readonly staffRoles = ['agent', 'team_leader', 'admin', 'management_viewer'];
   protected m: UserBody = this.blank();
@@ -262,6 +263,7 @@ export class AdminStaffPage extends AdminBase implements OnInit {
   protected update(u: AdminUser, body: UserBody): void { void this.run(() => this.api.put('users/' + u.id, body)); }
   protected action(u: AdminUser, a: { kind: string; value: string }): void {
     if (a.value === '__reload') { this.ok(); void this.reload(); return; }
+    if (a.kind === 'mfa') { void this.run(() => this.api.post(`users/${u.id}/reset-mfa`, {})); return; }
     if (a.kind === 'status') void this.run(() => this.api.post(`users/${u.id}/status`, { status: a.value }));
     else if (a.kind === 'password') void this.run(() => this.api.post(`users/${u.id}/password`, { password: a.value }), 'AdminV2.passwordSet', { password: a.value });
     else void this.run(() => this.api.del('users/' + u.id), 'AdminV2.deleted');
@@ -915,6 +917,7 @@ export class CustomerProfilePage extends AdminBase implements OnInit {
   }
   protected update(body: UserBody): void { void this.run(() => this.api.put('users/' + this.id, body)); }
   protected action(a: { kind: string; value: string }): void {
+    if (a.kind === 'mfa') { void this.run(() => this.api.post(`users/${this.id}/reset-mfa`, {})); return; }
     if (a.kind === 'status') void this.run(() => this.api.post(`users/${this.id}/status`, { status: a.value }));
     else if (a.kind === 'password') void this.run(() => this.api.post(`users/${this.id}/password`, { password: a.value }), 'AdminV2.passwordSet', { password: a.value });
     else void this.api.del('users/' + this.id).then(() => this.router.navigateByUrl(`/${this.i18n.locale()}/admin/customers`)).catch((e) => this.fail(e));

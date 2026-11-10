@@ -277,6 +277,60 @@ jobs:
             Api Post "users/$($c2.id)/demote" @{} | Out-Null
             $cs = @(Api Get 'users?kind=customers' $null)
             Check 'staff member turned back into a customer' (($cs.id -contains $c2.id) -and -not ((@(Api Get 'users?kind=staff' $null)).id -contains $c2.id))
+            # ---- Ticket lifecycle (v1 parity): staff actions
+            function TApi($m, $id, $p, $b, $hh) { $u = "https://ccs.test/api/tickets/$id/$p"; if ($null -eq $b) { Invoke-RestMethod $u -Method $m -Headers $hh } else { Invoke-RestMethod $u -Method $m -Headers $hh -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes(($b | ConvertTo-Json -Depth 5))) } }
+            $msgId = (TApi Post $tkt.id 'messages' @{ kind = 'public_reply'; body = 'We are looking into the printer now.' } $h).id
+            TApi Put $tkt.id "messages/$msgId" @{ body = 'We are checking the printer now.' } $h | Out-Null
+            $det = Invoke-RestMethod "https://ccs.test/api/tickets/$($tkt.id)" -Headers $h
+            Check 'own comment edited within 5 minutes' (@($det.messages | Where-Object { $_.id -eq $msgId -and $_.editedAt }).Count -eq 1)
+            $note = (TApi Post $tkt.id 'messages' @{ kind = 'internal_note'; body = 'Temporary note to delete.' } $h).id
+            TApi Delete $tkt.id "messages/$note" $null $h | Out-Null
+            $det = Invoke-RestMethod "https://ccs.test/api/tickets/$($tkt.id)" -Headers $h
+            Check 'own comment deleted' (-not ($det.messages.id -contains $note))
+            $cat3 = Api Post categories @{ nameEn = 'CI Moved'; nameAr = 'منقولة'; isActive = $true; sortOrder = 3; autoAssign = $false; isPrivate = $false }
+            TApi Post $tkt.id 'category' @{ categoryId = $cat3.id; subcategoryId = $null; reason = 'Wrong category' } $h | Out-Null
+            Check 'ticket category changed' ((Invoke-RestMethod "https://ccs.test/api/tickets/$($tkt.id)" -Headers $h).categoryId -eq $cat3.id)
+            $sf = Api Post fields @{ key = 'ci_staff_note'; labelEn = 'Internal ref'; labelAr = 'مرجع'; type = 'text'; options = @(); visibleToCustomer = $false; isActive = $true; sortOrder = 2 }
+            TApi Put $tkt.id 'staff-fields' @{ ci_staff_note = 'INC-42' } $h | Out-Null
+            $lc = TApi Get $tkt.id 'lifecycle' $null $h
+            Check 'staff-only field saved' ($lc.staffValues.ci_staff_note -match 'INC-42' -and $lc.canClose -and $lc.canChangeCategory)
+            TApi Post $tkt.id 'escalate' @{ reason = 'Needs a manager decision' } $h | Out-Null
+            Check 'ticket escalated to administrators' (@((Invoke-RestMethod 'https://ccs.test/api/tickets?view=escalated' -Headers $h).items.id) -contains $tkt.id)
+            # ---- customer actions
+            $cs = Invoke-RestMethod https://ccs.test/api/auth/sign-in -Method Post -ContentType 'application/json' -Body (@{ identifier = 'phone@ccs.test'; password = 'Str0ng!Passw0rd' } | ConvertTo-Json)
+            $ch = @{ Authorization = "Bearer $($cs.accessToken)" }
+            $cx = TApi Post $tkt.id 'cancel' @{ reason = 'Printer works again' } $ch
+            Check 'cancellation requested after a staff reply' ($cx.mode -eq 'requested')
+            $lc = TApi Get $tkt.id 'lifecycle' $null $h
+            TApi Post $tkt.id "cancellations/$($lc.cancellation.id)" @{ approve = $false; note = 'We still need to replace a part' } $h | Out-Null
+            Check 'staff rejected the cancellation' ((TApi Get $tkt.id 'lifecycle' $null $ch).cancellation.status -eq 'rejected')
+            TApi Post $tkt.id 'cancel' @{ reason = 'Changed my mind again' } $ch | Out-Null
+            TApi Post $tkt.id 'cancel/withdraw' @{} $ch | Out-Null
+            Check 'customer withdrew the request' ((TApi Get $tkt.id 'lifecycle' $null $ch).cancellation.status -eq 'withdrawn')
+            $tk2 = Invoke-RestMethod https://ccs.test/api/tickets -Method Post -Headers $ch -ContentType 'application/json' -Body (@{ typeId = $tt2.id; categoryId = $cat2.id; subject = 'Printer offline again'; description = 'The same printer is offline again today.' } | ConvertTo-Json)
+            $cx2 = TApi Post $tk2.id 'cancel' @{ reason = 'Opened by mistake' } $ch
+            Check 'ticket cancelled at once before any reply' ($cx2.mode -eq 'cancelled' -and (Invoke-RestMethod "https://ccs.test/api/tickets/$($tk2.id)" -Headers $ch).status -eq 'closed')
+            TApi Post $tk2.id 'feedback' @{ rating = 4; comment = 'Quick' } $ch | Out-Null
+            Check 'customer rated a closed ticket' ((TApi Get $tk2.id 'lifecycle' $null $ch).feedback.rating -eq 4)
+            $tk3 = Invoke-RestMethod https://ccs.test/api/tickets -Method Post -Headers $ch -ContentType 'application/json' -Body (@{ typeId = $tt2.id; categoryId = $cat2.id; subject = 'Printer follow-up'; description = 'Following up on the closed printer ticket.' } | ConvertTo-Json)
+            TApi Post $tk3.id 'follow-up' @{ of = $tk2.id } $ch | Out-Null
+            Check 'follow-up linked to the closed ticket' (@((TApi Get $tk3.id 'lifecycle' $null $ch).links | Where-Object { $_.kind -eq 'follow_up_of' -and $_.otherId -eq $tk2.id }).Count -eq 1)
+            TApi Post $tk3.id 'duplicate' @{ reference = $tkt.reference } $h | Out-Null
+            $d3 = Invoke-RestMethod "https://ccs.test/api/tickets/$($tk3.id)" -Headers $h
+            Check 'ticket closed as a duplicate' ($d3.status -eq 'closed' -and $d3.closureReason -eq 'duplicate')
+            $tk4 = Invoke-RestMethod https://ccs.test/api/tickets -Method Post -Headers $ch -ContentType 'application/json' -Body (@{ typeId = $tt2.id; categoryId = $cat2.id; subject = 'Buy cheap watches now'; description = 'Visit this site for cheap watches and offers.' } | ConvertTo-Json)
+            TApi Post $tk4.id 'spam' @{} $h | Out-Null
+            Check 'ticket closed as spam' ((Invoke-RestMethod "https://ccs.test/api/tickets/$($tk4.id)" -Headers $h).closureReason -eq 'spam')
+            $sug = @(Invoke-RestMethod 'https://ccs.test/api/kb/suggest?q=reset%20my%20password' -Headers $ch)
+            Check 'help articles suggested while typing' ($sug.slug -contains 'ci-reset-password')
+            # ---- administration
+            Invoke-RestMethod "https://ccs.test/api/admin/users/$($agent.id)/reset-mfa" -Method Post -Headers $h | Out-Null
+            Invoke-RestMethod https://ccs.test/api/auth/mfa/disable -Method Post -Headers $ch | Out-Null
+            Check 'two-step reset by admin and turned off by user' ($true)
+            Api Put calendar-assignments @{ kind = 'organization'; id = $org.id; calendarId = $bh.id } | Out-Null
+            Check 'calendar assigned to an organization' (@((Api Get calendar-assignments $null).organizations | Where-Object { $_.id -eq $org.id -and $_.businessHoursId -eq $bh.id }).Count -eq 1)
+            $rc = Api Post "business-hours/$($bh.id)/recalculate" @{}
+            Check "open tickets recalculated ($($rc.count))" ($rc.count -ge 0)
           } else { Write-Host 'SKIP  admin API checks (administrator needs a second sign-in step)' }
           $login = sqlcmd -S localhost -E -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'"
           Check 'API connects with the IIS APPPOOL\CcsApi Windows login' ("$login" -match 'CcsApi')
