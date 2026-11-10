@@ -8,6 +8,7 @@ import { MyTicketsPage, NewTicketPage, TicketDetailPage } from './pages/tickets/
 import { ConsoleQueuePage, ConsoleTicketPage } from './pages/console/console-pages';
 import { DashboardPage } from './pages/console/dashboard-page';
 import { AccountPage, HomePage, NotificationsPage } from './pages/account-pages';
+import { SettingsPage } from './pages/admin/settings-pages';
 import { AdminEscalationPage, AdminKbPage, AdminStatusPage } from './pages/admin/content-pages';
 import { CannedPage, KbArticlePage, KbListPage } from './pages/help-pages';
 import { AdminCatalogPage, AdminPrioritiesPage, AdminSlaPage, AdminTicketTypesPage } from './pages/admin/catalog-pages';
@@ -75,6 +76,8 @@ export const routes: Routes = [
           { path: 'admin/sla', canActivate: [requireRole(STAFF_ROLES)], component: AdminSlaPage },
           { path: 'admin/ticket-status', canActivate: [requireRole(STAFF_ROLES)], component: AdminStatusPage },
           { path: 'admin/escalation', canActivate: [requireRole(['admin'])], component: AdminEscalationPage },
+          { path: 'admin/general/settings', canActivate: [requireRole(STAFF_ROLES)], component: SettingsPage },
+          { path: 'admin/general/settings/:tab', canActivate: [requireRole(STAFF_ROLES)], component: SettingsPage },
           { path: 'admin/kb', canActivate: [requireRole(STAFF_ROLES)], component: AdminKbPage },
           { path: 'console/canned', canActivate: [requireRole(['agent', 'team_leader', 'admin'])], component: CannedPage },
           { path: 'console/dashboard', canActivate: [requireRole(STAFF_ROLES)], component: DashboardPage },

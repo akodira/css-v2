@@ -55,6 +55,7 @@ const ROUTE: Record<string, string> = {
   '/admin/users': '/admin/users', '/admin/customers': '/admin/customers', '/admin/teams': '/admin/teams', '/admin/permissions': '/admin/permissions',
   '/admin/organizations': '/admin/organizations', '/admin/escalation': '/admin/escalation', '/admin/catalog': '/admin/catalog', '/admin/ticket-types': '/admin/ticket-types',
   '/admin/priorities': '/admin/priorities', '/admin/ticket-status': '/admin/ticket-status', '/admin/kb': '/admin/kb', '/admin/sla': '/admin/sla',
+  '/admin/general/settings': '/admin/general/settings',
 };
 
 export interface SideItem { path: string; label: string; icon: string; exact?: boolean; badge?: number; also?: string[] }
@@ -97,7 +98,7 @@ export class Footer {
   template: `
     <header data-site-header class="sticky top-0 z-30 border-b border-line bg-surface md:static">
       <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
-        <a [routerLink]="'/' + i18n.locale()" class="block" [attr.aria-label]="name()"><app-logo [name]="name()" [sub]="sub()" /></a>
+        <a [routerLink]="'/' + i18n.locale()" class="block" [attr.aria-label]="name()"><app-logo [name]="name()" [sub]="sub()" [logoUrl]="site.logoUrl()" /></a>
         <div class="flex flex-wrap items-center gap-2">
           <app-language-switcher />
           @if (auth.signedIn()) {
@@ -139,7 +140,7 @@ export class PublicLayout {
           <button type="button" [attr.aria-expanded]="menuOpen()" aria-controls="side-menu" [attr.aria-label]="'Shell.menu' | t" (click)="menuOpen.set(true)" class="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-white/10 hover:bg-white/20">
             <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
-          <div class="min-w-0 flex-1 overflow-hidden"><a [routerLink]="homeLink()" class="block"><app-logo [name]="name()" [sub]="sub()" [dark]="true" /></a></div>
+          <div class="min-w-0 flex-1 overflow-hidden"><a [routerLink]="homeLink()" class="block"><app-logo [name]="name()" [sub]="sub()" [dark]="true" [logoUrl]="site.logoUrl()" /></a></div>
           <a [routerLink]="'/' + i18n.locale() + '/notifications'" [attr.aria-label]="bellLabel()" class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20">
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="icons['bell']" /></svg>
             @if (unread()) { <span aria-hidden="true" class="absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs font-bold text-white">{{ unread() }}</span> }
@@ -151,7 +152,7 @@ export class PublicLayout {
             <button type="button" tabindex="-1" [attr.aria-label]="'Shell.closeMenu' | t" (click)="menuOpen.set(false)" class="fixed inset-0 z-40 cursor-default bg-black/50"></button>
             <nav id="side-menu" [attr.aria-label]="'Shell.menu' | t" class="fixed inset-y-0 start-0 z-50 flex w-[min(20rem,85vw)] flex-col bg-chrome text-white shadow-2xl">
               <div class="flex items-center gap-2 border-b border-white/10 px-3 py-3">
-                <div class="min-w-0 flex-1 overflow-hidden"><app-logo [name]="name()" [sub]="sub()" [dark]="true" /></div>
+                <div class="min-w-0 flex-1 overflow-hidden"><app-logo [name]="name()" [sub]="sub()" [dark]="true" [logoUrl]="site.logoUrl()" /></div>
                 <button type="button" [attr.aria-label]="'Shell.closeMenu' | t" (click)="menuOpen.set(false)" class="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg bg-white/10 hover:bg-white/20">
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
                 </button>
@@ -163,7 +164,7 @@ export class PublicLayout {
         }
 
         <nav [attr.aria-label]="'Shell.menu' | t" class="hidden px-3 pb-4 lg:sticky lg:top-0 lg:block lg:max-h-screen lg:overflow-y-auto lg:pt-5">
-          <div class="px-2 pb-5"><a [routerLink]="homeLink()" class="block"><app-logo [name]="name()" [sub]="sub()" [dark]="true" /></a></div>
+          <div class="px-2 pb-5"><a [routerLink]="homeLink()" class="block"><app-logo [name]="name()" [sub]="sub()" [dark]="true" [logoUrl]="site.logoUrl()" /></a></div>
           <ng-container *ngTemplateOutlet="groupsTpl" />
         </nav>
 
@@ -234,7 +235,7 @@ export class PublicLayout {
 export class Shell {
   protected readonly i18n = inject(I18n);
   protected readonly auth = inject(Auth);
-  private readonly site = inject(SiteService);
+  protected readonly site = inject(SiteService);
   private readonly router = inject(Router);
   protected readonly icons = ICONS;
   protected readonly menuOpen = signal(false);
@@ -287,7 +288,7 @@ export class Shell {
       canned: admin || has('reply'), team: false, reports: false, kb_console: !canKb, users: admin, people: false, hierarchy: false, escalation: admin,
       admin_customers: admin, customers: !admin && has('customers_view'), admin_teams: admin, permissions: admin, organizations: admin,
       catalog: canCatalog, ticket_types: canCatalog, priorities: canCatalog, ticket_status: canSettings, approvals: admin || has('approve_customers'),
-      kb_admin: canKb, sla_settings: canSettings, audit: false, settings: false, help: false, help_center: false, sla: false,
+      kb_admin: canKb, sla_settings: canSettings, audit: false, settings: canSettings, help: false, help_center: false, sla: false,
     };
     const rows = [...this.site.menus()];
     // Ticket types has its own screen here; place it after Categories.

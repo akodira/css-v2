@@ -193,6 +193,27 @@ jobs:
             Check 'sidebar counts' ($null -ne $bad.tickets)
             $lst = Invoke-RestMethod 'https://ccs.test/api/tickets?group=open&sla=breached&view=escalated&search=x' -Headers $h
             Check 'queue filters (active, SLA, escalated, customer search)' ($null -ne $lst.total)
+            function Set($m, $u, $b) { if ($null -eq $b) { Invoke-RestMethod "https://ccs.test/api/admin/settings/$u" -Method $m -Headers $h } else { Invoke-RestMethod "https://ccs.test/api/admin/settings/$u" -Method $m -Headers $h -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes(($b | ConvertTo-Json -Depth 6))) } }
+            $br0 = Set Get branding $null
+            $br0.siteNameEn = 'CI Care'; $br0.brandColor = '#123456'
+            Set Put branding $br0 | Out-Null
+            Check 'branding saved and shown on the site' ((Invoke-RestMethod https://ccs.test/api/site).site.siteNameEn -eq 'CI Care')
+            $png = Join-Path $env:TEMP 'ci-logo.png'; [IO.File]::WriteAllBytes($png, [Convert]::FromBase64String('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='))
+            $up = Invoke-RestMethod https://ccs.test/api/admin/settings/branding/logo -Method Post -Headers $h -Form @{ file = Get-Item $png }
+            Check 'logo uploaded and served' ((Invoke-WebRequest "https://ccs.test/api/site/branding/$($up.path)" -UseBasicParsing).StatusCode -eq 200)
+            Set Put system @{ settings = @{ reopen_window_days = 15; email_enabled = $false; password_min_length = 12 } } | Out-Null
+            Check 'system rules saved' ((Set Get system $null).settings.reopen_window_days -eq '15')
+            Set Put signin-codes @{ enabled = $true; audience = 'customers'; codeLength = 6; validMinutes = 10; maxAttempts = 5; cooldownSeconds = 60; dailyLimit = 10 } | Out-Null
+            Set Put templates @{ event = 'ticket_created'; locale = 'en'; subject = 'We got {reference}'; body = 'Thanks {name}'; button = ''; link = '' } | Out-Null
+            Check 'email template saved' (@(Set Get templates $null | Where-Object { $_.event -eq 'ticket_created' }).Count -ge 1)
+            Set Delete templates/ticket_created/en $null | Out-Null
+            Set Put messages @{ key = 'Console.title'; en = 'Queue'; ar = '' } | Out-Null
+            Check 'system message override stored' (@((Invoke-RestMethod https://ccs.test/api/site).systemMessages | Where-Object { $_.key -eq 'Console.title' }).Count -eq 1)
+            Set Put messages @{ key = 'Console.title'; en = ''; ar = '' } | Out-Null
+            Set Put uploads @{ maxMb = 12; maxFiles = 4; extensions = @('pdf','png') } | Out-Null
+            $menus = Set Get menus $null
+            Check "menus listed ($(@($menus).Count))" (@($menus).Count -ge 1)
+            Check 'handover screen data' ($null -ne (Set Get handover $null).demo)
           } else { Write-Host 'SKIP  admin API checks (administrator needs a second sign-in step)' }
           $login = sqlcmd -S localhost -E -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'"
           Check 'API connects with the IIS APPPOOL\CcsApi Windows login' ("$login" -match 'CcsApi')

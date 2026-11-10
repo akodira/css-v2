@@ -1,7 +1,8 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { I18n } from './i18n';
+import { apiUrl } from './api-base';
 
 // ---- Contracts (mirror Ccs.Application DTOs, camelCase JSON) ----------------------------------
 
@@ -48,7 +49,7 @@ export interface NewTicketOptions { types: TypeOption[]; categories: CategoryOpt
 export interface SiteInfo {
   site: {
     siteNameEn: string; siteNameAr: string; headerNameEn: string; headerNameAr: string; headerSubEn: string; headerSubAr: string;
-    logoPath: string | null; footerTextEn: string; footerTextAr: string; contactEmail: string | null; contactPhone: string | null;
+    logoPath: string | null; faviconPath?: string | null; homeContent?: string; footerTextEn: string; footerTextAr: string; contactEmail: string | null; contactPhone: string | null;
     contactHoursEn: string; contactHoursAr: string; brandColor: string | null; loginNoticeEn: string; loginNoticeAr: string;
     homeTitleEn: string; homeTitleAr: string; homeIntroEn: string; homeIntroAr: string; registrationMode: string;
     uploadMaxMb: number; uploadMaxFiles: number; uploadExtensions: string;
@@ -72,6 +73,8 @@ export class SiteService {
   private readonly i18n = inject(I18n);
   readonly info = signal<SiteInfo | null>(null);
   readonly menus = signal<MenuRow[]>([]);
+  /** The uploaded logo, or null for the built-in mark. */
+  readonly logoUrl = computed(() => { const p = this.info()?.site?.logoPath; return p ? apiUrl('/api/site/branding/' + p) : null; });
 
   async load(): Promise<void> {
     try {
@@ -82,6 +85,12 @@ export class SiteService {
       this.info.set(info);
       this.menus.set(menus);
       this.i18n.setOverrides(info.systemMessages ?? []);
+      const fav = info.site?.faviconPath;
+      if (fav) {
+        let el = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+        if (!el) { el = document.createElement('link'); el.rel = 'icon'; document.head.appendChild(el); }
+        el.href = apiUrl('/api/site/branding/' + fav);
+      }
       if (info.site?.brandColor && /^#[0-9a-fA-F]{6}$/.test(info.site.brandColor)) applyBrand(info.site.brandColor);
     } catch {
       this.info.set(null);   // the shell still renders with the built-in defaults

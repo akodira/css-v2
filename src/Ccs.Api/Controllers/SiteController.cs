@@ -11,10 +11,10 @@ namespace Ccs.Api.Controllers;
 /// <summary>Public site data for the Angular shell: branding, menus, registration mode, upload and password rules.</summary>
 [ApiController]
 [Route("api/site")]
-public sealed class SiteController(CcsDbContext db, SettingsService settings) : ControllerBase
+public sealed class SiteController(CcsDbContext db, SettingsService settings, Ccs.Application.Abstractions.IFileStore files) : ControllerBase
 {
     [HttpGet]
-    [ResponseCache(Duration = 60)]
+    [ResponseCache(NoStore = true)]   // settings changes show at once
     public async Task<object> Get(CancellationToken ct)
     {
         var s = await db.SiteSettings.AsNoTracking().FirstOrDefaultAsync(ct);
@@ -32,6 +32,19 @@ public sealed class SiteController(CcsDbContext db, SettingsService settings) : 
             reopenWindowDays = await settings.GetIntAsync("reopen_window_days", 30, ct),
             systemMessages = messages,
         };
+    }
+
+    /// <summary>Logo and browser icon uploaded under Settings → Branding (anyone may load them).</summary>
+    [HttpGet("branding/{name}")]
+    [ResponseCache(Duration = 86400)]
+    public async Task<IActionResult> Branding(string name, CancellationToken ct)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^(logo|favicon)-[0-9a-f]{32}\.(png|jpg|jpeg|webp|svg|ico)$")) return NotFound();
+        var stream = await files.OpenReadAsync("branding/" + name, ct);
+        if (stream is null) return NotFound();
+        var type = Path.GetExtension(name) switch { ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".webp" => "image/webp", ".svg" => "image/svg+xml", _ => "image/x-icon" };
+        Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'";   // an uploaded SVG cannot run script
+        return File(stream, type);
     }
 
     [HttpGet("menus")]

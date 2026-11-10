@@ -18,3 +18,6 @@ export async function loadApiBase(): Promise<void> {
 /** Sends /api/... calls to the API's address when it is separate; the refresh cookie goes along (same parent domain). */
 export const apiBaseInterceptor: HttpInterceptorFn = (req, next) =>
   next(apiBase && req.url.startsWith('/api/') ? req.clone({ url: apiBase + req.url }) : req);
+
+/** Full address of an API file (logo, attachment) for use in src/href, which interceptors do not see. */
+export function apiUrl(path: string): string { return apiBase + path; }
