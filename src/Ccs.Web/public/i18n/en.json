@@ -3455,7 +3455,8 @@
     "addCalendar": "Add working hours",
     "labelHint": "Leave a box empty to keep the standard text (shown in grey).",
     "view": "View",
-    "insertReply": "Insert a saved reply…"
+    "insertReply": "Insert a saved reply…",
+    "filesFailed": "These files could not be uploaded: {files}."
   },
   "Help": {
     "title": "Help Center",

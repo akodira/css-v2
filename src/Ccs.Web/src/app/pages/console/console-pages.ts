@@ -8,6 +8,7 @@ import { firstValueFrom } from 'rxjs';
 import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, SlaChip, SortTh, StatusBadge } from '../../shared/ui';
 import { autoRefresh } from '../tickets/customer-pages';
 import { CannedApi } from '../help-pages';
+import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
 
 const SLA_TONE: Record<string, string> = {
   on_track: 'bg-ok-soft text-ok', due_soon: 'bg-warn-soft text-warn-ink', breached: 'bg-danger-soft text-danger',
@@ -203,7 +204,7 @@ export class ConsoleQueuePage {
 /** Ticket workspace: reply or internal note, status change, claim (spec 7). Escalation, links and fields arrive in stage 4. */
 @Component({
   selector: 'app-console-ticket',
-  imports: [RouterLink, TPipe, StatusBadge, Alert],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
@@ -216,6 +217,7 @@ export class ConsoleQueuePage {
             </div>
             <h1 class="text-2xl font-bold tracking-tight" dir="auto">{{ tk.subject }}</h1>
             <p class="whitespace-pre-wrap leading-relaxed" dir="auto">{{ tk.description }}</p>
+            <app-attachments [ticketId]="tk.id" [items]="ticketFiles()" />
           </header>
 
           <section class="flex flex-col gap-3" aria-labelledby="conv">
@@ -229,6 +231,7 @@ export class ConsoleQueuePage {
                     <span class="text-muted">{{ i18n.date(m.createdAt) }}</span>
                   </header>
                   <p class="whitespace-pre-wrap leading-relaxed" dir="auto">{{ m.body }}</p>
+                  <app-attachments [ticketId]="tk.id" [items]="m.attachments" />
                 </article>
               }
             } @empty { <p class="text-muted">{{ 'Console.ticket.noComments' | t }}</p> }
@@ -252,6 +255,7 @@ export class ConsoleQueuePage {
                 }
                 <label for="body" class="sr-only">{{ 'Console.reply.body' | t }}</label>
                 <textarea id="body" rows="5" maxlength="10000" dir="auto" class="rounded-lg border border-line p-3" [class]="kind() === 'internal_note' ? 'bg-warn-soft' : 'bg-surface'" [value]="body()" (input)="body.set($any($event.target).value)"></textarea>
+                <app-file-picker [label]="'Console.ticket.attachments' | t" [(files)]="files" [disabled]="pending()" />
                 <div><button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ 'Console.reply.submit' | t }}</button></div>
               </form>
             </section>
@@ -317,6 +321,9 @@ export class ConsoleTicketPage {
   private readonly api = inject(TicketsApi);
   private readonly route = inject(ActivatedRoute);
   protected readonly sla = SLA_TONE;
+  private readonly uploads = inject(Uploads);
+  protected readonly files = signal<File[]>([]);
+  protected readonly ticketFiles = computed(() => (this.t()?.messages ?? []).find((m) => m.kind === 'ticket_files')?.attachments ?? []);
   protected readonly manualClosures = ['no_response', 'duplicate', 'spam', 'other'];
   protected readonly t = signal<TicketDetail | null>(null);
   protected readonly missing = signal(false);
@@ -361,9 +368,15 @@ export class ConsoleTicketPage {
   send(): void {
     const b = this.body().trim();
     if (!b) { this.noticeTone.set('error'); this.notice.set(this.i18n.t('Console.errors.messageLength')); return; }
+    if (checkFiles(this.files(), this.uploads.rules()).length) return;
     this.pending.set(true);
     this.api.message(this.id, this.kind(), b)
-      .then(() => { this.body.set(''); this.done(this.kind() === 'internal_note' ? 'Console.reply.sentInternal' : 'Console.reply.sentPublic'); })
+      .then(async (r) => {
+        const failed = this.files().length ? await this.uploads.upload(this.id, r.id, this.files()) : [];
+        this.body.set(''); this.files.set([]);
+        this.done(this.kind() === 'internal_note' ? 'Console.reply.sentInternal' : 'Console.reply.sentPublic');
+        if (failed.length) { this.noticeTone.set('error'); this.notice.set(this.i18n.t('AdminV2.filesFailed', { files: failed.join(', ') })); }
+      })
       .catch((e) => this.fail(e)).finally(() => this.pending.set(false));
   }
 

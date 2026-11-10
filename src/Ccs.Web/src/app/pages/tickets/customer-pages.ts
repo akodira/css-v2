@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { problemOf } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { NewTicketOptions, Paged, SiteService, TicketDetail, TicketListItem, TicketSummary, TicketsApi } from '../../core/api';
+import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
 import { Alert, PRIORITY_TONE, Req, ReqNote, STATUS_STRIPE, SortTh, StatusBadge } from '../../shared/ui';
 
 const CARD: Record<string, string> = {
@@ -151,7 +152,7 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
 
 @Component({
   selector: 'app-new-ticket',
-  imports: [RouterLink, TPipe, Req, ReqNote, Alert],
+  imports: [RouterLink, TPipe, Req, ReqNote, Alert, FilePicker],
   template: `
     <main class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
       @if (!staff) { <a [routerLink]="link('/tickets')" class="text-sm font-semibold text-brand-ink underline">{{ 'Tickets.title' | t }}</a> }
@@ -161,10 +162,11 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
       </div>
       @if (created(); as c) {
         <section class="flex flex-col gap-4 rounded-md border border-line bg-surface p-6">
-          <app-alert tone="success">{{ 'StaffTicket.created' | t: { reference: c.reference } }}</app-alert>
+          @if (staff) { <app-alert tone="success">{{ 'StaffTicket.created' | t: { reference: c.reference } }}</app-alert> }
+          @if (failedFiles().length) { <app-alert>{{ (staff ? 'StaffTicket.filesFailed' : 'NewTicket.filesFailed') | t: { files: failedFiles().join(', ') } }}</app-alert> }
           <div class="flex flex-wrap gap-2">
-            <a [routerLink]="link('/console/tickets/' + c.id)" class="flex min-h-11 items-center rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'StaffTicket.view' | t }}</a>
-            <button type="button" (click)="another()" class="flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg">{{ 'StaffTicket.another' | t }}</button>
+            <a [routerLink]="link((staff ? '/console/tickets/' : '/tickets/') + c.id)" class="flex min-h-11 items-center rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'StaffTicket.view' | t }}</a>
+            @if (staff) { <button type="button" (click)="another()" class="flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg">{{ 'StaffTicket.another' | t }}</button> }
           </div>
         </section>
       } @else if (opts(); as o) {
@@ -274,6 +276,8 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
             </div>
           }
 
+          <app-file-picker [label]="(staff ? 'StaffTicket.attachments' : 'NewTicket.attachments') | t" [(files)]="files" [disabled]="pending()" />
+
           @if (error()) { <app-alert>{{ ((staff ? 'StaffTicket.errors.' : 'NewTicket.errors.') + error()) | t }}</app-alert> }
           <div class="flex flex-wrap items-center gap-3">
             <button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ (pending() ? 'NewTicket.submitting' : 'NewTicket.submit') | t }}</button>
@@ -309,6 +313,9 @@ export class NewTicketPage {
   protected readonly branchId = signal('');
   protected readonly customerId = signal('');
   protected readonly created = signal<{ id: string; reference: string } | null>(null);
+  private readonly uploads = inject(Uploads);
+  protected readonly files = signal<File[]>([]);
+  protected readonly failedFiles = signal<string[]>([]);
   private orgKey(r: DirRow): string { return r.organizationId ?? this.NONE; }
   protected readonly dirOrgs = computed(() => [...new Map(this.dir().map((r) => [this.orgKey(r), r.organizationName ?? this.i18n.t('StaffTicket.noOrganization')])).entries()].map(([id, name]) => ({ id, name })));
   private readonly inOrg = computed(() => this.dir().filter((r) => this.orgKey(r) === this.orgId()));
@@ -336,7 +343,7 @@ export class NewTicketPage {
   }
   protected another(): void {
     this.created.set(null); this.orgId.set(''); this.branchId.set(''); this.customerId.set(''); this.typeId.set(''); this.categoryId.set(''); this.subcategoryId.set('');
-    this.priority.set(''); this.subject.set(''); this.description.set(''); this.values.set({}); this.err.set({}); this.error.set(null);
+    this.priority.set(''); this.subject.set(''); this.description.set(''); this.values.set({}); this.err.set({}); this.error.set(null); this.files.set([]); this.failedFiles.set([]);
   }
 
   link(p: string): string { return `/${this.i18n.locale()}${p}`; }
@@ -362,14 +369,18 @@ export class NewTicketPage {
       if (f.isRequired && (v === undefined || v === null || v === '' || v === false)) e[f.key] = true;
     }
     this.err.set(e);
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length || checkFiles(this.files(), this.uploads.rules()).length) return;
     this.pending.set(true);
     this.error.set(null);
     const custom = Object.fromEntries(Object.entries(this.values()).filter(([, v]) => v !== '' && v !== null && v !== undefined));
     this.api.create({
       typeId: this.typeId(), categoryId: this.categoryId(), subcategoryId: this.subcategoryId() || null,
       subject: s, description: d, customValues: custom, priority: this.priority() || null, requesterId: this.staff ? this.customerId() : null,
-    }).then((r) => { if (this.staff) this.created.set(r); else void this.router.navigateByUrl(this.link('/tickets/' + r.id)); })
+    }).then(async (r) => {
+      const failed = this.files().length ? await this.uploads.upload(r.id, null, this.files()) : [];
+      this.failedFiles.set(failed);
+      if (this.staff || failed.length) this.created.set(r); else void this.router.navigateByUrl(this.link('/tickets/' + r.id));
+    })
       .catch((err) => {
         const p = problemOf(err);
         const map: Record<string, string> = { typeId: 'typeInvalid', categoryId: 'categoryInvalid', priority: 'priorityRequired', subject: 'subjectLength', description: 'descriptionLength' };
@@ -382,7 +393,7 @@ export class NewTicketPage {
 
 @Component({
   selector: 'app-ticket-detail',
-  imports: [RouterLink, TPipe, StatusBadge, Alert],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -419,6 +430,7 @@ export class NewTicketPage {
         <section aria-labelledby="request" class="rounded-md border border-line bg-surface p-6">
           <h2 id="request" class="text-lg font-bold">{{ 'Ticket.description' | t }}</h2>
           <p class="mt-3 whitespace-pre-wrap leading-relaxed" dir="auto">{{ tk.description }}</p>
+          <app-attachments [ticketId]="tk.id" [items]="ticketFiles()" />
         </section>
 
         @if ((tk.status === 'resolved' || tk.status === 'closed') && tk.resolutionSummary) {
@@ -437,6 +449,7 @@ export class NewTicketPage {
                 <span class="text-muted">{{ i18n.date(m.createdAt) }}</span>
               </header>
               <p class="whitespace-pre-wrap leading-relaxed" dir="auto">{{ m.body }}</p>
+              <app-attachments [ticketId]="tk.id" [items]="m.attachments" />
             </article>
           } @empty { <p class="rounded-md border border-line bg-surface p-4 text-muted">{{ 'Ticket.noReplies' | t }}</p> }
         </section>
@@ -446,6 +459,7 @@ export class NewTicketPage {
             <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); send()">
               <label for="reply" class="text-sm font-semibold">{{ 'Ticket.reply.label' | t }}</label>
               <textarea id="reply" rows="4" maxlength="10000" dir="auto" [placeholder]="'Ticket.reply.placeholder' | t" class="rounded-lg border border-line bg-surface p-3" [value]="reply()" (input)="reply.set($any($event.target).value)"></textarea>
+              <app-file-picker [label]="'Ticket.attachments' | t" [(files)]="files" [disabled]="pending()" />
               @if (msg()) { <app-alert [tone]="msgTone()">{{ msg() }}</app-alert> }
               <div><button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ 'Ticket.reply.submit' | t }}</button></div>
             </form>
@@ -490,6 +504,9 @@ export class TicketDetailPage {
   protected readonly pending = signal(false);
   protected readonly msg = signal<string | null>(null);
   protected readonly msgTone = signal<'error' | 'success'>('success');
+  private readonly uploads = inject(Uploads);
+  protected readonly files = signal<File[]>([]);
+  protected readonly ticketFiles = computed(() => (this.t()?.messages ?? []).find((m) => m.kind === 'ticket_files')?.attachments ?? []);
   protected readonly replies = computed(() => (this.t()?.messages ?? []).filter((m) => m.kind === 'public_reply'));
   private readonly id = this.route.snapshot.paramMap.get('id')!;
 
@@ -508,9 +525,16 @@ export class TicketDetailPage {
   send(): void {
     const body = this.reply().trim();
     if (!body) { this.msgTone.set('error'); this.msg.set(this.i18n.t('Ticket.errors.messageLength')); return; }
+    if (checkFiles(this.files(), this.uploads.rules()).length) return;
     this.pending.set(true);
     this.api.message(this.id, 'public_reply', body)
-      .then(() => { this.reply.set(''); this.msgTone.set('success'); this.msg.set(this.i18n.t('Ticket.reply.sent')); this.load(); })
+      .then(async (r) => {
+        const failed = this.files().length ? await this.uploads.upload(this.id, r.id, this.files()) : [];
+        this.reply.set(''); this.files.set([]);
+        this.msgTone.set(failed.length ? 'error' : 'success');
+        this.msg.set(failed.length ? this.i18n.t('AdminV2.filesFailed', { files: failed.join(', ') }) : this.i18n.t('Ticket.reply.sent'));
+        this.load();
+      })
       .catch((e) => { this.msgTone.set('error'); this.msg.set(this.errorText(problemOf(e).code)); })
       .finally(() => this.pending.set(false));
   }
