@@ -106,14 +106,14 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
         };
 
         var items = await (from t in q
-                           join cat in db.TicketCategories on t.CategoryId equals cat.Id
+                           join tcat in db.TicketCategories on t.CategoryId equals tcat.Id
                            join req in db.Profiles on t.RequesterId equals req.Id
                            select new TicketListItem(
                                t.Id, t.Reference, t.Subject, t.Status, t.Priority,
                                db.Priorities.Where(p => p.Code == t.Priority).Select(p => p.Color).FirstOrDefault(),
                                db.Priorities.Where(p => p.Code == t.Priority).Select(p => p.NameEn).FirstOrDefault(),
                                db.Priorities.Where(p => p.Code == t.Priority).Select(p => p.NameAr).FirstOrDefault(),
-                               cat.NameEn, cat.NameAr,
+                               tcat.NameEn, tcat.NameAr,
                                db.Teams.Where(x => x.Id == t.TeamId).Select(x => x.NameEn).FirstOrDefault(),
                                db.Teams.Where(x => x.Id == t.TeamId).Select(x => x.NameAr).FirstOrDefault(),
                                db.Profiles.Where(x => x.Id == t.AssignedAgentId).Select(x => x.FullName).FirstOrDefault(),

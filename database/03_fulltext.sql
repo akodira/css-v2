@@ -1,6 +1,10 @@
 /* Knowledge-base search (replaces the PostgreSQL tsvector + GIN index).
    Requires the Full-Text Search feature on the SQL Server instance.
    Language 1025 = Arabic, 1033 = English. */
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;   -- required for filtered indexes and computed columns (sqlcmd defaults to OFF)
+GO
+
 IF NOT EXISTS (SELECT 1 FROM sys.fulltext_catalogs WHERE name = 'ccs_ft')
     CREATE FULLTEXT CATALOG ccs_ft;
 GO

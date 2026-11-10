@@ -4,6 +4,10 @@
    with the live data instead, so ids and wording match production.
    Idempotent: every insert is guarded.
    ===================================================================== */
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;   -- required for filtered indexes and computed columns (sqlcmd defaults to OFF)
+GO
+
 SET NOCOUNT ON;
 
 MERGE ccs.roles AS t USING (VALUES
