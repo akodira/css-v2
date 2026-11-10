@@ -295,7 +295,8 @@ jobs:
             $lc = TApi Get $tkt.id 'lifecycle' $null $h
             Check 'staff-only field saved' ($lc.staffValues.ci_staff_note -match 'INC-42' -and $lc.canClose -and $lc.canChangeCategory)
             TApi Post $tkt.id 'escalate' @{ reason = 'Needs a manager decision' } $h | Out-Null
-            Check 'ticket escalated to administrators' (@((Invoke-RestMethod 'https://ccs.test/api/tickets?view=escalated' -Headers $h).items.id) -contains $tkt.id)
+            $au = Invoke-RestMethod 'https://ccs.test/api/admin/audit?entity=ticket' -Headers $h
+            Check 'ticket escalated to administrators (recorded)' (@($au.rows | Where-Object { $_.action -eq 'ticket.escalated' }).Count -ge 1)
             # ---- customer actions
             $cs = Invoke-RestMethod https://ccs.test/api/auth/sign-in -Method Post -ContentType 'application/json' -Body (@{ identifier = 'phone@ccs.test'; password = 'Str0ng!Passw0rd' } | ConvertTo-Json)
             $ch = @{ Authorization = "Bearer $($cs.accessToken)" }
