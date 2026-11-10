@@ -148,7 +148,9 @@ $server = if ($SqlInstance -in '.', '(local)') { 'localhost' } else { $SqlInstan
 SetVar 'ConnectionStrings__Ccs' "Server=$server;Database=$Database;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;Application Name=ccs-api"
 if (-not (Var 'Jwt__SigningKey')) { $k = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($k); SetVar 'Jwt__SigningKey' ([Convert]::ToBase64String($k)) }
 SetVar 'App__PublicUrl' $Base
-SetVar 'Cors__WebOrigin' $(if ($Separate) { $Base } else { '' })   # a separate API accepts calls from the website only
+# A separate API accepts calls from the website only; under /api no cross-site rule is needed.
+if ($Separate) { SetVar 'Cors__WebOrigin' $Base }
+elseif ($null -ne (Var 'Cors__WebOrigin')) { Remove-WebConfigurationProperty -PSPath $apphost -Filter $ef -Name '.' -AtElement @{ name = 'Cors__WebOrigin' } }
 SetVar 'FileStore__Root' "$DataRoot\attachments"
 SetVar 'DataProtection__KeysFolder' "$DataRoot\keys"
 SetVar 'Serilog__WriteTo__0__Args__path' "$DataRoot\logs\api-.log"
