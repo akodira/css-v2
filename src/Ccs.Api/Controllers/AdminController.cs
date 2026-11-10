@@ -390,7 +390,8 @@ public sealed class AdminController(
         if (await db.AccountTypes.AnyAsync(x => x.Id != t.Id && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
         if (b.ScopeLevel is not (null or "" or "branch" or "organization")) throw Err("required", "scopeLevel");
         var acc = (b.Access ?? []).Distinct().ToList();
-        if (!b.AllAccess && acc.Count == 0) throw Err("accessRequired", "access");
+        // A scoped admin type (Branch / Organization Admin) gets its reach from the per-person scope, not from access rows.
+        if (!b.AllAccess && acc.Count == 0 && string.IsNullOrEmpty(b.ScopeLevel)) throw Err("accessRequired", "access");
         if (!b.AllAccess) await CheckAccessRowsAsync(acc, ct);
         t.NameEn = en; t.NameAr = ar; t.AllAccess = b.AllAccess;
         t.ScopeLevel = string.IsNullOrEmpty(b.ScopeLevel) ? null : b.ScopeLevel;
