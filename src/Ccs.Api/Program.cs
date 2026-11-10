@@ -99,6 +99,7 @@ app.Use((ctx, next) =>
     }
     return next();
 });
+app.UseRouting();   // explicit: routing must run AFTER the path fix above (otherwise it is added first and matches nothing)
 
 // ---- Pipeline --------------------------------------------------------------------------------
 app.UseForwardedHeaders(new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto });

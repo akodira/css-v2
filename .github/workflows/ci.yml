@@ -58,12 +58,12 @@ jobs:
           Copy-Item docs/* release/docs/ -Recurse
           Copy-Item deploy/Install-Ccs.ps1, deploy/Install-Ccs.cmd release/
           "commit $env:GITHUB_SHA built $(Get-Date -Format o)" | Set-Content release/VERSION.txt
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: ccs-v2-release-${{ github.sha }}
           path: release
           retention-days: 30
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: test-results
@@ -74,7 +74,7 @@ jobs:
     needs: build
     runs-on: windows-2022
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: ccs-v2-release-${{ github.sha }}
           path: D:\Releases\ci
