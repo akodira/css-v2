@@ -12,8 +12,8 @@
     3. Creates D:\CcsData\{attachments,keys,logs} and the app pools CcsApi and CcsWeb
     4. Database: creates it on first run, runs 01_schema (first run only), 02_seed, 03_fulltext, 04_logins
     5. Copies the API and web files (app_offline.htm while the API is updated)
-    6. Loopback certificate for the API, HTTPS bindings, preload, permissions
-    7. App pool environment variables (keeps an existing Jwt signing key)
+    6. App pool environment variables (keeps an existing Jwt signing key), before anything starts
+    7. Loopback certificate for the API, HTTPS bindings, preload
     8. Starts everything and checks /api/health through the public address
 
 .EXAMPLE
@@ -96,7 +96,10 @@ Set-ItemProperty $p -Name processModel.idleTimeout -Value ([TimeSpan]::Zero)
 Set-ItemProperty $p -Name recycling.periodicRestart.time -Value ([TimeSpan]::Zero)
 Clear-WebConfiguration -PSPath $apphost -Filter "system.applicationHost/applicationPools/add[@name='CcsApi']/recycling/periodicRestart/schedule"
 Add-WebConfigurationProperty -PSPath $apphost -Filter "system.applicationHost/applicationPools/add[@name='CcsApi']/recycling/periodicRestart/schedule" -Name '.' -Value @{ value = '03:30:00' }
-Ok "pools ready, data in $DataRoot"
+foreach ($pool in 'CcsApi', 'CcsWeb') {
+    if ((Get-WebAppPoolState $pool).Value -ne 'Stopped') { Stop-WebAppPool $pool }
+}
+Ok "pools ready (stopped until step 8), data in $DataRoot"
 
 #--------------------------------------------------------------------------------------------- 4
 function Invoke-Sql([string] $file, [string] $db = 'master', [string] $query) {
@@ -152,7 +155,34 @@ $global:LASTEXITCODE = 0
 Ok "API -> $ApiRoot, web -> $WebRoot"
 
 #--------------------------------------------------------------------------------------------- 6
-Step '6. Certificates and sites'
+Step '6. Settings and secrets (app pool environment variables, written before anything starts)'
+$envFilter = "system.applicationHost/applicationPools/add[@name='CcsApi']/environmentVariables"
+function Get-PoolVar($name) {
+    (Get-WebConfiguration -PSPath $apphost -Filter "$envFilter/add[@name='$name']" -ErrorAction SilentlyContinue).value
+}
+function Set-PoolVar($name, $value) {
+    if ($null -ne (Get-PoolVar $name)) { Remove-WebConfigurationProperty -PSPath $apphost -Filter $envFilter -Name '.' -AtElement @{ name = $name } }
+    Add-WebConfigurationProperty -PSPath $apphost -Filter $envFilter -Name '.' -Value @{ name = $name; value = $value }
+}
+$sqlServer = if ($SqlInstance -in '.', '(local)') { 'localhost' } else { $SqlInstance }
+$trust = if ($sqlServer -eq 'localhost') { 'True' } else { 'False' }
+Set-PoolVar 'ConnectionStrings__Ccs' "Server=$sqlServer;Database=$Database;Integrated Security=True;Encrypt=True;TrustServerCertificate=$trust;Application Name=ccs-api"
+if (-not (Get-PoolVar 'Jwt__SigningKey')) {
+    $bytes = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    Set-PoolVar 'Jwt__SigningKey' ([Convert]::ToBase64String($bytes)); Ok 'new Jwt signing key generated'
+} else { Ok 'existing Jwt signing key kept' }
+Set-PoolVar 'App__PublicUrl' $PublicUrl
+Set-PoolVar 'FileStore__Root' "$DataRoot\attachments"
+Set-PoolVar 'DataProtection__KeysFolder' "$DataRoot\keys"
+Set-PoolVar 'Serilog__WriteTo__0__Args__path' "$DataRoot\logs\api-.log"
+$names = @((Get-WebConfiguration -PSPath $apphost -Filter "$envFilter/add").name)
+foreach ($n in 'ConnectionStrings__Ccs', 'Jwt__SigningKey', 'App__PublicUrl', 'FileStore__Root', 'DataProtection__KeysFolder') {
+    if ($names -notcontains $n) { throw "App pool setting $n was not written." }
+}
+Ok "set on CcsApi: $($names -join ', ')"
+
+#--------------------------------------------------------------------------------------------- 7
+Step '7. Certificates and sites'
 function Add-ToRoot($cert) {
     $root = New-Object System.Security.Cryptography.X509Certificates.X509Store Root, LocalMachine
     $root.Open('ReadWrite'); $root.Add($cert); $root.Close()
@@ -190,32 +220,14 @@ if (-not (Test-Path 'IIS:\Sites\ccs-web')) {
 Set-BindingCert (Get-WebBinding -Name ccs-web -Protocol https -HostHeader $HostName) $CertThumbprint
 Ok "ccs-api on https://localhost:$ApiPort, ccs-web on https://$HostName"
 
-#--------------------------------------------------------------------------------------------- 7
-Step '7. Settings and secrets (app pool environment variables)'
-$envFilter = "system.applicationHost/applicationPools/add[@name='CcsApi']/environmentVariables"
-function Get-PoolVar($name) {
-    (Get-WebConfiguration -PSPath $apphost -Filter "$envFilter/add[@name='$name']" -ErrorAction SilentlyContinue).value
-}
-function Set-PoolVar($name, $value) {
-    if ($null -ne (Get-PoolVar $name)) { Remove-WebConfigurationProperty -PSPath $apphost -Filter $envFilter -Name '.' -AtElement @{ name = $name } }
-    Add-WebConfigurationProperty -PSPath $apphost -Filter $envFilter -Name '.' -Value @{ name = $name; value = $value }
-}
-$sqlServer = if ($SqlInstance -in '.', '(local)') { 'localhost' } else { $SqlInstance }
-$trust = if ($sqlServer -eq 'localhost') { 'True' } else { 'False' }
-Set-PoolVar 'ConnectionStrings__Ccs' "Server=$sqlServer;Database=$Database;Integrated Security=True;Encrypt=True;TrustServerCertificate=$trust;Application Name=ccs-api"
-if (-not (Get-PoolVar 'Jwt__SigningKey')) {
-    $bytes = New-Object byte[] 48; [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-    Set-PoolVar 'Jwt__SigningKey' ([Convert]::ToBase64String($bytes)); Ok 'new Jwt signing key generated'
-} else { Ok 'existing Jwt signing key kept' }
-Set-PoolVar 'App__PublicUrl' $PublicUrl
-Set-PoolVar 'FileStore__Root' "$DataRoot\attachments"
-Set-PoolVar 'DataProtection__KeysFolder' "$DataRoot\keys"
-Set-PoolVar 'Serilog__WriteTo__0__Args__path' "$DataRoot\logs\api-.log"
-
 #--------------------------------------------------------------------------------------------- 8
 Step '8. Start and check'
 if (Test-Path $offline) { Remove-Item $offline }
-foreach ($pool in 'CcsApi', 'CcsWeb') { if ((Get-WebAppPoolState $pool).Value -eq 'Started') { Restart-WebAppPool $pool } else { Start-WebAppPool $pool } }
+foreach ($pool in 'CcsApi', 'CcsWeb') {
+    for ($i = 0; $i -lt 30 -and (Get-WebAppPoolState $pool).Value -eq 'Stopping'; $i++) { Start-Sleep 1 }
+    if ((Get-WebAppPoolState $pool).Value -eq 'Started') { Stop-WebAppPool $pool; Start-Sleep 3 }
+    Start-WebAppPool $pool
+}
 foreach ($site in 'ccs-api', 'ccs-web') { Start-Website $site -ErrorAction SilentlyContinue }
 
 function Wait-Healthy($url) {
