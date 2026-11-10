@@ -340,10 +340,14 @@ public sealed class AdminController(
     {
         await Need(null, ct);
         var t = new AccountType { Id = Guid.NewGuid(), CreatedAt = clock.UtcNow };
-        await ApplyTypeAsync(t, b, ct);
+        var rows = await ApplyTypeAsync(t, b, ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         db.AccountTypes.Add(t);
+        await db.SaveChangesAsync(ct);          // the type first: its rows point at it (no navigations to order them)
+        rows();
         audit.Write("account_type.create", "account_type", t.Id, null, b);
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
         return new { t.Id };
     }
 
@@ -357,7 +361,7 @@ public sealed class AdminController(
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.AccountTypePermissions.Where(x => x.AccountTypeId == id).ExecuteDeleteAsync(ct);
         await db.AccountTypeAccess.Where(x => x.AccountTypeId == id).ExecuteDeleteAsync(ct);
-        await ApplyTypeAsync(t, b, ct);
+        (await ApplyTypeAsync(t, b, ct))();
         audit.Write("account_type.update", "account_type", id, before, b);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -379,7 +383,8 @@ public sealed class AdminController(
         return NoContent();
     }
 
-    private async Task ApplyTypeAsync(AccountType t, TypeBody b, CancellationToken ct)
+    /// <summary>Validates and sets the fields; returns the step that adds the permission and access rows.</summary>
+    private async Task<Action> ApplyTypeAsync(AccountType t, TypeBody b, CancellationToken ct)
     {
         var en = Name(b.NameEn, "nameEn");
         var ar = Name(b.NameAr, "nameAr");
@@ -391,14 +396,15 @@ public sealed class AdminController(
         t.NameEn = en; t.NameAr = ar; t.AllAccess = b.AllAccess;
         t.ScopeLevel = string.IsNullOrEmpty(b.ScopeLevel) ? null : b.ScopeLevel;
         t.UpdatedAt = clock.UtcNow;
-        foreach (var perm in (b.Permissions ?? []).Distinct())
+        var perms = (b.Permissions ?? []).Distinct().ToList();
+        if (perms.Any(p => !Permission.Assignable.Contains(p))) throw Err("required", "permissions");
+        return () =>
         {
-            if (!Permission.Assignable.Contains(perm)) throw Err("required", "permissions");
-            db.AccountTypePermissions.Add(new AccountTypePermission { AccountTypeId = t.Id, Permission = perm });
-        }
-        if (!b.AllAccess)
-            foreach (var a in acc)
-                db.AccountTypeAccess.Add(new AccountTypeAccess { Id = Guid.NewGuid(), AccountTypeId = t.Id, OrganizationId = a.OrganizationId, BranchId = a.BranchId });
+            foreach (var perm in perms) db.AccountTypePermissions.Add(new AccountTypePermission { AccountTypeId = t.Id, Permission = perm });
+            if (!b.AllAccess)
+                foreach (var a in acc)
+                    db.AccountTypeAccess.Add(new AccountTypeAccess { Id = Guid.NewGuid(), AccountTypeId = t.Id, OrganizationId = a.OrganizationId, BranchId = a.BranchId });
+        };
     }
 
     // ---------------------------------------------------------------- organizations and branches
