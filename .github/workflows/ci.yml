@@ -253,6 +253,7 @@ jobs:
             Check "agent without scope refused People (got $code)" ($code -eq 403)
             $c2 = Api Post users @{ fullName = 'CI Phone Customer'; email = 'phone@ccs.test'; password = 'Str0ng!Passw0rd'; role = 'customer'; organizationId = $org.id }
             $dir = @(Invoke-RestMethod https://ccs.test/api/tickets/customers -Headers $h)
+            Write-Host "directory: $($dir.Count) rows; new customer $($c2.id); first: $($dir | Select-Object -First 3 | ConvertTo-Json -Compress)"
             Check 'customers listed for a staff-created ticket' (@($dir | Where-Object id -eq $c2.id).Count -eq 1)
           } else { Write-Host 'SKIP  admin API checks (administrator needs a second sign-in step)' }
           $login = sqlcmd -S localhost -E -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'"
