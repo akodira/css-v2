@@ -123,6 +123,7 @@ if ((Sql -db $Database -q "SELECT COUNT(*) FROM sys.tables WHERE name = 'tickets
     Sql -db $Database -file "$Package\database\01_schema.sql" | Out-Null; Ok 'tables created'
 }
 Sql -db $Database -file "$Package\database\02_seed.sql" | Out-Null; Ok 'reference data'
+if (Test-Path "$Package\database\05_upgrades.sql") { Sql -db $Database -file "$Package\database\05_upgrades.sql" | Out-Null; Ok 'schema up to date' }
 if ((Sql -q "SELECT CONVERT(int, SERVERPROPERTY('IsFullTextInstalled'))") -eq '1') { Sql -db $Database -file "$Package\database\03_fulltext.sql" | Out-Null; Ok 'knowledge base search' }
 else { Write-Warning 'Full-Text Search is not installed in SQL Server: knowledge base search stays off until you add it and run the installer again.' }
 

@@ -598,7 +598,7 @@ CREATE TABLE ccs.customer_feedback (
 CREATE TABLE ccs.ticket_custom_field_values (
     ticket_id uniqueidentifier NOT NULL CONSTRAINT FK_cfv_ticket REFERENCES ccs.tickets(id) ON DELETE CASCADE,
     field_id  uniqueidentifier NOT NULL CONSTRAINT FK_cfv_field REFERENCES ccs.custom_field_definitions(id),
-    value     nvarchar(max) NOT NULL CONSTRAINT CK_cfv_value CHECK (ISJSON(value) = 1 OR value IN ('true','false','null') OR ISNUMERIC(value) = 1),
+    value     nvarchar(max) NOT NULL CONSTRAINT CK_cfv_value CHECK (ISJSON(value) = 1 OR value IN ('true','false','null') OR ISNUMERIC(value) = 1 OR (LEN(value) >= 2 AND LEFT(value, 1) = N'"' AND RIGHT(value, 1) = N'"')),
     CONSTRAINT PK_ticket_custom_field_values PRIMARY KEY (ticket_id, field_id)
 );
 GO
