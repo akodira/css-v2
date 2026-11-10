@@ -229,6 +229,28 @@ jobs:
             Check "audit log ($($aud.total) entries)" ($aud.total -gt 0)
             $mt = Invoke-RestMethod https://ccs.test/api/console/my-team -Headers $h
             Check 'my team' ($null -ne $mt)
+            # People: an Organization Admin manages the people in their scope.
+            $oty = Api Post account-types @{ nameEn = 'CI Org Admin'; nameAr = 'مدير'; allAccess = $false; scopeLevel = 'organization'; permissions = @('reply','assign_others','customers_view'); access = @() }
+            $oa = Api Post users @{ fullName = 'CI Org Admin'; email = 'orgadmin@ccs.test'; password = 'Str0ng!Passw0rd'; role = 'team_leader'; accountTypeId = $oty.id }
+            Api Put "users/$($oa.id)/scope" @{ orgs = @($org.id); branches = @() } | Out-Null
+            $where = Api Get "users/$($oa.id)/where" $null
+            Check 'admin sets a scoped admin''s organizations' ($where.scopeLevel -eq 'organization' -and @($where.scopes).Count -eq 1)
+            Api Put "users/$($agent.id)/placements" @{ orgs = @($org.id); branches = @($br.id) } | Out-Null
+            Check 'admin sets where a staff member works' (@((Api Get "users/$($agent.id)/where" $null).placements | Where-Object branchId -eq $br.id).Count -eq 1)
+            $oas = Invoke-RestMethod https://ccs.test/api/auth/sign-in -Method Post -ContentType 'application/json' -Body (@{ identifier = 'orgadmin@ccs.test'; password = 'Str0ng!Passw0rd' } | ConvertTo-Json)
+            $oh = @{ Authorization = "Bearer $($oas.accessToken)" }
+            $pp = Invoke-RestMethod https://ccs.test/api/console/people -Headers $oh
+            Check 'scoped admin sees their organization' (@($pp.orgs | Where-Object id -eq $org.id).Count -eq 1)
+            $np = Invoke-RestMethod https://ccs.test/api/console/people -Method Post -Headers $oh -ContentType 'application/json' -Body (@{ kind = 'customer'; fullName = 'CI Scoped Customer'; email = 'scoped@ccs.test'; password = 'Str0ng!Passw0rd'; organizationId = $org.id } | ConvertTo-Json)
+            $pp = Invoke-RestMethod https://ccs.test/api/console/people -Headers $oh
+            Check 'scoped admin creates a customer in scope' (@($pp.people | Where-Object id -eq $np.id).Count -eq 1)
+            Invoke-RestMethod "https://ccs.test/api/console/people/$($np.id)/status" -Method Post -Headers $oh -ContentType 'application/json' -Body '{"status":"suspended"}' | Out-Null
+            Check 'scoped admin suspends a person' (@((Invoke-RestMethod https://ccs.test/api/console/people -Headers $oh).people | Where-Object { $_.id -eq $np.id -and $_.status -eq 'suspended' }).Count -eq 1)
+            $other = Api Post organizations @{ name = 'CI Other Org'; isActive = $true; sharedAccessEnabled = $false }
+            try { Invoke-RestMethod https://ccs.test/api/console/people -Method Post -Headers $oh -ContentType 'application/json' -Body (@{ kind = 'customer'; fullName = 'Out Of Scope'; email = 'out@ccs.test'; password = 'Str0ng!Passw0rd'; organizationId = $other.id } | ConvertTo-Json) | Out-Null; $code = 200 } catch { $code = [int]$_.Exception.Response.StatusCode }
+            Check "scoped admin cannot create outside scope (got $code)" ($code -eq 403)
+            try { Invoke-RestMethod https://ccs.test/api/console/people -Headers @{ Authorization = "Bearer $((Invoke-RestMethod https://ccs.test/api/auth/sign-in -Method Post -ContentType 'application/json' -Body (@{ identifier = 'agent@ccs.test'; password = 'Str0ng!Passw0rd' } | ConvertTo-Json)).accessToken)" } | Out-Null; $code = 200 } catch { $code = [int]$_.Exception.Response.StatusCode }
+            Check "agent without scope refused People (got $code)" ($code -eq 403)
           } else { Write-Host 'SKIP  admin API checks (administrator needs a second sign-in step)' }
           $login = sqlcmd -S localhost -E -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'"
           Check 'API connects with the IIS APPPOOL\CcsApi Windows login' ("$login" -match 'CcsApi')

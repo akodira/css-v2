@@ -7,6 +7,7 @@ import {
   adminError, generatePassword,
 } from '../../core/admin-api';
 import { Alert, Req } from '../../shared/ui';
+import { WhereEditor } from './where-editor';
 
 // Same look as the v1 admin screens: cards with a header that opens, forms inside.
 export const CLS = {
@@ -86,7 +87,7 @@ export const SEARCH = `
 
 @Component({
   selector: 'app-person-form',
-  imports: [FormsModule, TPipe, Req],
+  imports: [FormsModule, TPipe, Req, WhereEditor],
   template: `
     <form class="flex flex-col gap-4" (ngSubmit)="submit()">
       <div class="grid gap-4 md:grid-cols-2">
@@ -153,6 +154,7 @@ export const SEARCH = `
         }
       </div>
       <p class="mt-2 text-sm text-muted">{{ 'Directory.deleteHintUser' | t }}</p>
+      @if (mode() === 'staff' && u.role !== 'admin') { <app-where-editor [userId]="u.id" [lk]="lk()" /> }
     }`,
   changeDetection: ChangeDetectionStrategy.Default,
 })

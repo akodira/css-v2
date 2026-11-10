@@ -55,7 +55,7 @@ const ROUTE: Record<string, string> = {
   '/admin/users': '/admin/users', '/admin/customers': '/admin/customers', '/admin/teams': '/admin/teams', '/admin/permissions': '/admin/permissions',
   '/admin/organizations': '/admin/organizations', '/admin/escalation': '/admin/escalation', '/admin/catalog': '/admin/catalog', '/admin/ticket-types': '/admin/ticket-types',
   '/admin/priorities': '/admin/priorities', '/admin/ticket-status': '/admin/ticket-status', '/admin/kb': '/admin/kb', '/admin/sla': '/admin/sla',
-  '/admin/general/settings': '/admin/general/settings',
+  '/admin/general/settings': '/admin/general/settings', '/admin/general/help': '/admin/general/help', '/console/help': '/console/help', '/console/people': '/console/people',
   '/console/reports': '/console/reports', '/console/sla': '/console/sla', '/console/team': '/console/team', '/admin/audit': '/admin/audit',
 };
 
@@ -260,6 +260,7 @@ export class Shell {
         { path: '/tickets/new', label: t('Nav.newTicket'), icon: 'plus', exact: true },
         { path: '/notifications', label: t('Nav.notifications'), icon: 'bell' },
         { path: '/kb', label: t('Nav.kb'), icon: 'kb' },
+        { path: '/help', label: t('Nav.help'), icon: 'kb' },
         { path: '/account', label: t('Nav.account'), icon: 'users' },
       ] }];
     }
@@ -286,16 +287,23 @@ export class Shell {
     const has = (p: string) => this.auth.has(p);
     const canKb = admin || has('manage_kb'), canCatalog = admin || has('manage_catalog'), canSettings = admin || has('manage_settings');
     const can: Record<string, boolean> = {
-      canned: admin || has('reply'), team: admin || roles.includes('team_leader'), reports: has('reports_own') || has('reports_all'), kb_console: !canKb, users: admin, people: false, hierarchy: false, escalation: admin,
+      canned: admin || has('reply'), team: admin || roles.includes('team_leader'), reports: has('reports_own') || has('reports_all'), kb_console: !canKb, users: admin, people: !!me?.scopeLevel, hierarchy: false, escalation: admin,
       admin_customers: admin, customers: !admin && has('customers_view'), admin_teams: admin, permissions: admin, organizations: admin,
       catalog: canCatalog, ticket_types: canCatalog, priorities: canCatalog, ticket_status: canSettings, approvals: admin || has('approve_customers'),
-      kb_admin: canKb, sla_settings: canSettings, audit: admin || roles.includes('management_viewer'), settings: canSettings, help: false, help_center: false, sla: true,
+      kb_admin: canKb, sla_settings: canSettings, audit: admin || roles.includes('management_viewer'), settings: canSettings, help: !canSettings, help_center: canSettings, sla: true,
     };
     const rows = [...this.site.menus()];
     // Ticket types has its own screen here; place it after Categories.
     const cat = rows.find((r) => r.systemKey === 'catalog');
     if (cat && !rows.some((r) => r.systemKey === 'ticket_types'))
       rows.push({ ...cat, id: 'ticket-types', href: '/admin/ticket-types', systemKey: 'ticket_types', labelEn: this.i18n.t('AdminV2.nav.ticketTypes'), labelAr: this.i18n.t('AdminV2.nav.ticketTypes'), sortOrder: cat.sortOrder + 0.5 });
+    // Menus imported before these screens existed get them added here (same defaults as v1's migrations).
+    const add = (key: string, area: string, href: string, en: string, ar: string, order: number) => {
+      if (!rows.some((r) => r.systemKey === key)) rows.push({ ...(rows[0] ?? {}), id: 'x-' + key, area, kind: 'link', parentId: null, href, systemKey: key, labelEn: en, labelAr: ar, sortOrder: order } as typeof rows[number]);
+    };
+    add('people', 'console', '/console/people', 'People', 'الأشخاص', 45);
+    add('help', 'console', '/console/help', 'Help', 'المساعدة', 90);
+    add('help_center', 'general', '/admin/general/help', 'Help Center', 'مركز المساعدة', 20);
     const badge: Record<string, number> = { tickets: this.badges().tickets, approvals: this.badges().approvals };
     const seen = new Set<string>();
     const by = new Map<string, { order: number; item: SideItem }[]>();
