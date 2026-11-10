@@ -6,6 +6,7 @@ import { PublicLayout, Shell } from './layout/layouts';
 import { ForgotPage, LoginCodePage, LoginPage, MfaPage, RegisterPage, ResetPage } from './pages/auth/auth-pages';
 import { MyTicketsPage, NewTicketPage, TicketDetailPage } from './pages/tickets/customer-pages';
 import { ConsoleQueuePage, ConsoleTicketPage } from './pages/console/console-pages';
+import { DashboardPage } from './pages/console/dashboard-page';
 import { AccountPage, HomePage, NotificationsPage } from './pages/account-pages';
 import { AdminEscalationPage, AdminKbPage, AdminStatusPage } from './pages/admin/content-pages';
 import { CannedPage, KbArticlePage, KbListPage } from './pages/help-pages';
@@ -75,7 +76,10 @@ export const routes: Routes = [
           { path: 'admin/ticket-status', canActivate: [requireRole(STAFF_ROLES)], component: AdminStatusPage },
           { path: 'admin/escalation', canActivate: [requireRole(['admin'])], component: AdminEscalationPage },
           { path: 'admin/kb', canActivate: [requireRole(STAFF_ROLES)], component: AdminKbPage },
-          { path: 'console/saved-replies', canActivate: [requireRole(['agent', 'team_leader', 'admin'])], component: CannedPage },
+          { path: 'console/canned', canActivate: [requireRole(['agent', 'team_leader', 'admin'])], component: CannedPage },
+          { path: 'console/dashboard', canActivate: [requireRole(STAFF_ROLES)], component: DashboardPage },
+          { path: 'console/approvals', redirectTo: 'admin/approvals' },
+          { path: 'console/customers', redirectTo: 'admin/customers' },
         ],
       },
       { path: '**', redirectTo: '' },

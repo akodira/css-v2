@@ -2,8 +2,10 @@ import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, u
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Auth, problemOf } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
-import { Paged, TicketDetail, TicketListItem, TicketSummary, TicketsApi } from '../../core/api';
-import { Alert, PRIORITY_TONE, STATUS_STRIPE, SortTh, StatusBadge } from '../../shared/ui';
+import { Paged, SiteService, TicketDetail, TicketListItem, TicketsApi } from '../../core/api';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, SlaChip, SortTh, StatusBadge } from '../../shared/ui';
 import { autoRefresh } from '../tickets/customer-pages';
 import { CannedApi } from '../help-pages';
 
@@ -12,83 +14,119 @@ const SLA_TONE: Record<string, string> = {
   paused: 'bg-bg text-muted border border-line', completed: 'bg-brand-soft text-brand-ink',
 };
 
-/** Support console queue: summary cards, views, filters, sortable, auto-refresh (spec 7). */
+/** Support console queue: same counters, team SLA strip, views, filters and columns as the current console. */
 @Component({
   selector: 'app-console-queue',
-  imports: [RouterLink, TPipe, StatusBadge, SortTh],
+  imports: [RouterLink, TPipe, StatusBadge, SortTh, SlaChip],
   template: `
-    <main class="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight">{{ 'Console.title' | t }}</h1>
-        <p class="mt-1 text-muted">{{ 'Console.subtitle' | t }}</p>
-        @if (auth.me()?.viewer && !auth.me()?.staff) { <p class="mt-2 rounded-lg bg-warn-soft px-3 py-2 text-sm font-medium text-warn-ink">{{ 'Console.readOnly' | t }}</p> }
+    <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
+      <header>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <h1 class="text-3xl font-bold tracking-tight">{{ 'Console.title' | t }}</h1>
+          @if (auth.has('create_for_customer')) { <a [routerLink]="link('/console/tickets/new')" class="flex min-h-11 items-center rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'StaffTicket.title' | t }}</a> }
+        </div>
+        <p class="mt-2 text-muted">{{ 'Console.subtitle' | t }}</p>
+        @if (readOnly()) { <p role="status" class="mt-3 rounded-lg bg-warn-soft px-4 py-3 text-sm font-medium text-warn-ink">{{ 'Console.readOnly' | t }}</p> }
+      </header>
+
+      <div class="flex flex-wrap items-center gap-3 text-sm text-muted">
+        <span>{{ paused() ? ('AutoRefresh.paused' | t) : ('AutoRefresh.note' | t: { seconds: refreshSecs }) }}</span>
+        <button type="button" (click)="paused.set(!paused())" class="min-h-10 cursor-pointer rounded-lg border border-line bg-surface px-3 font-semibold text-ink hover:bg-bg">{{ (paused() ? 'AutoRefresh.resume' : 'AutoRefresh.pause') | t }}</button>
       </div>
 
-      <dl class="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <button type="button" (click)="setView('assigned')" class="cursor-pointer rounded-xl border border-line border-s-4 border-s-brand bg-brand-soft p-4 text-start text-brand-ink shadow-card"><dt class="text-sm font-semibold">{{ 'Console.summary.mine' | t }}</dt><dd class="mt-1 text-3xl font-bold">{{ mineCount() }}</dd></button>
-        <button type="button" (click)="setView('unassigned')" class="cursor-pointer rounded-xl border border-line border-s-4 border-s-violet-500 bg-violet-50 p-4 text-start text-violet-800 shadow-card"><dt class="text-sm font-semibold">{{ 'Console.summary.unassigned' | t }}</dt><dd class="mt-1 text-3xl font-bold">{{ summary()?.unassigned ?? 0 }}</dd></button>
-        <div class="rounded-xl border border-line border-s-4 border-s-danger bg-danger-soft p-4 text-danger shadow-card"><dt class="text-sm font-semibold">{{ 'Console.summary.breached' | t }}</dt><dd class="mt-1 text-3xl font-bold">{{ summary()?.breached ?? 0 }}</dd></div>
-        <button type="button" (click)="setView('closed')" class="cursor-pointer rounded-xl border border-line border-s-4 border-s-ok bg-ok-soft p-4 text-start text-ok shadow-card"><dt class="text-sm font-semibold">{{ 'Console.summary.closed' | t }}</dt><dd class="mt-1 text-3xl font-bold">{{ summary()?.closed ?? 0 }}</dd></button>
+      <dl class="grid grid-cols-2 gap-3 md:grid-cols-5">
+        <div [class]="stat + ' border-s-4 border-s-brand bg-brand-soft'"><dt class="text-sm font-semibold text-brand-ink">{{ 'Console.summary.mine' | t }}</dt><dd class="text-3xl font-bold text-brand-ink">{{ counts()?.mine ?? 0 }}</dd></div>
+        <div [class]="stat + ' border-s-4 border-s-violet-500 bg-violet-50'"><dt class="text-sm font-semibold text-violet-800">{{ 'Console.summary.unassigned' | t }}</dt><dd class="text-3xl font-bold text-violet-800">{{ counts()?.unassigned ?? 0 }}</dd></div>
+        <div [class]="stat + ' border-s-4 border-s-danger bg-danger-soft'"><dt class="text-sm font-semibold text-danger">{{ 'Console.summary.breached' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ counts()?.breached ?? 0 }}</dd></div>
+        <div [class]="stat + ' border-s-4 border-s-amber-500 bg-warn-soft'"><dt class="text-sm font-semibold text-warn-ink">{{ 'Console.summary.dueSoon' | t }}</dt><dd class="text-3xl font-bold text-warn-ink">{{ counts()?.dueSoon ?? 0 }}</dd></div>
+        <button type="button" (click)="showClosed()" [attr.aria-current]="status() === 'closed' ? 'true' : null" [class]="stat + ' cursor-pointer border-s-4 border-s-ok bg-ok-soft text-start hover:brightness-95' + (status() === 'closed' ? ' ring-2 ring-ok' : '')"><dt class="text-sm font-semibold text-ok">{{ 'Console.summary.closed' | t }}</dt><dd class="text-3xl font-bold text-ok">{{ counts()?.closed ?? 0 }}</dd></button>
       </dl>
 
-      <div class="flex flex-wrap items-end justify-between gap-3">
-        <nav [attr.aria-label]="'Console.title' | t" class="flex flex-wrap gap-2">
-          @for (v of views; track v.key) {
-            <button type="button" (click)="setView(v.key)" [attr.aria-current]="v.key === view() ? 'true' : null"
-              class="flex min-h-11 cursor-pointer items-center rounded-lg border px-4 text-sm font-semibold" [class]="v.key === view() ? 'border-ink bg-ink text-white' : 'border-line bg-surface hover:bg-bg'">{{ 'Console.views.' + v.label | t }}</button>
-          }
-        </nav>
-        <form role="search" class="flex flex-wrap items-end gap-2" (submit)="$event.preventDefault(); page.set(1); load()">
-          <div class="flex flex-col gap-1">
-            <label for="st" class="text-sm font-semibold">{{ 'Console.filters.status' | t }}</label>
-            <select id="st" class="min-h-11 rounded-lg border border-line bg-surface px-3" [value]="status()" (change)="status.set($any($event.target).value); page.set(1); load()">
-              <option value="">{{ 'Console.filters.any' | t }}</option>
-              @for (s of statuses; track s) { <option [value]="s">{{ 'StaffStatus.' + s | t }}</option> }
-            </select>
-          </div>
-          <div class="flex flex-col gap-1">
-            <label for="cq" class="text-sm font-semibold">{{ 'Console.filters.search' | t }}</label>
-            <input id="cq" type="search" maxlength="60" dir="auto" class="min-h-11 w-64 max-w-full rounded-lg border border-line bg-surface px-3" [value]="q()" (input)="q.set($any($event.target).value)" />
-          </div>
-          <button type="submit" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg">{{ 'Console.filters.searchButton' | t }}</button>
-        </form>
-      </div>
-
-      <div class="relative overflow-x-auto rounded-xl border border-line bg-surface shadow-card">
-        <table class="w-full min-w-[60rem] text-start text-sm">
-          <caption class="sr-only">{{ 'Console.title' | t }}</caption>
-          <thead class="border-b border-line bg-chrome text-white"><tr>
-            <th app-sort-th [label]="'Console.columns.ticket' | t" key="ticket" [(sort)]="sort" [(desc)]="desc"></th>
-            <th scope="col" class="px-4 font-semibold">{{ 'Console.columns.customer' | t }}</th>
-            <th scope="col" class="px-4 font-semibold">{{ 'Console.columns.team' | t }}</th>
-            <th app-sort-th [label]="'Console.columns.priority' | t" key="priority" [(sort)]="sort" [(desc)]="desc"></th>
-            <th app-sort-th [label]="'Console.columns.status' | t" key="status" [(sort)]="sort" [(desc)]="desc"></th>
-            <th scope="col" class="px-4 font-semibold">{{ 'Console.columns.sla' | t }}</th>
-            <th app-sort-th [label]="'Console.columns.updated' | t" key="updated" [(sort)]="sort" [(desc)]="desc"></th>
-          </tr></thead>
-          <tbody>
-            @for (r of data()?.items ?? []; track r.id) {
-              <tr class="border-b border-line last:border-0 hover:bg-bg" [class]="stripe[r.status] ?? ''">
-                <td class="px-4 py-3"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink hover:underline" dir="ltr">{{ r.reference }}</a><p class="max-w-72 truncate text-ink" dir="auto">{{ r.subject }}</p></td>
-                <td class="px-4 py-3" dir="auto">{{ r.requesterName }}</td>
-                <td class="px-4 py-3"><p dir="auto">{{ i18n.pick(r.teamEn, r.teamAr) || ('Console.noTeam' | t) }}</p><p class="text-muted" dir="auto">{{ r.assigneeName ?? ('Console.unassignedLabel' | t) }}</p></td>
-                <td class="px-4 py-3"><span class="inline-flex rounded px-2 py-0.5 text-xs font-semibold" [class]="prio(r.priorityColor)">{{ i18n.pick(r.priorityEn, r.priorityAr) || r.priority }}</span></td>
-                <td class="px-4 py-3"><app-status-badge [status]="r.status" [staff]="true" /></td>
-                <td class="px-4 py-3">@if (r.slaState) { <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold" [class]="sla[r.slaState] ?? ''">{{ 'Sla.' + r.slaState | t }}</span> }</td>
-                <td class="whitespace-nowrap px-4 py-3 text-muted">{{ i18n.date(r.updatedAt) }}</td>
-              </tr>
-            } @empty { <tr><td colspan="7" class="p-10 text-center text-muted">{{ 'Console.empty' | t }}</td></tr> }
-          </tbody>
-        </table>
-      </div>
-
-      @if (pages() > 1) {
-        <nav class="flex items-center justify-between gap-3" [attr.aria-label]="'Console.page' | t: { page: page(), pages: pages() }">
-          <button type="button" [disabled]="page() <= 1" (click)="go(-1)" class="flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg disabled:invisible">{{ 'Console.previous' | t }}</button>
-          <span class="text-sm text-muted">{{ 'Console.page' | t: { page: page(), pages: pages() } }}</span>
-          <button type="button" [disabled]="page() >= pages()" (click)="go(1)" class="flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg disabled:invisible">{{ 'Console.next' | t }}</button>
-        </nav>
+      @if (counts()?.strip; as st) {
+        <section [attr.aria-label]="'SlaClock.strip_title' | t" class="flex flex-col gap-2">
+          <dl class="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div [class]="stat"><dt class="text-sm font-semibold text-muted">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_onTrack' | t }}</dt><dd class="text-3xl font-bold text-brand-ink">{{ st.green }}</dd></div>
+            <div [class]="stat"><dt class="text-sm font-semibold text-muted">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_close' | t }}</dt><dd class="text-3xl font-bold text-warn-ink">{{ st.yellow }}</dd></div>
+            <button type="button" (click)="setSla('due_soon')" [class]="stat + ' cursor-pointer text-start hover:bg-bg'"><dt class="text-sm font-semibold text-muted">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_red' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ st.red }}</dd></button>
+            <button type="button" (click)="setSla('breached')" class="cursor-pointer rounded-md border border-danger bg-danger-soft p-4 text-start hover:brightness-95"><dt class="text-sm font-semibold text-danger">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_overdue' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ st.overdue }}</dd></button>
+          </dl>
+          <p class="text-xs text-muted">{{ 'SlaClock.strip_hint' | t }}</p>
+        </section>
       }
+
+      <nav [attr.aria-label]="'Console.title' | t" class="flex flex-wrap gap-2">
+        @for (v of views; track v) {
+          @if (v === 'escalated') {
+            <button type="button" (click)="setView(v)" [attr.aria-current]="isView(v) ? 'page' : null" class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-semibold" [class]="isView(v) ? 'border-warn-ink bg-warn-ink text-white' : 'border-warn-ink bg-warn-soft text-warn-ink hover:brightness-95'">
+              {{ 'Console.views.escalated' | t }}<span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="isView(v) ? 'bg-white text-warn-ink' : 'bg-warn-ink text-white'">{{ counts()?.escalated ?? 0 }}</span></button>
+            <button type="button" (click)="showClosed()" [attr.aria-current]="status() === 'closed' ? 'page' : null" class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-semibold" [class]="status() === 'closed' ? 'border-ok bg-ok text-white' : 'border-ok bg-ok-soft text-ok hover:brightness-95'">
+              {{ 'Console.views.closed' | t }}<span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="status() === 'closed' ? 'bg-white text-ok' : 'bg-ok text-white'">{{ counts()?.closed ?? 0 }}</span></button>
+          } @else {
+            <button type="button" (click)="setView(v)" [attr.aria-current]="isView(v) ? 'page' : null" class="flex min-h-11 cursor-pointer items-center rounded-lg border px-4 text-sm font-semibold" [class]="isView(v) ? 'border-brand bg-brand text-white' : 'border-line bg-surface hover:bg-bg'">{{ 'Console.views.' + v | t }}</button>
+          }
+        }
+      </nav>
+
+      <form class="grid grid-cols-1 gap-3 rounded-md border border-line bg-surface p-4 sm:grid-cols-2 lg:grid-cols-6" (submit)="$event.preventDefault(); page.set(1); load()">
+        <label class="flex flex-col gap-1 text-sm font-semibold lg:col-span-2">{{ 'Console.filters.search' | t }}
+          <input type="search" maxlength="80" dir="auto" [class]="field" [value]="q()" (input)="q.set($any($event.target).value)" /></label>
+        <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Console.filters.status' | t }}
+          <select [class]="field" [value]="status()" (change)="status.set($any($event.target).value)">
+            <option value="active">{{ 'Console.filters.active' | t }}</option><option value="any">{{ 'Console.filters.any' | t }}</option>
+            @for (s of statuses; track s) { <option [value]="s">{{ 'StaffStatus.' + s | t }}</option> }
+          </select></label>
+        <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Console.filters.priority' | t }}
+          <select [class]="field" [value]="priority()" (change)="priority.set($any($event.target).value)">
+            <option value="">{{ 'Console.filters.any' | t }}</option>
+            @for (p of prios(); track p.code) { <option [value]="p.code">{{ i18n.pick(p.nameEn, p.nameAr) }}</option> }
+          </select></label>
+        <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Console.filters.sla' | t }}
+          <select [class]="field" [value]="slaF()" (change)="slaF.set($any($event.target).value)">
+            <option value="">{{ 'Console.filters.any' | t }}</option>
+            @for (s of slaStates; track s) { <option [value]="s">{{ 'Sla.' + s | t }}</option> }
+          </select></label>
+        <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Console.ticket.team' | t }}
+          <select [class]="field" [value]="team()" (change)="team.set($any($event.target).value)">
+            <option value="">{{ 'Console.filters.any' | t }}</option>
+            @for (x of teams(); track x.id) { <option [value]="x.id">{{ i18n.pick(x.nameEn, x.nameAr) }}</option> }
+          </select></label>
+        <div class="flex items-end"><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink">{{ 'Console.filters.searchButton' | t }}</button></div>
+      </form>
+
+      @if (data() && !data()!.items.length) { <p class="rounded-md border border-line bg-surface p-6 text-muted">{{ 'Console.empty' | t }}</p> }
+      @else {
+        <div class="relative overflow-x-auto rounded-md border border-line bg-surface">
+          <table class="w-full min-w-[56rem] text-start text-sm">
+            <caption class="sr-only">{{ 'Console.title' | t }}</caption>
+            <thead class="border-b border-line bg-chrome text-white"><tr>
+              @for (c of columns; track c) { <th app-sort-th [label]="'Console.columns.' + c | t" [key]="c" [(sort)]="sort" [(desc)]="desc"></th> }
+            </tr></thead>
+            <tbody>
+              @for (r of data()?.items ?? []; track r.id) {
+                <tr class="border-b border-line align-top last:border-0 hover:bg-bg" [class]="pstripe[r.priorityColor ?? 'grey'] ?? ''">
+                  <td class="px-4 py-3"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink underline" dir="ltr">{{ r.reference }}</a><p class="mt-1 max-w-64 truncate" dir="auto">{{ r.subject }}</p></td>
+                  <td class="px-4 py-3"><p dir="auto">{{ r.requesterName }}</p><p class="text-muted" dir="ltr">{{ r.requesterEmail }}</p></td>
+                  <td class="px-4 py-3"><p dir="auto">{{ i18n.pick(r.teamEn, r.teamAr) || ('Console.noTeam' | t) }}</p><p class="text-muted" dir="auto">{{ r.assigneeName ?? ('Console.unassignedLabel' | t) }}</p></td>
+                  <td class="px-4 py-3"><span class="inline-flex rounded px-2 py-0.5 text-xs font-semibold" [class]="prio(r.priorityColor)">{{ i18n.pick(r.priorityEn, r.priorityAr) || r.priority }}</span></td>
+                  <td class="px-4 py-3"><app-status-badge [status]="r.status" [staff]="true" /></td>
+                  <td class="px-4 py-3">
+                    @if (clockOf(r); as ck) { <app-sla-chip [clock]="ck" /> } @else if (r.slaState) { <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold" [class]="sla[r.slaState] ?? ''">{{ 'Sla.' + r.slaState | t }}</span> } @else { - }
+                    @if (dueOf(r); as due) { <p class="mt-1 text-xs text-muted">{{ 'Console.due' | t: { when: i18n.date(due) } }}</p> }
+                  </td>
+                  <td class="px-4 py-3 text-muted">{{ i18n.date(r.createdAt) }}</td>
+                  <td class="px-4 py-3 text-muted">{{ i18n.date(r.updatedAt) }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <nav class="flex items-center justify-between gap-3" [attr.aria-label]="'Console.page' | t: { page: page(), pages: pages() }">
+        @if (page() > 1) { <button type="button" (click)="go(-1)" class="flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 font-semibold">{{ 'Console.previous' | t }}</button> } @else { <span></span> }
+        <span class="text-sm text-muted">{{ 'Console.page' | t: { page: page(), pages: pages() } }}</span>
+        @if (page() < pages()) { <button type="button" (click)="go(1)" class="flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 font-semibold">{{ 'Console.next' | t }}</button> } @else { <span></span> }
+      </nav>
     </main>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
@@ -96,42 +134,69 @@ export class ConsoleQueuePage {
   protected readonly i18n = inject(I18n);
   protected readonly auth = inject(Auth);
   private readonly api = inject(TicketsApi);
+  private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  protected readonly stripe = STATUS_STRIPE;
+  protected readonly refreshSecs = inject(SiteService).info()?.autoRefreshSeconds ?? 30;
   protected readonly sla = SLA_TONE;
+  protected readonly pstripe = PRIORITY_STRIPE;
+  protected readonly stat = 'rounded-md border border-line bg-surface p-4';
+  protected readonly field = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base';
   protected readonly statuses = ['new', 'open', 'in_progress', 'pending_customer', 'pending_internal', 'resolved', 'closed', 'reopened'];
-  protected readonly views = [
-    { key: 'assigned', label: 'mine' }, { key: 'unassigned', label: 'unassigned' }, { key: 'all', label: 'all' }, { key: 'closed', label: 'closed' },
-  ];
+  protected readonly slaStates = ['on_track', 'due_soon', 'breached', 'paused', 'completed'];
+  protected readonly views = ['mine', 'unassigned', 'escalated', 'all'];
+  protected readonly columns = ['ticket', 'customer', 'team', 'priority', 'status', 'sla', 'created', 'updated'];
   private readonly qp = this.route.snapshot.queryParamMap;
-  protected readonly view = signal(this.qp.get('view') ?? 'assigned');
-  protected readonly status = signal(this.qp.get('status') ?? '');
+  /** Same default as today: admins, leaders and viewers see all; agents their own. */
+  private readonly defaultView = (() => { const r = this.auth.me()?.roles ?? []; return r.some((x) => x === 'admin' || x === 'team_leader' || x === 'management_viewer') ? 'all' : 'mine'; })();
+  protected readonly view = signal(this.normView(this.qp.get('view')) ?? this.defaultView);
+  protected readonly status = signal(this.qp.get('status') ?? 'active');
+  protected readonly priority = signal(this.qp.get('priority') ?? '');
+  protected readonly slaF = signal(this.qp.get('sla') ?? '');
+  protected readonly team = signal(this.qp.get('team') ?? '');
   protected readonly q = signal(this.qp.get('q') ?? '');
   protected readonly page = signal(Number(this.qp.get('page') ?? 1) || 1);
   protected readonly sort = signal(this.qp.get('sort') ?? 'updated');
   protected readonly desc = signal(this.qp.get('dir') !== 'asc');
+  protected readonly paused = signal(false);
   protected readonly data = signal<Paged<TicketListItem> | null>(null);
-  protected readonly summary = signal<TicketSummary | null>(null);
-  protected readonly mineCount = signal(0);
+  protected readonly counts = signal<{ mine: number; unassigned: number; breached: number; dueSoon: number; closed: number; escalated: number; strip: { green: number; yellow: number; red: number; overdue: number } | null } | null>(null);
+  protected readonly prios = signal<{ code: string; nameEn: string; nameAr: string }[]>([]);
+  protected readonly teams = signal<{ id: string; nameEn: string; nameAr: string }[]>([]);
+  protected readonly readOnly = computed(() => !(this.auth.me()?.roles ?? []).some((r) => r === 'agent' || r === 'team_leader' || r === 'admin'));
   protected readonly pages = computed(() => Math.max(1, Math.ceil((this.data()?.total ?? 0) / 25)));
 
   constructor() {
     effect(() => { this.sort(); this.desc(); untracked(() => this.load()); });
-    autoRefresh(() => this.load());
+    autoRefresh(() => { if (!this.paused()) this.load(); });
+    void this.api.options().then((o) => this.prios.set(o.priorities.map((p) => ({ code: p.code, nameEn: p.nameEn, nameAr: p.nameAr }))));
+    void firstValueFrom(this.http.get<{ id: string; nameEn: string; nameAr: string }[]>('/api/console/teams')).then((t) => this.teams.set(t), () => undefined);
   }
 
+  private normView(v: string | null): string | null { return v === 'assigned' ? 'mine' : v && ['mine', 'unassigned', 'escalated', 'all'].includes(v) ? v : null; }
   link(p: string): string { return `/${this.i18n.locale()}${p}`; }
   prio(c: string | null): string { return PRIORITY_TONE[c ?? 'grey'] ?? PRIORITY_TONE['grey']; }
-  setView(v: string): void { this.view.set(v); this.page.set(1); this.load(); }
+  isView(v: string): boolean { return this.view() === v && this.status() !== 'closed'; }
+  setView(v: string): void { this.view.set(v); if (this.status() === 'closed') this.status.set('active'); this.page.set(1); this.load(); }
+  showClosed(): void { this.view.set('all'); this.status.set('closed'); this.page.set(1); this.load(); }
+  setSla(s: string): void { this.slaF.set(s); this.page.set(1); this.load(); }
   go(d: number): void { this.page.update((p) => p + d); this.load(); }
+  clockOf(r: TicketListItem): ClockInput | null {
+    if (!r.firstRespondedAt && r.firstResponseDue) return { dueAt: r.firstResponseDue, startAt: r.createdAt, pausedAt: r.pausedAt, pausedTotalSeconds: r.pausedTotalSeconds };
+    if (r.resolutionDue) return { dueAt: r.resolutionDue, startAt: r.createdAt, pausedAt: r.pausedAt, pausedTotalSeconds: r.pausedTotalSeconds, doneAt: r.resolvedAt };
+    return null;
+  }
+  dueOf(r: TicketListItem): string | null { return r.firstRespondedAt ? r.resolutionDue : (r.firstResponseDue ?? r.resolutionDue); }
 
   load(): void {
-    const view = this.view(), status = this.status(), q = this.q().trim(), page = this.page(), sort = this.sort(), desc = this.desc();
-    void this.router.navigate([], { replaceUrl: true, queryParams: { view, status: status || null, q: q || null, page: page > 1 ? page : null, sort: sort !== 'updated' ? sort : null, dir: desc ? null : 'asc' } });
-    void this.api.list({ view: view === 'all' ? undefined : view, status, search: q, page, pageSize: 25, sort, desc }).then((d) => this.data.set(d));
-    void this.api.summary(false).then((s) => this.summary.set(s));
-    void this.api.list({ view: 'assigned', pageSize: 1 }).then((d) => this.mineCount.set(d.total));
+    const view = this.view(), status = this.status(), priority = this.priority(), sla = this.slaF(), team = this.team(), q = this.q().trim(), page = this.page(), sort = this.sort(), desc = this.desc();
+    void this.router.navigate([], { replaceUrl: true, queryParams: {
+      view: view !== this.defaultView ? view : null, status: status !== 'active' ? status : null, priority: priority || null, sla: sla || null, team: team || null,
+      q: q || null, page: page > 1 ? page : null, sort: sort !== 'updated' ? sort : null, dir: desc ? null : 'asc' } });
+    const apiView = view === 'mine' ? 'assigned' : view === 'all' ? undefined : view;
+    const st = status === 'active' ? { group: 'open' } : status === 'any' ? {} : { status };
+    void this.api.list({ view: apiView, ...st, priority: priority || undefined, sla: sla || undefined, teamId: team || undefined, search: q, page, pageSize: 25, sort, desc }).then((d) => this.data.set(d));
+    void firstValueFrom(this.http.get<NonNullable<ReturnType<typeof this.counts>>>('/api/console/counts')).then((c) => this.counts.set(c));
   }
 }
 

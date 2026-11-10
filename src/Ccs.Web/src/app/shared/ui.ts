@@ -208,3 +208,49 @@ export class SortTh {
     else { this.sort.set(this.key()); this.desc.set(this.key() === 'updated' || this.key() === 'created'); }
   }
 }
+
+/** Live SLA countdown chip, same rules as the current clock: green above half the time left, yellow below half, red below a fifth. */
+export type ClockKind = 'green' | 'yellow' | 'red' | 'overdue' | 'paused' | 'met' | 'late';
+export interface ClockInput { dueAt: string; startAt: string; pausedTotalSeconds?: number | null; pausedAt?: string | null; doneAt?: string | null }
+export function computeClock(c: ClockInput, now: number): { kind: ClockKind; remainingMs: number } {
+  const due = Date.parse(c.dueAt), start = Date.parse(c.startAt);
+  const total = Math.max(1, due - start - (c.pausedTotalSeconds ?? 0) * 1000);
+  if (c.doneAt) { const done = Date.parse(c.doneAt); return { kind: done <= due ? 'met' : 'late', remainingMs: due - done }; }
+  const at = c.pausedAt ? Date.parse(c.pausedAt) : now;
+  const remainingMs = due - at, left = Math.max(0, Math.min(1, remainingMs / total));
+  if (c.pausedAt) return { kind: 'paused', remainingMs };
+  if (remainingMs <= 0) return { kind: 'overdue', remainingMs };
+  return { kind: left < 0.2 ? 'red' : left < 0.5 ? 'yellow' : 'green', remainingMs };
+}
+export function formatDuration(ms: number): string {
+  const s = Math.floor(Math.abs(ms) / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${pad(m)}m`;
+  return `00:${pad(m)}:${pad(s % 60)}`;
+}
+const CHIP: Record<ClockKind, string> = {
+  green: 'bg-brand-soft text-brand-ink', yellow: 'bg-warn-soft text-warn-ink', red: 'bg-danger-soft text-danger',
+  overdue: 'bg-danger-soft text-danger', paused: 'bg-bg text-muted border border-line', met: 'bg-brand-soft text-brand-ink', late: 'bg-danger-soft text-danger',
+};
+
+@Component({
+  selector: 'app-sla-chip',
+  template: `<span class="inline-flex w-fit items-center whitespace-nowrap rounded-full px-3 py-1 text-xs font-bold tabular-nums" [class]="cls()">{{ text() }}</span>`,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class SlaChip {
+  private readonly i18n = inject(I18n);
+  readonly clock = input.required<ClockInput>();
+  private readonly v = computed(() => computeClock(this.clock(), Date.now()));
+  protected readonly cls = computed(() => CHIP[this.v().kind]);
+  protected readonly text = computed(() => {
+    const v = this.v(), time = formatDuration(v.remainingMs);
+    return v.kind === 'paused' ? this.i18n.t('SlaClock.paused') : v.kind === 'met' ? this.i18n.t('SlaClock.met') : v.kind === 'late' ? this.i18n.t('SlaClock.late')
+      : v.kind === 'overdue' ? this.i18n.t('SlaClock.overdueBy', { time }) : this.i18n.t('SlaClock.chip_' + v.kind, { time });
+  });
+}
+
+export const PRIORITY_STRIPE: Record<string, string> = {
+  red: 'border-s-4 border-s-danger', amber: 'border-s-4 border-s-warn', blue: 'border-s-4 border-s-brand', green: 'border-s-4 border-s-ok', grey: '', light: '',
+};

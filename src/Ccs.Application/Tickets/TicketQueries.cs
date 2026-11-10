@@ -15,12 +15,15 @@ public sealed record TicketListFilter(
     Guid? CategoryId = null,
     Guid? TeamId = null,
     string? Search = null,
-    string? Group = null);        // customer chips: active | waiting | resolved | closed
+    string? Group = null,         // customer chips: active | waiting | resolved | closed
+    string? Sla = null);          // on_track | due_soon | breached | paused | completed
 
 public sealed record TicketListItem(
     Guid Id, string Reference, string Subject, string Status, string Priority, string? PriorityColor, string? PriorityEn, string? PriorityAr,
     string CategoryEn, string CategoryAr, string? TeamEn, string? TeamAr, string? AssigneeName, string RequesterName,
-    string? SlaState, DateTimeOffset? ResolutionDue, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+    string? SlaState, DateTimeOffset? ResolutionDue, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
+    string? RequesterEmail = null, DateTimeOffset? FirstResponseDue = null, DateTimeOffset? FirstRespondedAt = null,
+    DateTimeOffset? PausedAt = null, int PausedTotalSeconds = 0, DateTimeOffset? ResolvedAt = null);
 
 public sealed record TicketSummary(int Total, int Active, int Waiting, int Resolved, int Closed, int Unassigned, int Breached);
 
@@ -66,11 +69,18 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
             case "assigned": q = q.Where(t => t.AssignedAgentId == c.UserId && t.Status != TicketStatus.Closed); break;
             case "unassigned": q = q.Where(t => t.AssignedAgentId == null && t.Status != TicketStatus.Closed && t.Status != TicketStatus.Resolved); break;
             case "closed": q = q.Where(t => t.Status == TicketStatus.Closed); break;
+            case "escalated":
+                var esc = await EscalatedIdsAsync(c, ct);
+                q = q.Where(t => esc.Contains(t.Id));
+                break;
         }
+        if (!string.IsNullOrEmpty(f.Sla)) q = q.Where(t => db.TicketSlaRecords.Any(r => r.TicketId == t.Id && r.State == f.Sla));
         if (!string.IsNullOrEmpty(f.Status)) q = q.Where(t => t.Status == f.Status);
         q = f.Group switch
         {
             "active" => q.Where(t => ActiveStatuses.Contains(t.Status)),
+            "open" => q.Where(t => t.Status != TicketStatus.Resolved && t.Status != TicketStatus.Closed),   // staff "Active"
+            "finished" => q.Where(t => t.Status == TicketStatus.Resolved || t.Status == TicketStatus.Closed),
             "waiting" => q.Where(t => t.Status == TicketStatus.PendingCustomer),
             "resolved" => q.Where(t => t.Status == TicketStatus.Resolved),
             "closed" => q.Where(t => t.Status == TicketStatus.Closed),
@@ -82,7 +92,8 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
         if (!string.IsNullOrWhiteSpace(f.Search))
         {
             var s = f.Search.Trim();
-            q = q.Where(t => t.Reference.Contains(s) || t.Subject.Contains(s));
+            q = q.Where(t => t.Reference.Contains(s) || t.Subject.Contains(s)
+                             || db.Profiles.Any(p => p.Id == t.RequesterId && (p.FullName.Contains(s) || p.Email.Contains(s))));
         }
 
         var total = await q.CountAsync(ct);
@@ -108,6 +119,8 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
         var items = await (from t in q
                            join tcat in db.TicketCategories on t.CategoryId equals tcat.Id
                            join req in db.Profiles on t.RequesterId equals req.Id
+                           join sr in db.TicketSlaRecords on t.Id equals sr.TicketId into srs
+                           from sr in srs.DefaultIfEmpty()
                            select new TicketListItem(
                                t.Id, t.Reference, t.Subject, t.Status, t.Priority,
                                db.Priorities.Where(p => p.Code == t.Priority).Select(p => p.Color).FirstOrDefault(),
@@ -118,14 +131,47 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
                                db.Teams.Where(x => x.Id == t.TeamId).Select(x => x.NameAr).FirstOrDefault(),
                                db.Profiles.Where(x => x.Id == t.AssignedAgentId).Select(x => x.FullName).FirstOrDefault(),
                                req.FullName,
-                               db.TicketSlaRecords.Where(r => r.TicketId == t.Id).Select(r => r.State).FirstOrDefault(),
-                               db.TicketSlaRecords.Where(r => r.TicketId == t.Id).Select(r => r.ResolutionDue).FirstOrDefault(),
-                               t.CreatedAt, t.UpdatedAt))
+                               sr == null ? null : sr.State,
+                               sr == null ? null : sr.ResolutionDue,
+                               t.CreatedAt, t.UpdatedAt, req.Email,
+                               sr == null ? null : sr.FirstResponseDue,
+                               sr == null ? null : sr.FirstRespondedAt,
+                               sr == null ? null : sr.PausedAt,
+                               sr == null ? 0 : sr.PausedTotalSeconds,
+                               t.ResolvedAt))
                           .Skip((page.SafePage - 1) * page.SafeSize).Take(page.SafeSize).ToListAsync(ct);
         return new PagedResult<TicketListItem>(items, total, page.SafePage, page.SafeSize);
     }
 
     /// <summary>Summary cards (customer home and console queue).</summary>
+    /// <summary>my_escalated_tickets(): tickets escalated to me, or escalated by an agent in a team I lead.</summary>
+    public async Task<List<Guid>> EscalatedIdsAsync(Ccs.Domain.Rules.AccessContext c, CancellationToken ct = default)
+    {
+        if (!c.Staff) return [];
+        var rows = await db.AuditLogs.AsNoTracking().Where(a => a.Action == "ticket.escalated" && a.EntityId != null)
+            .Select(a => new { Id = a.EntityId!.Value, a.After }).ToListAsync(ct);
+        var me = c.UserId.ToString();
+        var ids = new HashSet<Guid>();
+        var leaderRules = new List<Guid>();
+        foreach (var r in rows)
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(r.After ?? "{}");
+                var root = doc.RootElement;
+                if (root.TryGetProperty("to", out var to) && string.Equals(to.GetString(), me, StringComparison.OrdinalIgnoreCase)) ids.Add(r.Id);
+                else if (root.TryGetProperty("rule", out var rule) && rule.GetString() is "agent" or "agent_to_leader") leaderRules.Add(r.Id);
+            }
+            catch (System.Text.Json.JsonException) { }
+        }
+        if (leaderRules.Count > 0 && c.LeaderOfTeams.Count > 0)
+        {
+            var lead = c.LeaderOfTeams.ToList();
+            ids.UnionWith(await db.Tickets.AsNoTracking().Where(t => leaderRules.Contains(t.Id) && t.TeamId != null && lead.Contains(t.TeamId.Value)).Select(t => t.Id).ToListAsync(ct));
+        }
+        return [.. ids];
+    }
+
     public async Task<TicketSummary> SummaryAsync(bool onlyMine, CancellationToken ct = default)
     {
         var c = await access.RequireSignedInAsync(ct);

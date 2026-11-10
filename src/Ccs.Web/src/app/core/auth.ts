@@ -108,7 +108,7 @@ export class Auth {
   /** Where a person lands after signing in (same rule as homeFor() today). */
   homePath(): string {
     const l = this.i18n.locale();
-    return this.isStaff() ? `/${l}/console` : `/${l}/tickets`;
+    return this.isStaff() ? `/${l}/console/dashboard` : `/${l}/tickets`;
   }
 
   private async accept(s: SessionResponse): Promise<void> {

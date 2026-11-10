@@ -11,6 +11,8 @@ export interface TicketListItem {
   id: string; reference: string; subject: string; status: string; priority: string; priorityColor: string | null;
   priorityEn: string | null; priorityAr: string | null; categoryEn: string; categoryAr: string; teamEn: string | null; teamAr: string | null; assigneeName: string | null;
   requesterName: string; slaState: string | null; resolutionDue: string | null; createdAt: string; updatedAt: string;
+  requesterEmail?: string | null; firstResponseDue?: string | null; firstRespondedAt?: string | null; pausedAt?: string | null;
+  pausedTotalSeconds?: number; resolvedAt?: string | null;
 }
 
 export interface TicketSummary { total: number; active: number; waiting: number; resolved: number; closed: number; unassigned: number; breached: number }

@@ -117,7 +117,8 @@
     "knowledgeBase": "Knowledge base",
     "profile": "Profile",
     "closeMenu": "Close menu",
-    "language": "Language"
+    "language": "Language",
+    "help": "Help"
   },
   "Roles": {
     "customer": "Customer",
@@ -1330,7 +1331,16 @@
     "closeMenu": "Close menu",
     "accountMenu": "Account menu",
     "myAccount": "My account",
-    "language": "Language"
+    "language": "Language",
+    "help": "Help",
+    "group_people": "People",
+    "group_rules": "Rules & setup",
+    "group_content": "Content",
+    "group_insights": "Insights",
+    "group_system": "System",
+    "group_more": "More",
+    "expand": "Expand",
+    "pendingCount": "{count} waiting"
   },
   "Dashboard": {
     "title": "Dashboard",
@@ -3446,5 +3456,34 @@
     "labelHint": "Leave a box empty to keep the standard text (shown in grey).",
     "view": "View",
     "insertReply": "Insert a saved reply…"
+  },
+  "Help": {
+    "title": "Help Center",
+    "subtitleCustomer": "What you can do in your portal, how things move, and step-by-step guides.",
+    "subtitleStaff": "What you can do in the console, how tickets move, and step-by-step guides for your role.",
+    "subtitleAdmin": "Every feature, flow and how-to in the system. Other roles see only the parts that apply to them.",
+    "searchLabel": "Search the Help Center",
+    "searchPlaceholder": "Search features, flows and guides",
+    "search": "Search",
+    "topics": "Topics",
+    "allTopics": "All topics",
+    "kinds": "Kinds of help",
+    "tab": {
+      "features": "Features",
+      "flows": "Flows",
+      "howto": "How-to"
+    },
+    "empty": "Nothing matches here.",
+    "results": "{count, plural, one {1 result} other {# results}} for \"{q}\".",
+    "clear": "Clear search",
+    "openPage": "Open this page",
+    "tips": "Good to know",
+    "related": "Related",
+    "needsPermission": "Needs permission",
+    "for": {
+      "customer": "Customers",
+      "agent": "Staff",
+      "admin": "Administrators"
+    }
   }
 }

@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, HostListener, computed, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, HostListener, computed, inject, input, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { toSignal } from '@angular/core/rxjs-interop';
@@ -18,11 +20,45 @@ const ICONS: Record<string, string> = {
   users: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   plus: 'M12 5v14M5 12h14',
   bell: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0',
-  settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z',
+  teams: 'M12 3 3 8l9 5 9-5zM3 13l9 5 9-5',
+  flag: 'M4 22V4M4 4h13l-2.5 4L17 12H4',
+  catalog: 'M4 6h16M4 12h16M4 18h10',
+  audit: 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9',
+  chevron: 'M9 6l6 6-6 6',
 };
 
-export interface SideItem { path: string; label: string; icon: string; exact?: boolean }
-export interface SideGroup { title?: string; items: SideItem[] }
+/** Same grouping, icons and colours as the current staff sidebar (lib/site/sidebar.ts). */
+const GROUP_OF: Record<string, string> = {
+  dashboard: 'top', tickets: 'top',
+  customers: 'people', admin_customers: 'people', people: 'people', approvals: 'people', users: 'people', admin_teams: 'people', team: 'people', permissions: 'people', organizations: 'people', hierarchy: 'people',
+  catalog: 'rules', ticket_types: 'rules', priorities: 'rules', ticket_status: 'rules', sla_settings: 'rules', escalation: 'rules',
+  kb_admin: 'content', kb_console: 'content', canned: 'content',
+  reports: 'insights', sla: 'insights', audit: 'insights',
+  settings: 'system', help_center: 'system', help: 'system',
+};
+const GROUP_IDS = ['top', 'people', 'rules', 'content', 'insights', 'system', 'more'];
+const GROUP_STYLE: Record<string, { color: string; icon: string }> = {
+  top: { color: '#8aa4d6', icon: 'dashboard' }, people: { color: '#5b94f5', icon: 'customers' }, rules: { color: '#f5a524', icon: 'flag' },
+  content: { color: '#3ecf8e', icon: 'kb' }, insights: { color: '#b388f5', icon: 'reports' }, system: { color: '#5fd0e0', icon: 'settings' }, more: { color: '#8aa4d6', icon: 'catalog' },
+};
+const ITEM_ICON: Record<string, string> = {
+  dashboard: 'dashboard', tickets: 'tickets', canned: 'kb', team: 'teams', customers: 'customers', people: 'users', approvals: 'users', sla: 'clock',
+  reports: 'reports', kb_console: 'kb', users: 'users', hierarchy: 'teams', escalation: 'flag', admin_customers: 'customers', admin_teams: 'teams',
+  permissions: 'users', organizations: 'customers', catalog: 'catalog', ticket_types: 'tickets', priorities: 'flag', ticket_status: 'tickets', kb_admin: 'kb',
+  sla_settings: 'clock', audit: 'audit', settings: 'settings', help: 'kb', help_center: 'kb',
+};
+/** Where each menu address lives in this version. Screens not built yet are left out of the menu. */
+const ROUTE: Record<string, string> = {
+  '/console/dashboard': '/console/dashboard', '/console': '/console', '/console/canned': '/console/canned', '/console/approvals': '/admin/approvals',
+  '/console/customers': '/admin/customers', '/kb': '/kb',
+  '/admin/users': '/admin/users', '/admin/customers': '/admin/customers', '/admin/teams': '/admin/teams', '/admin/permissions': '/admin/permissions',
+  '/admin/organizations': '/admin/organizations', '/admin/escalation': '/admin/escalation', '/admin/catalog': '/admin/catalog', '/admin/ticket-types': '/admin/ticket-types',
+  '/admin/priorities': '/admin/priorities', '/admin/ticket-status': '/admin/ticket-status', '/admin/kb': '/admin/kb', '/admin/sla': '/admin/sla',
+};
+
+export interface SideItem { path: string; label: string; icon: string; exact?: boolean; badge?: number; also?: string[] }
+export interface SideGroup { id?: string; title?: string; color?: string; icon?: string; items: SideItem[] }
 
 @Component({
   selector: 'app-footer',
@@ -132,22 +168,40 @@ export class PublicLayout {
         </nav>
 
         <ng-template #groupsTpl>
-          @for (g of groups(); track $index; let gi = $index) {
-            <div [class]="gi > 0 ? 'mt-4 border-t border-white/10 pt-3' : ''">
-              @if (g.title) { <p class="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-white/50">{{ g.title }}</p> }
-              <ul class="flex flex-col gap-1">
-                @for (i of g.items; track i.path) {
-                  <li>
-                    <a [routerLink]="'/' + i18n.locale() + i.path" [attr.aria-current]="isHere(i) ? 'page' : null" (click)="menuOpen.set(false)"
-                      class="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold" [class]="isHere(i) ? 'bg-brand text-white' : 'text-white/80 hover:bg-white/10'">
-                      <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="icons[i.icon] ?? icons['dashboard']" /></svg>
-                      {{ i.label }}
-                    </a>
-                  </li>
-                }
-              </ul>
-            </div>
-          }
+          <div class="flex flex-col gap-1">
+            @for (g of groups(); track g.id ?? $index) {
+              @if (!g.title) {
+                <ul class="flex flex-col gap-1">@for (i of g.items; track i.path) { <ng-container *ngTemplateOutlet="itemTpl; context: { i, color: g.color }" /> }</ul>
+              } @else {
+                <div class="mt-1">
+                  <button type="button" [attr.aria-expanded]="isOpen(g)" [attr.aria-controls]="'grp-' + g.id" (click)="toggleGroup(g)"
+                    class="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-3 text-sm font-bold text-white hover:bg-white/10">
+                    <span class="shrink-0" [style.color]="g.color"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="icons[g.icon ?? 'catalog']" /></svg></span>
+                    <span class="min-w-0 flex-1 truncate text-start">{{ g.title }}</span>
+                    @if (!isOpen(g) && sum(g)) { <span class="ms-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e5484d] px-1.5 text-xs font-bold text-white">{{ sum(g) > 99 ? '99+' : sum(g) }}</span> }
+                    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 text-white/50 transition-transform motion-reduce:transition-none" [class]="isOpen(g) ? 'rotate-90' : 'rtl:rotate-180'"><path [attr.d]="icons['chevron']" /></svg>
+                  </button>
+                  @if (isOpen(g)) {
+                    <ul [id]="'grp-' + g.id" class="ms-5 mt-1 flex flex-col gap-1 border-s-2 ps-2" [style.border-color]="g.color + '99'">
+                      @for (i of g.items; track i.path) { <ng-container *ngTemplateOutlet="itemTpl; context: { i, color: g.color }" /> }
+                    </ul>
+                  }
+                </div>
+              }
+            }
+          </div>
+        </ng-template>
+        <ng-template #itemTpl let-i="i" let-color="color">
+          <li>
+            <a [routerLink]="'/' + i18n.locale() + i.path" [attr.aria-current]="isHere(i) ? 'page' : null" (click)="menuOpen.set(false)"
+              class="flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-semibold"
+              [class]="isHere(i) ? (color ? 'text-white' : 'bg-brand text-white') : 'text-white/80 hover:bg-white/10'"
+              [style.background-color]="isHere(i) && color ? color + '2e' : null">
+              <span class="shrink-0" [style.color]="color"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="icons[i.icon] ?? icons['dashboard']" /></svg></span>
+              <span class="min-w-0 flex-1 truncate">{{ i.label }}</span>
+              @if (i.badge) { <span class="ms-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e5484d] px-1.5 text-xs font-bold text-white">{{ i.badge > 99 ? '99+' : i.badge }}</span> }
+            </a>
+          </li>
         </ng-template>
       </div>
 
@@ -187,7 +241,7 @@ export class Shell {
   private readonly url = toSignal(this.router.events.pipe(filter((e) => e instanceof NavigationEnd)), { initialValue: null });
 
   protected readonly name = computed(() => this.i18n.pick(this.site.info()?.site?.headerNameEn, this.site.info()?.site?.headerNameAr) || this.i18n.t('Brand.name'));
-  protected readonly sub = computed(() => this.auth.isStaff() ? this.i18n.t('Shell.consoleName') : (this.i18n.pick(this.site.info()?.site?.headerSubEn, this.site.info()?.site?.headerSubAr) || this.i18n.t('Brand.tagline')));
+  protected readonly sub = computed(() => this.i18n.pick(this.site.info()?.site?.headerSubEn, this.site.info()?.site?.headerSubAr) || this.i18n.t('Brand.tagline'));
   protected readonly unread = computed(() => this.auth.me()?.unreadNotifications ?? 0);
   protected readonly bellLabel = computed(() => this.unread() ? this.i18n.t('Shell.bellUnread', { count: this.unread() }) : this.i18n.t('Shell.bell'));
   protected readonly initials = computed(() => (this.auth.me()?.fullName ?? '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase());
@@ -207,42 +261,73 @@ export class Shell {
         { path: '/account', label: t('Nav.account'), icon: 'users' },
       ] }];
     }
-    const items: SideItem[] = [
-      { path: '/console', label: t('Shell.tickets'), icon: 'tickets', exact: true },
-    ];
-    if (this.auth.has('create_for_customer')) items.push({ path: '/console/tickets/new', label: t('Shell.newTicketForCustomer'), icon: 'plus', exact: true });
-    if (this.auth.isStaff() && this.auth.me()?.roles.some((r) => r !== 'management_viewer')) items.push({ path: '/console/saved-replies', label: t('Shell.cannedResponses'), icon: 'kb' });
-    items.push({ path: '/kb', label: t('Shell.knowledgeBase'), icon: 'kb' });
-    items.push({ path: '/account', label: t('Shell.myAccount'), icon: 'users' });
-    const admin = !!this.auth.me()?.roles.includes('admin');
-    const adm: SideItem[] = [];
-    if (admin) adm.push({ path: '/admin/users', label: t('AdminV2.nav.staff'), icon: 'users' });
-    if (admin || this.auth.has('customers_view')) adm.push({ path: '/admin/customers', label: t('AdminV2.nav.customers'), icon: 'customers' });
-    if (admin || this.auth.has('approve_customers')) adm.push({ path: '/admin/approvals', label: t('AdminV2.nav.approvals'), icon: 'clock' });
-    if (admin) adm.push(
-      { path: '/admin/permissions', label: t('AdminV2.nav.permissions'), icon: 'settings' },
-      { path: '/admin/organizations', label: t('AdminV2.nav.organizations'), icon: 'dashboard' },
-      { path: '/admin/teams', label: t('AdminV2.nav.teams'), icon: 'customers' },
-    );
-    if (admin || this.auth.has('manage_catalog')) adm.push(
-      { path: '/admin/ticket-types', label: t('AdminV2.nav.ticketTypes'), icon: 'tickets' },
-      { path: '/admin/catalog', label: t('AdminV2.nav.catalog'), icon: 'kb' },
-      { path: '/admin/priorities', label: t('AdminV2.nav.priorities'), icon: 'reports' },
-    );
-    if (admin || this.auth.has('manage_settings')) adm.push(
-      { path: '/admin/sla', label: t('AdminV2.nav.sla'), icon: 'clock' },
-      { path: '/admin/ticket-status', label: t('AdminV2.nav.status'), icon: 'tickets' },
-    );
-    if (admin) adm.push({ path: '/admin/escalation', label: t('AdminV2.nav.escalation'), icon: 'reports' });
-    if (admin || this.auth.has('manage_kb')) adm.push({ path: '/admin/kb', label: t('AdminV2.nav.kb'), icon: 'kb' });
-    return adm.length ? [{ items }, { title: t('Shell.administration'), items: adm }] : [{ items }];
+    return this.staffGroups();
   });
+
+  /** Red numbers: unassigned tickets and accounts waiting for approval, refreshed with the queue. */
+  private readonly badges = signal<{ tickets: number; approvals: number }>({ tickets: 0, approvals: 0 });
+  private readonly toggled = signal<Record<string, boolean>>({});
+  private readonly http = inject(HttpClient);
+  private readonly loadBadges = (() => {
+    const run = () => { if (this.auth.isStaff()) void firstValueFrom(this.http.get<{ tickets: number; approvals: number }>('/api/console/badges')).then((b) => this.badges.set(b), () => undefined); };
+    run();
+    const h = setInterval(() => { if (document.visibilityState === 'visible') run(); }, 60000);
+    inject(DestroyRef).onDestroy(() => clearInterval(h));
+    return run;
+  })();
+
+  /** The staff menu comes from the saved menu (Settings → Menus), grouped like the current sidebar. */
+  private staffGroups(): SideGroup[] {
+    const me = this.auth.me();
+    const roles = me?.roles ?? [];
+    const admin = roles.includes('admin');
+    const has = (p: string) => this.auth.has(p);
+    const canKb = admin || has('manage_kb'), canCatalog = admin || has('manage_catalog'), canSettings = admin || has('manage_settings');
+    const can: Record<string, boolean> = {
+      canned: admin || has('reply'), team: false, reports: false, kb_console: !canKb, users: admin, people: false, hierarchy: false, escalation: admin,
+      admin_customers: admin, customers: !admin && has('customers_view'), admin_teams: admin, permissions: admin, organizations: admin,
+      catalog: canCatalog, ticket_types: canCatalog, priorities: canCatalog, ticket_status: canSettings, approvals: admin || has('approve_customers'),
+      kb_admin: canKb, sla_settings: canSettings, audit: false, settings: false, help: false, help_center: false, sla: false,
+    };
+    const rows = [...this.site.menus()];
+    // Ticket types has its own screen here; place it after Categories.
+    const cat = rows.find((r) => r.systemKey === 'catalog');
+    if (cat && !rows.some((r) => r.systemKey === 'ticket_types'))
+      rows.push({ ...cat, id: 'ticket-types', href: '/admin/ticket-types', systemKey: 'ticket_types', labelEn: this.i18n.t('AdminV2.nav.ticketTypes'), labelAr: this.i18n.t('AdminV2.nav.ticketTypes'), sortOrder: cat.sortOrder + 0.5 });
+    const badge: Record<string, number> = { tickets: this.badges().tickets, approvals: this.badges().approvals };
+    const seen = new Set<string>();
+    const by = new Map<string, { order: number; item: SideItem }[]>();
+    for (const r of rows) {
+      if (!['console', 'admin', 'general'].includes(r.area) || r.kind !== 'link' || !r.href) continue;
+      if (r.systemKey && !(can[r.systemKey] ?? true)) continue;
+      const path = ROUTE[r.href];
+      if (!path || seen.has(path)) continue;          // screens of later stages stay out of the menu until they exist
+      seen.add(path);
+      const gid = (r.systemKey && GROUP_OF[r.systemKey]) || 'more';
+      const item: SideItem = { path, label: this.i18n.locale() === 'ar' ? r.labelAr : r.labelEn, icon: (r.systemKey && ITEM_ICON[r.systemKey]) || 'catalog',
+        exact: r.systemKey === 'dashboard' || r.systemKey === 'tickets', also: r.systemKey === 'tickets' ? ['/console/tickets'] : undefined,
+        badge: r.systemKey ? badge[r.systemKey] || undefined : undefined };
+      (by.get(gid) ?? by.set(gid, []).get(gid)!).push({ order: r.sortOrder, item });
+    }
+    const titles: Record<string, string> = { people: 'group_people', rules: 'group_rules', content: 'group_content', insights: 'group_insights', system: 'group_system', more: 'group_more' };
+    return GROUP_IDS.flatMap((id) => {
+      const list = by.get(id);
+      if (!list?.length) return [];
+      return [{ id, title: id === 'top' ? undefined : this.i18n.t('Shell.' + titles[id]), color: GROUP_STYLE[id].color, icon: GROUP_STYLE[id].icon, items: list.sort((a, b) => a.order - b.order).map((x) => x.item) }];
+    });
+  }
+
+  protected isOpen(g: SideGroup): boolean { return this.toggled()[g.id ?? ''] ?? g.items.some((i) => this.isHere(i)); }
+  protected toggleGroup(g: SideGroup): void { const open = this.isOpen(g); this.toggled.update((t) => ({ ...t, [g.id ?? '']: !open })); }
+  protected sum(g: SideGroup): number { return g.items.reduce((n, i) => n + (i.badge ?? 0), 0); }
 
   isHere(i: SideItem): boolean {
     this.url();
     const path = this.router.url.split('?')[0].replace(/^\/(en|ar)/, '') || '/';
+    if (i.also?.some((a) => path === a || path.startsWith(a + '/'))) return true;
     if (i.exact) return path === i.path;
     if (i.path === '/tickets' && path.startsWith('/tickets/new')) return false;
+    if (i.also?.some((a) => path === a || path.startsWith(a + '/'))) return true;
     return path === i.path || path.startsWith(i.path + '/');
   }
 
