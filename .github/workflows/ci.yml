@@ -120,12 +120,11 @@ jobs:
           Check 'site settings JSON' ($null -ne $site)
           try { Invoke-WebRequest https://ccs.test/api/tickets -UseBasicParsing | Out-Null; $code = 200 } catch { $code = [int]$_.Exception.Response.StatusCode }
           Check "anonymous /api/tickets refused (got $code)" ($code -eq 401)
-          $login = Invoke-Sqlcmd -ServerInstance localhost -TrustServerCertificate -Query "SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'" -ErrorAction SilentlyContinue
-          if (-not $login) { $login = sqlcmd -S localhost -E -C -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'" }
+          $login = sqlcmd -S localhost -E -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'"
           Check 'API connects with the IIS APPPOOL\CcsApi Windows login' ("$login" -match 'CcsApi')
-          $hf = sqlcmd -S localhost -E -C -d CCS -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.tables WHERE schema_id = SCHEMA_ID('HangFire')"
+          $hf = sqlcmd -S localhost -E -d CCS -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.tables WHERE schema_id = SCHEMA_ID('HangFire')"
           Check "Hangfire created its tables ($hf)" ([int]"$hf".Trim() -gt 0)
-          $ft = sqlcmd -S localhost -E -C -d CCS -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.fulltext_indexes"
+          $ft = sqlcmd -S localhost -E -d CCS -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.fulltext_indexes"
           Check "full-text index exists ($ft)" ([int]"$ft".Trim() -ge 1)
       - name: Logs on failure
         if: failure()
