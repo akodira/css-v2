@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using SignInResult = Ccs.Infrastructure.Identity.SignInResult;
 
 namespace Ccs.Api.Controllers;
 
