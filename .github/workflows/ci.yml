@@ -1,7 +1,10 @@
 name: CI
 
-# Every push and pull request: compile and test the .NET solution, run the SQL scripts on a real
-# SQL Server 2022, build the Angular app. On main it also produces the IIS release package.
+# All checks run on Windows Server 2022 build machines (rented from GitHub for each run, then deleted),
+# the same OS as production:
+#   1. build      - compile, run the unit tests, build Angular, make the IIS release package
+#   2. deploy-test - install SQL Server 2022 (with Full-Text Search), IIS, Hosting Bundle, URL Rewrite and ARR,
+#                    run deploy/Install-Ccs.ps1 exactly as on the real server, then test through HTTPS
 on:
   push:
     branches: [ main ]
@@ -16,9 +19,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  dotnet:
-    name: .NET build and tests
-    runs-on: ubuntu-latest
+  build:
+    name: Build, test, package (Windows Server 2022)
+    runs-on: windows-2022
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
@@ -27,106 +30,18 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
-      - run: dotnet restore Ccs.slnx
-      - run: dotnet build Ccs.slnx -c Release --no-restore
-      - run: dotnet test Ccs.slnx -c Release --no-build --logger "trx;LogFileName=tests.trx" --results-directory test-results
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: test-results
-
-  database:
-    name: SQL scripts on SQL Server 2022
-    runs-on: ubuntu-latest
-    services:
-      mssql:
-        image: mcr.microsoft.com/mssql/server:2022-latest
-        env:
-          ACCEPT_EULA: "Y"
-          MSSQL_SA_PASSWORD: "Ci_Passw0rd!2026"
-        ports: [ "1433:1433" ]
-        options: >-
-          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Ci_Passw0rd!2026' -Q 'SELECT 1' -b"
-          --health-interval 10s --health-timeout 5s --health-retries 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
-      - name: Install sqlcmd
-        run: |
-          if ! command -v sqlcmd >/dev/null; then
-            curl -sSL https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc >/dev/null
-            curl -sSL "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list" | sudo tee /etc/apt/sources.list.d/mssql-release.list >/dev/null
-            sudo apt-get update -q && sudo ACCEPT_EULA=Y apt-get install -y -q mssql-tools18 unixodbc-dev
-            echo "/opt/mssql-tools18/bin" >> "$GITHUB_PATH"
-          fi
-      - name: Create database and run scripts 01-02 (03 needs Full-Text Search, not in the Linux image)
-        env:
-          SQLCMDPASSWORD: "Ci_Passw0rd!2026"
-        run: |
-          S="sqlcmd -C -I -S localhost -U sa -b"
-          $S -Q "CREATE DATABASE CCS COLLATE Latin1_General_100_CI_AS_SC; ALTER DATABASE CCS SET READ_COMMITTED_SNAPSHOT ON;"
-          $S -d CCS -i database/01_schema.sql
-          $S -d CCS -i database/02_seed.sql
-          $S -d CCS -i database/02_seed.sql        # seed must be safe to run twice
-          $S -d CCS -Q "SELECT COUNT(*) AS ccs_tables FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE s.name='ccs'"
-      - name: API starts against the database and reports healthy
-        env:
-          ConnectionStrings__Ccs: "Server=localhost;Database=CCS;User Id=sa;Password=Ci_Passw0rd!2026;TrustServerCertificate=True;Encrypt=True"
-          Jwt__SigningKey: "Y2ktb25seS1zaWduaW5nLWtleS1ub3QtZm9yLXByb2R1Y3Rpb24tdXNlLTEyMzQ1Njc4OTA="
-          FileStore__Root: /tmp/ccs/attachments
-          DataProtection__KeysFolder: /tmp/ccs/keys
-          Serilog__WriteTo__0__Name: Console
-          ASPNETCORE_URLS: http://localhost:5080
-          ASPNETCORE_ENVIRONMENT: Production
-        run: |
-          mkdir -p /tmp/ccs/attachments /tmp/ccs/keys
-          dotnet run --project src/Ccs.Api -c Release --no-launch-profile > api.log 2>&1 &
-          for i in $(seq 1 60); do
-            if curl -fsS http://localhost:5080/api/health >/dev/null 2>&1; then echo "healthy after ${i}s"; break; fi
-            sleep 2
-          done
-          curl -fsS http://localhost:5080/api/health || (cat api.log; exit 1)
-          echo; curl -fsS http://localhost:5080/api/site | head -c 400; echo
-          code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5080/api/tickets)
-          echo "GET /api/tickets without sign-in -> $code"; test "$code" = "401"
-      - if: failure()
-        run: cat api.log || true
-
-  web:
-    name: Angular build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: src/Ccs.Web
-    steps:
-      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: src/Ccs.Web/package-lock.json
-      - run: npm ci
-      - run: npx ng build --configuration production
-
-  release:
-    name: IIS release package
-    if: github.ref == 'refs/heads/main'
-    needs: [ dotnet, database, web ]
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: src/Ccs.Web/package-lock.json
-      - name: Publish API (framework-dependent, win-x64)
+      - name: Restore and build
+        run: |
+          dotnet restore Ccs.slnx
+          dotnet build Ccs.slnx -c Release --no-restore
+      - name: Unit tests
+        run: dotnet test Ccs.slnx -c Release --no-build --logger "trx;LogFileName=tests.trx" --results-directory test-results
+      - name: Publish API (win-x64, framework-dependent)
         run: dotnet publish src/Ccs.Api/Ccs.Api.csproj -c Release -r win-x64 --self-contained false -o release/ccs-api
       - name: Build web
         working-directory: src/Ccs.Web
@@ -141,10 +56,80 @@ jobs:
           Copy-Item database/* release/database/ -Recurse
           Copy-Item migration/* release/migration/ -Recurse
           Copy-Item docs/* release/docs/ -Recurse
-          Copy-Item deploy/* release/ -Recurse -ErrorAction SilentlyContinue
+          Copy-Item deploy/Install-Ccs.ps1 release/
           "commit $env:GITHUB_SHA built $(Get-Date -Format o)" | Set-Content release/VERSION.txt
       - uses: actions/upload-artifact@v4
         with:
           name: ccs-v2-release-${{ github.sha }}
           path: release
           retention-days: 30
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-results
+
+  deploy-test:
+    name: Deploy to IIS + SQL Server 2022 and test (Windows Server 2022)
+    needs: build
+    runs-on: windows-2022
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ccs-v2-release-${{ github.sha }}
+          path: D:\Releases\ci
+      - name: Install SQL Server 2022 Developer with Full-Text Search
+        shell: pwsh
+        run: |
+          choco install sql-server-2022 -y --no-progress --params="'/IgnorePendingReboot /FEATURES:SQLENGINE,FULLTEXT /INSTANCENAME:MSSQLSERVER'"
+          if ($LASTEXITCODE -notin 0, 3010) { throw "SQL Server install failed: $LASTEXITCODE" }
+          $tools = Get-ChildItem 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC' -Recurse -Filter sqlcmd.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($tools) { $tools.DirectoryName | Out-File -Append $env:GITHUB_PATH }
+      - name: Install IIS roles, Hosting Bundle, URL Rewrite, ARR
+        shell: pwsh
+        run: |
+          Install-WindowsFeature Web-Server, Web-Default-Doc, Web-Static-Content, Web-Http-Errors, Web-Http-Logging, `
+            Web-Request-Monitor, Web-Filtering, Web-Stat-Compression, Web-Dyn-Compression, Web-AppInit, Web-WebSockets, `
+            Web-Mgmt-Console -IncludeManagementTools | Out-Null
+          Invoke-WebRequest https://aka.ms/dotnet/10.0/dotnet-hosting-win.exe -OutFile $env:TEMP\hosting.exe
+          Start-Process $env:TEMP\hosting.exe -ArgumentList '/install', '/quiet', '/norestart' -Wait
+          choco install urlrewrite iis-arr -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "URL Rewrite / ARR install failed: $LASTEXITCODE" }
+          net stop was /y; net start w3svc
+      - name: Run Install-Ccs.ps1 (same script as production)
+        shell: pwsh
+        run: |
+          Add-Content "$env:windir\System32\drivers\etc\hosts" "`n127.0.0.1 ccs.test"
+          & D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -SelfSignedForTest
+      - name: Run it again (update path must be safe)
+        shell: pwsh
+        run: '& D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -SelfSignedForTest'
+      - name: Smoke tests through https://ccs.test
+        shell: pwsh
+        run: |
+          function Check($name, $ok) { if ($ok) { Write-Host "PASS  $name" } else { throw "FAIL  $name" } }
+          $home_ = Invoke-WebRequest https://ccs.test/en -UseBasicParsing
+          Check 'home page /en serves Angular' ($home_.StatusCode -eq 200 -and $home_.Content -match '<app-root')
+          $deep = Invoke-WebRequest https://ccs.test/ar/tickets -UseBasicParsing
+          Check 'deep link /ar/tickets falls back to index.html' ($deep.StatusCode -eq 200 -and $deep.Content -match '<app-root')
+          $h = Invoke-WebRequest https://ccs.test/api/health -UseBasicParsing
+          Check 'API health through ARR' ($h.Content -match 'Healthy')
+          Check 'HSTS header' ($home_.Headers['Strict-Transport-Security'] -match 'max-age')
+          Check 'CSP header' ($home_.Headers['Content-Security-Policy'] -match "default-src 'self'")
+          $site = Invoke-RestMethod https://ccs.test/api/site
+          Check 'site settings JSON' ($null -ne $site)
+          try { Invoke-WebRequest https://ccs.test/api/tickets -UseBasicParsing | Out-Null; $code = 200 } catch { $code = [int]$_.Exception.Response.StatusCode }
+          Check "anonymous /api/tickets refused (got $code)" ($code -eq 401)
+          $login = Invoke-Sqlcmd -ServerInstance localhost -TrustServerCertificate -Query "SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'" -ErrorAction SilentlyContinue
+          if (-not $login) { $login = sqlcmd -S localhost -E -C -h -1 -W -Q "SET NOCOUNT ON; SELECT name FROM sys.server_principals WHERE name = N'IIS APPPOOL\CcsApi'" }
+          Check 'API connects with the IIS APPPOOL\CcsApi Windows login' ("$login" -match 'CcsApi')
+          $hf = sqlcmd -S localhost -E -C -d CCS -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.tables WHERE schema_id = SCHEMA_ID('HangFire')"
+          Check "Hangfire created its tables ($hf)" ([int]"$hf".Trim() -gt 0)
+          $ft = sqlcmd -S localhost -E -C -d CCS -h -1 -W -Q "SET NOCOUNT ON; SELECT COUNT(*) FROM sys.fulltext_indexes"
+          Check "full-text index exists ($ft)" ([int]"$ft".Trim() -ge 1)
+      - name: Logs on failure
+        if: failure()
+        shell: pwsh
+        run: |
+          Get-ChildItem D:\CcsData\logs -ErrorAction SilentlyContinue | ForEach-Object { "--- $($_.Name)"; Get-Content $_.FullName -Tail 80 }
+          Get-WinEvent -LogName Application -MaxEvents 40 -ErrorAction SilentlyContinue | Where-Object { $_.ProviderName -match 'IIS|ASP.NET|\.NET' } | Format-List TimeCreated, ProviderName, Message
