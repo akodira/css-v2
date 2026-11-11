@@ -378,7 +378,7 @@ public sealed class TicketService(
     // ------------------------------------------------------------------ priority
 
     /// <summary>set_ticket_priority(): staff only; a category or subcategory can fix the priority.</summary>
-    public async Task SetPriorityAsync(Guid ticketId, string priority, CancellationToken ct = default)
+    public async Task SetPriorityAsync(Guid ticketId, string priority, CancellationToken ct = default, string? reason = null)
     {
         var (c, _) = await access.RequireTicketAsync(ticketId, ct);
         if (!c.Staff) throw new ForbiddenException("only staff can set priority");
@@ -401,7 +401,7 @@ public sealed class TicketService(
         t.UpdatedAt = clock.UtcNow;
         await sla.ApplyPriorityAsync(t.Id, priority, ct);
         await notifications.OnPriorityAsync(t, old, c.UserId, ct);
-        audit.Write("ticket.priority_changed", "ticket", t.Id, new { priority = old }, new { priority });
+        audit.Write("ticket.priority_changed", "ticket", t.Id, new { priority = old }, new { priority, reason = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim() });
         await SaveAsync(ct);
         await tx.CommitAsync(ct);
     }

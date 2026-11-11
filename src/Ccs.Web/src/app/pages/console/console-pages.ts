@@ -5,12 +5,22 @@ import { I18n, TPipe } from '../../core/i18n';
 import { Paged, SiteService, TicketDetail, TicketListItem, TicketsApi } from '../../core/api';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, SlaChip, SortTh, StatusBadge } from '../../shared/ui';
+import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, Req, SlaChip, SlaClockCard, SortTh, StatusBadge } from '../../shared/ui';
 import { AutoRefreshBar, autoRefresh } from '../tickets/customer-pages';
 import { CannedApi } from '../help-pages';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
 import { NewTicketOptions } from '../../core/api';
 import { CommentActions, LifecycleApi, StaffLifecycle, TicketLifecycle } from '../tickets/lifecycle';
+
+interface StaffExtra {
+  requesterPhone: string | null; teamLeaders: string[];
+  sla: { state: string; firstResponseDue: string | null; resolutionDue: string | null; firstRespondedAt: string | null; resolvedAt: string | null; pausedAt: string | null; pausedTotalSeconds: number } | null;
+  assignments: { at: string; teamEn: string | null; teamAr: string | null; agent: string | null; by: string | null; reason: string | null }[];
+  teams: { id: string; nameEn: string; nameAr: string }[]; members: { teamId: string; userId: string; fullName: string }[];
+  priorities: { code: string; nameEn: string; nameAr: string; color: string }[]; fixedPriority: string | null;
+  moves: { to: string; requiresReason: boolean }[]; closureReasons: { code: string; nameEn: string; nameAr: string }[];
+  canWork: boolean; canReassign: boolean; canClaim: boolean;
+}
 
 const SLA_TONE: Record<string, string> = {
   on_track: 'bg-ok-soft text-ok', due_soon: 'bg-warn-soft text-warn-ink', breached: 'bg-danger-soft text-danger',
@@ -167,7 +177,7 @@ export class ConsoleQueuePage {
   protected readonly prios = signal<{ code: string; nameEn: string; nameAr: string }[]>([]);
   protected readonly teams = signal<{ id: string; nameEn: string; nameAr: string }[]>([]);
   protected readonly readOnly = computed(() => !(this.auth.me()?.roles ?? []).some((r) => r === 'agent' || r === 'team_leader' || r === 'admin'));
-  protected readonly pages = computed(() => Math.max(1, Math.ceil((this.data()?.total ?? 0) / 25)));
+  protected readonly pages = computed(() => Math.max(1, Math.ceil((this.data()?.total ?? 0) / 20)));
 
   constructor() {
     effect(() => { this.sort(); this.desc(); untracked(() => this.load()); });
@@ -198,7 +208,7 @@ export class ConsoleQueuePage {
       q: q || null, page: page > 1 ? page : null, sort: sort !== 'updated' ? sort : null, dir: desc ? null : 'asc' } });
     const apiView = view === 'mine' ? 'assigned' : view === 'all' ? undefined : view;
     const st = status === 'active' ? { group: 'open' } : status === 'any' ? {} : { status };
-    void this.api.list({ view: apiView, ...st, priority: priority || undefined, sla: sla || undefined, teamId: team || undefined, search: q, page, pageSize: 25, sort, desc }).then((d) => this.data.set(d));
+    void this.api.list({ view: apiView, ...st, priority: priority || undefined, sla: sla || undefined, teamId: team || undefined, search: q, page, pageSize: 20, sort, desc }).then((d) => this.data.set(d));
     void firstValueFrom(this.http.get<NonNullable<ReturnType<typeof this.counts>>>('/api/console/counts')).then((c) => this.counts.set(c));
   }
 }
@@ -206,114 +216,246 @@ export class ConsoleQueuePage {
 /** Ticket workspace: reply or internal note, status change, claim (spec 7). Escalation, links and fields arrive in stage 4. */
 @Component({
   selector: 'app-console-ticket',
-  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions, AutoRefreshBar],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions, AutoRefreshBar, SlaClockCard, Req],
   template: `
     @if (t(); as tk) {
-      <main class="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
-        <div class="flex min-w-0 flex-col gap-6">
-          <app-auto-refresh (tick)="load()" />
-          <a [routerLink]="link('/console')" class="text-sm font-semibold text-brand-ink underline">{{ 'Console.ticket.back' | t }}</a>
-          <header class="flex flex-col gap-3 rounded-md border border-line bg-surface p-6">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-              <p class="font-semibold" dir="ltr">{{ tk.reference }}</p>
+      <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
+        <app-auto-refresh (tick)="load()" />
+        <a [routerLink]="link('/console')" class="text-sm font-semibold text-brand-ink underline">{{ 'Console.ticket.back' | t }}</a>
+        @if (x() && !x()!.canWork) { <p role="status" class="rounded-lg bg-warn-soft px-4 py-3 text-sm font-medium text-warn-ink">{{ 'Console.readOnly' | t }}</p> }
+
+        <header class="flex flex-col gap-3 rounded-md border border-line bg-surface p-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <p dir="ltr" class="font-semibold">{{ tk.reference }}</p>
+            <div class="flex flex-wrap gap-2">
+              <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold" [class]="prio(tk.names.priorityColor)">{{ i18n.pick(tk.names.priorityEn, tk.names.priorityAr) }}</span>
               <app-status-badge [status]="tk.status" [staff]="true" />
             </div>
-            <h1 class="text-2xl font-bold tracking-tight" dir="auto">{{ tk.subject }}</h1>
-            <p class="whitespace-pre-wrap leading-relaxed" dir="auto">{{ tk.description }}</p>
-            <app-attachments [ticketId]="tk.id" [items]="ticketFiles()" />
-          </header>
+          </div>
+          <h1 class="text-2xl font-bold leading-snug tracking-tight" dir="auto">{{ tk.subject }}</h1>
+          <p class="text-sm text-muted">
+            {{ 'Console.ticket.assignedTo' | t }}: <b class="text-ink" dir="auto">{{ tk.names.assignee ?? ('Console.unassignedLabel' | t) }}</b>
+            @if (x()?.teamLeaders?.length) { · {{ 'Console.ticket.teamLeader' | t }}: <b class="text-ink" dir="auto">{{ x()!.teamLeaders.join(', ') }}</b> }
+          </p>
+        </header>
 
-          <section class="flex flex-col gap-3" aria-labelledby="conv">
-            <h2 id="conv" class="text-lg font-bold">{{ 'Console.ticket.conversation' | t }}</h2>
-            @for (m of tk.messages; track m.id) {
-              @if (m.kind !== 'ticket_files') {
-                <article class="rounded-md border p-4" [class]="m.kind === 'internal_note' ? 'border-warn-ink/30 bg-warn-soft' : m.authorIsStaff ? 'border-brand/30 bg-brand-soft/50' : 'border-line bg-surface'">
-                  <header class="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span class="font-semibold" dir="auto">{{ m.authorName ?? ('Console.ticket.system' | t) }}
-                      <span class="ms-2 rounded bg-surface/70 px-1.5 py-0.5 text-xs font-semibold text-muted">{{ (m.kind === 'internal_note' ? 'Console.ticket.internalNote' : m.authorIsStaff ? 'Console.ticket.staffLabel' : 'Console.ticket.customerLabel') | t }}</span></span>
-                    <span class="text-muted">{{ i18n.date(m.createdAt) }}</span>
-                  </header>
-                  <p class="whitespace-pre-wrap leading-relaxed" dir="auto">{{ m.body }}@if (m.editedAt) { <span class="ms-1 text-xs text-muted">({{ 'Comments.edited' | t }})</span> }</p>
-                  <app-attachments [ticketId]="tk.id" [items]="m.attachments" />
-                  <app-comment-actions [ticketId]="tk.id" [message]="m" [me]="auth.me()?.id ?? null" (changed)="load()" />
-                </article>
-              }
-            } @empty { <p class="text-muted">{{ 'Console.ticket.noComments' | t }}</p> }
-          </section>
-
-          @if (tk.canReply || tk.canSeeInternalNotes) {
-            <section class="rounded-md border border-line bg-surface p-6">
-              <h2 class="mb-3 text-lg font-bold">{{ 'Console.reply.title' | t }}</h2>
-              <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); send()">
-                <fieldset class="flex flex-wrap gap-4 text-sm">
-                  <legend class="mb-1 font-semibold">{{ 'Console.reply.kind' | t }}</legend>
-                  @if (tk.canReply) { <label class="flex items-center gap-2"><input type="radio" name="kind" value="public_reply" [checked]="kind() === 'public_reply'" (change)="kind.set('public_reply')" />{{ 'Console.reply.public' | t }}</label> }
-                  @if (tk.canSeeInternalNotes) { <label class="flex items-center gap-2"><input type="radio" name="kind" value="internal_note" [checked]="kind() === 'internal_note'" (change)="kind.set('internal_note')" />{{ 'Console.reply.internal' | t }}</label> }
-                </fieldset>
-                @if (canned().length) {
-                  <label for="canned" class="sr-only">{{ 'Shell.cannedResponses' | t }}</label>
-                  <select id="canned" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-sm" (change)="insertCanned($any($event.target))">
-                    <option value="">{{ 'AdminV2.insertReply' | t }}</option>
-                    @for (c of canned(); track c.id) { <option [value]="c.id">{{ c.title }}</option> }
-                  </select>
-                }
-                <label for="body" class="sr-only">{{ 'Console.reply.body' | t }}</label>
-                <textarea id="body" rows="5" maxlength="10000" dir="auto" class="rounded-lg border border-line p-3" [class]="kind() === 'internal_note' ? 'bg-warn-soft' : 'bg-surface'" [value]="body()" (input)="body.set($any($event.target).value)"></textarea>
-                <app-file-picker [label]="'Console.ticket.attachments' | t" [(files)]="files" [disabled]="pending()" />
-                <div><button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ 'Console.reply.submit' | t }}</button></div>
-              </form>
-            </section>
-          }
-        </div>
-
-        <aside class="flex flex-col gap-4">
-          @if (notice()) { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
-          <section class="rounded-md border border-line bg-surface p-5 text-sm">
-            <dl class="flex flex-col gap-2">
-              <div><dt class="text-muted">{{ 'Console.ticket.customer' | t }}</dt><dd class="font-semibold" dir="auto">{{ tk.requesterName }}</dd><dd class="text-muted" dir="ltr">{{ tk.requesterEmail }}</dd></div>
-              <div><dt class="text-muted">{{ 'Console.ticket.category' | t }}</dt><dd class="font-semibold">{{ i18n.pick(tk.names.categoryEn, tk.names.categoryAr) }}</dd></div>
-              <div><dt class="text-muted">{{ 'Console.ticket.team' | t }}</dt><dd class="font-semibold">{{ i18n.pick(tk.names.teamEn, tk.names.teamAr) || ('Console.noTeam' | t) }}</dd></div>
-              <div><dt class="text-muted">{{ 'Console.ticket.agent' | t }}</dt><dd class="font-semibold">{{ tk.names.assignee ?? ('Console.unassignedLabel' | t) }}</dd></div>
-              <div><dt class="text-muted">{{ 'Console.columns.priority' | t }}</dt><dd><span class="inline-flex rounded px-2 py-0.5 text-xs font-semibold" [class]="prio(tk.names.priorityColor)">{{ i18n.pick(tk.names.priorityEn, tk.names.priorityAr) }}</span></dd></div>
-              @if (tk.slaState) {
-                <div><dt class="text-muted">{{ 'Console.ticket.sla' | t }}</dt><dd><span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold" [class]="sla[tk.slaState] ?? ''">{{ 'Sla.' + tk.slaState | t }}</span></dd>
-                  <dd class="text-muted">{{ 'Console.ticket.firstResponse' | t }}: {{ i18n.date(tk.firstResponseDue) }}</dd>
-                  <dd class="text-muted">{{ 'Console.ticket.resolution' | t }}: {{ i18n.date(tk.resolutionDue) }}</dd></div>
-              }
-            </dl>
-            @if (!tk.assignedAgentId && tk.teamId && auth.has('assign_self')) {
-              <button type="button" (click)="claim(tk.teamId!)" class="mt-4 min-h-11 w-full cursor-pointer rounded-lg border border-brand px-4 font-semibold text-brand-ink hover:bg-brand-soft">{{ 'Console.assignForm.claim' | t }}</button>
+        @if (x()?.sla; as s) {
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            @if (s.firstResponseDue) {
+              <app-sla-clock-card [label]="'Console.ticket.firstResponse' | t"
+                [clock]="{ dueAt: s.firstResponseDue, startAt: tk.createdAt, pausedTotalSeconds: s.pausedTotalSeconds, pausedAt: s.firstRespondedAt ? null : s.pausedAt, doneAt: s.firstRespondedAt }"
+                [dueText]="s.firstRespondedAt ? ('Console.ticket.metAt' | t) + ' ' + i18n.date(s.firstRespondedAt) : ('Console.ticket.due' | t) + ' ' + i18n.date(s.firstResponseDue)" />
             }
-          </section>
+            @if (s.resolutionDue) {
+              <app-sla-clock-card [label]="'Console.ticket.resolution' | t"
+                [clock]="{ dueAt: s.resolutionDue, startAt: tk.createdAt, pausedTotalSeconds: s.pausedTotalSeconds, pausedAt: s.pausedAt, doneAt: s.resolvedAt }"
+                [dueText]="('Console.ticket.due' | t) + ' ' + i18n.date(s.resolutionDue)" />
+            }
+          </div>
+        }
 
-          @if (tk.allowedMoves.length) {
-            <section class="rounded-md border border-line bg-surface p-5">
-              <h2 class="mb-3 font-bold">{{ 'Console.statusForm.title' | t }}</h2>
-              <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); changeStatus()">
-                <label for="to" class="text-sm font-semibold">{{ 'Console.statusForm.next' | t }}</label>
-                <select id="to" class="min-h-11 rounded-lg border border-line bg-surface px-3" [value]="to()" (change)="to.set($any($event.target).value)">
-                  <option value="">{{ 'Console.statusForm.select' | t }}</option>
-                  @for (m of tk.allowedMoves; track m) { <option [value]="m">{{ 'StaffStatus.' + m | t }}</option> }
-                </select>
-                @if (to() === 'resolved') {
-                  <label for="res" class="text-sm font-semibold">{{ 'Console.statusForm.resolution' | t }}</label>
-                  <textarea id="res" rows="3" dir="auto" class="rounded-lg border border-line p-3" [value]="resolution()" (input)="resolution.set($any($event.target).value)"></textarea>
-                }
-                @if (to() === 'closed') {
-                  <label for="cr" class="text-sm font-semibold">{{ 'Console.statusForm.closureReason' | t }}</label>
-                  <select id="cr" class="min-h-11 rounded-lg border border-line bg-surface px-3" [value]="closure()" (change)="closure.set($any($event.target).value)">
-                    <option value="">{{ 'Console.statusForm.closureSelect' | t }}</option>
-                    @for (c of manualClosures; track c) { <option [value]="c">{{ 'V2.closure.' + c | t }}</option> }
-                  </select>
-                }
-                <label for="why" class="text-sm font-semibold">{{ 'Console.statusForm.reason' | t }}</label>
-                <input id="why" dir="auto" class="min-h-11 rounded-lg border border-line px-3" [value]="reason()" (input)="reason.set($any($event.target).value)" />
-                <button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.statusForm.submit' | t }}</button>
-              </form>
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div class="flex min-w-0 flex-col gap-6 lg:col-span-2">
+            <section aria-labelledby="request" class="rounded-md border border-line bg-surface p-6">
+              <h2 id="request" class="text-lg font-bold">{{ 'Console.ticket.description' | t }}</h2>
+              <p class="mt-3 whitespace-pre-wrap leading-relaxed" dir="auto">{{ tk.description }}</p>
+              <app-attachments [ticketId]="tk.id" [items]="ticketFiles()" />
             </section>
-          }
-          <app-staff-lifecycle [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
-        </aside>
+
+            @if (tk.status === 'closed' && tk.names.closureEn) {
+              <p class="rounded-md border border-line bg-surface px-4 py-3 text-sm"><span class="font-semibold">{{ 'Console.ticket.closureReason' | t }}: </span>{{ i18n.pick(tk.names.closureEn, tk.names.closureAr) }}</p>
+            }
+            @if (tk.resolutionSummary) {
+              <section aria-labelledby="resolution" class="rounded-md border border-brand bg-brand-soft p-6">
+                <h2 id="resolution" class="text-lg font-bold text-brand-ink">{{ 'Console.ticket.resolutionSummary' | t }}</h2>
+                <p class="mt-3 whitespace-pre-wrap leading-relaxed" dir="auto">{{ tk.resolutionSummary }}</p>
+              </section>
+            }
+
+            <section aria-labelledby="conv" class="flex flex-col gap-3">
+              <h2 id="conv" class="text-lg font-bold">{{ 'Console.ticket.conversation' | t }}</h2>
+              <ol class="flex flex-col gap-4">
+                @for (m of comments(); track m.id) {
+                  <li class="flex gap-3" [class.flex-row-reverse]="m.authorId === auth.me()?.id">
+                    <span aria-hidden="true" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold" [class]="m.authorId === auth.me()?.id ? 'bg-chrome text-white' : 'bg-brand-soft text-brand-ink'">{{ initials(m.authorName) }}</span>
+                    <div class="min-w-0 max-w-[85%] flex-1 sm:max-w-[75%] sm:flex-none">
+                      <div class="rounded-2xl border p-4" [class]="m.kind === 'internal_note' ? 'border-warn bg-warn-soft' : m.authorId === auth.me()?.id ? 'border-line bg-surface' : 'border-brand bg-brand-soft'">
+                        <p class="text-sm font-semibold"><span dir="auto">{{ m.authorName ?? ('Console.ticket.system' | t) }}</span>
+                          <span class="font-normal text-muted"> · {{ (m.kind === 'internal_note' ? 'Console.ticket.internalNote' : m.authorId === tk.requesterId ? 'Console.ticket.customerLabel' : 'Console.ticket.staffLabel') | t }} · {{ i18n.date(m.createdAt) }}@if (m.editedAt) { · {{ 'Comments.edited' | t }} }</span></p>
+                        <p class="mt-2 whitespace-pre-wrap leading-relaxed" dir="auto">{{ m.body }}</p>
+                        <app-attachments [ticketId]="tk.id" [items]="m.attachments" />
+                      </div>
+                      <app-comment-actions [ticketId]="tk.id" [message]="m" [me]="auth.me()?.id ?? null" (changed)="load()" />
+                    </div>
+                  </li>
+                } @empty { <p class="text-muted">{{ 'Console.ticket.noComments' | t }}</p> }
+              </ol>
+            </section>
+
+            @if (tk.canReply) {
+              <section aria-labelledby="reply" class="rounded-md border border-line bg-surface p-6">
+                <h2 id="reply" class="mb-3 text-lg font-bold">{{ 'Console.reply.title' | t }}</h2>
+                <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); send()" novalidate>
+                  <fieldset class="flex flex-col gap-1.5">
+                    <legend class="text-sm font-semibold">{{ 'Console.reply.kind' | t }}</legend>
+                    <label class="flex min-h-11 items-center gap-2"><input type="radio" name="kind" class="h-5 w-5" [checked]="kind() === 'public_reply'" (change)="kind.set('public_reply')" />{{ 'Console.reply.public' | t }}</label>
+                    @if (tk.canSeeInternalNotes) { <label class="flex min-h-11 items-center gap-2"><input type="radio" name="kind" class="h-5 w-5" [checked]="kind() === 'internal_note'" (change)="kind.set('internal_note')" />{{ 'Console.reply.internal' | t }}</label> }
+                  </fieldset>
+                  <div class="flex flex-col gap-1.5">
+                    <label for="body" class="text-sm font-semibold">{{ 'Console.reply.body' | t }}<app-req /></label>
+                    @if (canned().length) {
+                      <div class="flex flex-wrap items-center gap-2">
+                        <label for="canned" class="sr-only">{{ 'Console.reply.canned' | t }}</label>
+                        <select id="canned" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" (change)="insertCanned($any($event.target))">
+                          <option value="">{{ 'Console.reply.cannedPick' | t }}</option>
+                          @for (c of canned(); track c.id) { <option [value]="c.id">{{ c.title }}</option> }
+                        </select>
+                        <a [routerLink]="link('/console/canned')" class="text-sm font-semibold text-brand-ink underline">{{ 'Console.reply.cannedManage' | t }}</a>
+                      </div>
+                    }
+                    <textarea id="body" rows="5" maxlength="10000" dir="auto" class="rounded-lg border border-line p-3 text-base" [class]="kind() === 'internal_note' ? 'bg-warn-soft' : 'bg-surface'" [value]="body()" (input)="body.set($any($event.target).value)"></textarea>
+                  </div>
+                  <app-file-picker [label]="'Console.ticket.attachments' | t" [(files)]="files" [disabled]="pending()" />
+                  @if (notice() && where() === 'reply') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
+                  <div><button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ 'Console.reply.submit' | t }}</button></div>
+                </form>
+              </section>
+            }
+          </div>
+
+          <aside class="flex flex-col gap-6" [attr.aria-label]="'Console.ticket.activity' | t">
+            <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="cust">
+              <h2 id="cust" class="text-lg font-bold">{{ 'Console.ticket.customer' | t }}</h2>
+              <dl class="mt-3 flex flex-col gap-2">
+                <div><dt class="text-sm text-muted">{{ 'Console.ticket.customer' | t }}</dt><dd class="font-semibold" dir="auto">{{ tk.requesterName }}</dd></div>
+                <div><dt class="text-sm text-muted">{{ 'Console.ticket.email' | t }}</dt><dd dir="ltr" class="break-all">{{ tk.requesterEmail }}</dd></div>
+                @if (x()?.requesterPhone) { <div><dt class="text-sm text-muted">{{ 'Console.ticket.phone' | t }}</dt><dd dir="ltr">{{ x()!.requesterPhone }}</dd></div> }
+                @if (tk.names.typeEn) { <div><dt class="text-sm text-muted">{{ 'TicketTypes.label' | t }}</dt><dd>{{ i18n.pick(tk.names.typeEn, tk.names.typeAr) }}</dd></div> }
+                <div><dt class="text-sm text-muted">{{ 'Console.ticket.category' | t }}</dt><dd>{{ i18n.pick(tk.names.categoryEn, tk.names.categoryAr) }}@if (tk.names.subcategoryEn) { / {{ i18n.pick(tk.names.subcategoryEn, tk.names.subcategoryAr) }} }</dd></div>
+                <div><dt class="text-sm text-muted">{{ 'Console.ticket.team' | t }}</dt><dd>{{ i18n.pick(tk.names.teamEn, tk.names.teamAr) || '-' }}</dd></div>
+                <div><dt class="text-sm text-muted">{{ 'Console.ticket.agent' | t }}</dt><dd dir="auto">{{ tk.names.assignee ?? ('Console.unassignedLabel' | t) }}</dd></div>
+                <div><dt class="text-sm text-muted">{{ 'Console.ticket.created' | t }}</dt><dd>{{ i18n.date(tk.createdAt) }}</dd></div>
+                <div><dt class="text-sm text-muted">{{ 'Console.ticket.updated' | t }}</dt><dd>{{ i18n.date(tk.updatedAt) }}</dd></div>
+              </dl>
+            </section>
+
+            @if (x()?.canWork) { <app-staff-lifecycle part="fields" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" /> }
+
+            @if (x()?.sla; as s) {
+              <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="sla">
+                <h2 id="sla" class="text-lg font-bold">{{ 'Console.ticket.sla' | t }}</h2>
+                <div class="mt-3 flex flex-col gap-2">
+                  <span class="inline-flex w-fit rounded-full px-2.5 py-0.5 text-xs font-semibold" [class]="sla[s.state] ?? ''">{{ 'Sla.' + s.state | t }}</span>
+                  @if (s.firstResponseDue) { <p class="text-sm"><span class="text-sm text-muted">{{ 'Console.ticket.firstResponse' | t }}: </span>{{ s.firstRespondedAt ? ('Console.ticket.metAt' | t) + ' ' + i18n.date(s.firstRespondedAt) : ('Console.ticket.due' | t) + ' ' + i18n.date(s.firstResponseDue) }}</p> }
+                  @if (s.resolutionDue) { <p class="text-sm"><span class="text-sm text-muted">{{ 'Console.ticket.resolution' | t }}: </span>{{ 'Console.ticket.due' | t }} {{ i18n.date(s.resolutionDue) }}</p> }
+                </div>
+              </section>
+            }
+
+            <app-staff-lifecycle part="links" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
+
+            @if (x()?.canWork) {
+              @if (x()!.moves.length) {
+                <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="st">
+                  <h2 id="st" class="mb-3 text-lg font-bold">{{ 'Console.statusForm.title' | t }}</h2>
+                  <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); changeStatus()" novalidate>
+                    <div class="flex flex-col gap-1.5">
+                      <label for="to" class="text-sm font-semibold">{{ 'Console.statusForm.next' | t }}<app-req /></label>
+                      <select id="to" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [value]="to()" (change)="to.set($any($event.target).value)">
+                        <option value="">{{ 'Console.statusForm.select' | t }}</option>
+                        @for (m of x()!.moves; track m.to) { <option [value]="m.to">{{ 'StaffStatus.' + m.to | t }}</option> }
+                      </select>
+                    </div>
+                    @if (to() === 'resolved') {
+                      <div class="flex flex-col gap-1.5"><label for="res" class="text-sm font-semibold">{{ 'Console.statusForm.resolution' | t }}<app-req /></label>
+                        <textarea id="res" rows="3" maxlength="5000" dir="auto" class="rounded-lg border border-line p-3" [value]="resolution()" (input)="resolution.set($any($event.target).value)"></textarea></div>
+                    }
+                    @if (to() === 'closed') {
+                      <div class="flex flex-col gap-1.5"><label for="cr" class="text-sm font-semibold">{{ 'Console.statusForm.closureReason' | t }}</label>
+                        <select id="cr" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [value]="closure()" (change)="closure.set($any($event.target).value)">
+                          <option value="">{{ 'Console.statusForm.closureSelect' | t }}</option>
+                          @for (c of x()!.closureReasons; track c.code) { <option [value]="c.code">{{ i18n.pick(c.nameEn, c.nameAr) }}</option> }
+                        </select></div>
+                    }
+                    @if (needsReason()) {
+                      <div class="flex flex-col gap-1.5"><label for="why" class="text-sm font-semibold">{{ 'Console.statusForm.reason' | t }}<app-req /></label>
+                        <textarea id="why" rows="2" maxlength="1000" dir="auto" class="rounded-lg border border-line p-3" [value]="reason()" (input)="reason.set($any($event.target).value)"></textarea></div>
+                    }
+                    @if (notice() && where() === 'status') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
+                    <div><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.statusForm.submit' | t }}</button></div>
+                  </form>
+                </section>
+              }
+
+              <app-staff-lifecycle part="dupspam" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
+
+              <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="pr">
+                <h2 id="pr" class="mb-3 text-lg font-bold">{{ 'Console.priorityForm.title' | t }}</h2>
+                @if (x()!.fixedPriority) { <p class="mb-3 text-sm text-muted">{{ 'Console.priorityForm.fixedNote' | t: { name: prioName(x()!.fixedPriority!) } }}</p> }
+                @if (!x()!.fixedPriority || x()!.fixedPriority !== tk.priority) {
+                  <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); setPriority()" novalidate>
+                    <div class="flex flex-col gap-1.5"><label for="prio" class="text-sm font-semibold">{{ 'Console.priorityForm.title' | t }}</label>
+                      <select id="prio" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [value]="prioSel() || tk.priority" (change)="prioSel.set($any($event.target).value)">
+                        @for (p of prioOptions(); track p.code) { <option [value]="p.code" [selected]="p.code === (prioSel() || tk.priority)">{{ i18n.pick(p.nameEn, p.nameAr) }}</option> }
+                      </select></div>
+                    <div class="flex flex-col gap-1.5"><label for="prio-reason" class="text-sm font-semibold">{{ 'Console.priorityForm.reason' | t }}</label>
+                      <input id="prio-reason" maxlength="1000" dir="auto" class="min-h-11 rounded-lg border border-line px-3 text-base" [value]="prioReason()" (input)="prioReason.set($any($event.target).value)" /></div>
+                    @if (notice() && where() === 'priority') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
+                    <div><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.priorityForm.submit' | t }}</button></div>
+                  </form>
+                }
+              </section>
+
+              <app-staff-lifecycle part="category" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
+              <app-staff-lifecycle part="escalate" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
+
+              @if (x()!.canReassign || x()!.canClaim) {
+                <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="as">
+                  <h2 id="as" class="mb-3 text-lg font-bold">{{ 'Console.assignForm.title' | t }}</h2>
+                  <div class="flex flex-col gap-4">
+                    @if (x()!.canClaim && tk.teamId) {
+                      <div><button type="button" (click)="assign(tk.teamId!, auth.me()!.id, '')" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.assignForm.claim' | t }}</button></div>
+                    }
+                    @if (x()!.canReassign) {
+                      <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); assign(asTeam(), asAgent() || null, asReason())" novalidate>
+                        <div class="flex flex-col gap-1.5"><label for="as-team" class="text-sm font-semibold">{{ 'Console.assignForm.team' | t }}</label>
+                          <select id="as-team" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" (change)="asTeam.set($any($event.target).value); asAgent.set('')">
+                            <option value="" disabled [selected]="!asTeam()"></option>
+                            @for (tm of x()!.teams; track tm.id) { <option [value]="tm.id" [selected]="tm.id === asTeam()">{{ i18n.pick(tm.nameEn, tm.nameAr) }}</option> }
+                          </select></div>
+                        <div class="flex flex-col gap-1.5"><label for="as-agent" class="text-sm font-semibold">{{ 'Console.assignForm.agent' | t }}</label>
+                          <select id="as-agent" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" (change)="asAgent.set($any($event.target).value)">
+                            <option value="" [selected]="!asAgent()">{{ 'Console.assignForm.noAgent' | t }}</option>
+                            @for (m of agentsOf(asTeam()); track m.userId) { <option [value]="m.userId" [selected]="m.userId === asAgent()">{{ m.fullName }}</option> }
+                          </select></div>
+                        <div class="flex flex-col gap-1.5"><label for="as-reason" class="text-sm font-semibold">{{ 'Console.assignForm.reason' | t }}</label>
+                          <input id="as-reason" maxlength="1000" dir="auto" class="min-h-11 rounded-lg border border-line px-3 text-base" [value]="asReason()" (input)="asReason.set($any($event.target).value)" /></div>
+                        @if (notice() && where() === 'assign') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
+                        <div><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.assignForm.submit' | t }}</button></div>
+                      </form>
+                    } @else if (notice() && where() === 'assign') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
+                  </div>
+                </section>
+              }
+            }
+
+            <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="act">
+              <h2 id="act" class="text-lg font-bold">{{ 'Console.ticket.activity' | t }}</h2>
+              @if (!activity().length) { <p class="mt-3 text-muted">{{ 'Console.ticket.noActivity' | t }}</p> }
+              @else {
+                <ol class="mt-3 flex flex-col gap-3">
+                  @for (a of activity(); track $index) {
+                    <li class="text-sm">
+                      <p class="font-semibold">{{ a.text }}</p>
+                      <p class="text-muted"><span dir="auto">{{ a.who }}</span> · {{ i18n.date(a.at) }}</p>
+                      @if (a.reason) { <p dir="auto">{{ 'Console.ticket.reason' | t }}: {{ a.reason }}</p> }
+                    </li>
+                  }
+                </ol>
+              }
+            </section>
+          </aside>
+        </div>
       </main>
     } @else if (missing()) {
       <main class="mx-auto w-full max-w-3xl px-4 py-12"><app-alert>{{ 'Console.errors.notFound' | t }}</app-alert></main>
@@ -329,7 +471,30 @@ export class ConsoleTicketPage {
   private readonly uploads = inject(Uploads);
   protected readonly files = signal<File[]>([]);
   protected readonly ticketFiles = computed(() => (this.t()?.messages ?? []).find((m) => m.kind === 'ticket_files')?.attachments ?? []);
-  protected readonly manualClosures = ['no_response', 'duplicate', 'spam', 'other'];
+  protected readonly x = signal<StaffExtra | null>(null);
+  private readonly http = inject(HttpClient);
+  protected readonly where = signal<'reply' | 'status' | 'priority' | 'assign' | ''>('');
+  protected readonly prioSel = signal('');
+  protected readonly prioReason = signal('');
+  protected readonly asTeam = signal('');
+  protected readonly asAgent = signal('');
+  protected readonly asReason = signal('');
+  protected readonly comments = computed(() => (this.t()?.messages ?? []).filter((m) => m.kind !== 'ticket_files' && m.kind !== 'system'));
+  protected readonly needsReason = computed(() => !!this.x()?.moves.find((m) => m.to === this.to())?.requiresReason);
+  protected readonly prioOptions = computed(() => { const x = this.x(), cur = this.t()?.priority; return (x?.priorities ?? []).filter((p) => !x?.fixedPriority || p.code === x.fixedPriority || p.code === cur); });
+  protected prioName(code: string): string { const p = this.x()?.priorities.find((q) => q.code === code); return p ? this.i18n.pick(p.nameEn, p.nameAr) : code; }
+  protected agentsOf(team: string): { userId: string; fullName: string }[] { return (this.x()?.members ?? []).filter((m) => m.teamId === team); }
+  protected initials(n: string | null): string { return (n ?? '').split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?'; }
+  /** Activity: status changes and assignments, oldest first (v1). */
+  protected readonly activity = computed(() => {
+    const tk = this.t(), x = this.x(); if (!tk) return [];
+    const t = (k: string, p?: Record<string, unknown>) => this.i18n.t(k, p);
+    const sys = t('Console.ticket.system');
+    return [
+      ...tk.timeline.map((h) => ({ at: h.at, text: `${t('Console.ticket.status')}: ${h.from ? t('StaffStatus.' + h.from) : '-'} ${t('Console.ticket.to')} ${t('StaffStatus.' + h.to)}`, who: h.byName ?? sys, reason: h.reason })),
+      ...(x?.assignments ?? []).map((a) => ({ at: a.at, text: `${t('Console.ticket.assignment')}: ${this.i18n.pick(a.teamEn, a.teamAr) || '-'} / ${a.agent ?? t('Console.unassignedLabel')}`, who: a.by ?? sys, reason: a.reason })),
+    ].sort((p, q) => p.at.localeCompare(q.at));
+  });
   protected readonly t = signal<TicketDetail | null>(null);
   protected readonly missing = signal(false);
   protected readonly kind = signal<'public_reply' | 'internal_note'>('public_reply');
@@ -363,11 +528,15 @@ export class ConsoleTicketPage {
   protected readonly opts = signal<NewTicketOptions | null>(null);
   load(): void {
     this.api.get(this.id).then((t) => { this.t.set(t); if (!t.canReply && t.canSeeInternalNotes) this.kind.set('internal_note'); }).catch(() => this.missing.set(true));
+    firstValueFrom(this.http.get<StaffExtra>(`/api/tickets/${this.id}/staff`)).then((x) => {
+      this.x.set(x);
+      if (!this.asTeam()) { this.asTeam.set(this.t()?.teamId ?? ''); this.asAgent.set(this.t()?.assignedAgentId ?? ''); }
+    }).catch(() => undefined);
     this.lcApi.get(this.id).then((l) => this.lc.set(l)).catch(() => undefined);
     if (!this.opts()) this.api.options().then((o) => this.opts.set(o)).catch(() => undefined);
   }
 
-  private done(key: string): void { this.noticeTone.set('success'); this.notice.set(this.i18n.t(key)); this.load(); }
+  private done(key: string, where: 'reply' | 'status' | 'priority' | 'assign' = 'status'): void { this.where.set(where); this.noticeTone.set('success'); this.notice.set(this.i18n.t(key)); this.load(); }
   private fail(e: unknown): void {
     const p = problemOf(e);
     const map: Record<string, string> = { forbidden: 'notAllowed', not_found: 'notFound' };
@@ -378,6 +547,7 @@ export class ConsoleTicketPage {
 
   send(): void {
     const b = this.body().trim();
+    this.where.set('reply');
     if (!b) { this.noticeTone.set('error'); this.notice.set(this.i18n.t('Console.errors.messageLength')); return; }
     if (checkFiles(this.files(), this.uploads.rules()).length) return;
     this.pending.set(true);
@@ -385,13 +555,15 @@ export class ConsoleTicketPage {
       .then(async (r) => {
         const failed = this.files().length ? await this.uploads.upload(this.id, r.id, this.files()) : [];
         this.body.set(''); this.files.set([]);
-        this.done(this.kind() === 'internal_note' ? 'Console.reply.sentInternal' : 'Console.reply.sentPublic');
+        this.done(this.kind() === 'internal_note' ? 'Console.reply.sentInternal' : 'Console.reply.sentPublic', 'reply');
         if (failed.length) { this.noticeTone.set('error'); this.notice.set(this.i18n.t('AdminV2.filesFailed', { files: failed.join(', ') })); }
       })
       .catch((e) => this.fail(e)).finally(() => this.pending.set(false));
   }
 
   changeStatus(): void {
+    this.where.set('status');
+    if (this.needsReason() && !this.reason().trim()) { this.noticeTone.set('error'); this.notice.set(this.i18n.t('Console.errors.reasonRequired')); return; }
     if (!this.to()) { this.noticeTone.set('error'); this.notice.set(this.i18n.t('Console.errors.statusRequired')); return; }
     if (this.to() === 'closed' && !this.closure()) { this.noticeTone.set('error'); this.notice.set(this.i18n.t('Console.errors.closureRequired')); return; }
     this.api.status(this.id, { to: this.to(), reason: this.reason() || undefined, resolution: this.resolution() || undefined, closureReason: this.closure() || undefined })
@@ -399,7 +571,15 @@ export class ConsoleTicketPage {
       .catch((e) => this.fail(e));
   }
 
-  claim(teamId: string): void {
-    this.api.assign(this.id, teamId, this.auth.me()!.id).then(() => this.done('Console.assignForm.done')).catch((e) => this.fail(e));
+  assign(teamId: string, agentId: string | null, reason: string): void {
+    this.where.set('assign');
+    this.api.assign(this.id, teamId, agentId, reason.trim() || undefined).then(() => { this.asReason.set(''); this.done('Console.assignForm.done', 'assign'); }).catch((e) => this.fail(e));
+  }
+
+  setPriority(): void {
+    this.where.set('priority');
+    const code = this.prioSel() || this.t()!.priority;
+    firstValueFrom(this.http.post(`/api/tickets/${this.id}/priority`, { priority: code, reason: this.prioReason().trim() || null }))
+      .then(() => { this.prioReason.set(''); this.prioSel.set(''); this.done('Console.priorityForm.done', 'priority'); }).catch((e) => this.fail(e));
   }
 }

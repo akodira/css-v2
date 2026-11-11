@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input, model } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, model, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18n, LOCALES, TPipe } from '../core/i18n';
 import { Router } from '@angular/router';
@@ -251,6 +251,53 @@ export class SlaChip {
     const v = this.v(), time = formatDuration(v.remainingMs);
     return v.kind === 'paused' ? this.i18n.t('SlaClock.paused') : v.kind === 'met' ? this.i18n.t('SlaClock.met') : v.kind === 'late' ? this.i18n.t('SlaClock.late')
       : v.kind === 'overdue' ? this.i18n.t('SlaClock.overdueBy', { time }) : this.i18n.t('SlaClock.chip_' + v.kind, { time });
+  });
+}
+
+const BAR: Record<ClockKind, string> = { green: 'bg-emerald-600', yellow: 'bg-amber-500', red: 'bg-red-600', overdue: 'bg-red-600', paused: 'bg-slate-400', met: 'bg-emerald-600', late: 'bg-red-600' };
+const BIG: Record<ClockKind, string> = { green: 'text-brand-ink', yellow: 'text-warn-ink', red: 'text-danger', overdue: 'text-danger', paused: 'text-muted', met: 'text-brand-ink', late: 'text-danger' };
+
+/** Big live SLA timer at the top of the staff ticket page (v1 SlaClockCard): label, state, countdown, due text and a bar. */
+@Component({
+  selector: 'app-sla-clock-card',
+  template: `
+    <section class="flex flex-col gap-2 rounded-md border border-line bg-surface p-5" [attr.aria-label]="label()">
+      <div class="flex items-center justify-between gap-3">
+        <h2 class="text-sm font-bold">{{ label() }}</h2>
+        <span class="rounded-full px-3 py-0.5 text-xs font-bold" [class]="chip()">{{ state() }}</span>
+      </div>
+      <p class="text-3xl font-bold tabular-nums" [class]="big()" dir="ltr">{{ main() }}</p>
+      <p class="text-sm text-muted">{{ sub() }}</p>
+      <div class="h-2 overflow-hidden rounded-full bg-line" role="presentation"><div class="h-full rounded-full" [class]="bar()" [style.width.%]="width()"></div></div>
+    </section>`,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class SlaClockCard {
+  private readonly i18n = inject(I18n);
+  readonly clock = input.required<ClockInput>();
+  readonly label = input.required<string>();
+  readonly dueText = input.required<string>();
+  private readonly now = signal(Date.now());
+  private readonly _tick = (() => { const h = setInterval(() => this.now.set(Date.now()), 1000); inject(DestroyRef).onDestroy(() => clearInterval(h)); })();
+  private readonly v = computed(() => {
+    const c = this.clock(), v = computeClock(c, this.now());
+    const due = Date.parse(c.dueAt), total = Math.max(1, due - Date.parse(c.startAt) - (c.pausedTotalSeconds ?? 0) * 1000);
+    return { ...v, share: Math.max(0, Math.min(1, v.remainingMs / total)) };
+  });
+  protected readonly chip = computed(() => CHIP[this.v().kind]);
+  protected readonly big = computed(() => BIG[this.v().kind]);
+  protected readonly bar = computed(() => BAR[this.v().kind]);
+  protected readonly state = computed(() => this.i18n.t('SlaClock.state_' + this.v().kind));
+  protected readonly width = computed(() => { const k = this.v().kind; return k === 'overdue' || k === 'late' || k === 'met' ? 100 : Math.round(this.v().share * 100); });
+  protected readonly main = computed(() => {
+    const v = this.v(), time = formatDuration(v.remainingMs);
+    return v.kind === 'paused' ? this.i18n.t('SlaClock.paused') : v.kind === 'met' ? this.i18n.t('SlaClock.met') : v.kind === 'late' ? this.i18n.t('SlaClock.late')
+      : v.kind === 'overdue' ? this.i18n.t('SlaClock.overdueBy', { time }) : time;
+  });
+  protected readonly sub = computed(() => {
+    const v = this.v();
+    return v.kind === 'paused' ? this.i18n.t('SlaClock.pausedWith', { time: formatDuration(v.remainingMs) })
+      : v.kind === 'overdue' || v.kind === 'met' || v.kind === 'late' ? this.dueText() : `${this.i18n.t('SlaClock.left')}, ${this.dueText()}`;
   });
 }
 

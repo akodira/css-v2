@@ -231,38 +231,41 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
               @if (err()['customerId']) { <p class="text-sm font-medium text-danger">{{ 'StaffTicket.errors.customerRequired' | t }}</p> }
             </div>
           }
-          <fieldset class="flex flex-col gap-2">
-            <legend class="mb-2 text-sm font-semibold">{{ 'TicketTypes.label' | t }}<app-req /></legend>
-            <div class="grid gap-2 sm:grid-cols-2">
-              @for (ty of o.types; track ty.id) {
-                <label class="flex cursor-pointer flex-col gap-1 rounded-lg border p-3" [class]="typeId() === ty.id ? 'border-brand bg-brand-soft' : 'border-line hover:bg-bg'">
-                  <span class="flex items-center gap-2 font-semibold"><input type="radio" name="type" [value]="ty.id" [checked]="typeId() === ty.id" (change)="pickType(ty.id)" />{{ i18n.pick(ty.nameEn, ty.nameAr) }}</span>
-                  <span class="text-sm text-muted">{{ i18n.pick(ty.descriptionEn, ty.descriptionAr) }}</span>
-                </label>
+          <div class="flex flex-col gap-1.5">
+            <label for="typeId" class="text-sm font-semibold">{{ 'TicketTypes.label' | t }}<app-req /></label>
+            <select id="typeId" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base aria-[invalid=true]:border-danger" [value]="typeId()" (change)="pickType($any($event.target).value)"
+              [attr.aria-invalid]="err()['typeId'] ? true : null">
+              <option value="">{{ 'TicketTypes.select' | t }}</option>
+              @for (ty of o.types; track ty.id) { <option [value]="ty.id">{{ i18n.pick(ty.nameEn, ty.nameAr) }}</option> }
+            </select>
+            @if (currentType(); as ty) {
+              @if (i18n.pick(ty.descriptionEn, ty.descriptionAr) || i18n.pick(ty.examplesEn, ty.examplesAr)) {
+                <div class="flex flex-col gap-0.5 rounded-lg bg-brand-soft px-3 py-2 text-sm" dir="auto">
+                  @if (i18n.pick(ty.descriptionEn, ty.descriptionAr)) { <span>{{ i18n.pick(ty.descriptionEn, ty.descriptionAr) }}</span> }
+                  @if (i18n.pick(ty.examplesEn, ty.examplesAr)) { <span class="text-muted">{{ 'TicketTypes.examples' | t: { list: i18n.pick(ty.examplesEn, ty.examplesAr) } }}</span> }
+                </div>
               }
-            </div>
+            }
             @if (err()['typeId']) { <p class="text-sm font-medium text-danger">{{ 'NewTicket.errors.typeRequired' | t }}</p> }
-          </fieldset>
+          </div>
 
           <div class="flex flex-col gap-1.5">
             <label for="cat" class="text-sm font-semibold">{{ 'NewTicket.category' | t }}<app-req /></label>
             <select id="cat" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base disabled:bg-bg" [disabled]="!typeId()" [value]="categoryId()" (change)="categoryId.set($any($event.target).value); subcategoryId.set('')"
               [attr.aria-invalid]="err()['categoryId'] ? true : null">
-              <option value="">{{ 'NewTicket.selectCategory' | t }}</option>
-              @for (c of categories(); track c.id) { <option [value]="c.id">{{ i18n.pick(c.nameEn, c.nameAr) }}</option> }
+              <option value="">{{ (typeId() ? 'NewTicket.selectCategory' : 'TicketTypes.chooseTypeFirst') | t }}</option>
+              @for (c of categories(); track c.id) { <option [value]="c.id" [selected]="c.id === categoryId()">{{ i18n.pick(c.nameEn, c.nameAr) }}</option> }
             </select>
             @if (err()['categoryId']) { <p class="text-sm font-medium text-danger">{{ 'NewTicket.errors.categoryRequired' | t }}</p> }
           </div>
 
-          @if (subcategories().length) {
-            <div class="flex flex-col gap-1.5">
-              <label for="sub" class="text-sm font-semibold">{{ 'NewTicket.subcategory' | t }}</label>
-              <select id="sub" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [value]="subcategoryId()" (change)="subcategoryId.set($any($event.target).value)">
-                <option value="">{{ 'NewTicket.noSubcategory' | t }}</option>
-                @for (s of subcategories(); track s.id) { <option [value]="s.id">{{ i18n.pick(s.nameEn, s.nameAr) }}</option> }
-              </select>
-            </div>
-          }
+          <div class="flex flex-col gap-1.5">
+            <label for="sub" class="text-sm font-semibold">{{ 'NewTicket.subcategory' | t }}</label>
+            <select id="sub" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base disabled:bg-bg" [disabled]="!subcategories().length" [value]="subcategoryId()" (change)="subcategoryId.set($any($event.target).value)">
+              <option value="">{{ 'NewTicket.noSubcategory' | t }}</option>
+              @for (s of subcategories(); track s.id) { <option [value]="s.id" [selected]="s.id === subcategoryId()">{{ i18n.pick(s.nameEn, s.nameAr) }}</option> }
+            </select>
+          </div>
 
           @if (o.customerPicksPriority) {
             <div class="flex flex-col gap-1.5">
@@ -378,6 +381,7 @@ export class NewTicketPage {
     const o = this.opts(); const t = o?.types.find((x) => x.id === this.typeId());
     return o && t ? o.categories.filter((c) => t.categoryIds.includes(c.id)) : [];
   });
+  protected readonly currentType = computed(() => this.opts()?.types.find((x) => x.id === this.typeId()) ?? null);
   protected readonly subcategories = computed(() => this.opts()?.categories.find((c) => c.id === this.categoryId())?.subcategories ?? []);
   protected readonly fields = computed(() => (this.opts()?.fields ?? []).filter((f) => f.visibleToCustomer && (!f.categoryId || f.categoryId === this.categoryId())));
 
@@ -446,7 +450,7 @@ export class NewTicketPage {
 
 @Component({
   selector: 'app-ticket-detail',
-  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, CustomerLifecycle, TicketLinksNotice, CommentActions, AutoRefreshBar],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, CustomerLifecycle, TicketLinksNotice, CommentActions, AutoRefreshBar, Req],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -465,6 +469,7 @@ export class NewTicketPage {
             <div><dt class="inline">{{ 'Ticket.created' | t }}: </dt><dd class="inline font-semibold text-ink">{{ i18n.date(tk.createdAt) }}</dd></div>
             <div><dt class="inline">{{ 'Ticket.updated' | t }}: </dt><dd class="inline font-semibold text-ink">{{ i18n.date(tk.updatedAt) }}</dd></div>
             <div><dt class="inline">{{ 'Ticket.assignedTo' | t }}: </dt><dd class="inline font-semibold text-ink" dir="auto">{{ tk.names.assignee ?? ('Ticket.notAssigned' | t) }}</dd></div>
+            @if (tk.names.teamEn) { <div><dt class="inline">{{ 'Ticket.team' | t }}: </dt><dd class="inline font-semibold text-ink">{{ i18n.pick(tk.names.teamEn, tk.names.teamAr) }}</dd></div> }
             <div><dt class="inline">{{ 'Ticket.priority' | t }}: </dt><dd class="inline"><span class="inline-flex items-center whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold" [class]="prioTone(tk.names.priorityColor)">{{ i18n.pick(tk.names.priorityEn, tk.names.priorityAr) }}</span></dd></div>
           </dl>
         </header>
@@ -535,8 +540,8 @@ export class NewTicketPage {
         @if (tk.canReopen) {
           <section class="flex flex-col gap-3 rounded-md border border-line bg-surface p-6">
             @if (tk.status === 'closed') { <p class="leading-relaxed text-muted">{{ 'Ticket.reply.closedNote' | t }}</p> }
-            <h2 class="text-lg font-bold">{{ 'Ticket.reopen.title' | t }}</h2>
-            <label for="reopen" class="text-sm font-semibold">{{ 'Ticket.reopen.reason' | t }}</label>
+            @if (tk.status !== 'closed') { <h2 class="text-lg font-bold">{{ 'Ticket.reopen.title' | t }}</h2> }
+            <label for="reopen" class="text-sm font-semibold">{{ 'Ticket.reopen.reason' | t }}<app-req /></label>
             <textarea id="reopen" rows="3" dir="auto" class="rounded-lg border border-line bg-surface p-3" [value]="reopenReason()" (input)="reopenReason.set($any($event.target).value)"></textarea>
             <p class="text-sm text-muted">{{ 'Ticket.reopen.reasonHint' | t }}</p>
             <div><button type="button" (click)="move('reopened')" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-5 font-semibold hover:bg-bg">{{ 'Ticket.reopen.submit' | t }}</button></div>

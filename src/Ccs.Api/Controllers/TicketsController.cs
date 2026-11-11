@@ -14,7 +14,7 @@ public sealed record CreateTicketBody([Required] Guid TypeId, [Required] Guid Ca
 public sealed record StatusBody([Required] string To, string? Reason, string? Resolution, string? ClosureReason);
 public sealed record MessageBody([Required] string Kind, [Required] string Body);
 public sealed record AssignBody([Required] Guid TeamId, Guid? AgentId, string? Reason);
-public sealed record PriorityBody([Required] string Priority);
+public sealed record PriorityBody([Required] string Priority, string? Reason);
 
 /// <summary>Thin controller: every rule lives in TicketService / TicketQueries / AccessService.</summary>
 [ApiController]
@@ -67,7 +67,7 @@ public sealed class TicketsController(TicketService tickets, TicketQueries queri
     [HttpPost("{id:guid}/priority")]
     public async Task<IActionResult> SetPriority(Guid id, PriorityBody b, CancellationToken ct)
     {
-        await tickets.SetPriorityAsync(id, b.Priority, ct);
+        await tickets.SetPriorityAsync(id, b.Priority, ct, b.Reason);
         return NoContent();
     }
 }

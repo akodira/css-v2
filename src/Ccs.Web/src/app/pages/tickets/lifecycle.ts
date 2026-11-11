@@ -142,7 +142,7 @@ export class CommentActions {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (lc(); as lc) {
-      @if (lc.links.length) {
+      @if (on('links') && lc.links.length) {
         <section [class]="cls.card" aria-labelledby="lk"><h2 id="lk" class="mb-3 text-lg font-bold">{{ 'Lifecycle.staff.linksTitle' | t }}</h2>
           <ul class="flex flex-col gap-1 text-sm">
             @for (l of lc.links; track l.kind + l.direction) {
@@ -152,7 +152,7 @@ export class CommentActions {
         </section>
       }
 
-      @if (lc.cancellation?.status === 'pending' && lc.canClose) {
+      @if (on('links') && lc.cancellation?.status === 'pending' && lc.canClose) {
         <section class="flex flex-col gap-3 rounded-md border border-warn-ink/30 bg-warn-soft p-6" aria-labelledby="cr-title">
           <h2 id="cr-title" class="font-bold">{{ 'Lifecycle.staff.requestTitle' | t }}</h2>
           <p class="text-sm text-muted">{{ 'Lifecycle.staff.requestMeta' | t: { name: lc.cancellation!.requesterName ?? '-', when: i18n.date(lc.cancellation!.createdAt) } }}</p>
@@ -171,7 +171,7 @@ export class CommentActions {
 
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
 
-      @if (lc.staffFields.length) {
+      @if (on('fields') && lc.staffFields.length) {
         <section [class]="cls.card" aria-labelledby="sf"><h2 id="sf" class="mb-3 text-lg font-bold">{{ 'CustomFields.staffOnly' | t }}</h2>
           <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); saveFields()">
             @for (f of lc.staffFields; track f.id) {
@@ -197,7 +197,7 @@ export class CommentActions {
         </section>
       }
 
-      @if (lc.canClose) {
+      @if (on('dupspam') && lc.canClose) {
         <section [class]="cls.card" aria-labelledby="dsp"><h2 id="dsp" class="mb-3 text-lg font-bold">{{ 'Lifecycle.staff.panelTitle' | t }}</h2>
           <form class="flex flex-col gap-2" (submit)="$event.preventDefault(); duplicate()">
             <label for="dup-ref" class="text-sm font-semibold">{{ 'Lifecycle.staff.duplicateOf' | t }}<app-req /></label>
@@ -218,7 +218,7 @@ export class CommentActions {
         </section>
       }
 
-      @if (lc.canChangeCategory && opts()) {
+      @if (on('category') && lc.canChangeCategory && opts()) {
         <section [class]="cls.card" aria-labelledby="chcat"><h2 id="chcat" class="mb-3 text-lg font-bold">{{ 'Console.categoryForm.title' | t }}</h2>
           <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); changeCategory()">
             <div class="flex flex-col gap-1.5"><label for="cat-sel" class="text-sm font-semibold">{{ 'Console.categoryForm.category' | t }}</label>
@@ -237,7 +237,7 @@ export class CommentActions {
         </section>
       }
 
-      @if (lc.escalationTargets.length) {
+      @if (on('escalate') && lc.escalationTargets.length) {
         <section [class]="cls.card" aria-labelledby="flowesc"><h2 id="flowesc" class="mb-3 text-lg font-bold">{{ 'Escalation.ticketTitle' | t }}</h2>
           <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); escalateTo()">
             <p class="text-sm text-muted">{{ (lc.escalationTargets.length > 1 ? 'Escalation.ticketHelpMany' : 'Escalation.ticketHelp') | t }}</p>
@@ -250,7 +250,7 @@ export class CommentActions {
             <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Escalation.submit' | t }}</button></div>
           </form>
         </section>
-      } @else if (lc.canEscalate) {
+      } @else if (on('escalate') && lc.canEscalate) {
         <section [class]="cls.card" aria-labelledby="esc"><h2 id="esc" class="mb-3 text-lg font-bold">{{ 'Console.escalate.title' | t }}</h2>
           <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); escalate()">
             <p class="text-sm text-muted">{{ 'Console.escalate.help' | t }}</p>
@@ -266,6 +266,9 @@ export class StaffLifecycle extends Panel {
   readonly ticket = input.required<TicketDetail>();
   readonly lc = input<TicketLifecycle | null>(null);
   readonly opts = input<NewTicketOptions | null>(null);
+  /** Which block to show, so the page can place each one where v1 has it. Empty = all. */
+  readonly part = input<'' | 'links' | 'fields' | 'dupspam' | 'category' | 'escalate'>('');
+  protected on(p: string): boolean { return !this.part() || this.part() === p; }
   protected readonly note = signal('');
   protected readonly ref = signal('');
   protected readonly confirmSpam = signal(false);
@@ -377,9 +380,8 @@ export class StaffLifecycle extends Panel {
               <legend class="text-sm font-semibold">{{ 'Ticket.feedback.rating' | t }}</legend>
               <div class="flex gap-1" dir="ltr">
                 @for (n of [1, 2, 3, 4, 5]; track n) {
-                  <label class="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-2xl" [class]="n <= rating() ? 'text-warn-ink' : 'text-line'">
-                    <input type="radio" name="rating" [value]="n" [checked]="rating() === n" (change)="rating.set(n)" [attr.aria-label]="'Ticket.feedback.star' | t: { n }" class="absolute inset-0 cursor-pointer opacity-0" />★
-                  </label>
+                  <label class="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg border text-lg font-bold" [class]="rating() === n ? 'border-brand bg-brand text-white' : 'border-line bg-surface'">
+                    <input type="radio" name="rating" [value]="n" [checked]="rating() === n" (change)="rating.set(n)" [attr.aria-label]="'Ticket.feedback.star' | t: { n }" class="absolute inset-0 cursor-pointer opacity-0" /><span aria-hidden="true">{{ n }}</span></label>
                 }
               </div>
             </fieldset>
