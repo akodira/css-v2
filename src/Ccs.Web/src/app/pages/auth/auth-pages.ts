@@ -92,7 +92,6 @@ export class LoginPage extends FormBase {
     if (!this.identifier().trim()) fe['identifier'] = 'required';
     if (!this.password()) fe['password'] = 'required';
     if (Object.keys(fe).length) { this.fieldErrors.set(fe); return; }
-    if (!this.captchaReady()) return;
     void this.run(async () => {
       let s;
       try { s = await this.auth.signIn(this.identifier().trim(), this.password()); }
@@ -278,6 +277,7 @@ export class RegisterPage extends FormBase {
     if (this.password() !== this.confirmPw()) fe['confirm'] = 'passwordMismatch';
     if ((this.mode() === 'pick_approval' || this.mode() === 'pick_auto') && !this.orgId()) fe['organizationId'] = 'required';
     if (Object.keys(fe).length) { this.fieldErrors.set(fe); return; }
+    if (!this.captchaReady()) return;
     void this.run(async () => {
       await firstValueFrom(this.http.post('/api/auth/register', {
         fullName: this.fullName().trim(), email: this.email().trim(), phone: this.phone().trim(), password: this.password(),
