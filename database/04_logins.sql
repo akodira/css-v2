@@ -18,8 +18,6 @@ GO
 USE CCS;
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'ccs_api')
     CREATE USER ccs_api FOR LOGIN [IIS APPPOOL\CcsApi];      -- <<login>>
-ELSE
-    ALTER USER ccs_api WITH LOGIN = [IIS APPPOOL\CcsApi];    -- <<login>>  re-link after restoring a backup on another server
 GO
 ALTER ROLE db_datareader ADD MEMBER ccs_api;
 ALTER ROLE db_datawriter ADD MEMBER ccs_api;
