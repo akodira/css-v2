@@ -33,7 +33,7 @@ public sealed class AuthController(AuthService auth, CcsDbContext db, CaptchaVer
     [HttpPost("sign-in")]
     public async Task<SessionResponse> SignIn(SignInBody body, CancellationToken ct)
     {
-        await captcha.RequireAsync("sign_in", body.CaptchaToken, ct);
+        // v1 has no captcha on password sign-in (only sign-up, forgot password and the sign-in-code request).
         return Session(await auth.SignInAsync(body.Identifier, body.Password, UserAgent, Ip, ct));
     }
 

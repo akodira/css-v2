@@ -834,6 +834,7 @@ export class UploadsTab extends Tab implements OnInit {
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="saveCaptcha()">
         <h3 class="text-lg font-bold">{{ 'AdminSettings.captchaTitle' | t }}</h3><p class="text-sm text-muted">{{ 'AdminSettings.captchaHelp' | t }} {{ 'AdminSettings.captchaAlso' | t }}</p>
         @if (reg === 'pick_auto') { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminSettings.captchaRecommended' | t }}</p> }
+        @if (cap.fault) { <p role="alert" class="rounded-lg bg-danger-soft px-3 py-2 text-sm font-semibold text-danger">{{ 'V2.captchaFault.' + cap.fault | t }}</p> }
         <label class="${CHECK}"><input type="checkbox" name="cap" class="h-5 w-5" [(ngModel)]="cap.enabled" /> {{ 'AdminSettings.captchaEnable' | t }}</label>
         <div class="grid gap-4 md:grid-cols-2">
           <div class="flex flex-col gap-1.5"><label for="c-key" [class]="cls.label">{{ 'AdminSettings.captchaSiteKey' | t }}</label><input id="c-key" name="key" dir="ltr" [class]="cls.input" [(ngModel)]="cap.siteKey" /></div>
@@ -884,10 +885,10 @@ export class SystemTab extends Tab implements OnInit {
   protected n: Record<string, number> = {};
   protected b: Record<string, boolean> = {};
   protected reg = 'approval';
-  protected cap = { enabled: false, siteKey: '', secret: '', hasSecret: false };
+  protected cap: { enabled: boolean; siteKey: string; secret: string; hasSecret: boolean; fault?: string | null } = { enabled: false, siteKey: '', secret: '', hasSecret: false };
 
   async ngOnInit(): Promise<void> {
-    const d = await this.get<{ settings: Record<string, string>; registrationMode: string; captcha: { enabled: boolean; siteKey: string; hasSecret: boolean } }>('system');
+    const d = await this.get<{ settings: Record<string, string>; registrationMode: string; captcha: { enabled: boolean; siteKey: string; hasSecret: boolean; fault?: string | null } }>('system');
     for (const [k, v] of Object.entries(this.defaults)) this.n[k] = d.settings[k] !== undefined ? Number(JSON.parse(d.settings[k])) : v;
     for (const k of ['email_enabled', 'password_require_upper', 'password_require_lower', 'password_require_number', 'password_require_special', 'password_expiry_enabled'])
       this.b[k] = d.settings[k] !== undefined ? JSON.parse(d.settings[k]) === true : k.startsWith('password_require');
@@ -902,7 +903,7 @@ export class SystemTab extends Tab implements OnInit {
       'password_expiry_enabled', 'password_expiry_days', 'password_warn_1_days', 'password_warn_2_days', 'password_warn_3_days']) }));
   }
   protected saveReg(): void { void this.save(() => this.put('registration', { mode: this.reg })); }
-  protected async saveCaptcha(): Promise<void> { if (await this.save(() => this.put('captcha', { enabled: this.cap.enabled, siteKey: this.cap.siteKey, secret: this.cap.secret || null }))) { if (this.cap.secret) this.cap.hasSecret = true; this.cap.secret = ''; } }
+  protected async saveCaptcha(): Promise<void> { if (await this.save(() => this.put('captcha', { enabled: this.cap.enabled, siteKey: this.cap.siteKey, secret: this.cap.secret || null }))) { if (this.cap.secret || !this.cap.enabled) this.cap.fault = null; if (this.cap.secret) this.cap.hasSecret = true; this.cap.secret = ''; } }
 }
 
 // ================================================================== sign-in codes

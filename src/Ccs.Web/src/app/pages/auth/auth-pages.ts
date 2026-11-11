@@ -7,6 +7,7 @@ import { Auth, problemOf } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { SiteService } from '../../core/api';
 import { Alert, Card, NewPasswordFields, Req, Submit, TextField } from '../../shared/ui';
+import { Turnstile } from '../../shared/turnstile';
 
 /** Only same-site paths are accepted as "next" (safeNextPath today). */
 function safeNext(raw: string | null | undefined): string | null {
@@ -24,6 +25,18 @@ abstract class FormBase {
   protected readonly fieldErrors = signal<Record<string, string>>({});
   protected link(path: string): string { return `/${this.i18n.locale()}${path}`; }
 
+  /** Turnstile site key when the admin switched the captcha on (and it is usable), else null. */
+  protected readonly captchaKey = computed(() => { const c = this.site.info()?.captcha; return c?.enabled && c.siteKey ? c.siteKey : null; });
+  protected readonly captchaToken = signal('');
+  protected readonly captchaReset = signal(0);
+  /** False (and shows the message) when the check is on but not answered yet. */
+  protected captchaReady(): boolean {
+    if (!this.captchaKey() || this.captchaToken()) return true;
+    this.fieldErrors.set({});
+    this.error.set('captchaFailed');
+    return false;
+  }
+
   protected async run(work: () => Promise<void>): Promise<void> {
     this.pending.set(true);
     this.error.set(null);
@@ -33,7 +46,7 @@ abstract class FormBase {
       const p = problemOf(e);
       if (p.field) this.fieldErrors.set({ [p.field]: p.code });
       else this.error.set(this.i18n.has('Auth.errors.' + p.code) ? p.code : 'generic');
-    } finally { this.pending.set(false); }
+    } finally { this.pending.set(false); this.captchaReset.update((n) => n + 1); }
   }
 
   protected async goHome(): Promise<void> {
@@ -79,6 +92,7 @@ export class LoginPage extends FormBase {
     if (!this.identifier().trim()) fe['identifier'] = 'required';
     if (!this.password()) fe['password'] = 'required';
     if (Object.keys(fe).length) { this.fieldErrors.set(fe); return; }
+    if (!this.captchaReady()) return;
     void this.run(async () => {
       let s;
       try { s = await this.auth.signIn(this.identifier().trim(), this.password()); }
@@ -125,13 +139,14 @@ export class MfaPage extends FormBase {
 
 @Component({
   selector: 'app-login-code',
-  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe],
+  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, Turnstile],
   template: `
     <main class="px-4 py-12">
       <app-card [heading]="'Auth.signinCode.title' | t" [subtitle]="(sent() ? 'Auth.signinCode.sent' : 'Auth.signinCode.subtitle') | t">
         @if (!sent()) {
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); request()">
             <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
+            @if (captchaKey(); as k) { <app-turnstile [siteKey]="k" [resetKey]="captchaReset()" [(token)]="captchaToken" /> }
             @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.signinCode.send' | t }}</app-submit>
           </form>
@@ -153,7 +168,8 @@ export class LoginCodePage extends FormBase {
   protected readonly sent = signal(false);
   request(): void {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email().trim())) { this.fieldErrors.set({ email: 'emailInvalid' }); return; }
-    void this.run(async () => { await firstValueFrom(this.http.post('/api/auth/signin-code', { email: this.email().trim() })); this.sent.set(true); });
+    if (!this.captchaReady()) return;
+    void this.run(async () => { await firstValueFrom(this.http.post('/api/auth/signin-code', { email: this.email().trim(), captchaToken: this.captchaToken() || null })); this.sent.set(true); });
   }
   verify(): void {
     void this.run(async () => {
@@ -168,7 +184,7 @@ interface SignupOrg { id: string; name: string; branches: { id: string; name: st
 
 @Component({
   selector: 'app-register',
-  imports: [Card, Alert, RichText, TextField, Submit, Req, RouterLink, TPipe, NewPasswordFields],
+  imports: [Card, Alert, RichText, TextField, Submit, Req, RouterLink, TPipe, NewPasswordFields, Turnstile],
   template: `
     <main class="px-4 py-12">
       @if (done()) {
@@ -206,6 +222,12 @@ interface SignupOrg { id: string; name: string; branches: { id: string; name: st
               </div>
             }
             <app-new-password [(value)]="password" [(confirm)]="confirmPw" [error]="fieldErrors()['password']" [confirmError]="fieldErrors()['confirm']" />
+            @if (captchaKey(); as k) {
+              <div class="flex flex-col gap-1.5">
+                <p class="text-sm font-semibold">{{ 'Auth.captcha.label' | t }}</p>
+                <app-turnstile [siteKey]="k" [resetKey]="captchaReset()" [(token)]="captchaToken" />
+              </div>
+            }
             @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.register.submit' | t }}</app-submit>
           </form>
@@ -260,6 +282,7 @@ export class RegisterPage extends FormBase {
       await firstValueFrom(this.http.post('/api/auth/register', {
         fullName: this.fullName().trim(), email: this.email().trim(), phone: this.phone().trim(), password: this.password(),
         locale: this.i18n.locale(), organizationId: this.orgId() || null, branchId: this.branchId() || null,
+        captchaToken: this.captchaToken() || null,
       }));
       this.done.set(true);
     });
@@ -275,12 +298,13 @@ export class RegisterPage extends FormBase {
 
 @Component({
   selector: 'app-forgot',
-  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe],
+  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, Turnstile],
   template: `
     <main class="px-4 py-12">
       <app-card [heading]="'Auth.forgot.title' | t" [subtitle]="'Auth.forgot.subtitle' | t">
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
+          @if (captchaKey(); as k) { <app-turnstile [siteKey]="k" [resetKey]="captchaReset()" [(token)]="captchaToken" /> }
           @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.forgot.submit' | t }}</app-submit>
         </form>
@@ -293,8 +317,9 @@ export class ForgotPage extends FormBase {
   protected readonly email = signal('');
   submit(): void {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email().trim())) { this.fieldErrors.set({ email: 'emailInvalid' }); return; }
+    if (!this.captchaReady()) return;
     void this.run(async () => {
-      await firstValueFrom(this.http.post('/api/auth/forgot-password', { email: this.email().trim() }));
+      await firstValueFrom(this.http.post('/api/auth/forgot-password', { email: this.email().trim(), captchaToken: this.captchaToken() || null }));
       await this.router.navigate([this.link('/reset-password')], { queryParams: { email: this.email().trim() } });
     });
   }

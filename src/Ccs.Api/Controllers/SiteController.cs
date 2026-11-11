@@ -11,20 +11,20 @@ namespace Ccs.Api.Controllers;
 /// <summary>Public site data for the Angular shell: branding, menus, registration mode, upload and password rules.</summary>
 [ApiController]
 [Route("api/site")]
-public sealed class SiteController(CcsDbContext db, SettingsService settings, Ccs.Application.Abstractions.IFileStore files) : ControllerBase
+public sealed class SiteController(CcsDbContext db, SettingsService settings, Ccs.Application.Abstractions.IFileStore files, CaptchaVerifier captchaCheck) : ControllerBase
 {
     [HttpGet]
     [ResponseCache(NoStore = true)]   // settings changes show at once
     public async Task<object> Get(CancellationToken ct)
     {
         var s = await db.SiteSettings.AsNoTracking().FirstOrDefaultAsync(ct);
-        var captcha = await db.CaptchaSettings.AsNoTracking().FirstOrDefaultAsync(ct);
+        var captcha = await captchaCheck.StateAsync(ct);
         var codes = await db.SigninCodeSettings.AsNoTracking().FirstOrDefaultAsync(ct);
         var messages = await db.SystemMessages.AsNoTracking().Select(m => new { m.Key, m.Locale, m.Body }).ToListAsync(ct);
         return new
         {
             site = s,
-            captcha = new { enabled = captcha?.Enabled == true && captcha.SecretEnc != null, provider = captcha?.Provider, siteKey = captcha?.SiteKey },
+            captcha = new { enabled = captcha.Active, provider = "turnstile", siteKey = captcha.SiteKey },   // hidden on a configuration fault (6.7)
             signinCodes = new { enabled = codes?.Enabled == true, audience = codes?.Audience, length = codes?.CodeLength ?? 6 },
             passwordPolicy = await settings.GetPasswordPolicyAsync(ct),
             autoRefreshSeconds = await settings.GetIntAsync("auto_refresh_seconds", 30, ct),

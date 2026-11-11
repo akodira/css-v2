@@ -479,7 +479,7 @@ public sealed partial class SettingsController(
         ["email_enabled", "password_require_upper", "password_require_lower", "password_require_number", "password_require_special", "password_expiry_enabled"];
 
     [HttpGet("system")]
-    public async Task<object> GetSystem(CancellationToken ct)
+    public async Task<object> GetSystem([FromServices] CaptchaVerifier captchaCheck, CancellationToken ct)
     {
         await Need(ct);
         var keys = IntRules.Keys.Concat(BoolRules).ToList();
@@ -490,7 +490,7 @@ public sealed partial class SettingsController(
         {
             settings = rows,
             registrationMode = site?.RegistrationMode ?? "approval",
-            captcha = new { enabled = cap?.Enabled ?? false, siteKey = cap?.SiteKey ?? "", hasSecret = cap?.SecretEnc is not null },
+            captcha = new { enabled = cap?.Enabled ?? false, siteKey = cap?.SiteKey ?? "", hasSecret = cap?.SecretEnc is not null, fault = (await captchaCheck.StateAsync(ct)).Fault },
         };
     }
 
