@@ -61,7 +61,7 @@ public static class SupabaseImport
 
     public static async Task<int> RunAsync(string[] args)
     {
-        if (args.Length < 2) { Console.Error.WriteLine("Usage: dotnet Ccs.Api.dll import-supabase <postgres url> [--real-only] [--service-key <key>]"); return 2; }
+        if (args.Length < 2) { Console.Error.WriteLine("Usage: dotnet Ccs.Api.dll import-supabase <postgres url> [--real-only] [--service-key <key>] | --links-only"); return 2; }
         var realOnly = args.Contains("--real-only");
         var keyIdx = Array.IndexOf(args, "--service-key");
         var serviceKey = keyIdx > 0 && keyIdx + 1 < args.Length ? args[keyIdx + 1] : null;
@@ -83,6 +83,19 @@ public static class SupabaseImport
         await ms.OpenAsync();
         Log($"Connected. Copying {(realOnly ? "real data only (demo users skipped)" : "all data")}.");
 
+        if (args.Contains("--links-only"))
+        {
+            // Repair only: copy team leaders and parents again, nothing else is changed or emptied.
+            foreach (var (table, cols) in Deferred)
+                foreach (var col in cols)
+                {
+                    await using var r = await new NpgsqlCommand($"SELECT id::text, {col}::text FROM public.\"{table}\" WHERE {col} IS NOT NULL", pg).ExecuteReaderAsync();
+                    while (await r.ReadAsync()) PendingLinks.Add((table, col, Guid.Parse(r.GetString(0)), Guid.Parse(r.GetString(1))));
+                }
+            await ApplyLinksAsync(ms);
+            return 0;
+        }
+
         await EmptyTargetAsync(ms);
         var counts = new List<(string Table, long Pg, long Ms)>();
         foreach (var t in Order)
@@ -90,6 +103,7 @@ public static class SupabaseImport
             await CopyTableAsync(pg, ms, t, realOnly);
             if (t == UsersAfter) { await CopyUsersAsync(pg, ms, realOnly); await CopyTableAsync(pg, ms, "profiles", realOnly); }
         }
+        await ApplyLinksAsync(ms);
         await ExecAsync(ms, """
             UPDATE ccs.business_hours SET is_default = CASE WHEN id = (SELECT TOP 1 business_hours_id FROM ccs.sla_policies
               WHERE business_hours_id IS NOT NULL GROUP BY business_hours_id ORDER BY COUNT(*) DESC) THEN 1 ELSE 0 END;
@@ -166,6 +180,26 @@ public static class SupabaseImport
         return map;
     }
 
+    private static readonly List<(string Table, string Col, Guid Id, Guid Value)> PendingLinks = [];
+
+    /// <summary>Writes the deferred links (team leaders, parents) after all tables are copied.</summary>
+    private static async Task ApplyLinksAsync(SqlConnection ms)
+    {
+        var done = 0;
+        foreach (var (table, col, id, v) in PendingLinks)
+        {
+            var cmd = new SqlCommand($"""
+                UPDATE ccs.[{table}] SET [{col}] = @v WHERE id = @id
+                  AND EXISTS (SELECT 1 FROM ccs.profiles WHERE id = @v UNION ALL SELECT 1 FROM ccs.[{table}] WHERE id = @v)
+                """, ms);
+            cmd.Parameters.Add(new SqlParameter("@v", SqlDbType.UniqueIdentifier) { Value = v });
+            cmd.Parameters.Add(new SqlParameter("@id", SqlDbType.UniqueIdentifier) { Value = id });
+            done += await cmd.ExecuteNonQueryAsync();
+        }
+        Log($"links (team leaders, parents): {done} of {PendingLinks.Count} set");
+        PendingLinks.Clear();
+    }
+
     private static async Task CopyTableAsync(NpgsqlConnection pg, SqlConnection ms, string table, bool realOnly)
     {
         var src = await SourceColumnsAsync(pg, table);
@@ -209,22 +243,15 @@ public static class SupabaseImport
             throw new InvalidOperationException($"{table}: {e.Message}", e);
         }
 
-        // Second pass: links that point at rows loaded later (team leaders) or at the same table (parents).
+        // Links that point at rows loaded later (team leaders -> profiles) or at the same table (parents):
+        // kept here and written once every table is in (organizations are copied before profiles).
         var idIdx = cols.FindIndex(c => c.Name == "id");
         foreach (var col in deferred)
         {
             var ci = cols.FindIndex(c => c.Name == col);
             if (ci < 0 || idIdx < 0) continue;
             foreach (var row in rows.Where(x => x[ci] is not null))
-            {
-                var cmd = new SqlCommand($"""
-                    UPDATE ccs.[{table}] SET [{col}] = @v WHERE id = @id
-                      AND EXISTS (SELECT 1 FROM ccs.profiles WHERE id = @v UNION ALL SELECT 1 FROM ccs.[{table}] WHERE id = @v)
-                    """, ms);
-                cmd.Parameters.Add(new SqlParameter("@v", SqlDbType.UniqueIdentifier) { Value = Guid.Parse(row[ci]!) });
-                cmd.Parameters.Add(new SqlParameter("@id", SqlDbType.UniqueIdentifier) { Value = Guid.Parse(row[idIdx]!) });
-                await cmd.ExecuteNonQueryAsync();
-            }
+                PendingLinks.Add((table, col, Guid.Parse(row[idIdx]!), Guid.Parse(row[ci]!)));
         }
         Log($"{table}: {rows.Count} rows");
     }
