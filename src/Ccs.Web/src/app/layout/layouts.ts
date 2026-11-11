@@ -146,7 +146,26 @@ export class PublicLayout {
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="icons['bell']" /></svg>
             @if (unread()) { <span aria-hidden="true" class="absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs font-bold text-white">{{ unread() }}</span> }
           </a>
+          <button type="button" [attr.aria-expanded]="sheetOpen()" aria-haspopup="dialog" [attr.aria-label]="'Shell.accountMenu' | t" (click)="menuOpen.set(false); sheetOpen.set(!sheetOpen())"
+            class="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand-ink">{{ initials() }}</button>
         </div>
+
+        @if (sheetOpen()) {
+          <div class="lg:hidden">
+            <button type="button" tabindex="-1" [attr.aria-label]="'Shell.closeMenu' | t" (click)="sheetOpen.set(false)" class="fixed inset-0 z-40 cursor-default"></button>
+            <div role="dialog" [attr.aria-label]="'Shell.accountMenu' | t" class="fixed end-2 top-[4.25rem] z-50 w-[min(20rem,calc(100vw-1rem))] rounded-2xl border border-line bg-surface p-3 text-ink shadow-2xl">
+              <div class="flex flex-col gap-3">
+                <div class="flex items-center gap-3 border-b border-line pb-3">
+                  <span aria-hidden="true" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand-ink">{{ initials() }}</span>
+                  <div class="min-w-0"><p class="truncate font-semibold" dir="auto">{{ auth.me()?.fullName }}</p><p class="text-sm text-muted">{{ roleLabel() }}</p></div>
+                </div>
+                <a [routerLink]="area() + '/account'" (click)="sheetOpen.set(false)" class="flex min-h-11 items-center rounded-lg px-2 font-semibold hover:bg-bg">{{ 'Shell.myAccount' | t }}</a>
+                <div><p class="mb-1 px-2 text-xs font-bold text-muted">{{ 'Shell.language' | t }}</p><app-language-switcher /></div>
+                <div class="border-t border-line pt-1"><button type="button" (click)="sheetOpen.set(false); auth.signOut()" class="flex min-h-11 w-full cursor-pointer items-center rounded-lg px-2 font-semibold text-danger hover:bg-bg">{{ 'Shell.signOut' | t }}</button></div>
+              </div>
+            </div>
+          </div>
+        }
 
         @if (menuOpen()) {
           <div class="lg:hidden">
@@ -240,6 +259,7 @@ export class Shell {
   private readonly router = inject(Router);
   protected readonly icons = ICONS;
   protected readonly menuOpen = signal(false);
+  protected readonly sheetOpen = signal(false);
   private readonly url = toSignal(this.router.events.pipe(filter((e) => e instanceof NavigationEnd)), { initialValue: null });
 
   protected readonly name = computed(() => this.i18n.pick(this.site.info()?.site?.headerNameEn, this.site.info()?.site?.headerNameAr) || this.i18n.t('Brand.name'));
@@ -359,7 +379,7 @@ export class Shell {
     return path === i.path || path.startsWith(i.path + '/');
   }
 
-  @HostListener('document:keydown.escape') close(): void { this.menuOpen.set(false); }
+  @HostListener('document:keydown.escape') close(): void { this.menuOpen.set(false); this.sheetOpen.set(false); }
 }
 
 /** Placeholder used for screens scheduled in a later build stage, so routes and menus are complete now. */
