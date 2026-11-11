@@ -83,7 +83,8 @@ export class I18n {
 
   date(iso: string | null | undefined, style: 'medium' | 'short' = 'medium'): string {
     if (!iso) return '-';
-    return new Intl.DateTimeFormat(this.locale() === 'ar' ? 'ar-EG' : 'en-GB', {
+    // Same as v1 (next-intl with locale "en" / "ar"): "Nov 5, 2026, 12:32 PM".
+    return new Intl.DateTimeFormat(this.locale() === 'ar' ? 'ar' : 'en-US', {
       dateStyle: style, timeStyle: 'short', timeZone: 'Africa/Cairo',
     }).format(new Date(iso));
   }

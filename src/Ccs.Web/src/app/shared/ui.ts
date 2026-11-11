@@ -190,10 +190,13 @@ export const STATUS_STRIPE: Record<string, string> = {
 @Component({
   selector: 'th[app-sort-th]',
   template: `
-    <button type="button" (click)="toggle()" class="flex min-h-11 w-full cursor-pointer items-center gap-1 px-4 text-start font-semibold"
+    <button type="button" (click)="toggle()" class="flex min-h-11 w-full cursor-pointer items-center gap-1.5 px-4 text-start font-semibold hover:underline"
       [attr.aria-label]="label()">
       {{ label() }}
-      <span aria-hidden="true" class="text-xs opacity-80">{{ active() ? (desc() ? '▼' : '▲') : '↕' }}</span>
+      <svg aria-hidden="true" width="12" height="14" viewBox="0 0 12 14" fill="currentColor" [class.opacity-40]="!active()">
+        <path d="M6 1 10 6H2z" [attr.opacity]="active() && desc() ? 0.3 : 1" />
+        <path d="M6 13 2 8h8z" [attr.opacity]="active() && !desc() ? 0.3 : 1" />
+      </svg>
     </button>`,
   host: { '[attr.aria-sort]': "active() ? (desc() ? 'descending' : 'ascending') : 'none'", scope: 'col', class: 'p-0' },
 })

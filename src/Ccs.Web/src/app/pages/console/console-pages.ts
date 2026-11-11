@@ -6,7 +6,7 @@ import { Paged, SiteService, TicketDetail, TicketListItem, TicketsApi } from '..
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, SlaChip, SortTh, StatusBadge } from '../../shared/ui';
-import { autoRefresh } from '../tickets/customer-pages';
+import { AutoRefreshBar, autoRefresh } from '../tickets/customer-pages';
 import { CannedApi } from '../help-pages';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
 import { NewTicketOptions } from '../../core/api';
@@ -206,11 +206,12 @@ export class ConsoleQueuePage {
 /** Ticket workspace: reply or internal note, status change, claim (spec 7). Escalation, links and fields arrive in stage 4. */
 @Component({
   selector: 'app-console-ticket',
-  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions, AutoRefreshBar],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto grid w-full max-w-7xl gap-6 px-4 py-8 lg:grid-cols-[1fr_22rem]">
         <div class="flex min-w-0 flex-col gap-6">
+          <app-auto-refresh (tick)="load()" />
           <a [routerLink]="link('/console')" class="text-sm font-semibold text-brand-ink underline">{{ 'Console.ticket.back' | t }}</a>
           <header class="flex flex-col gap-3 rounded-md border border-line bg-surface p-6">
             <div class="flex flex-wrap items-center justify-between gap-3">
@@ -353,7 +354,6 @@ export class ConsoleTicketPage {
 
   constructor() {
     this.load();
-    autoRefresh(() => this.load());
   }
 
   link(p: string): string { return `/${this.i18n.locale()}${p}`; }

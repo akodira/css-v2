@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, output, signal, untracked } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -27,9 +27,40 @@ export function autoRefresh(load: () => void): void {
   }
 }
 
+/**
+ * Same as v1 AutoRefreshBar: "Updates automatically every N seconds." with Pause / Resume.
+ * Re-reads the page data on a timer while the tab is visible; renders nothing when Settings turn it off.
+ */
+@Component({
+  selector: 'app-auto-refresh',
+  imports: [TPipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @if (secs > 0) {
+      <p class="flex flex-wrap items-center gap-2 text-sm text-muted" role="status">
+        <span>{{ paused() ? ('AutoRefresh.paused' | t) : ('AutoRefresh.note' | t: { seconds: secs }) }}</span>
+        <button type="button" (click)="paused.set(!paused())" class="min-h-9 cursor-pointer rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink hover:bg-bg">{{ (paused() ? 'AutoRefresh.resume' : 'AutoRefresh.pause') | t }}</button>
+      </p>
+    }`,
+})
+export class AutoRefreshBar {
+  readonly tick = output<void>();
+  protected readonly secs = inject(SiteService).info()?.autoRefreshSeconds ?? 30;
+  protected readonly paused = signal(false);
+  private last = Date.now();
+  constructor() {
+    if (this.secs <= 0) return;
+    const run = () => { if (document.visibilityState !== 'visible' || this.paused()) return; this.last = Date.now(); this.tick.emit(); };
+    const h = setInterval(run, this.secs * 1000);
+    const onVisible = () => { if (document.visibilityState === 'visible' && Date.now() - this.last >= this.secs * 1000) run(); };
+    document.addEventListener('visibilitychange', onVisible);
+    inject(DestroyRef).onDestroy(() => { clearInterval(h); document.removeEventListener('visibilitychange', onVisible); });
+  }
+}
+
 @Component({
   selector: 'app-my-tickets',
-  imports: [RouterLink, TPipe, StatusBadge, SortTh],
+  imports: [RouterLink, TPipe, StatusBadge, SortTh, AutoRefreshBar],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div class="flex flex-wrap items-start justify-between gap-4">
@@ -39,6 +70,7 @@ export function autoRefresh(load: () => void): void {
         </div>
         <a [routerLink]="link('/tickets/new')" class="flex min-h-11 items-center rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Tickets.newTicket' | t }}</a>
       </div>
+      <app-auto-refresh (tick)="load()" />
 
       <dl class="grid grid-cols-2 gap-3 sm:grid-cols-4">
         @for (k of groups; track k) {
@@ -128,7 +160,6 @@ export class MyTicketsPage {
 
   constructor() {
     effect(() => { this.sort(); this.desc(); untracked(() => this.load()); });
-    autoRefresh(() => this.load());
   }
 
   link(p: string): string { return `/${this.i18n.locale()}${p}`; }
@@ -415,10 +446,11 @@ export class NewTicketPage {
 
 @Component({
   selector: 'app-ticket-detail',
-  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, CustomerLifecycle, TicketLinksNotice, CommentActions],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, CustomerLifecycle, TicketLinksNotice, CommentActions, AutoRefreshBar],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
+        <app-auto-refresh (tick)="load()" />
         <a [routerLink]="link('/tickets')" class="text-sm font-semibold text-brand-ink underline">{{ 'Tickets.title' | t }}</a>
 
         <header class="flex flex-col gap-3 rounded-md border border-line bg-surface p-6">
@@ -541,7 +573,6 @@ export class TicketDetailPage {
 
   constructor() {
     this.load();
-    autoRefresh(() => this.load());
   }
 
   link(p: string): string { return `/${this.i18n.locale()}${p}`; }

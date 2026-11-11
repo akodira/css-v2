@@ -7,7 +7,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet } from '@angular/common';
 import { Auth } from '../core/auth';
 import { I18n, TPipe } from '../core/i18n';
-import { SiteService } from '../core/api';
+import { MenuRow, SiteService } from '../core/api';
 import { LanguageSwitcher, Logo } from '../shared/ui';
 
 const ICONS: Record<string, string> = {
@@ -254,18 +254,35 @@ export class Shell {
   protected readonly groups = computed<SideGroup[]>(() => {
     this.i18n.locale();
     const t = (k: string) => this.i18n.t(k);
-    if (!this.auth.isStaff()) {
-      return [{ items: [
-        { path: '/tickets', label: t('Nav.tickets'), icon: 'tickets' },
-        { path: '/tickets/new', label: t('Nav.newTicket'), icon: 'plus', exact: true },
-        { path: '/notifications', label: t('Nav.notifications'), icon: 'bell' },
-        { path: '/kb', label: t('Nav.kb'), icon: 'kb' },
-        { path: '/help', label: t('Nav.help'), icon: 'kb' },
-        { path: '/account', label: t('Nav.account'), icon: 'users' },
-      ] }];
-    }
+    if (!this.auth.isStaff()) return [{ items: this.customerItems() }];
     return this.staffGroups();
   });
+
+  /**
+   * Customer menu, same as v1 CustomerFrame: the "header" menu from Settings → Menus, as a signed-in customer sees it
+   * (audience all / signed_in / customer, visible only; a group shows its links), plus Notifications if it is missing.
+   */
+  private customerItems(): SideItem[] {
+    const rows = this.site.menus().filter((r) => r.area === 'header');
+    const allowed = (r: MenuRow) => (r as MenuRow & { isVisible?: boolean }).isVisible !== false && ['all', 'signed_in', 'customer'].includes(r.audience);
+    const label = (r: MenuRow) => this.i18n.pick(r.labelEn, r.labelAr);
+    const iconFor = (href: string) => href === '/' ? 'dashboard' : href.startsWith('/tickets/new') ? 'plus' : href.startsWith('/tickets') ? 'tickets'
+      : href.startsWith('/kb') ? 'kb' : href.startsWith('/account') ? 'users' : href.startsWith('/notifications') ? 'bell' : 'catalog';
+    const item = (r: MenuRow): SideItem => ({ path: r.href!, label: label(r), icon: iconFor(r.href!), exact: r.href === '/' || r.href === '/tickets/new' });
+    const byOrder = (a: MenuRow, b: MenuRow) => a.sortOrder - b.sortOrder;
+    const items: SideItem[] = [];
+    for (const top of rows.filter((r) => !r.parentId && allowed(r)).sort(byOrder)) {
+      if (top.kind === 'link') { if (top.href?.startsWith('/')) items.push(item(top)); continue; }
+      for (const c of rows.filter((x) => x.parentId === top.id && allowed(x) && x.href?.startsWith('/')).sort(byOrder)) items.push(item(c));
+    }
+    if (!items.length) {   // no menu saved yet: v1's default header menu
+      const t = (k: string) => this.i18n.t(k);
+      items.push({ path: '/', label: t('Nav.home'), icon: 'dashboard', exact: true }, { path: '/tickets', label: t('Nav.tickets'), icon: 'tickets' },
+        { path: '/kb', label: t('Nav.kb'), icon: 'kb' }, { path: '/help', label: t('Nav.help'), icon: 'catalog' }, { path: '/account', label: t('Nav.account'), icon: 'users' });
+    }
+    if (!items.some((i) => i.path === '/notifications')) items.push({ path: '/notifications', label: this.i18n.t('Notifications.title'), icon: 'bell' });
+    return items;
+  }
 
   /** Red numbers: unassigned tickets and accounts waiting for approval, refreshed with the queue. */
   private readonly badges = signal<{ tickets: number; approvals: number }>({ tickets: 0, approvals: 0 });
@@ -335,7 +352,7 @@ export class Shell {
     this.url();
     const path = this.router.url.split('?')[0].replace(/^\/(en|ar)/, '') || '/';
     if (i.also?.some((a) => path === a || path.startsWith(a + '/'))) return true;
-    if (i.exact) return path === i.path;
+    if (i.exact) return path === i.path || (i.path === '/' && path === '');
     if (i.path === '/tickets' && path.startsWith('/tickets/new')) return false;
     if (i.also?.some((a) => path === a || path.startsWith(a + '/'))) return true;
     return path === i.path || path.startsWith(i.path + '/');
