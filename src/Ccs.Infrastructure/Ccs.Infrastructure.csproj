@@ -15,4 +15,8 @@
     <!-- Hangfire references Newtonsoft.Json 11.0.1 (GHSA-5crp-9r3c-p9vr); pin the fixed version. -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- v1 built-in email wording (Notifications.events, footers, account emails), used when a template is not customised. -->
+    <EmbeddedResource Include="Email\email-defaults.json" LogicalName="Ccs.EmailDefaults.json" />
+  </ItemGroup>
 </Project>

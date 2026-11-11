@@ -1,0 +1,318 @@
+{
+ "en": {
+  "events": {
+   "ticket_created": {
+    "title": "We received your request {reference}",
+    "body": "Your ticket \"{subject}\" was submitted. We will keep you updated as it progresses."
+   },
+   "ticket_assigned": {
+    "title": "Ticket assigned to you: {reference}",
+    "body": "\"{subject}\" was assigned to you."
+   },
+   "agent_reply": {
+    "title": "New reply on {reference}",
+    "body": "Support replied to \"{subject}\"."
+   },
+   "customer_reply": {
+    "title": "Customer replied on {reference}",
+    "body": "The customer replied on \"{subject}\"."
+   },
+   "status_changed": {
+    "title": "Update on {reference}",
+    "body": "The status of \"{subject}\" changed."
+   },
+   "priority_changed": {
+    "title": "Priority changed on {reference}",
+    "body": "The priority of \"{subject}\" was changed."
+   },
+   "sla_warning": {
+    "title": "SLA warning: {reference}",
+    "body": "\"{subject}\" is close to its SLA deadline."
+   },
+   "sla_breach": {
+    "title": "SLA breached: {reference}",
+    "body": "\"{subject}\" has passed its SLA deadline."
+   },
+   "ticket_resolved": {
+    "title": "{reference} was resolved",
+    "body": "\"{subject}\" was marked as resolved. Please confirm, or reopen it if the problem is not fixed."
+   },
+   "ticket_closed": {
+    "title": "{reference} was closed",
+    "body": "\"{subject}\" was closed."
+   },
+   "ticket_reopened": {
+    "title": "{reference} was reopened",
+    "body": "\"{subject}\" was reopened."
+   },
+   "ticket_escalated": {
+    "title": "Ticket escalated: {reference}",
+    "body": "\"{subject}\" was escalated. Reason: {reason}"
+   },
+   "account_pending": {
+    "title": "Your email is verified",
+    "body": "Thank you, {name}. Your email address is verified and your account is waiting for approval. We will email you as soon as it is ready."
+   },
+   "account_approved": {
+    "title": "Your account is approved",
+    "body": "Good news, {name}. Your account is approved and you can sign in now.",
+    "button": "Sign in"
+   },
+   "account_rejected": {
+    "title": "Your account request was not approved",
+    "body": "Hello {name}, we could not approve your account request. {reason}"
+   },
+   "approval_requested": {
+    "title": "New account waiting for approval",
+    "body": "{customer} ({customerEmail}) verified their email and is waiting for approval. Choose an organization and approve or reject the account.",
+    "button": "Review accounts"
+   },
+   "account_promoted": {
+    "title": "Your account is now a staff account",
+    "body": "Hello {name}, an administrator gave you a staff role. Sign in to open the staff workspace.",
+    "button": "Open workspace"
+   },
+   "customer_reminder": {
+    "title": "We are waiting for your reply on {reference}",
+    "body": "We need your reply to continue working on \"{subject}\". Please reply on the ticket."
+   },
+   "customer_final_warning": {
+    "title": "Final reminder: {reference}",
+    "body": "We have not heard from you about \"{subject}\". The ticket will be closed soon if we do not get your reply."
+   },
+   "resolved_reminder": {
+    "title": "Is {reference} fixed?",
+    "body": "\"{subject}\" was marked as resolved. Please confirm it is fixed, or reopen it if you still need help."
+   },
+   "cancellation_requested": {
+    "title": "Cancellation requested: {reference}",
+    "body": "The customer asked to cancel \"{subject}\". Reason: {reason}"
+   },
+   "cancellation_rejected": {
+    "title": "Cancellation request declined: {reference}",
+    "body": "We did not cancel \"{subject}\". {reason}"
+   },
+   "password_expiring": {
+    "title": "Your password expires in {days} day(s)",
+    "body": "Your password will expire in {days} day(s). Change it now from your account page to avoid being asked to renew it when you sign in.",
+    "button": "Change password"
+   }
+  },
+  "emailFooter": "You receive this email because of activity on your tickets.",
+  "emailFooterAccount": "You receive this email because of an account request on the support portal.",
+  "emailOpen": "Open the ticket"
+ },
+ "ar": {
+  "events": {
+   "ticket_created": {
+    "title": "استلمنا طلبك {reference}",
+    "body": "تم إرسال تذكرتك \"{subject}\". سنوافيك بالمستجدات أولًا بأول."
+   },
+   "ticket_assigned": {
+    "title": "تم إسناد تذكرة إليك: {reference}",
+    "body": "تم إسناد \"{subject}\" إليك."
+   },
+   "agent_reply": {
+    "title": "رد جديد على {reference}",
+    "body": "ردّ فريق الدعم على \"{subject}\"."
+   },
+   "customer_reply": {
+    "title": "ردّ العميل على {reference}",
+    "body": "ردّ العميل على \"{subject}\"."
+   },
+   "status_changed": {
+    "title": "تحديث على {reference}",
+    "body": "تغيّرت حالة \"{subject}\"."
+   },
+   "priority_changed": {
+    "title": "تغيّرت الأولوية على {reference}",
+    "body": "تم تغيير أولوية \"{subject}\"."
+   },
+   "sla_warning": {
+    "title": "تنبيه اتفاقية الخدمة: {reference}",
+    "body": "\"{subject}\" يقترب من موعد اتفاقية الخدمة."
+   },
+   "sla_breach": {
+    "title": "تجاوز موعد اتفاقية الخدمة: {reference}",
+    "body": "\"{subject}\" تجاوزت موعد اتفاقية الخدمة."
+   },
+   "ticket_resolved": {
+    "title": "تم حل {reference}",
+    "body": "تم وضع علامة \"تم الحل\" على \"{subject}\". يرجى التأكيد، أو أعد فتحها إذا لم تُحل المشكلة."
+   },
+   "ticket_closed": {
+    "title": "تم إغلاق {reference}",
+    "body": "تم إغلاق \"{subject}\"."
+   },
+   "ticket_reopened": {
+    "title": "أُعيد فتح {reference}",
+    "body": "أُعيد فتح \"{subject}\"."
+   },
+   "ticket_escalated": {
+    "title": "تم تصعيد تذكرة: {reference}",
+    "body": "تم تصعيد \"{subject}\". السبب: {reason}"
+   },
+   "account_pending": {
+    "title": "تم تأكيد بريدك الإلكتروني",
+    "body": "شكرًا {name}. تم تأكيد بريدك الإلكتروني، وحسابك الآن بانتظار الاعتماد. سنراسلك فور أن يصبح جاهزًا."
+   },
+   "account_approved": {
+    "title": "تم اعتماد حسابك",
+    "body": "خبر سار يا {name}. تم اعتماد حسابك ويمكنك تسجيل الدخول الآن.",
+    "button": "تسجيل الدخول"
+   },
+   "account_rejected": {
+    "title": "لم يتم اعتماد طلب حسابك",
+    "body": "مرحبًا {name}، تعذّر علينا اعتماد طلب حسابك. {reason}"
+   },
+   "approval_requested": {
+    "title": "حساب جديد بانتظار الاعتماد",
+    "body": "أكّد {customer} ({customerEmail}) بريده الإلكتروني وهو بانتظار الاعتماد. اختر المؤسسة ثم اعتمد الحساب أو ارفضه.",
+    "button": "مراجعة الحسابات"
+   },
+   "account_promoted": {
+    "title": "أصبح حسابك حساب موظف",
+    "body": "مرحبًا {name}، منحك أحد المديرين دورًا وظيفيًا. سجّل الدخول لفتح مساحة العمل.",
+    "button": "فتح مساحة العمل"
+   },
+   "customer_reminder": {
+    "title": "ننتظر ردك على {reference}",
+    "body": "نحتاج إلى ردك لمتابعة العمل على «{subject}». يرجى الرد على التذكرة."
+   },
+   "customer_final_warning": {
+    "title": "تذكير أخير: {reference}",
+    "body": "لم نتلقَّ ردًا منك بخصوص «{subject}». ستُغلق التذكرة قريبًا إذا لم يصلنا ردك."
+   },
+   "resolved_reminder": {
+    "title": "هل تم حل {reference}؟",
+    "body": "وُضعت علامة «تم الحل» على «{subject}». يرجى تأكيد الحل، أو إعادة فتح التذكرة إذا كنت ما زلت بحاجة إلى مساعدة."
+   },
+   "cancellation_requested": {
+    "title": "طلب إلغاء: {reference}",
+    "body": "طلب العميل إلغاء «{subject}». السبب: {reason}"
+   },
+   "cancellation_rejected": {
+    "title": "تم رفض طلب الإلغاء: {reference}",
+    "body": "لم نُلغِ «{subject}». {reason}"
+   },
+   "password_expiring": {
+    "title": "تنتهي صلاحية كلمة مرورك خلال {days} يوم",
+    "body": "ستنتهي صلاحية كلمة مرورك خلال {days} يوم. غيّرها الآن من صفحة حسابك حتى لا يُطلب منك تجديدها عند تسجيل الدخول.",
+    "button": "تغيير كلمة المرور"
+   }
+  },
+  "emailFooter": "تصلك هذه الرسالة بسبب نشاط على تذاكرك.",
+  "emailFooterAccount": "وصلتك هذه الرسالة بسبب طلب حساب في بوابة الدعم.",
+  "emailOpen": "فتح التذكرة"
+ },
+ "auth": {
+  "auth_signup": {
+   "en": {
+    "subject": "Confirm your email address",
+    "body": "Welcome, {name}. Confirm your email address to activate your account.",
+    "button": "Confirm email"
+   },
+   "ar": {
+    "subject": "أكّد بريدك الإلكتروني",
+    "body": "أهلًا {name}. أكّد بريدك الإلكتروني لتفعيل حسابك.",
+    "button": "تأكيد البريد"
+   }
+  },
+  "auth_recovery": {
+   "en": {
+    "subject": "Your password reset code",
+    "body": "Use this code to reset your password: {code}\nIt works for {minutes} minutes. If you did not ask for it, ignore this email.",
+    "button": ""
+   },
+   "ar": {
+    "subject": "رمز إعادة تعيين كلمة المرور",
+    "body": "استخدم هذا الرمز لإعادة تعيين كلمة المرور: {code}\nيعمل لمدة {minutes} دقيقة. إذا لم تطلبه، تجاهل هذه الرسالة.",
+    "button": ""
+   }
+  },
+  "auth_email_change": {
+   "en": {
+    "subject": "Confirm your new email address",
+    "body": "Confirm this address to finish changing the email on your account.",
+    "button": "Confirm new email"
+   },
+   "ar": {
+    "subject": "أكّد بريدك الإلكتروني الجديد",
+    "body": "أكّد هذا العنوان لإكمال تغيير البريد الإلكتروني لحسابك.",
+    "button": "تأكيد البريد الجديد"
+   }
+  },
+  "auth_invite": {
+   "en": {
+    "subject": "You have been invited",
+    "body": "You have been invited to create an account. Accept the invitation to get started.",
+    "button": "Accept invitation"
+   },
+   "ar": {
+    "subject": "تمت دعوتك",
+    "body": "تمت دعوتك لإنشاء حساب. اقبل الدعوة للبدء.",
+    "button": "قبول الدعوة"
+   }
+  },
+  "auth_magic_link": {
+   "en": {
+    "subject": "Your sign-in link",
+    "body": "Use this link to sign in. If you did not ask for it, ignore this email.",
+    "button": "Sign in"
+   },
+   "ar": {
+    "subject": "رابط تسجيل الدخول",
+    "body": "استخدم هذا الرابط لتسجيل الدخول. إذا لم تطلبه، تجاهل هذه الرسالة.",
+    "button": "تسجيل الدخول"
+   }
+  },
+  "auth_signin_code": {
+   "en": {
+    "subject": "Your sign-in code",
+    "body": "Use this code to sign in: {code}\nIt works for {minutes} minutes. If you did not ask for it, ignore this email.",
+    "button": ""
+   },
+   "ar": {
+    "subject": "رمز الدخول",
+    "body": "استخدم هذا الرمز لتسجيل الدخول: {code}\nيعمل لمدة {minutes} دقيقة. إذا لم تطلبه، تجاهل هذه الرسالة.",
+    "button": ""
+   }
+  },
+  "auth_signin_code_blocked": {
+   "en": {
+    "subject": "Sign-in code not available for your account",
+    "body": "Someone asked for a one-time sign-in code for your account. Staff and administrator accounts can use codes only when two-step verification is turned on and codes are allowed for staff.\nSign in with your password, turn on two-step verification in your account page, then try again. If you did not ask for this, ignore this email.",
+    "button": ""
+   },
+   "ar": {
+    "subject": "رمز الدخول غير متاح لحسابك",
+    "body": "طلب أحدهم رمز دخول لمرة واحدة لحسابك. يمكن لحسابات الموظفين والمسؤولين استخدام الرموز فقط عند تفعيل التحقق بخطوتين وعند السماح بالرموز للموظفين.\nسجّل الدخول بكلمة المرور، وفعّل التحقق بخطوتين من صفحة حسابك، ثم حاول مرة أخرى. إذا لم تطلب ذلك، تجاهل هذه الرسالة.",
+    "button": ""
+   }
+  },
+  "auth_reauth": {
+   "en": {
+    "subject": "Your confirmation code",
+    "body": "Use this code to confirm your action: {code}",
+    "button": ""
+   },
+   "ar": {
+    "subject": "رمز التأكيد",
+    "body": "استخدم هذا الرمز لتأكيد العملية: {code}",
+    "button": ""
+   }
+  }
+ },
+ "greeting": {
+  "en": "Hello {name},",
+  "ar": "مرحبًا {name}،"
+ },
+ "accountEvents": [
+  "account_promoted",
+  "account_pending",
+  "account_approved",
+  "account_rejected",
+  "approval_requested",
+  "password_expiring"
+ ]
+}

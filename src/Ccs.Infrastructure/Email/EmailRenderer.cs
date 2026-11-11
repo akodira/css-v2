@@ -60,13 +60,13 @@ public static partial class EmailRenderer
             html.Append($"<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" style=\"margin:24px 0;\"><tr><td style=\"background:{Css(design.AccentColor)};border-radius:{radius};\"><a href=\"{Enc(buttonUrl)}\" style=\"display:inline-block;padding:12px 24px;color:#ffffff;font-weight:600;text-decoration:none;\">{Enc(Fill(buttonText, values))}</a></td></tr></table>");
         html.Append("</td></tr>");
         if (!string.IsNullOrWhiteSpace(footer))
-            html.Append($"<tr><td style=\"padding:16px 28px;border-top:1px solid #e2e8f3;color:#52607a;font-size:12px;text-align:{align};\">{Enc(footer)}</td></tr>");
+            html.Append($"<tr><td style=\"padding:16px 28px;border-top:1px solid #e2e8f3;color:#52607a;font-size:12px;text-align:{align};\" dir=\"{dir}\">{MarkdownToHtml(footer, design.AccentColor)}</td></tr>");
         html.Append("</table></td></tr></table></body></html>");
 
         var text = new StringBuilder(StripMarkdown(md));
         if (code is not null) text.Append("\n\n").Append(code);
         if (buttonUrl is not null) text.Append("\n\n").Append(buttonUrl);
-        if (!string.IsNullOrWhiteSpace(footer)) text.Append("\n\n--\n").Append(footer);
+        if (!string.IsNullOrWhiteSpace(footer)) text.Append("\n\n--\n").Append(StripMarkdown(footer));
         return new RenderedEmail(s, html.ToString(), text.ToString());
     }
 

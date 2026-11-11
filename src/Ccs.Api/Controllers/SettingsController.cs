@@ -273,6 +273,27 @@ public sealed partial class SettingsController(
         return new { ok = error is null, error, to };
     }
 
+    public sealed record DesignPreviewBody(DesignBody Design, bool Rtl);
+
+    /// <summary>Sample sign-in-code email with the design as it is set now (v1 design preview). Nothing is saved.</summary>
+    [HttpPost("email/design/preview")]
+    public async Task<object> PreviewDesign(DesignPreviewBody b, CancellationToken ct)
+    {
+        await Need(ct);
+        var site = await SiteAsync(ct);
+        var d = b.Design;
+        var logo = d.UseLogo && site.LogoPath is not null ? $"/api/site/branding/{site.LogoPath}" : null;
+        var design = new EmailDesign(ColorRx().IsMatch(d.HeaderColor ?? "") ? d.HeaderColor : "#0d1b3e", ColorRx().IsMatch(d.AccentColor ?? "") ? d.AccentColor : "#1f64e6",
+            ColorRx().IsMatch(d.PageBackground ?? "") ? d.PageBackground : "#f1f5fb", logo, d.ShowSiteName, d.Rounded, d.LargeCodeBox);
+        var ar = b.Rtl;
+        var r = EmailRenderer.Render(ar ? "رمز الدخول" : "Your sign-in code",
+            (ar ? "مرحبًا كمال،" : "Hello Kamal,") + "\n\n" + (ar ? "استخدم هذا الرمز لتسجيل الدخول. يعمل لمدة 10 دقائق." : "Use this code to sign in. It works for 10 minutes."),
+            ar ? "فتح التذكرة" : "Open the ticket", "https://example.com/", new Dictionary<string, string>(), design,
+            ar ? site.SiteNameAr : site.SiteNameEn, ar ? "ar" : "en", ar ? "إذا لم تطلب هذا الرمز، تجاهل الرسالة." : "If you did not ask for this, ignore this email.",
+            d.LargeCodeBox ? "482913" : null);
+        return new { html = r.Html };
+    }
+
     [HttpPut("email/design")]
     public async Task<IActionResult> SaveDesign(DesignBody b, CancellationToken ct)
     {
@@ -291,7 +312,31 @@ public sealed partial class SettingsController(
         return NoContent();
     }
 
-    public sealed record TemplateBody(string Event, string Locale, string Subject, string Body, string? Button, string? Link);
+    public sealed record TemplateBody(string Event, string Locale, string Subject, string Body, string? Button, string? Link, string? Greeting = null, string? Footer = null);
+    public sealed record DraftBody(string Subject, string Body, string? Button, string? Link, string? Greeting, string? Footer);
+
+    /// <summary>Events and their built-in wording, so the editor shows the real default text (v1 defaultFor / footerDefault).</summary>
+    [HttpGet("templates/defaults")]
+    public async Task<object> TemplateDefaults(CancellationToken ct) { await Need(ct); return EmailDefaults.Snapshot(); }
+
+    /// <summary>The email exactly as it would be sent, from what is typed now and sample values. Nothing is saved.</summary>
+    [HttpPost("templates/{evt}/{locale}/preview")]
+    public async Task<object> PreviewTemplate(string evt, string locale, DraftBody d, CancellationToken ct)
+    {
+        await Need(ct);
+        var r = await templates.BuildAsync(evt == EmailDefaults.Layout ? "ticket_created" : evt, locale, SampleValues(locale), "/tickets/sample",
+            EmailDefaults.IsAuth(evt) ? "482913" : null, ct, ToDraft(evt, d));
+        return new { subject = r?.Subject ?? "", html = r?.Html ?? "" };
+    }
+
+    private static TemplateDraft ToDraft(string evt, DraftBody d) => evt == EmailDefaults.Layout
+        ? new TemplateDraft("", "", null, null, d.Subject, d.Body)            // the layout row: subject = greeting, body = footer
+        : new TemplateDraft(d.Subject ?? "", d.Body ?? "", d.Button, d.Link, d.Greeting, d.Footer);
+
+    /// <summary>v1 SAMPLE values for previews and tests.</summary>
+    private static Dictionary<string, string> SampleValues(string locale) => locale == "ar"
+        ? new() { ["name"] = "كمال", ["reference"] = "CTS-2026-000123", ["subject"] = "مشكلة في تسجيل الدخول", ["reason"] = "لا يوجد رد منذ 24 ساعة", ["code"] = "482913", ["minutes"] = "10", ["days"] = "3", ["customer"] = "نور حسن", ["customerEmail"] = "nour@example.com" }
+        : new() { ["name"] = "Kamal", ["reference"] = "CTS-2026-000123", ["subject"] = "Login issue on the portal", ["reason"] = "No reply for 24 hours", ["code"] = "482913", ["minutes"] = "10", ["days"] = "3", ["customer"] = "Nour Hassan", ["customerEmail"] = "nour@example.com" };
 
     [HttpGet("templates")]
     public async Task<object> Templates(CancellationToken ct)
@@ -316,6 +361,19 @@ public sealed partial class SettingsController(
         if (row is null) db.EmailTemplates.Add(row = new EmailTemplate { Event = b.Event!, Locale = b.Locale });
         row.Subject = subject; row.Body = body; row.Button = (b.Button ?? "").Trim(); row.Link = link;
         row.UpdatedAt = clock.UtcNow; row.UpdatedBy = c.UserId;
+        if (b.Event != EmailDefaults.Layout && (b.Greeting is not null || b.Footer is not null))
+        {
+            // Greeting and footer are shared by every email of this language (v1: the "_layout" row).
+            var greet = (b.Greeting ?? "").Trim(); var foot = (b.Footer ?? "").Trim();
+            if (greet.Length > 200) throw Err("title", "greeting");
+            if (foot.Length > 2000) throw Err("body", "footer");
+            var lay = await db.EmailTemplates.FirstOrDefaultAsync(t => t.Event == EmailDefaults.Layout && t.Locale == b.Locale, ct);
+            if (lay is null) db.EmailTemplates.Add(lay = new EmailTemplate { Event = EmailDefaults.Layout, Locale = b.Locale, Button = "", Link = "" });
+            lay.Subject = greet == EmailDefaults.Greeting(b.Locale) ? "" : greet;
+            lay.Body = foot.Length == 0 ? EmailDefaults.NoFooter : foot == EmailDefaults.Footer(b.Event!, b.Locale) ? "" : foot;
+            lay.UpdatedAt = clock.UtcNow; lay.UpdatedBy = c.UserId;
+        }
+        else if (b.Event == EmailDefaults.Layout && body.Length == 0) row.Body = EmailDefaults.NoFooter;
         audit.Write("settings.email_template", "email_templates", null, before, b);
         await db.SaveChangesAsync(ct);
         return NoContent();
@@ -337,23 +395,22 @@ public sealed partial class SettingsController(
 
     /// <summary>Sends one template to the caller with sample values.</summary>
     [HttpPost("templates/{evt}/{locale}/test")]
-    public async Task<object> TestTemplate(string evt, string locale, CancellationToken ct)
+    public async Task<object> TestTemplate(string evt, string locale, [FromBody] DraftBody? d, CancellationToken ct)
     {
         var c = await Need(ct);
         var me = await db.Profiles.AsNoTracking().FirstAsync(p => p.Id == c.UserId, ct);
-        var values = new Dictionary<string, string>
-        {
-            ["name"] = me.FullName, ["reference"] = "CTS-2026-000123", ["subject"] = "Sample ticket", ["status"] = "In progress",
-            ["code"] = "123456", ["minutes"] = "10", ["agent"] = "Support agent", ["priority"] = "High", ["reason"] = "Sample reason", ["days"] = "3",
-        };
+        var loc = locale is "ar" ? "ar" : "en";
+        var values = SampleValues(loc);
+        values["name"] = me.FullName;
         try
         {
-            var r = await templates.BuildAsync(evt, locale is "ar" ? "ar" : "en", values, "/", evt.StartsWith("auth_") ? "123456" : null, ct);
-            if (r is null) return new { ok = false, error = "This email has no text yet." };
+            var r = await templates.BuildAsync(evt == EmailDefaults.Layout ? "ticket_created" : evt, loc, values, "/tickets/sample",
+                EmailDefaults.IsAuth(evt) ? "482913" : null, ct, d is null ? null : ToDraft(evt, d));
+            if (r is null) return new { ok = false, error = "This email has no text yet.", email = me.Email };
             await mail.SendAsync(new OutgoingEmail(me.Email, r.Subject, r.Html, r.Text), ct);
-            return new { ok = true, error = (string?)null };
+            return new { ok = true, error = (string?)null, email = me.Email };
         }
-        catch (Exception ex) { return new { ok = false, error = ex.Message }; }
+        catch (Exception ex) { return new { ok = false, error = ex.Message, email = me.Email }; }
     }
 
     // ================================================================ system messages (any text of the app)

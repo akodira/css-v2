@@ -10,6 +10,7 @@ import { adminError } from '../../core/admin-api';
 import { apiUrl } from '../../core/api-base';
 import { I18n, TPipe } from '../../core/i18n';
 import { Alert, Req, ReqNote } from '../../shared/ui';
+import { FormatBar, PlaceholderPicker } from '../../shared/email-editor';
 import { CLS, Msg } from './admin-pages';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
@@ -304,40 +305,12 @@ interface EmailData {
         }
       </section>
 
-      <form [class]="cls.card + ' flex flex-col gap-4 p-5'" (ngSubmit)="saveDesign()">
-        <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.designTitle' | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.designIntro' | t }}</p></div>
-        <div class="flex flex-wrap gap-6">
-          @for (c of colors; track c.key) {
-            <label class="flex items-center gap-2 text-sm font-semibold"><input type="color" [name]="c.key" class="h-10 w-14 cursor-pointer rounded border border-line" [(ngModel)]="$any(d)[c.key]" /> {{ 'AdminGeneral.' + c.label | t }}</label>
-          }
-        </div>
-        <label class="${CHECK}"><input type="checkbox" name="logo" class="h-5 w-5" [(ngModel)]="d.useLogo" [disabled]="!site.logoUrl()" /> {{ 'AdminGeneral.designUseLogo' | t }}</label>
-        @if (!site.logoUrl()) { <p class="-mt-2 text-sm text-muted">{{ 'AdminGeneral.designNoLogo' | t }}</p> }
-        <label class="${CHECK}"><input type="checkbox" name="name" class="h-5 w-5" [(ngModel)]="d.showSiteName" /> {{ 'AdminGeneral.designShowName' | t }}</label>
-        <label class="${CHECK}"><input type="checkbox" name="code" class="h-5 w-5" [(ngModel)]="d.largeCodeBox" /> {{ 'AdminGeneral.designCodeBox' | t }}</label>
-        <fieldset class="flex gap-6"><legend [class]="cls.label">{{ 'AdminGeneral.designCorners' | t }}</legend>
-          <label class="${CHECK}"><input type="radio" name="corners" [value]="true" [(ngModel)]="d.rounded" /> {{ 'AdminGeneral.designRound' | t }}</label>
-          <label class="${CHECK}"><input type="radio" name="corners" [value]="false" [(ngModel)]="d.rounded" /> {{ 'AdminGeneral.designSquare' | t }}</label></fieldset>
-        <div class="overflow-hidden border border-line" [style.background]="d.pageBackground" [class.rounded-xl]="d.rounded">
-          <div class="px-5 py-4 font-bold text-white" [style.background]="d.headerColor">@if (d.showSiteName) { {{ siteName() }} }</div>
-          <div class="m-4 bg-white p-5 text-sm" [class.rounded-lg]="d.rounded">
-            <p>{{ 'Notifications.events.agent_reply.title' | t }}</p>
-            @if (d.largeCodeBox) { <p class="my-3 inline-block border border-line px-4 py-2 font-mono text-2xl tracking-widest" [class.rounded-lg]="d.rounded">123456</p> }
-            <p class="mt-3"><span class="inline-block px-4 py-2 font-semibold text-white" [class.rounded-lg]="d.rounded" [style.background]="d.accentColor">{{ 'Console.reply.submit' | t }}</span></p>
-          </div>
-        </div>
-        <p class="text-sm text-muted">{{ 'AdminGeneral.designNote' | t }}</p>
-        <div class="flex flex-wrap gap-2"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCommon.save' | t }}</button>
-          <button type="button" [class]="cls.btn2" (click)="resetDesign()">{{ 'AdminGeneral.designReset' | t }}</button></div>
-      </form>
     }`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class EmailTab extends Tab implements OnInit {
   private readonly auth = inject(Auth);
-  protected readonly colors = [{ key: 'headerColor', label: 'designHeaderBg' }, { key: 'accentColor', label: 'designAccent' }, { key: 'pageBackground', label: 'designPageBg' }];
   protected e: EmailData | null = null;
-  protected d = { headerColor: '#0d1b3e', accentColor: '#1f64e6', pageBackground: '#f1f5fb', useLogo: false, showSiteName: true, rounded: true, largeCodeBox: true };
   protected password = '';
   protected clear = false;
   protected readonly me = computed(() => this.auth.me()?.email ?? '');
@@ -346,8 +319,6 @@ export class EmailTab extends Tab implements OnInit {
   async ngOnInit(): Promise<void> { await this.load(); }
   private async load(): Promise<void> {
     this.e = await this.get<EmailData>('email');
-    const x = this.e.design;
-    this.d = { headerColor: x.headerColor, accentColor: x.accentColor, pageBackground: x.pageBackground, useLogo: !!x.logoUrl, showSiteName: x.showSiteName, rounded: x.rounded, largeCodeBox: x.largeCodeBox };
     this.password = ''; this.clear = false;
   }
   protected async saveSmtp(): Promise<void> {
@@ -362,92 +333,248 @@ export class EmailTab extends Tab implements OnInit {
       await this.load();
     } catch (e) { this.msg.set({ tone: 'error', text: adminError(this.i18n, e) }); } finally { this.busy.set(false); }
   }
-  protected saveDesign(): void { void this.save(() => this.put('email/design', this.d)); }
-  protected resetDesign(): void { this.d = { headerColor: '#0d1b3e', accentColor: '#1f64e6', pageBackground: '#f1f5fb', useLogo: false, showSiteName: true, rounded: true, largeCodeBox: true }; }
 }
 
 // ================================================================== email templates
 
 interface TplRow { event: string; locale: string; subject: string; body: string; button: string; link: string }
-const AUTH_EVENTS = ['auth_signup', 'auth_recovery', 'auth_email_change', 'auth_invite', 'auth_magic_link', 'auth_reauth', 'auth_signin_code', 'auth_signin_code_blocked'];
+interface TplDefault { subject: string; body: string; button: string; footer: string }
+interface TplDefaults { ticketEvents: string[]; authEvents: string[]; en: Record<string, TplDefault>; ar: Record<string, TplDefault> }
+type Fields = { subject: string; body: string; button: string; link: string; greeting: string; footer: string };
+const LAYOUT = '_layout';
+const NO_FOOTER = '[[none]]';
+const DEFAULT_DESIGN = { headerColor: '#0d1b3e', accentColor: '#1f64e6', pageBackground: '#f1f5fb', useLogo: false, showSiteName: true, rounded: true, largeCodeBox: true };
 
+/** The look of every email, with a live preview (v1 EmailDesign, on the Email templates tab). */
 @Component({
-  selector: 'app-set-templates',
+  selector: 'app-email-design',
   imports: [TPipe, FormsModule, Alert],
   template: `
-    ${MSG}
-    <p class="max-w-prose text-muted">{{ 'AdminGeneral.tplIntro' | t }}</p>
-    <div class="grid gap-4 lg:grid-cols-[16rem_1fr]">
-      <nav [attr.aria-label]="'AdminGeneral.tplList' | t" class="flex flex-col gap-1">
-        @for (ev of events(); track ev) {
-          <button type="button" (click)="pick(ev)" class="flex min-h-10 cursor-pointer items-center justify-between gap-2 rounded-lg px-3 text-start text-sm font-semibold"
-            [class]="ev === cur() ? 'bg-brand text-white' : 'hover:bg-bg'">{{ title(ev) }}
-            @if (edited(ev)) { <span class="text-xs" [class]="ev === cur() ? 'text-white/80' : 'text-muted'">{{ 'AdminGeneral.tplEdited' | t }}</span> }</button>
-        }
-      </nav>
-      @if (cur(); as ev) {
-        <div class="flex flex-col gap-4">
-          <p class="text-sm text-muted">{{ who(ev) }}</p>
-          <div class="grid gap-4 md:grid-cols-2">
-            @for (loc of ['en', 'ar']; track loc) {
-              <form [class]="cls.card + ' flex flex-col gap-3 p-4'" (ngSubmit)="saveTpl(ev, loc)">
-                <h3 class="font-bold">{{ loc === 'en' ? 'English' : 'العربية' }}</h3>
-                <label [for]="'s' + loc" [class]="cls.label">{{ 'AdminGeneral.tplSubject' | t }}</label>
-                <input [id]="'s' + loc" name="s" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="200" [class]="cls.input" [(ngModel)]="m[loc].subject" [placeholder]="def(ev, loc, 'title')" />
-                <label [for]="'b' + loc" [class]="cls.label">{{ 'AdminGeneral.tplBody' | t }}</label>
-                <textarea [id]="'b' + loc" name="b" rows="7" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" [class]="cls.input + ' py-2'" [(ngModel)]="m[loc].body" [placeholder]="def(ev, loc, 'body')"></textarea>
-                <label [for]="'u' + loc" [class]="cls.label">{{ 'AdminGeneral.tplButtonOverride' | t }}</label>
-                <input [id]="'u' + loc" name="u" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="60" [class]="cls.input" [(ngModel)]="m[loc].button" />
-                @if (!ev.startsWith('auth_')) {
-                  <label [for]="'l' + loc" [class]="cls.label">{{ 'AdminGeneral.tplLink' | t }}</label>
-                  <input [id]="'l' + loc" name="l" dir="ltr" maxlength="500" [class]="cls.input" [(ngModel)]="m[loc].link" [placeholder]="'AdminGeneral.tplLinkAuto' | t" />
-                }
-                <p class="text-xs text-muted">{{ 'AdminGeneral.tplPlaceholders' | t }} <span dir="ltr" class="font-mono">{{ '{' }}name{{ '}' }} {{ '{' }}reference{{ '}' }} {{ '{' }}subject{{ '}' }} {{ '{' }}status{{ '}' }} {{ '{' }}code{{ '}' }} {{ '{' }}minutes{{ '}' }} {{ '{' }}siteName{{ '}' }}</span></p>
-                <div class="flex flex-wrap gap-2">
-                  <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCommon.save' | t }}</button>
-                  <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="testTpl(ev, loc)">{{ 'AdminGeneral.tplTestButton' | t }}</button>
-                  @if (row(ev, loc)) { <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="reset(ev, loc)">{{ 'AdminGeneral.tplReset' | t }}</button> }
-                </div>
-              </form>
-            }
+    <section aria-labelledby="design-h" [class]="cls.card + ' flex flex-col gap-4 p-5'">
+      <div><h2 id="design-h" class="text-xl font-bold">{{ 'AdminGeneral.designTitle' | t }}</h2><p class="mt-1 max-w-prose text-sm text-muted">{{ 'AdminGeneral.designIntro' | t }}</p></div>
+      <div class="flex flex-wrap items-start gap-6">
+        <form class="flex min-w-0 flex-[1_1_18rem] flex-col gap-4" (ngSubmit)="saveDesign()" novalidate>
+          @for (c of colors; track c.key) {
+            <label class="flex items-center gap-3 text-sm font-semibold"><input type="color" [name]="c.key" class="h-11 w-16 cursor-pointer rounded border border-line" [(ngModel)]="$any(d)[c.key]" (ngModelChange)="refresh()" />
+              <span class="flex flex-col">{{ 'AdminGeneral.' + c.label | t }}<span class="font-mono text-xs font-normal text-muted" dir="ltr">{{ $any(d)[c.key] }}</span></span></label>
+          }
+          <div class="flex flex-col gap-1">
+            <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="logo" class="h-5 w-5" [(ngModel)]="d.useLogo" (ngModelChange)="refresh()" [disabled]="!site.logoUrl()" /> {{ 'AdminGeneral.designUseLogo' | t }}</label>
+            @if (!site.logoUrl()) { <p class="text-xs text-muted">{{ 'AdminGeneral.designNoLogo' | t }}</p> }
           </div>
+          <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="name" class="h-5 w-5" [(ngModel)]="d.showSiteName" (ngModelChange)="refresh()" /> {{ 'AdminGeneral.designShowName' | t }}</label>
+          <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="code" class="h-5 w-5" [(ngModel)]="d.largeCodeBox" (ngModelChange)="refresh()" /> {{ 'AdminGeneral.designCodeBox' | t }}</label>
+          <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminGeneral.designCorners' | t }}
+            <select name="corners" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [ngModel]="d.rounded ? 'round' : 'square'" (ngModelChange)="d.rounded = $event === 'round'; refresh()">
+              <option value="round">{{ 'AdminGeneral.designRound' | t }}</option><option value="square">{{ 'AdminGeneral.designSquare' | t }}</option>
+            </select></label>
+          ${MSG}
+          <div class="flex flex-wrap gap-3">
+            <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCommon.save' | t }}</button>
+            <button type="button" [class]="cls.btn2" (click)="d = { ...defaultDesign }; refresh()">{{ 'AdminGeneral.designReset' | t }}</button>
+          </div>
+        </form>
+        <div class="flex min-w-0 flex-[2_1_22rem] flex-col gap-2">
+          <div class="flex items-center justify-between gap-3">
+            <p class="text-xs font-semibold text-muted">{{ 'AdminGeneral.tplPreview' | t }}</p>
+            <label class="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" class="h-4 w-4" [checked]="rtl" (change)="rtl = !rtl; refresh()" />{{ 'AdminGeneral.designPreviewAr' | t }}</label>
+          </div>
+          <iframe [title]="'AdminGeneral.tplPreview' | t" [srcdoc]="html()" sandbox="" class="h-[34rem] w-full rounded-md border border-line bg-white"></iframe>
+          <p class="text-xs text-muted">{{ 'AdminGeneral.designNote' | t }}</p>
         </div>
-      }
+      </div>
+    </section>`,
+  changeDetection: ChangeDetectionStrategy.Default,
+})
+export class EmailDesignPanel extends Tab implements OnInit {
+  protected readonly colors = [{ key: 'headerColor', label: 'designHeaderBg' }, { key: 'accentColor', label: 'designAccent' }, { key: 'pageBackground', label: 'designPageBg' }];
+  protected readonly defaultDesign = DEFAULT_DESIGN;
+  protected d = { ...DEFAULT_DESIGN };
+  protected rtl = false;
+  protected readonly html = signal('');
+  private timer: ReturnType<typeof setTimeout> | undefined;
+  async ngOnInit(): Promise<void> {
+    const e = await this.get<EmailData>('email'); const x = e.design;
+    this.d = { headerColor: x.headerColor, accentColor: x.accentColor, pageBackground: x.pageBackground, useLogo: !!x.logoUrl, showSiteName: x.showSiteName, rounded: x.rounded, largeCodeBox: x.largeCodeBox };
+    this.refresh();
+  }
+  protected refresh(): void {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => void this.post<{ html: string }>('email/design/preview', { design: this.d, rtl: this.rtl }).then((r) => this.html.set(r.html), () => undefined), 250);
+  }
+  protected saveDesign(): void { void this.save(() => this.put('email/design', this.d)); }
+}
+
+/** Email templates (v1 EmailTemplates): event list, editor per language with greeting, subject, formatted body, button, link and footer, live preview, test and reset. */
+@Component({
+  selector: 'app-set-templates',
+  imports: [TPipe, FormsModule, Alert, EmailDesignPanel, PlaceholderPicker, FormatBar],
+  template: `
+    <app-email-design />
+    <div class="flex flex-col gap-4">
+      <p class="max-w-prose text-muted">{{ 'AdminGeneral.tplIntro' | t }}</p>
+      <div class="flex flex-wrap items-start gap-5">
+        <nav [attr.aria-label]="'AdminGeneral.tplList' | t" class="flex w-full flex-col gap-1 rounded-xl border border-line bg-surface p-2 shadow-card md:w-72 md:shrink-0">
+          @for (ev of events(); track ev) {
+            <button type="button" (click)="pick(ev)" [attr.aria-current]="ev === cur() ? 'true' : null"
+              class="flex min-h-11 cursor-pointer items-center justify-between gap-2 rounded-lg px-3 text-start text-sm font-semibold" [class]="ev === cur() ? 'bg-brand-soft text-brand-ink' : 'hover:bg-bg'">
+              <span>{{ title(ev) }}</span>
+              @if (edited(ev)) { <span class="rounded-full bg-ok-soft px-2 py-0.5 text-xs text-ok">{{ 'AdminGeneral.tplEdited' | t }}</span> }
+            </button>
+          }
+        </nav>
+        @if (cur(); as ev) {
+          <section class="flex min-w-0 flex-[1_1_28rem] flex-col gap-4" aria-labelledby="tpl-h">
+            <div>
+              <h2 id="tpl-h" class="mb-1 text-xl font-bold">{{ title(ev) }}</h2>
+              <p class="mb-1 text-sm text-muted">{{ ev === layout ? ('AdminGeneral.tplLayoutHint' | t) : who(ev) }}</p>
+              @if (ev !== layout) { <p class="text-sm text-muted">{{ 'AdminGeneral.tplAnatomy' | t }}</p> }
+            </div>
+            <app-placeholder-picker [notice]="needField() ? ('AdminGeneral.tplClickField' | t) : null" (insert)="insert($event)" />
+            <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-4">
+              @for (loc of locs; track loc) {
+                <section class="min-w-0 overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+                  <header class="flex items-center gap-2 border-b border-line bg-bg px-4 py-2.5">
+                    <span dir="ltr" class="rounded-md bg-brand-soft px-2 py-0.5 text-xs font-bold text-brand-ink">{{ loc === 'en' ? 'EN' : 'AR' }}</span>
+                    <h3 class="text-sm font-bold">{{ loc === 'en' ? 'English' : 'العربية' }}</h3>
+                  </header>
+                  <form class="flex flex-col gap-3 p-4" novalidate (ngSubmit)="saveTpl(ev)">
+                    @if (ev !== layout) {
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.tplGreeting' | t }}
+                        <input [name]="'g' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="200" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-normal" [(ngModel)]="v[loc].greeting" (focus)="track(loc, 'greeting', $event)" (ngModelChange)="preview(loc)" />
+                        <span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplSharedField' | t }}</span></label>
+                    }
+                    <label class="flex flex-col gap-1 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplGreeting' : 'AdminGeneral.tplSubject') | t }}
+                      <input [name]="'s' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="200" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-normal" [(ngModel)]="v[loc].subject" (focus)="track(loc, 'subject', $event)" (ngModelChange)="preview(loc)" /></label>
+                    <span class="text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplFooter' : 'AdminGeneral.tplBody') | t }}</span>
+                    <app-format-bar [el]="bodyEl" [anchor]="true" (changed)="v[loc].body = $event; preview(loc)" />
+                    <textarea #bodyEl [name]="'b' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" [rows]="ev === layout ? 3 : 5" maxlength="2000" [attr.aria-label]="(ev === layout ? 'AdminGeneral.tplFooter' : 'AdminGeneral.tplBody') | t"
+                      class="min-h-24 w-full rounded-lg border border-line bg-surface px-3 py-2 text-base" [(ngModel)]="v[loc].body" (focus)="track(loc, 'body', $event)" (ngModelChange)="preview(loc)"></textarea>
+                    <label class="flex flex-col gap-1 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplButton' : 'AdminGeneral.tplButtonOverride') | t }}
+                      <input [name]="'u' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="60" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-normal" [placeholder]="ev === layout ? '' : btnDefault(ev, loc)" [(ngModel)]="v[loc].button" (focus)="track(loc, 'button', $event)" (ngModelChange)="preview(loc)" />
+                      @if (ev !== layout) { <span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplButtonHint' | t: { text: btnDefault(ev, loc) } }}</span> }</label>
+                    @if (ev !== layout && !isAuth(ev)) {
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.tplLink' | t }}
+                        <input [name]="'l' + loc" dir="ltr" maxlength="300" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-normal" [placeholder]="'AdminGeneral.tplLinkAuto' | t" [(ngModel)]="v[loc].link" (focus)="track(loc, 'link', $event)" (ngModelChange)="preview(loc)" />
+                        <span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplLinkHint' | t }}</span></label>
+                    }
+                    @if (ev !== layout) {
+                      <span class="text-sm font-semibold">{{ 'AdminGeneral.tplFooter' | t }}</span>
+                      <app-format-bar [el]="footEl" [anchor]="true" (changed)="v[loc].footer = $event; preview(loc)" />
+                      <textarea #footEl [name]="'f' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" rows="3" maxlength="2000" [attr.aria-label]="'AdminGeneral.tplFooter' | t"
+                        class="min-h-20 w-full rounded-lg border border-line bg-surface px-3 py-2 text-base" [(ngModel)]="v[loc].footer" (focus)="track(loc, 'footer', $event)" (ngModelChange)="preview(loc)"></textarea>
+                      <span class="-mt-2 text-xs text-muted">{{ 'AdminGeneral.tplSharedField' | t }}</span>
+                    }
+                    <div class="flex flex-col gap-2 rounded-lg border border-line bg-bg p-3">
+                      <p class="text-xs font-semibold text-muted" dir="auto">{{ 'AdminGeneral.tplPreview' | t }}</p>
+                      <p class="text-sm" dir="auto"><span class="text-muted">{{ 'AdminGeneral.tplPreviewSubject' | t }} </span><strong>{{ pv()[loc].subject }}</strong></p>
+                      <iframe [title]="'AdminGeneral.tplPreview' | t" [srcdoc]="pv()[loc].html" sandbox="" class="h-80 w-full rounded-md border border-line bg-white"></iframe>
+                      <p class="text-xs text-muted">{{ 'AdminGeneral.tplPreviewNote' | t }}</p>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                      <div><button type="button" (click)="testTpl(ev, loc)" [disabled]="testing()" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40">
+                        {{ (testing() && testLoc() === loc ? 'AdminGeneral.tplTestSending' : 'AdminGeneral.tplTestButton') | t }}</button></div>
+                      @if (tests()[loc]; as r) { <p [attr.role]="r.ok ? 'status' : 'alert'" class="text-sm font-semibold" [class]="r.ok ? 'text-ok' : 'text-danger'">{{ r.text }}</p> }
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3 border-t border-line pt-3">
+                      <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCommon.save' | t }}</button>
+                      <span class="text-xs text-muted">{{ 'AdminGeneral.tplSaveBoth' | t }}</span>
+                    </div>
+                  </form>
+                </section>
+              }
+            </div>
+            ${MSG}
+            @if (edited(ev)) { <div><button type="button" [disabled]="busy()" (click)="reset(ev)" class="min-h-10 cursor-pointer rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:bg-bg disabled:opacity-40">{{ 'AdminGeneral.tplReset' | t }}</button></div> }
+          </section>
+        }
+      </div>
+      <p class="text-sm text-muted">{{ 'AdminGeneral.tplAuthNote' | t }}</p>
     </div>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class TemplatesTab extends Tab implements OnInit {
-  private readonly auth = inject(Auth);
+  protected readonly layout = LAYOUT;
+  protected readonly locs: ('en' | 'ar')[] = ['en', 'ar'];
   protected readonly rows = signal<TplRow[]>([]);
+  protected readonly defs = signal<TplDefaults | null>(null);
   protected readonly cur = signal<string | null>(null);
-  protected readonly events = computed(() => {
-    const keys = ['ticket_created', 'ticket_assigned', 'agent_reply', 'customer_reply', 'status_changed', 'priority_changed', 'sla_warning', 'sla_breach', 'ticket_resolved', 'ticket_closed', 'ticket_reopened',
-      'ticket_escalated', 'account_pending', 'account_approved', 'account_rejected', 'approval_requested', 'account_promoted', 'customer_reminder', 'customer_final_warning', 'resolved_reminder',
-      'cancellation_requested', 'cancellation_rejected', 'password_expiring'];
-    return [...keys, ...AUTH_EVENTS];
-  });
-  protected m: Record<string, { subject: string; body: string; button: string; link: string }> = { en: this.blank(), ar: this.blank() };
+  protected readonly events = computed(() => { const d = this.defs(); return d ? [...d.ticketEvents, ...d.authEvents, LAYOUT] : []; });
+  protected v: Record<'en' | 'ar', Fields> = { en: this.blank(), ar: this.blank() };
+  protected readonly pv = signal<Record<'en' | 'ar', { subject: string; html: string }>>({ en: { subject: '', html: '' }, ar: { subject: '', html: '' } });
+  protected readonly needField = signal(false);
+  protected readonly testing = signal(false);
+  protected readonly testLoc = signal<string | null>(null);
+  protected readonly tests = signal<Record<string, { ok: boolean; text: string } | null>>({ en: null, ar: null });
+  private focused: { loc: 'en' | 'ar'; k: keyof Fields; el: HTMLInputElement | HTMLTextAreaElement } | null = null;
+  private timers: Record<string, ReturnType<typeof setTimeout> | undefined> = {};
 
-  async ngOnInit(): Promise<void> { await this.load(); this.pick(this.events()[0]); }
-  private blank() { return { subject: '', body: '', button: '', link: '' }; }
+  async ngOnInit(): Promise<void> {
+    const [defs] = await Promise.all([this.get<TplDefaults>('templates/defaults'), this.load()]);
+    this.defs.set(defs);
+    this.pick(defs.ticketEvents[0]);
+  }
+  private blank(): Fields { return { subject: '', body: '', button: '', link: '', greeting: '', footer: '' }; }
   private async load(): Promise<void> { this.rows.set(await this.get<TplRow[]>('templates')); }
-  protected row(ev: string, loc: string): TplRow | undefined { return this.rows().find((r) => r.event === ev && r.locale === loc); }
+  private row(ev: string, loc: string): TplRow | undefined { return this.rows().find((r) => r.event === ev && r.locale === loc); }
   protected edited(ev: string): boolean { return this.rows().some((r) => r.event === ev); }
+  protected isAuth(ev: string): boolean { return !!this.defs()?.authEvents.includes(ev); }
   protected title(ev: string): string { const k = 'AdminGeneral.tplEvents.' + ev; return this.i18n.has(k) ? this.i18n.t(k) : ev; }
   protected who(ev: string): string { const k = 'AdminGeneral.tplWho.' + ev; return this.i18n.has(k) ? this.i18n.t(k) : ''; }
-  protected def(ev: string, _loc: string, part: string): string { const k = `Notifications.events.${ev}.${part}`; return this.i18n.has(k) ? this.i18n.t(k) : ''; }
+  private def(ev: string, loc: 'en' | 'ar'): TplDefault { return this.defs()?.[loc][ev] ?? { subject: '', body: '', button: '', footer: '' }; }
+  /** The button text an email uses when the field is left empty. */
+  protected btnDefault(ev: string, loc: 'en' | 'ar'): string { return this.def(ev, loc).button || this.row(LAYOUT, loc)?.button || this.def(LAYOUT, loc).button; }
+
+  /** What the editor starts with: saved text, else the built-in wording (v1 Editor start()). */
   protected pick(ev: string): void {
-    this.cur.set(ev);
-    for (const loc of ['en', 'ar']) { const r = this.row(ev, loc); this.m[loc] = r ? { subject: r.subject, body: r.body, button: r.button, link: r.link } : this.blank(); }
+    this.cur.set(ev); this.msg.set(null); this.tests.set({ en: null, ar: null }); this.focused = null;
+    for (const loc of this.locs) {
+      const d = this.def(ev, loc), o = this.row(ev, loc), lay = this.row(LAYOUT, loc), dl = this.def(LAYOUT, loc);
+      this.v[loc] = {
+        subject: o?.subject || d.subject, body: o?.body === NO_FOOTER ? '' : o?.body || d.body, button: o?.button || d.button, link: o?.link ?? '',
+        greeting: lay?.subject || dl.subject, footer: lay?.body === NO_FOOTER ? '' : lay?.body || d.footer,
+      };
+      this.preview(loc, 0);
+    }
   }
-  protected async saveTpl(ev: string, loc: string): Promise<void> { if (await this.save(() => this.put('templates', { event: ev, locale: loc, ...this.m[loc] }))) await this.load(); }
-  protected async reset(ev: string, loc: string): Promise<void> { if (await this.save(() => this.del(`templates/${ev}/${loc}`))) { await this.load(); this.pick(ev); } }
-  protected async testTpl(ev: string, loc: string): Promise<void> {
-    this.busy.set(true); this.msg.set(null);
+  protected track(loc: 'en' | 'ar', k: keyof Fields, e: Event): void { this.focused = { loc, k, el: e.target as HTMLInputElement }; this.needField.set(false); }
+  protected insert(token: string): void {
+    const f = this.focused;
+    if (!f) { this.needField.set(true); return; }
+    const s = f.el.selectionStart ?? f.el.value.length, e = f.el.selectionEnd ?? s;
+    const cur = this.v[f.loc][f.k];
+    this.v[f.loc][f.k] = cur.slice(0, s) + token + cur.slice(e);
+    this.preview(f.loc);
+    requestAnimationFrame(() => { f.el.focus(); f.el.setSelectionRange(s + token.length, s + token.length); });
+  }
+  protected preview(loc: 'en' | 'ar', wait = 300): void {
+    const ev = this.cur(); if (!ev) return;
+    clearTimeout(this.timers[loc]);
+    this.timers[loc] = setTimeout(() => void this.post<{ subject: string; html: string }>(`templates/${ev}/${loc}/preview`, this.v[loc])
+      .then((r) => this.pv.update((p) => ({ ...p, [loc]: r })), () => undefined), wait);
+  }
+  /** Saves both languages of this email; greeting and footer go to the shared parts (v1 saveTemplateAction). */
+  protected async saveTpl(ev: string): Promise<void> {
+    const ok = await this.save(async () => {
+      for (const loc of this.locs) {
+        const x = this.v[loc];
+        await this.put('templates', ev === LAYOUT
+          ? { event: ev, locale: loc, subject: x.subject, body: x.body, button: x.button, link: '' }
+          : { event: ev, locale: loc, subject: x.subject, body: x.body, button: x.button, link: x.link, greeting: x.greeting, footer: x.footer });
+      }
+    });
+    if (ok) await this.load();
+  }
+  protected async reset(ev: string): Promise<void> {
+    if (await this.save(async () => { for (const loc of this.locs) await this.del(`templates/${ev}/${loc}`); })) { await this.load(); this.pick(ev); }
+  }
+  protected async testTpl(ev: string, loc: 'en' | 'ar'): Promise<void> {
+    this.testing.set(true); this.testLoc.set(loc); this.tests.update((t) => ({ ...t, [loc]: null }));
     try {
-      const r = await this.post<{ ok: boolean; error: string | null }>(`templates/${ev}/${loc}/test`, {});
-      this.msg.set(r.ok ? { tone: 'success', text: this.i18n.t('AdminGeneral.tplTestSent', { email: this.auth.me()?.email ?? '' }) } : { tone: 'error', text: this.i18n.t('AdminGeneral.tplTestFailed', { reason: r.error ?? '' }) });
-    } catch (e) { this.msg.set({ tone: 'error', text: adminError(this.i18n, e) }); } finally { this.busy.set(false); }
+      const r = await this.post<{ ok: boolean; error: string | null; email: string }>(`templates/${ev}/${loc}/test`, this.v[loc]);
+      this.tests.update((t) => ({ ...t, [loc]: { ok: r.ok, text: r.ok ? this.i18n.t('AdminGeneral.tplTestSent', { email: r.email }) : this.i18n.t('AdminGeneral.tplTestFailed', { reason: r.error ?? '' }) } }));
+    } catch (e) { this.tests.update((t) => ({ ...t, [loc]: { ok: false, text: adminError(this.i18n, e) } })); }
+    finally { this.testing.set(false); }
   }
 }
 
