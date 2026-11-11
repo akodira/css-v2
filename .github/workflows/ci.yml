@@ -368,7 +368,7 @@ jobs:
           function Check($name, $ok) { if ($ok) { Write-Host "PASS  $name" } else { throw "FAIL  $name" } }
           & D:\Releases\ci\Export-KeyCertificate.ps1 -Password 'Ci-Move-2026!' -Quiet
           Check 'key certificate exported' (Test-Path C:\CcsData\backup\ccs-key-certificate.pfx)
-          Get-ChildItem Cert:\LocalMachine\My | Where-Object Subject -eq 'CN=CCS Data Protection' | Remove-Item -DeleteKey
+          powershell.exe -NoProfile -Command "Get-ChildItem Cert:\LocalMachine\My | Where-Object Subject -eq 'CN=CCS Data Protection' | Remove-Item -DeleteKey"
           Check 'key certificate gone (as on a new machine)' (-not (Get-ChildItem Cert:\LocalMachine\My | Where-Object Subject -eq 'CN=CCS Data Protection'))
           Copy-Item C:\CcsData\backup\ccs-key-certificate.pfx C:\CcsData\ccs-key-certificate.pfx
           & D:\Releases\ci\Install-Ccs.ps1 -HostName ccs.test -KeyCertPassword 'Ci-Move-2026!' -Quiet
