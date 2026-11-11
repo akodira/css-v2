@@ -241,70 +241,131 @@ interface EscBranch { id: string; organizationId: string; name: string; isActive
   imports: [TPipe, Alert],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      ${HEADER}
-      <details [class]="cls.card">
-        <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'Escalation.howTitle' | t }}</span></summary>
-        <ul class="list-disc px-10 pb-5 text-sm leading-relaxed">@for (n of [1, 2, 3, 4, 5, 6, 7]; track n) { <li>{{ 'Escalation.how' + n | t }}</li> }</ul>
-      </details>
-
-      <section [class]="cls.card + ' flex flex-col gap-3 p-5'">
-        <h2 class="text-lg font-bold">{{ 'Escalation.modesTitle' | t }}</h2>
-        <p class="text-sm text-muted">{{ 'Escalation.modesHelp' | t }}</p>
-        <fieldset class="flex flex-col gap-1"><legend [class]="cls.label">{{ 'Escalation.applyMode' | t }}</legend>
-          @for (m of modes; track m) {
-            <label class="flex items-start gap-2"><input type="radio" name="mode" class="mt-1 h-5 w-5" [checked]="mode() === m" (change)="mode.set(m)" />
-              <span><span class="font-semibold">{{ 'Escalation.mode_' + m | t }}</span> <span class="text-sm text-muted">{{ 'Escalation.mode_' + m + '_help' | t }}</span></span></label>
-          }
-        </fieldset>
-        <div><button type="button" [class]="cls.btn" [disabled]="busy() || !count()" (click)="apply()">{{ count() ? ('Escalation.applyTo' | t: { n: count() }) : ('Escalation.applyNone' | t) }}</button></div>
-      </section>
-
-      ${SEARCH}
-      <ul class="flex flex-col gap-2">
-        @for (o of orgs(); track o.id) {
-          <li [class]="cls.card + ' p-4'">
-            <label class="flex flex-wrap items-center gap-2"><input type="checkbox" class="h-5 w-5" [checked]="selOrg().has(o.id)" (change)="flip(selOrg, o.id)" />
-              <span class="font-bold" dir="auto">{{ o.name }}</span>
-              <span [class]="badge(o.mode)">{{ 'Escalation.mode_' + o.mode + '_short' | t }}</span>
-              <span class="text-sm text-muted">· {{ o.leader || ('Escalation.noLeader' | t) }}</span></label>
-            @if (escBranches(o.id).length) {
-              <ul class="ms-7 mt-2 flex flex-col gap-1">
-                @for (b of escBranches(o.id); track b.id) {
-                  <li><label class="flex flex-wrap items-center gap-2 text-sm"><input type="checkbox" class="h-4 w-4" [checked]="selBranch().has(b.id)" (change)="flip(selBranch, b.id)" />
-                    <span dir="auto">{{ b.name }}</span>
-                    <span [class]="badge(b.mode ?? 'inherit')">{{ 'Escalation.mode_' + (b.mode ?? 'inherit') + '_short' | t }}</span>
-                    <span class="text-muted">· {{ b.leader || ('Escalation.noLeader' | t) }}</span></label></li>
+      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'Escalation.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'Escalation.subtitle' | t }}</p></div>
+      <section [class]="card" aria-labelledby="modes">
+        <h2 id="modes" class="mb-1 text-xl font-bold">{{ 'Escalation.modesTitle' | t }}</h2>
+        <p class="mb-4 text-sm text-muted">{{ 'Escalation.modesHelp' | t }}</p>
+        <div class="flex flex-col gap-4">
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold hover:bg-bg">
+              <input type="checkbox" class="h-5 w-5" [checked]="allOn()" (change)="selOrg.set(allOn() ? [] : active().map((o) => o.id))" />{{ 'Escalation.allOrgs' | t }}</label>
+            <input type="search" dir="auto" [value]="q()" (input)="q.set($any($event.target).value)" [placeholder]="'Escalation.search' | t" [attr.aria-label]="'Escalation.search' | t" [class]="cls.input + ' max-w-xs'" />
+            <span class="text-sm text-muted">{{ 'Escalation.selected' | t: { n: selOrg().length + selBr().length } }}</span>
+          </div>
+          <ul class="flex max-h-[28rem] flex-col gap-1 overflow-y-auto rounded-lg border border-line bg-surface p-2">
+            @for (o of shown(); track o.id) {
+              @let kids = branchesOf2(o.id);
+              @let isOpen = open().includes(o.id) || (needle() !== '' && hasBranchMatch(o.id));
+              <li>
+                <div class="flex items-center gap-1">
+                  <label class="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm hover:bg-bg">
+                    <input type="checkbox" class="h-5 w-5" [checked]="selOrg().includes(o.id)" (change)="flip(selOrg, o.id)" />
+                    <span class="min-w-0 flex-1" dir="auto"><span class="font-semibold">{{ o.name }}</span>@if (o.leader) { <span class="block truncate text-xs text-muted">{{ o.leader }}</span> }</span>
+                    <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" [class]="badge(o.mode)">{{ 'Escalation.mode_' + o.mode + '_short' | t }}</span>
+                  </label>
+                  @if (kids.length) {
+                    <button type="button" [attr.aria-expanded]="isOpen" (click)="flip(open, o.id)" class="min-h-11 shrink-0 cursor-pointer rounded-lg px-3 text-sm font-semibold text-brand hover:bg-bg">{{ 'Escalation.branchesN' | t: { n: kids.length } }} {{ isOpen ? '▴' : '▾' }}</button>
+                  }
+                </div>
+                @if (isOpen) {
+                  <ul class="ms-8 border-s border-line ps-2">
+                    @for (b of kids; track b.id) {
+                      @if (!needle() || o.name.toLowerCase().includes(needle()) || b.name.toLowerCase().includes(needle())) {
+                        <li><label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg px-2 text-sm hover:bg-bg">
+                          <input type="checkbox" class="h-5 w-5" [checked]="selBr().includes(b.id)" (change)="flip(selBr, b.id)" />
+                          <span class="min-w-0 flex-1 truncate" dir="auto">{{ b.name }}</span>
+                          @if (b.mode) { <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold" [class]="badge(b.mode)">{{ 'Escalation.mode_' + b.mode + '_short' | t }}</span> }
+                          @else { <span class="shrink-0 rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">{{ 'Escalation.mode_inherit_short' | t }}</span> }
+                        </label></li>
+                      }
+                    }
+                  </ul>
                 }
-              </ul>
+              </li>
             }
-          </li>
-        }
-      </ul>
+          </ul>
+          <fieldset class="flex flex-col gap-2">
+            <legend class="mb-1 text-sm font-semibold">{{ 'Escalation.applyMode' | t }}</legend>
+            @for (m of modes; track m) {
+              <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+                <input type="radio" name="mode" class="mt-1 h-5 w-5 accent-[var(--brand)]" [checked]="mode() === m" (change)="mode.set(m)" />
+                <span><span class="block font-semibold">{{ 'Escalation.mode_' + m | t }}</span><span class="block text-sm text-muted">{{ 'Escalation.mode_' + m + '_help' | t }}</span></span>
+              </label>
+            }
+          </fieldset>
+          @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
+          <div><button type="button" [class]="cls.btn" [disabled]="busy()" (click)="apply()">{{ count() ? ('Escalation.applyTo' | t: { n: count() }) : ('Escalation.applyNone' | t) }}</button></div>
+        </div>
+      </section>
+      <section [class]="card" aria-labelledby="chain">
+        <h2 id="chain" class="mb-1 text-xl font-bold">{{ 'Escalation.chainTitle' | t }}</h2>
+        <p class="mb-4 text-sm text-muted">{{ 'Escalation.chainHelp' | t }}</p>
+        <ol class="flex flex-wrap items-stretch gap-y-3">
+          @for (st of steps(); track $index; let last = $last) {
+            <li class="flex items-stretch">
+              <div class="flex w-40 flex-col rounded-xl border-2 p-3" [class]="$first ? 'border-brand bg-brand-soft' : 'border-line bg-surface'">
+                <p class="font-bold leading-tight" dir="auto">{{ st.title }}</p><p class="mt-1 text-sm text-muted" dir="auto">{{ st.sub }}</p>
+              </div>
+              @if (!last) { <span aria-hidden="true" class="flex w-5 shrink-0 items-center justify-center text-xl text-brand rtl:rotate-180">›</span> }
+            </li>
+          }
+        </ol>
+      </section>
+      <section [class]="card" aria-labelledby="how">
+        <h2 id="how" class="mb-2 text-xl font-bold">{{ 'Escalation.howTitle' | t }}</h2>
+        <ol class="list-decimal space-y-2 ps-5 text-muted">@for (n of [1, 2, 3, 4, 5, 6, 7]; track n) { <li>{{ 'Escalation.how' + n | t }}</li> }</ol>
+      </section>
     </main>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class AdminEscalationPage extends AdminBase implements OnInit {
-  protected readonly title = 'Escalation.title';
-  protected readonly subtitle = 'Escalation.subtitle';
+  protected readonly card = 'rounded-xl border border-line bg-surface p-5 shadow-card';
   protected readonly modes = ['any', 'next', 'off', 'inherit'];
   protected readonly data = signal<{ orgs: EscOrg[]; branches: EscBranch[] } | null>(null);
   protected readonly mode = signal('any');
-  protected readonly selOrg = signal(new Set<string>());
-  protected readonly selBranch = signal(new Set<string>());
-  protected readonly count = computed(() => this.selOrg().size + this.selBranch().size);
-  protected readonly orgs = computed(() => (this.data()?.orgs ?? []).filter((o) => this.matches(o.name, ...this.escBranches(o.id).map((b) => b.name))));
+  protected readonly selOrg = signal<string[]>([]);
+  protected readonly selBr = signal<string[]>([]);
+  protected readonly open = signal<string[]>([]);
+  protected readonly needle = computed(() => this.q().trim().toLowerCase());
+  /** Active organizations, v1 order (Postgres collation). */
+  protected readonly active = computed(() => (this.data()?.orgs ?? []).filter((o) => o.isActive).sort((a, b) => a.name.localeCompare(b.name)));
+  protected readonly shown = computed(() => this.active().filter((o) => !this.needle() || o.name.toLowerCase().includes(this.needle()) || this.hasBranchMatch(o.id)));
+  protected readonly allOn = computed(() => this.active().length > 0 && this.selOrg().length === this.active().length);
+  protected readonly count = computed(() => (this.mode() === 'inherit' ? 0 : this.selOrg().length) + this.selBr().length);
+  /** v1 ChainPreview: Agent → Branch leader → each level of the deepest organization tree, bottom up. */
+  protected readonly steps = computed(() => {
+    const t = (k: string, p?: Record<string, unknown>) => this.i18n.t('Escalation.' + k, p);
+    const orgs = this.active();
+    const kids = new Map<string, string[]>();
+    for (const o of orgs) if (o.parentId) kids.set(o.parentId, [...(kids.get(o.parentId) ?? []), o.id]);
+    const depth = (id: string): number => 1 + Math.max(0, ...(kids.get(id) ?? []).map(depth));
+    const root = orgs.filter((o) => !o.parentId && kids.has(o.id)).sort((a, b) => depth(b.id) - depth(a.id) || a.name.localeCompare(b.name))[0];
+    const steps = [{ title: t('stepAgent'), sub: t('stepAgentHint') }, { title: t('stepBranch'), sub: t('stepBranchHint') }];
+    if (root) {
+      let layer = [root.id];
+      const layers: string[][] = [];
+      while (layer.length) { layers.push(layer); layer = layer.flatMap((id) => kids.get(id) ?? []); }
+      for (const ids of layers.slice().reverse()) {
+        const names = ids.map((id) => orgs.find((o) => o.id === id)?.name ?? '?');
+        const leaders = [...new Set(ids.map((id) => orgs.find((o) => o.id === id)?.leader).filter((x): x is string => !!x))];
+        steps.push({ title: t('stepLevel', { name: names.length > 3 ? `${names.slice(0, 3).join(' / ')} …` : names.join(' / ') }), sub: leaders.join(', ') || t('noLeader') });
+      }
+    }
+    return steps;
+  });
 
   async ngOnInit(): Promise<void> { await this.reload(); }
   protected async reload(): Promise<void> {
-    try { this.data.set(await this.api.get('escalation')); this.selOrg.set(new Set()); this.selBranch.set(new Set()); } catch (e) { this.fail(e); }
+    try { this.data.set(await this.api.get('escalation')); this.selOrg.set([]); this.selBr.set([]); } catch (e) { this.fail(e); }
   }
-  protected escBranches(org: string): EscBranch[] { return (this.data()?.branches ?? []).filter((b) => b.organizationId === org); }
-  protected flip(sig: WritableSignal<Set<string>>, id: string): void { const s = new Set(sig()); if (s.has(id)) s.delete(id); else s.add(id); sig.set(s); }
-  protected badge(m: string): string { return m === 'off' ? this.cls.badgeOff : m === 'inherit' ? this.cls.badgeWarn : this.cls.badgeOn; }
+  protected branchesOf2(org: string): EscBranch[] { return (this.data()?.branches ?? []).filter((b) => b.organizationId === org && b.isActive).sort((a, b) => a.name.localeCompare(b.name)); }
+  protected hasBranchMatch(org: string): boolean { return this.branchesOf2(org).some((b) => b.name.toLowerCase().includes(this.needle())); }
+  protected flip(sig: WritableSignal<string[]>, id: string): void { sig.update((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id])); }
+  protected badge(m: string): string { return m === 'off' ? 'bg-bg text-muted' : m === 'next' ? 'bg-warn-soft text-warn-ink' : 'bg-ok-soft text-ok'; }
   protected apply(): void {
     const m = this.mode();
-    const orgIds = m === 'inherit' ? [] : [...this.selOrg()];
-    void this.run(() => this.api.put('escalation', { mode: m, organizationIds: orgIds, branchIds: [...this.selBranch()] }));
+    const orgIds = m === 'inherit' ? [] : this.selOrg();
+    void this.run(() => this.api.put('escalation', { mode: m, organizationIds: orgIds, branchIds: this.selBr() }));
   }
 }
 
@@ -322,105 +383,64 @@ const blankArt = (): ArtModel => ({ categoryId: null, slug: '', titleEn: '', tit
   imports: [TPipe, Alert, FormsModule, Req, NgTemplateOutlet],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      ${HEADER}
-      <ng-template #catForm let-m="m" let-id="id">
-        <div class="grid gap-4 md:grid-cols-2">
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'en'" [class]="cls.label">{{ 'AdminKb.nameEn' | t }}<app-req /></label>
-            <input [id]="id + 'en'" [name]="id + 'en'" dir="ltr" required maxlength="120" [class]="cls.input" [(ngModel)]="m.nameEn" /></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'ar'" [class]="cls.label">{{ 'AdminKb.nameAr' | t }}<app-req /></label>
-            <input [id]="id + 'ar'" [name]="id + 'ar'" dir="rtl" required maxlength="120" [class]="cls.input" [(ngModel)]="m.nameAr" /></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'sl'" [class]="cls.label">{{ 'AdminKb.slug' | t }}</label>
-            <input [id]="id + 'sl'" [name]="id + 'sl'" dir="ltr" maxlength="80" [class]="cls.input + ' font-mono'" [(ngModel)]="m.slug" /></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'so'" [class]="cls.label">{{ 'AdminKb.sort' | t }}</label>
-            <input [id]="id + 'so'" [name]="id + 'so'" type="number" min="0" max="1000" [class]="cls.input" [(ngModel)]="m.sortOrder" /></div>
-          <label class="${CHECK}"><input type="checkbox" [name]="id + 'ac'" class="h-5 w-5" [(ngModel)]="m.isActive" /> {{ 'AdminKb.active' | t }}</label>
-        </div>
+      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminKb.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminKb.subtitle' | t }}</p></div>
+      @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
+      <ng-template #catForm let-m="m" let-id="id" let-isNew="isNew">
+        <form [class]="formCls" novalidate (ngSubmit)="isNew ? createCat() : updateCat(id)">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.slug' | t }}<app-req /><input name="sl" dir="ltr" maxlength="80" [class]="cls.input + ' font-normal'" [(ngModel)]="m.slug" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.sort' | t }}<input name="so" type="number" min="0" [class]="cls.input + ' font-normal'" [(ngModel)]="m.sortOrder" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.nameEn' | t }}<app-req /><input name="en" dir="ltr" maxlength="120" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameEn" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.nameAr' | t }}<app-req /><input name="ar" dir="rtl" maxlength="120" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameAr" /></label>
+          </div>
+          <label class="${CHECK}"><input type="checkbox" name="ac" class="h-5 w-5" [(ngModel)]="m.isActive" /> {{ 'AdminKb.active' | t }}</label>
+          <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ (isNew ? 'AdminKb.addCategory' : 'AdminKb.save') | t }}</button></div>
+        </form>
       </ng-template>
-      <ng-template #artForm let-m="m" let-id="id">
-        <div class="grid gap-4 md:grid-cols-2">
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'te'" [class]="cls.label">{{ 'AdminKb.titleEn' | t }}<app-req /></label>
-            <input [id]="id + 'te'" [name]="id + 'te'" dir="ltr" required maxlength="200" [class]="cls.input" [(ngModel)]="m.titleEn" /></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'ta'" [class]="cls.label">{{ 'AdminKb.titleAr' | t }}</label>
-            <input [id]="id + 'ta'" [name]="id + 'ta'" dir="rtl" maxlength="200" [class]="cls.input" [(ngModel)]="m.titleAr" /></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'ca'" [class]="cls.label">{{ 'AdminKb.category' | t }}</label>
-            <select [id]="id + 'ca'" [name]="id + 'ca'" [class]="cls.input" [(ngModel)]="m.categoryId">
-              <option [ngValue]="null">{{ 'AdminKb.noCategory' | t }}</option>
-              @for (c of data()?.categories ?? []; track c.id) { <option [ngValue]="c.id">{{ i18n.pick(c.nameEn, c.nameAr) }}</option> }
-            </select></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'sl'" [class]="cls.label">{{ 'AdminKb.slug' | t }}</label>
-            <input [id]="id + 'sl'" [name]="id + 'sl'" dir="ltr" maxlength="80" [class]="cls.input + ' font-mono'" [(ngModel)]="m.slug" /></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'st'" [class]="cls.label">{{ 'AdminKb.statusLabel' | t }}</label>
-            <select [id]="id + 'st'" [name]="id + 'st'" [class]="cls.input" [(ngModel)]="m.status">
-              @for (s of ['draft', 'published', 'archived']; track s) { <option [value]="s">{{ 'AdminKb.status.' + s | t }}</option> }
-            </select></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'vi'" [class]="cls.label">{{ 'AdminKb.visibilityLabel' | t }}</label>
-            <select [id]="id + 'vi'" [name]="id + 'vi'" [class]="cls.input" [(ngModel)]="m.visibility">
-              @for (s of ['public', 'customers', 'internal']; track s) { <option [value]="s">{{ 'AdminKb.visibility.' + s | t }}</option> }
-            </select></div>
-          <div class="flex flex-col gap-1.5 md:col-span-2"><label [for]="id + 'be'" [class]="cls.label">{{ 'AdminKb.bodyEn' | t }}<app-req /></label>
-            <textarea [id]="id + 'be'" [name]="id + 'be'" rows="8" dir="ltr" required [class]="cls.input + ' py-2'" [(ngModel)]="m.bodyEn"></textarea></div>
-          <div class="flex flex-col gap-1.5 md:col-span-2"><label [for]="id + 'ba'" [class]="cls.label">{{ 'AdminKb.bodyAr' | t }}</label>
-            <textarea [id]="id + 'ba'" [name]="id + 'ba'" rows="8" dir="rtl" [class]="cls.input + ' py-2'" [(ngModel)]="m.bodyAr"></textarea></div>
+      <ng-template #artForm let-m="m" let-id="id" let-isNew="isNew">
+        <div class="flex flex-col gap-3">
+          <form [class]="formCls" novalidate (ngSubmit)="isNew ? createArt() : updateArt(id)">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.slug' | t }}<app-req /><input name="sl" dir="ltr" maxlength="80" [class]="cls.input + ' font-normal'" [(ngModel)]="m.slug" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.category' | t }}
+                <select name="ca" [class]="cls.input + ' font-normal'" [(ngModel)]="m.categoryId"><option [ngValue]="null">{{ 'AdminKb.noCategory' | t }}</option>@for (c of data()?.categories ?? []; track c.id) { <option [ngValue]="c.id">{{ i18n.pick(c.nameEn, c.nameAr) }}</option> }</select></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.statusLabel' | t }}
+                <select name="st" [class]="cls.input + ' font-normal'" [(ngModel)]="m.status">@for (x of ['draft', 'published', 'archived']; track x) { <option [value]="x">{{ 'AdminKb.status.' + x | t }}</option> }</select></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.visibilityLabel' | t }}
+                <select name="vi" [class]="cls.input + ' font-normal'" [(ngModel)]="m.visibility">@for (x of ['public', 'customers', 'internal']; track x) { <option [value]="x">{{ 'AdminKb.visibility.' + x | t }}</option> }</select></label>
+            </div>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.titleEn' | t }}<app-req /><input name="te" dir="ltr" maxlength="200" [class]="cls.input + ' font-normal'" [(ngModel)]="m.titleEn" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.titleAr' | t }}<input name="ta" dir="rtl" maxlength="200" [class]="cls.input + ' font-normal'" [(ngModel)]="m.titleAr" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.bodyEn' | t }}<app-req /><textarea name="be" rows="8" dir="ltr" class="rounded-lg border border-line bg-surface p-3 text-base font-normal" [(ngModel)]="m.bodyEn"></textarea></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.bodyAr' | t }}<textarea name="ba" rows="8" dir="rtl" class="rounded-lg border border-line bg-surface p-3 text-base font-normal" [(ngModel)]="m.bodyAr"></textarea></label>
+            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ (isNew ? 'AdminKb.addArticle' : 'AdminKb.save') | t }}</button></div>
+          </form>
+          @if (!isNew) { <div><button type="button" [class]="cls.btn" [disabled]="busy()" (click)="del('kb-articles/' + id)">{{ 'AdminKb.delete' | t }}</button></div> }
         </div>
       </ng-template>
 
-      <section class="flex flex-col gap-3">
-        <h2 class="text-2xl font-bold">{{ 'AdminKb.articles' | t }}</h2>
-        <details [class]="cls.card" #adda>
-          <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'AdminKb.addArticle' | t }}</span></summary>
-          <form class="flex flex-col gap-4 px-5 pb-5" (ngSubmit)="createArt(adda)">
-            <ng-container *ngTemplateOutlet="artForm; context: { m: nwArt, id: 'na' }" />
-            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.create' | t }}</button></div>
-          </form>
-        </details>
-        ${SEARCH}
-        @if (data() && !arts().length) { <p class="text-muted">{{ 'AdminKb.noArticles' | t }}</p> }
-        <ul class="flex flex-col gap-2">
-          @for (a of arts(); track a.id) {
-            <li><details [class]="cls.card">
-              <summary [class]="cls.summary"><span class="flex flex-wrap items-center gap-2"><span class="font-bold" dir="auto">{{ i18n.pick(a.titleEn, a.titleAr) }}</span>
-                <span [class]="a.status === 'published' ? cls.badgeOn : a.status === 'draft' ? cls.badgeWarn : cls.badgeOff">{{ 'AdminKb.status.' + a.status | t }}</span>
-                <span class="text-sm text-muted">{{ 'AdminKb.visibility.' + a.visibility | t }} · 👍 {{ a.helpfulCount }} · 👎 {{ a.notHelpfulCount }} · {{ i18n.date(a.updatedAt) }}</span></span></summary>
-              <form class="flex flex-col gap-4 px-5 pb-5" (ngSubmit)="updateArt(a)">
-                <ng-container *ngTemplateOutlet="artForm; context: { m: ea[a.id], id: 'a' + a.id }" />
-                <div class="flex flex-wrap gap-2"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminKb.save' | t }}</button>
-                  @if (a.status === 'published') { <a [href]="'/' + i18n.locale() + '/kb/' + a.slug" target="_blank" rel="noopener" [class]="cls.btn2 + ' inline-flex items-center'">{{ 'AdminV2.view' | t }}</a> }
-                  <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="del('kb-articles/' + a.id)">{{ 'AdminKb.delete' | t }}</button></div>
-              </form>
-            </details></li>
-          }
-        </ul>
+      <section aria-labelledby="cats" class="flex flex-col gap-3"><h2 id="cats" class="text-xl font-bold">{{ 'AdminKb.categories' | t }}</h2>
+        @for (c of data()?.categories ?? []; track c.id) {
+          <details [class]="box"><summary [class]="sum">{{ i18n.pick(c.nameEn, c.nameAr) }} <span dir="ltr" class="text-sm font-normal text-muted">({{ c.slug }}@if (!c.isActive) {, {{ 'AdminKb.inactive' | t }} })</span></summary>
+            <div class="p-3"><ng-container *ngTemplateOutlet="catForm; context: { m: ec[c.id], id: c.id, isNew: false }" /></div></details>
+        }
+        <details [class]="box"><summary [class]="sum">{{ 'AdminKb.addCategory' | t }}</summary><div class="p-3"><ng-container *ngTemplateOutlet="catForm; context: { m: nwCat, id: 'new', isNew: true }" /></div></details>
       </section>
-
-      <section class="flex flex-col gap-3">
-        <h2 class="text-2xl font-bold">{{ 'AdminKb.categories' | t }}</h2>
-        <ul class="flex flex-col gap-2">
-          @for (c of data()?.categories ?? []; track c.id) {
-            <li><details [class]="cls.card">
-              <summary [class]="cls.summary"><span class="font-bold" dir="auto">{{ i18n.pick(c.nameEn, c.nameAr) }}</span> <span class="font-mono text-sm text-muted" dir="ltr">/{{ c.slug }}</span>
-                @if (!c.isActive) { <span [class]="cls.badgeOff + ' ms-2'">{{ 'AdminKb.inactive' | t }}</span> }</summary>
-              <form class="flex flex-col gap-4 px-5 pb-5" (ngSubmit)="updateCat(c)">
-                <ng-container *ngTemplateOutlet="catForm; context: { m: ec[c.id], id: 'c' + c.id }" />
-                <div class="flex flex-wrap gap-2"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminKb.save' | t }}</button>
-                  <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="del('kb-categories/' + c.id)">{{ 'Directory.delete' | t }}</button></div>
-              </form>
-            </details></li>
-          }
-        </ul>
-        <details [class]="cls.card" #addc>
-          <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'AdminKb.addCategory' | t }}</span></summary>
-          <form class="flex flex-col gap-4 px-5 pb-5" (ngSubmit)="createCat(addc)">
-            <ng-container *ngTemplateOutlet="catForm; context: { m: nwCat, id: 'nc' }" />
-            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.create' | t }}</button></div>
-          </form>
-        </details>
+      <section aria-labelledby="arts" class="flex flex-col gap-3"><h2 id="arts" class="text-xl font-bold">{{ 'AdminKb.articles' | t }}</h2>
+        @if (data() && !data()!.articles.length) { <p class="text-muted">{{ 'AdminKb.noArticles' | t }}</p> }
+        @for (a of data()?.articles ?? []; track a.id) {
+          <details [class]="box"><summary [class]="sum" dir="auto">{{ a.titleEn }} <span class="text-sm font-normal text-muted">({{ 'AdminKb.status.' + a.status | t }}, {{ a.helpfulCount }}/{{ a.notHelpfulCount }})</span></summary>
+            <div class="p-3"><ng-container *ngTemplateOutlet="artForm; context: { m: ea[a.id], id: a.id, isNew: false }" /></div></details>
+        }
+        <details [class]="box"><summary [class]="sum">{{ 'AdminKb.addArticle' | t }}</summary><div class="p-3"><ng-container *ngTemplateOutlet="artForm; context: { m: nwArt, id: 'new', isNew: true }" /></div></details>
       </section>
     </main>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class AdminKbPage extends AdminBase implements OnInit {
-  protected readonly title = 'AdminKb.title';
-  protected readonly subtitle = 'AdminKb.subtitle';
+  protected readonly formCls = 'flex flex-col gap-4 rounded-md border border-line bg-surface p-5';
+  protected readonly box = 'rounded-md border border-line bg-surface';
+  protected readonly sum = 'min-h-11 cursor-pointer px-5 py-3 font-semibold';
   protected readonly data = signal<{ categories: KbCat[]; articles: KbArt[] } | null>(null);
   protected readonly arts = computed(() => (this.data()?.articles ?? []).filter((a) => this.matches(a.titleEn, a.titleAr, a.slug)));
   protected nwArt: ArtModel = blankArt();
@@ -437,9 +457,9 @@ export class AdminKbPage extends AdminBase implements OnInit {
       this.data.set(d);
     } catch (e) { this.fail(e); }
   }
-  protected async createArt(box: HTMLDetailsElement): Promise<void> { if (await this.run(() => this.api.post('kb-articles', this.nwArt))) { this.nwArt = blankArt(); box.open = false; } }
-  protected updateArt(a: KbArt): void { void this.run(() => this.api.put('kb-articles/' + a.id, this.ea[a.id])); }
-  protected async createCat(box: HTMLDetailsElement): Promise<void> { if (await this.run(() => this.api.post('kb-categories', this.nwCat))) { this.nwCat = blankKbCat(); box.open = false; } }
-  protected updateCat(c: KbCat): void { void this.run(() => this.api.put('kb-categories/' + c.id, this.ec[c.id])); }
+  protected async createArt(): Promise<void> { if (await this.run(() => this.api.post('kb-articles', this.nwArt))) this.nwArt = blankArt(); }
+  protected updateArt(id: string): void { void this.run(() => this.api.put('kb-articles/' + id, this.ea[id])); }
+  protected async createCat(): Promise<void> { if (await this.run(() => this.api.post('kb-categories', this.nwCat))) this.nwCat = blankKbCat(); }
+  protected updateCat(id: string): void { void this.run(() => this.api.put('kb-categories/' + id, this.ec[id])); }
   protected del(path: string): void { void this.run(() => this.api.del(path), 'AdminV2.deleted'); }
 }

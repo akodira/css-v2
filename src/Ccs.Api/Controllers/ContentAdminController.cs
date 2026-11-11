@@ -454,7 +454,7 @@ public sealed class KbController(CcsDbContext db, AccessService access, IClock c
             arts = arts.Where(a => a.TitleEn.Contains(s) || (a.TitleAr != null && a.TitleAr.Contains(s)) || a.BodyEn.Contains(s) || (a.BodyAr != null && a.BodyAr.Contains(s)));
         }
         var items = await arts.OrderByDescending(a => a.PublishedAt).Take(200)
-            .Select(a => new { a.Id, a.Slug, a.TitleEn, a.TitleAr, a.CategoryId, a.Visibility, a.UpdatedAt,
+            .Select(a => new { a.Id, a.Slug, a.TitleEn, a.TitleAr, a.CategoryId, a.Visibility, a.UpdatedAt, a.PublishedAt,
                                Excerpt = a.BodyEn.Length > 220 ? a.BodyEn.Substring(0, 220) : a.BodyEn,
                                ExcerptAr = a.BodyAr == null ? null : a.BodyAr.Length > 220 ? a.BodyAr.Substring(0, 220) : a.BodyAr })
             .ToListAsync(ct);

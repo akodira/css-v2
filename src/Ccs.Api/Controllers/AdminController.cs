@@ -653,7 +653,7 @@ public sealed class AdminController(
         var scopes = await db.AdminScopes.AsNoTracking().Where(s => staffIds.Contains(s.UserId)).ToListAsync(ct);
         var places = await db.StaffPlacements.AsNoTracking().Where(s => staffIds.Contains(s.UserId)).ToListAsync(ct);
         var teams = await (from m in db.TeamMembers.AsNoTracking() join t in db.Teams on m.TeamId equals t.Id where staffIds.Contains(m.UserId)
-                           select new { m.UserId, t.NameEn, t.NameAr }).ToListAsync(ct);
+                           select new { m.UserId, t.NameEn, t.NameAr, m.IsLeader }).ToListAsync(ct);
         var mfa = (await users.Users.Where(u => u.TwoFactorEnabled && staffIds.Contains(u.Id)).Select(u => u.Id).ToListAsync(ct)).ToHashSet();
         string OrgName(Guid id) => orgs.FirstOrDefault(o => o.Id == id)?.Name ?? "?";
         string BrName(Guid id) => branches.FirstOrDefault(b => b.Id == id)?.Name ?? "?";
@@ -684,7 +684,8 @@ public sealed class AdminController(
                     p.Id, p.FullName, p.Email, p.Phone, Status = p.AccountStatus, Roles = roles, p.CreatedAt, IsSelf = p.Id == c.UserId,
                     Mfa = mfa.Contains(p.Id), TypeNameEn = ty?.NameEn, TypeNameAr = ty?.NameAr, ScopeLevel = ty?.ScopeLevel,
                     AccessKind = kind, Access = access, Leads = leads,
-                    Teams = teams.Where(t => t.UserId == p.Id).Select(t => new { t.NameEn, t.NameAr }),
+                    Teams = teams.Where(t => t.UserId == p.Id).Select(t => new { t.NameEn, t.NameAr, t.IsLeader }),
+                    p.AccountTypeId, p.AutoAssign,
                 };
             }),
         };

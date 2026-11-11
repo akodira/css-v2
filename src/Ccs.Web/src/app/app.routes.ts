@@ -11,7 +11,7 @@ import { AuditPage, MyTeamPage, ReportsPage, SlaReportPage } from './pages/conso
 import { AccountPage, HomePage, NotificationsPage } from './pages/account-pages';
 import { CannedPage, KbArticlePage, KbListPage } from './pages/help-pages';
 import { AdminCatalogPage, AdminPrioritiesPage, AdminSlaPage, AdminTicketTypesPage } from './pages/admin/catalog-pages';
-import { AdminCustomersPage, CustomerProfilePage, AdminTypesPage } from './pages/admin/admin-pages';
+import { AdminCustomersPage, CustomerProfilePage } from './pages/admin/admin-pages';
 
 /** The language is the first part of every address: /en/... or /ar/... */
 const localeGuard: CanActivateFn = async (route) => {
@@ -88,7 +88,8 @@ export const routes: Routes = [
           { path: 'admin/users', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminStaffPage) },
           { path: 'admin/customers', redirectTo: 'console/customers' },
           { path: 'admin/approvals', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminApprovalsPage) },
-          { path: 'admin/permissions', canActivate: [requireRole(['admin'])], component: AdminTypesPage },
+          { path: 'admin/permissions', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/perm-pages').then((m) => m.AdminPermissionsPage) },
+          { path: 'admin/permissions/types/:id', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/perm-pages').then((m) => m.AdminTypePage) },
           { path: 'admin/organizations', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminOrgsPage) },
           { path: 'admin/teams', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminTeamsPage) },
           { path: 'admin/ticket-types', canActivate: [requireRole(STAFF_ROLES)], component: AdminTicketTypesPage },

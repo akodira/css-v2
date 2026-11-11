@@ -1,3 +1,5 @@
+import { NgTemplateOutlet } from '@angular/common';
+import { PlaceholderInfo, PlaceholderPicker } from '../shared/email-editor';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, Injectable, OnInit, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -12,7 +14,7 @@ import { CLS } from './admin/admin-pages';
 // ================================================================== help center (public)
 
 interface KbCatPub { id: string; slug: string; nameEn: string; nameAr: string }
-interface KbItem { id: string; slug: string; titleEn: string; titleAr: string | null; categoryId: string | null; excerpt: string; excerptAr: string | null; updatedAt: string }
+interface KbItem { id: string; slug: string; titleEn: string; titleAr: string | null; categoryId: string | null; excerpt: string; excerptAr: string | null; updatedAt: string; publishedAt: string | null }
 interface KbArticle {
   id: string; slug: string; titleEn: string; titleAr: string | null; bodyEn: string; bodyAr: string | null; categoryId: string | null; updatedAt: string;
   helpfulCount: number; notHelpfulCount: number; myVote: boolean | null; signedIn: boolean; related: { slug: string; titleEn: string; titleAr: string | null }[];
@@ -44,10 +46,10 @@ interface KbArticle {
       @if (loaded() && !items().length) { <p class="text-muted">{{ (q() || cat() ? 'Kb.noResults' : 'Kb.empty') | t }}</p> }
       <ul class="flex flex-col gap-3">
         @for (a of items(); track a.id) {
-          <li><a [routerLink]="'/' + i18n.locale() + '/kb/' + a.slug" [class]="cls.card + ' block p-5 hover:border-brand'">
-            <span class="block text-lg font-bold text-brand-ink" dir="auto">{{ i18n.pick(a.titleEn, a.titleAr) }}</span>
-            <span class="mt-1 block text-sm text-muted" dir="auto">{{ i18n.pick(a.excerpt, a.excerptAr) }}…</span>
-          </a></li>
+          <li class="rounded-md border border-line bg-surface p-5">
+            <a [routerLink]="'/' + i18n.locale() + '/kb/' + a.slug" class="text-lg font-bold text-brand-ink underline" dir="auto">{{ i18n.pick(a.titleEn, a.titleAr) }}</a>
+            <p class="mt-1 text-sm text-muted">{{ meta(a) }}</p>
+          </li>
         }
       </ul>
     </main>`,
@@ -63,6 +65,11 @@ export class KbListPage implements OnInit {
   protected readonly loaded = signal(false);
 
   ngOnInit(): void { void this.load(); }
+  /** v1: "Category · Nov 5, 2026" under each title. */
+  protected meta(a: KbItem): string {
+    const c = this.cats().find((x) => x.id === a.categoryId);
+    return [c ? this.i18n.pick(c.nameEn, c.nameAr) : null, a.publishedAt ? this.i18n.day(a.publishedAt) : null].filter(Boolean).join(' · ');
+  }
   protected async load(): Promise<void> {
     const params: Record<string, string> = {};
     if (this.q().trim()) params['q'] = this.q().trim();
@@ -158,53 +165,66 @@ export class CannedApi {
 
 @Component({
   selector: 'app-canned',
-  imports: [TPipe, FormsModule, Alert, Req],
+  imports: [TPipe, FormsModule, Alert, Req, PlaceholderPicker, NgTemplateOutlet],
   template: `
     <main class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'Canned.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'Canned.subtitle' | t }}</p></div>
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
-      <details [class]="cls.card" #add>
-        <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'Canned.add' | t }}</span></summary>
-        <form class="flex flex-col gap-4 px-5 pb-5" (ngSubmit)="save(null, nw, add)">
-          <div class="grid gap-4 md:grid-cols-[2fr_1fr]">
-            <div class="flex flex-col gap-1.5"><label for="cn-t" [class]="cls.label">{{ 'Canned.name' | t }}<app-req /></label>
-              <input id="cn-t" name="t" dir="auto" required maxlength="120" [class]="cls.input" [(ngModel)]="nw.title" /></div>
-            <div class="flex flex-col gap-1.5"><label for="cn-l" [class]="cls.label">{{ 'Canned.language' | t }}</label>
-              <select id="cn-l" name="l" [class]="cls.input" [(ngModel)]="nw.language">@for (l of langs; track l) { <option [value]="l">{{ 'Canned.lang.' + l | t }}</option> }</select></div>
+      <ng-template #form let-m="m" let-id="id">
+        <form class="flex flex-col gap-3 rounded-xl border border-line bg-bg p-4" novalidate (ngSubmit)="save(id, m)">
+          <div class="flex flex-col gap-1.5"><label [for]="'cn-title-' + (id ?? 'new')" class="text-sm font-semibold">{{ 'Canned.name' | t }}<app-req /></label>
+            <input [id]="'cn-title-' + (id ?? 'new')" name="t" maxlength="120" dir="auto" [class]="field" [(ngModel)]="m.title" /></div>
+          <div class="flex flex-col gap-1.5"><label [for]="'cn-body-' + (id ?? 'new')" class="text-sm font-semibold">{{ 'Canned.body' | t }}<app-req /></label>
+            <textarea #box [id]="'cn-body-' + (id ?? 'new')" name="b" rows="5" maxlength="5000" dir="auto" class="w-full rounded-lg border border-line bg-surface p-3 text-base" [(ngModel)]="m.body"></textarea>
+            <p class="text-sm text-muted">{{ 'Canned.bodyHint' | t }}</p>
+            <app-placeholder-picker [items]="tokens" (insert)="insert(box, m, $event)" /></div>
+          <div class="flex flex-col gap-1.5 sm:max-w-xs"><label [for]="'cn-lang-' + (id ?? 'new')" class="text-sm font-semibold">{{ 'Canned.language' | t }}</label>
+            <select [id]="'cn-lang-' + (id ?? 'new')" name="l" [class]="field" [(ngModel)]="m.language">@for (l of langs; track l) { <option [value]="l">{{ 'Canned.lang.' + l | t }}</option> }</select></div>
+          @if (canShare()) { <label class="flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" name="s" class="h-5 w-5" [(ngModel)]="m.isShared" />{{ 'Canned.shared' | t }}</label> }
+          <div class="flex flex-wrap gap-2">
+            <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Canned.save' | t }}</button>
+            <button type="button" (click)="id ? editing.set(null) : adding.set(false)" [class]="quiet">{{ 'Canned.cancel' | t }}</button>
           </div>
-          <div class="flex flex-col gap-1.5"><label for="cn-b" [class]="cls.label">{{ 'Canned.body' | t }}<app-req /></label>
-            <textarea id="cn-b" name="b" rows="5" dir="auto" required maxlength="5000" [class]="cls.input + ' py-2'" [(ngModel)]="nw.body"></textarea></div>
-          @if (canShare()) { <label class="flex min-h-11 items-center gap-2"><input type="checkbox" name="s" class="h-5 w-5" [(ngModel)]="nw.isShared" /> {{ 'Canned.shared' | t }}</label> }
-          <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Canned.save' | t }}</button></div>
         </form>
-      </details>
-      @for (group of groups(); track group.title) {
-        <section class="flex flex-col gap-2">
-          <h2 class="text-xl font-bold">{{ group.title | t }}</h2>
-          @if (!group.items.length) { <p class="text-sm text-muted">{{ 'Canned.empty' | t }}</p> }
-          @for (c of group.items; track c.id) {
-            <details [class]="cls.card">
-              <summary [class]="cls.summary"><span class="font-bold" dir="auto">{{ c.title }}</span>
-                <span class="text-sm text-muted"> · {{ 'Canned.lang.' + c.language | t }}@if (c.isShared) { · {{ c.owner }} }</span></summary>
-              @if (editable(c)) {
-                <form class="flex flex-col gap-3 px-5 pb-5" (ngSubmit)="save(c.id, ed[c.id])">
-                  <div class="grid gap-4 md:grid-cols-[2fr_1fr]">
-                    <div class="flex flex-col gap-1.5"><label [for]="'t' + c.id" [class]="cls.label">{{ 'Canned.name' | t }}</label>
-                      <input [id]="'t' + c.id" name="t" dir="auto" required maxlength="120" [class]="cls.input" [(ngModel)]="ed[c.id].title" /></div>
-                    <div class="flex flex-col gap-1.5"><label [for]="'l' + c.id" [class]="cls.label">{{ 'Canned.language' | t }}</label>
-                      <select [id]="'l' + c.id" name="l" [class]="cls.input" [(ngModel)]="ed[c.id].language">@for (l of langs; track l) { <option [value]="l">{{ 'Canned.lang.' + l | t }}</option> }</select></div>
-                  </div>
-                  <label [for]="'b' + c.id" class="sr-only">{{ 'Canned.body' | t }}</label>
-                  <textarea [id]="'b' + c.id" name="b" rows="5" dir="auto" required maxlength="5000" [class]="cls.input + ' py-2'" [(ngModel)]="ed[c.id].body"></textarea>
-                  @if (canShare()) { <label class="flex min-h-11 items-center gap-2"><input type="checkbox" name="s" class="h-5 w-5" [(ngModel)]="ed[c.id].isShared" /> {{ 'Canned.shared' | t }}</label> }
-                  <div class="flex flex-wrap gap-2"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Canned.save' | t }}</button>
-                    <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="remove(c)">{{ 'Canned.delete' | t }}</button></div>
-                </form>
-              } @else { <p class="whitespace-pre-line px-5 pb-5 text-sm" dir="auto">{{ c.body }}</p> }
-            </details>
-          }
-        </section>
-      }
+      </ng-template>
+      <div class="flex flex-col gap-8">
+        <div>
+          @if (adding()) { <ng-container *ngTemplateOutlet="form; context: { m: nw, id: null }" /> }
+          @else { <button type="button" (click)="adding.set(true)" class="flex min-h-11 cursor-pointer items-center rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Canned.add' | t }}</button> }
+        </div>
+        @for (group of groups(); track group.title) {
+          <section [attr.aria-labelledby]="'cn-' + group.key" class="flex flex-col gap-3">
+            <h2 [id]="'cn-' + group.key" class="text-xl font-bold">{{ group.title | t }}</h2>
+            @if (!group.items.length) { <p class="text-muted">{{ 'Canned.empty' | t }}</p> } @else {
+              <ul class="flex flex-col gap-3">
+                @for (c of group.items; track c.id) {
+                  @if (editing() === c.id) { <li><ng-container *ngTemplateOutlet="form; context: { m: ed[c.id], id: c.id }" /></li> }
+                  @else {
+                    <li class="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4">
+                      <div class="flex flex-wrap items-center gap-2">
+                        <h3 class="font-bold" dir="auto">{{ c.title }}</h3>
+                        <span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="c.isShared ? 'bg-brand-soft text-brand-ink' : 'bg-bg text-muted'">{{ (c.isShared ? 'Canned.sharedBadge' : 'Canned.personalBadge') | t }}</span>
+                        @if (c.language !== 'any') { <span class="rounded-full bg-bg px-2 py-0.5 text-xs font-semibold text-muted">{{ 'Canned.lang.' + c.language | t }}</span> }
+                      </div>
+                      <p class="line-clamp-3 whitespace-pre-wrap text-sm text-muted" dir="auto">{{ c.body }}</p>
+                      @if (editable(c)) {
+                        <div class="flex flex-wrap gap-2">
+                          <button type="button" (click)="editing.set(c.id)" [class]="quiet">{{ 'Canned.edit' | t }}</button>
+                          @if (asking() === c.id) {
+                            <span class="flex flex-wrap items-center gap-2"><span class="text-sm font-semibold">{{ 'Canned.confirmDelete' | t }}</span>
+                              <button type="button" [disabled]="busy()" (click)="remove(c)" class="flex min-h-11 cursor-pointer items-center rounded-lg bg-danger px-4 text-sm font-semibold text-white disabled:opacity-60">{{ 'Canned.delete' | t }}</button>
+                              <button type="button" (click)="asking.set(null)" [class]="quiet">{{ 'Canned.cancel' | t }}</button></span>
+                          } @else { <button type="button" (click)="asking.set(c.id)" [class]="quiet + ' text-danger'">{{ 'Canned.delete' | t }}</button> }
+                        </div>
+                      }
+                    </li>
+                  }
+                }
+              </ul>
+            }
+          </section>
+        }
+      </div>
     </main>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
@@ -218,9 +238,29 @@ export class CannedPage implements OnInit {
   protected readonly busy = signal(false);
   protected readonly msg = signal<{ tone: 'error' | 'success'; text: string } | null>(null);
   protected readonly groups = computed(() => [
-    { title: 'Canned.personalTitle', items: this.rows().filter((c) => !c.isShared) },
-    { title: 'Canned.sharedTitle', items: this.rows().filter((c) => c.isShared) },
+    { key: 'mine', title: 'Canned.personalTitle', items: this.rows().filter((c) => !c.isShared) },
+    { key: 'shared', title: 'Canned.sharedTitle', items: this.rows().filter((c) => c.isShared) },
   ]);
+  protected readonly adding = signal(false);
+  protected readonly editing = signal<string | null>(null);
+  protected readonly asking = signal<string | null>(null);
+  protected readonly quiet = 'flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg';
+  protected readonly field = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base';
+  /** v1 CANNED_PLACEHOLDERS: filled in from the ticket when the reply is inserted. */
+  protected readonly tokens: PlaceholderInfo[] = [
+    { token: 'customer_name', en: 'Full name of the customer on this ticket.', ar: 'الاسم الكامل للعميل في هذه التذكرة.' },
+    { token: 'customer_email', en: 'Email address of the customer.', ar: 'البريد الإلكتروني للعميل.' },
+    { token: 'agent_name', en: 'Your own name, as the person replying.', ar: 'اسمك أنت بصفتك من يرد.' },
+    { token: 'reference', en: 'Ticket number, for example CTS-2026-000123.', ar: 'رقم التذكرة، مثل CTS-2026-000123.' },
+    { token: 'subject', en: 'Subject line of the ticket.', ar: 'عنوان التذكرة.' },
+    { token: 'category', en: 'Category of the ticket.', ar: 'تصنيف التذكرة.' },
+    { token: 'team', en: 'Team handling the ticket.', ar: 'الفريق المسؤول عن التذكرة.' },
+  ];
+  protected insert(el: HTMLTextAreaElement, m: CannedModel, token: string): void {
+    const s = el.selectionStart ?? m.body.length, e = el.selectionEnd ?? s;
+    m.body = m.body.slice(0, s) + token + m.body.slice(e);
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + token.length, s + token.length); });
+  }
   protected nw: CannedModel = blankCanned();
   protected ed: Record<string, CannedModel> = {};
 
@@ -240,8 +280,8 @@ export class CannedPage implements OnInit {
       return false;
     } finally { this.busy.set(false); }
   }
-  protected async save(id: string | null, m: CannedModel, box?: HTMLDetailsElement): Promise<void> {
-    if (await this.act(() => this.api.save(id, m), 'Canned.saved') && !id) { this.nw = blankCanned(); if (box) box.open = false; }
+  protected async save(id: string | null, m: CannedModel): Promise<void> {
+    if (await this.act(() => this.api.save(id, m), 'Canned.saved')) { if (id) this.editing.set(null); else { this.nw = blankCanned(); this.adding.set(false); } }
   }
-  protected remove(c: Canned): void { void this.act(() => this.api.del(c.id), 'Canned.deleted'); }
+  protected remove(c: Canned): void { this.asking.set(null); void this.act(() => this.api.del(c.id), 'Canned.deleted'); }
 }

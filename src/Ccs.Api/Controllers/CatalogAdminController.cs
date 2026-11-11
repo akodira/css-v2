@@ -68,7 +68,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
         var fields = await db.CustomFieldDefinitions.AsNoTracking().OrderBy(f => f.SortOrder).ThenBy(f => f.LabelEn).ToListAsync(ct);
         var used = await db.TicketCustomFieldValues.AsNoTracking().Select(v => v.FieldId).Distinct().ToListAsync(ct);
         var teams = await db.Teams.AsNoTracking().OrderBy(t => t.NameEn).Select(t => new { t.Id, t.NameEn, t.NameAr, t.IsActive }).ToListAsync(ct);
-        var prios = await db.Priorities.AsNoTracking().OrderBy(p => p.SortOrder).Select(p => new { p.Code, p.NameEn, p.NameAr, p.Color, p.IsActive }).ToListAsync(ct);
+        var prios = await db.Priorities.AsNoTracking().OrderBy(p => p.SortOrder).Select(p => new { p.Code, p.NameEn, p.NameAr, p.Color, p.Icon, p.IsActive }).ToListAsync(ct);
         int N<T>(IEnumerable<T> rows, Func<T, bool> hit, Func<T, int> n) => rows.Where(hit).Select(n).FirstOrDefault();
 
         return new
@@ -490,7 +490,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
                 var (warn, breach) = Notify(s?.EscalationRules);
                 return new
                 {
-                    Priority = p.Code, p.NameEn, p.NameAr, p.Color, p.IsActive,
+                    Priority = p.Code, p.NameEn, p.NameAr, p.Color, p.Icon, p.IsActive,
                     FirstResponseMinutes = s?.FirstResponseMinutes ?? 0, ResolutionMinutes = s?.ResolutionMinutes ?? 0,
                     WarningThresholdPct = s?.WarningThresholdPct ?? 80, PauseOnPendingCustomer = s?.PauseOnPendingCustomer ?? true,
                     PauseOnPendingInternal = s?.PauseOnPendingInternal ?? false, BusinessHoursId = s?.BusinessHoursId, WarnNotify = warn, BreachNotify = breach,

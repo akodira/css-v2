@@ -115,6 +115,34 @@ public sealed class PeopleController(CcsDbContext db, AccessService access, Audi
         db.CcsUserRoles.Add(new UserRole { UserId = user, RoleId = roleId });
     }
 
+    public sealed record AdminTypeBody(Guid AccountTypeId, bool AutoAssign);
+
+    /// <summary>Port of admin_set_account_type(): the main Administrator picks a staff member's account type (Permissions → Staff).
+    /// The staff role follows the type (sync_user_role); a person cannot change their own, and the last Administrator cannot be moved off.</summary>
+    [HttpPut("api/admin/users/{id:guid}/account-type")]
+    public async Task<IActionResult> AdminSetType(Guid id, AdminTypeBody b, CancellationToken ct)
+    {
+        var c = await AdminAsync(ct);
+        if (id == c.UserId) throw Err("cannot_change_self", null, 403);
+        var roles = await (from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id where ur.UserId == id select r.Code).ToListAsync(ct);
+        if (roles.Contains(RoleCode.Customer)) throw Err("notStaff");
+        var p = await db.Profiles.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        var type = await db.AccountTypes.AsNoTracking().FirstOrDefaultAsync(x => x.Id == b.AccountTypeId, ct) ?? throw Err("notFound", "accountTypeId");
+        var oldBuiltin = p.AccountTypeId is Guid o && await db.AccountTypes.AnyAsync(x => x.Id == o && x.IsBuiltin, ct);
+        if ((oldBuiltin || roles.Contains(RoleCode.Admin)) && !type.IsBuiltin)
+        {
+            var others = await (from pr in db.Profiles join ur in db.CcsUserRoles on pr.Id equals ur.UserId join r in db.CcsRoles on ur.RoleId equals r.Id
+                                where r.Code == RoleCode.Admin && pr.Id != id && pr.AccountStatus == AccountStatus.Active select pr.Id).AnyAsync(ct);
+            if (!others) throw Err("lastAdmin", null, 409);
+        }
+        var old = p.AccountTypeId;
+        p.AccountTypeId = type.Id; p.AutoAssign = !type.IsBuiltin && b.AutoAssign; p.UpdatedAt = clock.UtcNow;
+        await SetStaffRoleAsync(id, await RoleForTypeAsync(type, ct), ct);
+        audit.Write("user.account_type_changed", "profile", id, new { accountTypeId = old }, new { accountTypeId = type.Id, autoAssign = p.AutoAssign });
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     // ---------------------------------------------------------------- scoped admin: People
 
     [HttpGet("api/console/people")]

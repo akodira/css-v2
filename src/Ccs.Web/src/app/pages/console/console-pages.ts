@@ -167,6 +167,8 @@ export class ConsoleQueuePage {
   protected readonly priority = signal(this.qp.get('priority') ?? '');
   protected readonly slaF = signal(this.qp.get('sla') ?? '');
   protected readonly team = signal(this.qp.get('team') ?? '');
+  /** Set by the ticket count link on Categories (v1: /console?view=all&status=any&category=…). */
+  private readonly category = this.qp.get('category') ?? '';
   protected readonly q = signal(this.qp.get('q') ?? '');
   protected readonly page = signal(Number(this.qp.get('page') ?? 1) || 1);
   protected readonly sort = signal(this.qp.get('sort') ?? 'updated');
@@ -204,11 +206,11 @@ export class ConsoleQueuePage {
   load(): void {
     const view = this.view(), status = this.status(), priority = this.priority(), sla = this.slaF(), team = this.team(), q = this.q().trim(), page = this.page(), sort = this.sort(), desc = this.desc();
     void this.router.navigate([], { replaceUrl: true, queryParams: {
-      view: view !== this.defaultView ? view : null, status: status !== 'active' ? status : null, priority: priority || null, sla: sla || null, team: team || null,
+      view: view !== this.defaultView ? view : null, status: status !== 'active' ? status : null, priority: priority || null, sla: sla || null, team: team || null, category: this.category || null,
       q: q || null, page: page > 1 ? page : null, sort: sort !== 'updated' ? sort : null, dir: desc ? null : 'asc' } });
     const apiView = view === 'mine' ? 'assigned' : view === 'all' ? undefined : view;
     const st = status === 'active' ? { group: 'open' } : status === 'any' ? {} : { status };
-    void this.api.list({ view: apiView, ...st, priority: priority || undefined, sla: sla || undefined, teamId: team || undefined, search: q, page, pageSize: 20, sort, desc }).then((d) => this.data.set(d));
+    void this.api.list({ view: apiView, ...st, priority: priority || undefined, sla: sla || undefined, teamId: team || undefined, categoryId: this.category || undefined, search: q, page, pageSize: 20, sort, desc }).then((d) => this.data.set(d));
     void firstValueFrom(this.http.get<NonNullable<ReturnType<typeof this.counts>>>('/api/console/counts')).then((c) => this.counts.set(c));
   }
 }

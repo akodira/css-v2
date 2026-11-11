@@ -194,6 +194,28 @@ export const PRIORITY_TONE: Record<string, string> = {
   green: 'bg-ok-soft text-ok', grey: 'bg-bg text-ink border border-line', light: 'bg-surface text-muted border border-line',
 };
 
+/** Priority icons (v1 lib/priorities/icons.ts); until one is saved the colour picks it. */
+export const PRIORITY_ICON_PATHS: Record<string, string> = {
+  alert: 'M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01',
+  arrow_up: 'M12 19V5M5 12l7-7 7 7', minus: 'M5 12h14', arrow_down: 'M12 5v14M19 12l-7 7-7-7', bolt: 'M13 2 3 14h9l-1 8 10-12h-9z',
+  flag: 'M4 22V4M4 4h13l-2.5 4L17 12H4', clock: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2',
+  star: 'm12 2 3 6.9 7.5.7-5.6 5 1.7 7.4L12 18.1 5.4 22l1.7-7.4-5.6-5L9 8.9z',
+};
+export const DEFAULT_ICON_BY_COLOR: Record<string, string> = { red: 'alert', amber: 'arrow_up', blue: 'flag', green: 'arrow_down', grey: 'minus', light: 'arrow_down' };
+
+/** One priority icon (v1 PriorityIcon). */
+@Component({
+  selector: 'app-prio-icon',
+  template: `<svg aria-hidden="true" [attr.width]="size()" [attr.height]="size()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path [attr.d]="path()" /></svg>`,
+  host: { class: 'inline-flex shrink-0' },
+})
+export class PrioIcon {
+  readonly name = input<string | null | undefined>('flag');
+  readonly color = input<string | null | undefined>(null);
+  readonly size = input(14);
+  protected readonly path = computed(() => PRIORITY_ICON_PATHS[this.name() ?? ''] ?? PRIORITY_ICON_PATHS[DEFAULT_ICON_BY_COLOR[this.color() ?? ''] ?? 'flag']);
+}
+
 /** Coloured edge on each staff-table row, by status (spec 7). */
 export const STATUS_STRIPE: Record<string, string> = {
   pending_customer: 'border-s-4 border-s-danger', resolved: 'border-s-4 border-s-ok', closed: 'border-s-4 border-s-slate-400',
