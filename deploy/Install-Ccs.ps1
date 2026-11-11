@@ -37,6 +37,21 @@ if ($PSVersionTable.PSEdition -eq 'Core') {
 $Package = $PSScriptRoot
 Get-ChildItem $Package -Recurse -File | Unblock-File -ErrorAction SilentlyContinue   # files from a downloaded zip
 
+#---------------------------------------------------------------- saved settings from the last install (C:\CcsData\installer-settings.json)
+# Only values not typed on the command line are taken; nothing secret is stored (no passwords, no keys).
+$SettingsFile = Join-Path $DataRoot 'installer-settings.json'
+if (Test-Path $SettingsFile) {
+    try {
+        $saved = Get-Content $SettingsFile -Raw | ConvertFrom-Json
+        foreach ($k in 'HostName', 'ApiHostName', 'CertThumbprint', 'SqlInstance', 'Database', 'SiteRoot', 'Port') {
+            if (-not $PSBoundParameters.ContainsKey($k) -and $null -ne $saved.$k -and "$($saved.$k)" -ne '') {
+                Set-Variable -Name $k -Value ($(if ($k -eq 'Port') { [int]$saved.$k } else { [string]$saved.$k }))
+                $PSBoundParameters[$k] = (Get-Variable $k).Value   # saved values win over what IIS shows
+            }
+        }
+    } catch { }
+}
+
 #---------------------------------------------------------------- update: keep the current address, port and certificate
 # Without this an update would fall back to "localhost" and a test certificate, and the real address would stop answering.
 $appcmd = "$env:windir\system32\inetsrv\appcmd.exe"
@@ -276,6 +291,10 @@ if (-not $okHealth) {
     Fail "The site was installed but $ApiBase/api/health is not healthy.`n$tail"
 }
 Ok 'healthy'
+# Remember these settings for the next update (the window and -Quiet runs start from them).
+@{ HostName = $HostName; ApiHostName = $ApiHostName; CertThumbprint = $CertThumbprint; SqlInstance = $SqlInstance; Database = $Database; SiteRoot = $SiteRoot; Port = $Port } |
+    ConvertTo-Json | Set-Content -Path $SettingsFile -Encoding UTF8
+Ok "settings saved for the next update ($SettingsFile)"
 
 if ($SupabaseUrl) {
     Step 'Copying all data from Supabase'
