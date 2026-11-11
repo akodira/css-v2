@@ -37,6 +37,26 @@ if ($PSVersionTable.PSEdition -eq 'Core') {
 $Package = $PSScriptRoot
 Get-ChildItem $Package -Recurse -File | Unblock-File -ErrorAction SilentlyContinue   # files from a downloaded zip
 
+#---------------------------------------------------------------- update: keep the current address, port and certificate
+# Without this an update would fall back to "localhost" and a test certificate, and the real address would stop answering.
+$appcmd = "$env:windir\system32\inetsrv\appcmd.exe"
+if (Test-Path $appcmd) {
+    $cur = (& $appcmd list site ccs-web /text:bindings 2>$null) -split ',' | Where-Object { $_ -like 'https/*' } | Select-Object -First 1
+    if ($cur -match '^https/[^:]*:(\d+):(.*)$') {
+        $curPort = [int]$Matches[1]; $curHost = $Matches[2]
+        if (-not $PSBoundParameters.ContainsKey('HostName') -and $curHost) { $HostName = $curHost }
+        if (-not $PSBoundParameters.ContainsKey('Port')) { $Port = $curPort }
+        if (-not $PSBoundParameters.ContainsKey('CertThumbprint')) {
+            $ssl = (netsh http show sslcert hostnameport="${HostName}:$Port" 2>$null) | Select-String 'Certificate Hash\s*:\s*([0-9a-fA-F]+)'
+            if ($ssl) { $CertThumbprint = $ssl.Matches[0].Groups[1].Value }
+        }
+    }
+    if (-not $PSBoundParameters.ContainsKey('ApiHostName')) {
+        $api = (& $appcmd list site ccs-api /text:bindings 2>$null) -split ',' | Where-Object { $_ -like 'https/*' } | Select-Object -First 1
+        if ($api -match '^https/[^:]*:\d+:(.+)$') { $ApiHostName = $Matches[1] }
+    }
+}
+
 #---------------------------------------------------------------- window
 if (-not $Quiet) {
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
@@ -65,6 +85,7 @@ if (-not $Quiet) {
     $certs = @(Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) -and $_.FriendlyName -notlike 'CCS test*' })
     foreach ($c in $certs) { [void]$cCert.Items.Add("$($c.GetNameInfo('SimpleName', $false))  (until $($c.NotAfter.ToString('yyyy-MM-dd')))") }
     $cCert.SelectedIndex = 0
+    for ($i = 0; $i -lt $certs.Count; $i++) { if ($CertThumbprint -and $certs[$i].Thumbprint -eq $CertThumbprint) { $cCert.SelectedIndex = $i + 1 } }
     $f.Controls.AddRange(@($l, $cCert)); $script:y += 48
     $b = New-Object Windows.Forms.Button -Property @{ Text = 'Install'; Left = 385; Top = $script:y; Width = 100; Height = 32; DialogResult = 'OK' }
     $f.AcceptButton = $b; $f.Controls.Add($b)
