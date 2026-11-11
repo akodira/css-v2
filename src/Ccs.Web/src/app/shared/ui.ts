@@ -54,10 +54,21 @@ let fieldSeq = 0;
   template: `
     <div class="flex flex-col gap-1.5">
       <label [for]="id" class="text-sm font-semibold">{{ label() }}@if (required()) {<app-req />}</label>
-      <input [id]="id" [name]="name()" [type]="type()" [attr.autocomplete]="autocomplete()" [attr.dir]="dir()"
-        [attr.maxlength]="maxLength()" [required]="required()" [value]="value()" (input)="value.set($any($event.target).value)"
-        [attr.aria-invalid]="error() ? true : null" [attr.aria-describedby]="error() ? id + '-err' : hint() ? id + '-hint' : null"
-        class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base read-only:bg-bg read-only:text-muted aria-[invalid=true]:border-danger" />
+      <div class="relative">
+        <input [id]="id" [name]="name()" [type]="type() === 'password' && shown() ? 'text' : type()" [attr.autocomplete]="autocomplete()" [attr.dir]="type() === 'password' ? 'ltr' : dir()"
+          [attr.maxlength]="maxLength()" [required]="required()" [value]="value()" (input)="value.set($any($event.target).value)"
+          [attr.aria-invalid]="error() ? true : null" [attr.aria-describedby]="error() ? id + '-err' : hint() ? id + '-hint' : null"
+          class="min-h-11 w-full rounded-lg border border-line bg-surface ps-3 text-base read-only:bg-bg read-only:text-muted aria-[invalid=true]:border-danger" [class]="type() === 'password' ? 'pe-12' : 'pe-3'" />
+        @if (type() === 'password') {
+          <!-- v1 PasswordInput: eye button that shows or hides the text -->
+          <button type="button" (click)="shown.set(!shown())" [attr.aria-pressed]="shown()" [attr.aria-label]="(shown() ? 'Auth.password.hide' : 'Auth.password.show') | t"
+            class="absolute inset-y-0 end-0 flex w-11 cursor-pointer items-center justify-center rounded-lg text-ink hover:text-brand">
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" />@if (shown()) { <path d="M3 3l18 18" /> }
+            </svg>
+          </button>
+        }
+      </div>
       @if (hint() && !error()) { <p [id]="id + '-hint'" class="text-sm text-muted">{{ hint() }}</p> }
       @if (error()) { <p [id]="id + '-err'" class="text-sm font-medium text-danger">{{ 'Auth.errors.' + error() | t }}</p> }
     </div>`,
@@ -75,6 +86,7 @@ export class TextField {
   readonly hint = input<string>();
   readonly error = input<string | undefined>();
   readonly value = model('');
+  protected readonly shown = signal(false);
 }
 
 /** Primary submit button, min 44 px, with the "* Required" legend after it. */
@@ -304,3 +316,4 @@ export class SlaClockCard {
 export const PRIORITY_STRIPE: Record<string, string> = {
   red: 'border-s-4 border-s-danger', amber: 'border-s-4 border-s-warn', blue: 'border-s-4 border-s-brand', green: 'border-s-4 border-s-ok', grey: '', light: '',
 };
+
