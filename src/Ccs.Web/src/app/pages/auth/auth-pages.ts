@@ -1,3 +1,4 @@
+import { RichText } from '../../shared/rich-text';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -43,17 +44,17 @@ abstract class FormBase {
 
 @Component({
   selector: 'app-login',
-  imports: [Card, Alert, TextField, Submit, RouterLink, TPipe],
+  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe],
   template: `
     <main class="px-4 py-12">
       @if (notice()) { <p role="note" dir="auto" class="mx-auto mb-4 max-w-md rounded-lg border border-line bg-brand-soft px-4 py-3 text-sm font-medium text-brand-ink">{{ notice() }}</p> }
       <app-card [heading]="'Auth.login.title' | t" [subtitle]="'Auth.login.subtitle' | t">
-        @if (reason() === 'suspended') { <app-alert>{{ 'Auth.login.suspendedNotice' | t }}</app-alert> }
-        @if (reason() === 'pending_approval') { <app-alert>{{ 'Auth.login.pendingNotice' | t }}</app-alert> }
+        @if (reason() === 'suspended') { <app-alert><app-rich [text]="'Auth.login.suspendedNotice' | t" [compact]="true" /></app-alert> }
+        @if (reason() === 'pending_approval') { <app-alert><app-rich [text]="'Auth.login.pendingNotice' | t" [compact]="true" /></app-alert> }
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="email" [label]="'Auth.fields.identifier' | t" autocomplete="username" dir="ltr" [required]="true" [(value)]="identifier" [error]="fieldErrors()['identifier']" />
           <app-text-field name="password" type="password" [label]="'Auth.fields.password' | t" autocomplete="current-password" [required]="true" [(value)]="password" [error]="fieldErrors()['password']" />
-          @if (error()) { <app-alert>{{ 'Auth.errors.' + error() | t }}</app-alert> }
+          @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.login.submit' | t }}</app-submit>
         </form>
         <div class="flex flex-col gap-2 text-sm">
@@ -98,13 +99,13 @@ export class LoginPage extends FormBase {
 
 @Component({
   selector: 'app-mfa',
-  imports: [Card, Alert, TextField, Submit, TPipe],
+  imports: [Card, Alert, RichText, TextField, Submit, TPipe],
   template: `
     <main class="px-4 py-12">
       <app-card [heading]="'Auth.mfa.title' | t" [subtitle]="'Auth.mfa.subtitle' | t">
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="code" [label]="'Auth.mfa.label' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="6" [required]="true" [(value)]="code" />
-          @if (error()) { <app-alert>{{ 'Auth.errors.' + error() | t }}</app-alert> }
+          @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.mfa.submit' | t }}</app-submit>
         </form>
       </app-card>
@@ -124,20 +125,20 @@ export class MfaPage extends FormBase {
 
 @Component({
   selector: 'app-login-code',
-  imports: [Card, Alert, TextField, Submit, RouterLink, TPipe],
+  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe],
   template: `
     <main class="px-4 py-12">
       <app-card [heading]="'Auth.signinCode.title' | t" [subtitle]="(sent() ? 'Auth.signinCode.sent' : 'Auth.signinCode.subtitle') | t">
         @if (!sent()) {
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); request()">
             <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
-            @if (error()) { <app-alert>{{ 'Auth.errors.' + error() | t }}</app-alert> }
+            @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.signinCode.send' | t }}</app-submit>
           </form>
         } @else {
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); verify()">
             <app-text-field name="code" [label]="'Auth.signinCode.codeLabel' | t" [hint]="'Auth.signinCode.codeHint' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="10" [required]="true" [(value)]="code" />
-            @if (error()) { <app-alert>{{ 'Auth.errors.' + error() | t }}</app-alert> }
+            @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.signinCode.submit' | t }}</app-submit>
           </form>
         }
@@ -167,7 +168,7 @@ interface SignupOrg { id: string; name: string; branches: { id: string; name: st
 
 @Component({
   selector: 'app-register',
-  imports: [Card, Alert, TextField, Submit, Req, RouterLink, TPipe, NewPasswordFields],
+  imports: [Card, Alert, RichText, TextField, Submit, Req, RouterLink, TPipe, NewPasswordFields],
   template: `
     <main class="px-4 py-12">
       @if (done()) {
@@ -175,7 +176,7 @@ interface SignupOrg { id: string; name: string; branches: { id: string; name: st
           <app-alert tone="success">{{ (mode() === 'pick_auto' ? 'V2.confirm.bodyAuto' : 'V2.confirm.body') | t }}</app-alert>
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); confirm()">
             <app-text-field name="code" [label]="'Auth.code.label' | t" [hint]="'V2.confirm.hint' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="6" [required]="true" [(value)]="code" />
-            @if (error()) { <app-alert>{{ 'Auth.errors.' + error() | t }}</app-alert> }
+            @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             @if (confirmed()) { <app-alert tone="success">{{ (mode() === 'pick_auto' ? 'V2.confirm.doneAuto' : 'V2.confirm.done') | t }}</app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.code.submit' | t }}</app-submit>
           </form>
@@ -205,7 +206,7 @@ interface SignupOrg { id: string; name: string; branches: { id: string; name: st
               </div>
             }
             <app-new-password [(value)]="password" [(confirm)]="confirmPw" [error]="fieldErrors()['password']" [confirmError]="fieldErrors()['confirm']" />
-            @if (error()) { <app-alert>{{ 'Auth.errors.' + error() | t }}</app-alert> }
+            @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.register.submit' | t }}</app-submit>
           </form>
           <p class="text-sm text-muted">{{ 'Auth.register.haveAccount' | t }} <a [routerLink]="link('/login')" class="font-semibold text-brand-ink underline">{{ 'Auth.register.login' | t }}</a></p>
@@ -274,13 +275,13 @@ export class RegisterPage extends FormBase {
 
 @Component({
   selector: 'app-forgot',
-  imports: [Card, Alert, TextField, Submit, RouterLink, TPipe],
+  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe],
   template: `
     <main class="px-4 py-12">
       <app-card [heading]="'Auth.forgot.title' | t" [subtitle]="'Auth.forgot.subtitle' | t">
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
-          @if (error()) { <app-alert>{{ 'Auth.errors.' + error() | t }}</app-alert> }
+          @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.forgot.submit' | t }}</app-submit>
         </form>
         <a [routerLink]="link('/login')" class="text-sm font-semibold text-brand-ink underline">{{ 'Auth.register.login' | t }}</a>
@@ -301,7 +302,7 @@ export class ForgotPage extends FormBase {
 
 @Component({
   selector: 'app-reset',
-  imports: [Card, Alert, TextField, Submit, RouterLink, TPipe, NewPasswordFields],
+  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, NewPasswordFields],
   template: `
     <main class="px-4 py-12">
       <app-card [heading]="'Auth.reset.title' | t" [subtitle]="'Auth.reset.subtitle' | t">
@@ -314,7 +315,7 @@ export class ForgotPage extends FormBase {
             <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" dir="ltr" [required]="true" [(value)]="email" />
             <app-text-field name="code" [label]="'Auth.code.label' | t" [hint]="'Auth.code.hint' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="6" [required]="true" [(value)]="code" />
             <app-new-password [(value)]="password" [(confirm)]="confirmPw" [error]="fieldErrors()['password']" [confirmError]="fieldErrors()['confirm']" />
-            @if (error()) { <app-alert>{{ 'Auth.errors.' + error() | t }}</app-alert> }
+            @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.reset.submit' | t }}</app-submit>
           </form>
         }

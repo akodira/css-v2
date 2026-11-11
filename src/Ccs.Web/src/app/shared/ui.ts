@@ -3,6 +3,7 @@ import { RouterLink } from '@angular/router';
 import { I18n, LOCALES, TPipe } from '../core/i18n';
 import { Router } from '@angular/router';
 import { SiteService } from '../core/api';
+import { RichText } from './rich-text';
 
 /** Red asterisk after a mandatory label; the "* Required" legend appears by itself (styles.css). */
 @Component({
@@ -23,10 +24,11 @@ export class ReqNote {}
 /** Centered auth card (Card in ui.tsx). */
 @Component({
   selector: 'app-card',
+  imports: [RichText],
   template: `
     <section class="mx-auto w-full max-w-md rounded-md border border-line bg-surface p-6 sm:p-8">
       <h1 class="text-2xl font-bold tracking-tight">{{ heading() }}</h1>
-      @if (subtitle()) { <p class="mt-2 text-sm leading-relaxed text-muted">{{ subtitle() }}</p> }
+      @if (subtitle()) { <div class="mt-2 text-sm leading-relaxed text-muted"><app-rich [text]="subtitle()!" [compact]="true" /></div> }
       <div class="mt-6 flex flex-col gap-4"><ng-content /></div>
     </section>`,
   changeDetection: ChangeDetectionStrategy.OnPush,

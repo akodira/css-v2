@@ -22,6 +22,25 @@ export const EMAIL_ALL_PLACEHOLDERS: PlaceholderInfo[] = [
   { token: 'siteUrl', en: 'Web address of the system.', ar: 'عنوان موقع النظام.' },
 ];
 
+export const GLOBAL_TOKENS = ['siteName', 'supportEmail', 'supportPhone', 'supportHours', 'siteUrl'];
+
+/** What the values the system fills into its own messages mean; unknown names get a generic line (v1 describeVar). */
+const VAR_DESC: Record<string, [string, string]> = {
+  name: ['A name, filled in by the system.', 'اسم تملؤه المنظومة.'], reference: ['Ticket number, for example CTS-2026-000123.', 'رقم التذكرة، مثل CTS-2026-000123.'],
+  subject: ['Subject line of the ticket.', 'عنوان التذكرة.'], reason: ['The reason given, for example for an alert or a rejection.', 'السبب المذكور، مثل سبب تنبيه أو رفض.'],
+  n: ['A number, such as how many items match.', 'عدد، مثل عدد العناصر المطابقة.'], count: ['A number of items.', 'عدد العناصر.'], total: ['A total number.', 'إجمالي العدد.'],
+  met: ['How many rules are met.', 'عدد القواعد المستوفاة.'], level: ['The strength level of a password.', 'مستوى قوة كلمة المرور.'], when: ['A date and time.', 'تاريخ ووقت.'],
+  date: ['A date.', 'تاريخ.'], page: ['The current page number.', 'رقم الصفحة الحالية.'], pages: ['The number of pages.', 'عدد الصفحات.'], files: ['The number of files.', 'عدد الملفات.'],
+  mb: ['A size in megabytes.', 'حجم بالميغابايت.'], max: ['The largest allowed number.', 'أكبر عدد مسموح.'], email: ['An email address.', 'عنوان بريد إلكتروني.'],
+  customer: ['Full name of the customer.', 'الاسم الكامل للعميل.'], customerEmail: ['Email address of the customer.', 'البريد الإلكتروني للعميل.'], percent: ['A percentage.', 'نسبة مئوية.'],
+  days: ['A number of days.', 'عدد الأيام.'], types: ['A list of allowed file types.', 'قائمة بأنواع الملفات المسموحة.'], zone: ['A time zone.', 'منطقة زمنية.'],
+  customers: ['How many customers are linked.', 'عدد العملاء المرتبطين.'], branches: ['How many branches are linked.', 'عدد الفروع المرتبطة.'], password: ['A password rule or value.', 'قاعدة أو قيمة لكلمة المرور.'],
+};
+export function describeVar(token: string): PlaceholderInfo {
+  const d = VAR_DESC[token] ?? ['Filled in automatically by the system.', 'تملؤه المنظومة تلقائيًا.'];
+  return { token, en: d[0], ar: d[1] };
+}
+
 /** The placeholders that can be used here, each with what it becomes. Clicking one inserts it where the cursor is (v1 PlaceholderPicker). */
 @Component({
   selector: 'app-placeholder-picker',

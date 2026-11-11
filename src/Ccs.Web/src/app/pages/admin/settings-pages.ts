@@ -10,7 +10,8 @@ import { adminError } from '../../core/admin-api';
 import { apiUrl } from '../../core/api-base';
 import { I18n, TPipe } from '../../core/i18n';
 import { Alert, Req, ReqNote } from '../../shared/ui';
-import { FormatBar, PlaceholderPicker } from '../../shared/email-editor';
+import { EMAIL_ALL_PLACEHOLDERS, FormatBar, GLOBAL_TOKENS, PlaceholderInfo, PlaceholderPicker, describeVar } from '../../shared/email-editor';
+import { RichText, varsOf } from '../../shared/rich-text';
 import { CLS, Msg } from './admin-pages';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
@@ -181,10 +182,8 @@ interface MenuFull extends Omit<MenuRow, 'audience'> { audience: string; isVisib
                   @if (r.systemKey) { <span class="text-sm font-normal text-muted"> · {{ 'AdminGeneral.builtIn' | t }}</span> }
                   @else if (area === 'header' || area === 'footer') { <span class="text-sm font-normal text-muted"> · {{ 'AdminGeneral.aud_' + r.audience | t }}</span> }
                   @if (!r.isVisible) { <span [class]="cls.badgeWarn + ' ms-1'">{{ 'AdminGeneral.hidden' | t }}</span> }</span>
-                @if (area === 'header' || area === 'footer') {
-                  <button type="button" [class]="cls.btn2" (click)="move(r, -1)" [attr.aria-label]="'AdminGeneral.moveUp' | t">▲</button>
-                  <button type="button" [class]="cls.btn2" (click)="move(r, 1)" [attr.aria-label]="'AdminGeneral.moveDown' | t">▼</button>
-                }
+                <button type="button" [class]="cls.btn2" (click)="move(r, -1)" [attr.aria-label]="'AdminGeneral.moveUp' | t">▲</button>
+                <button type="button" [class]="cls.btn2" (click)="move(r, 1)" [attr.aria-label]="'AdminGeneral.moveDown' | t">▼</button>
                 <button type="button" [class]="cls.btn2" (click)="open.set(open() === r.id ? null : r.id)">{{ (open() === r.id ? 'AdminGeneral.close' : 'AdminGeneral.edit') | t }}</button>
                 @if (!r.systemKey) { <button type="button" [class]="cls.danger" (click)="remove(r)">{{ 'AdminGeneral.delete' | t }}</button> }
               </div>
@@ -355,8 +354,8 @@ const DEFAULT_DESIGN = { headerColor: '#0d1b3e', accentColor: '#1f64e6', pageBac
       <div class="flex flex-wrap items-start gap-6">
         <form class="flex min-w-0 flex-[1_1_18rem] flex-col gap-4" (ngSubmit)="saveDesign()" novalidate>
           @for (c of colors; track c.key) {
-            <label class="flex items-center gap-3 text-sm font-semibold"><input type="color" [name]="c.key" class="h-11 w-16 cursor-pointer rounded border border-line" [(ngModel)]="$any(d)[c.key]" (ngModelChange)="refresh()" />
-              <span class="flex flex-col">{{ 'AdminGeneral.' + c.label | t }}<span class="font-mono text-xs font-normal text-muted" dir="ltr">{{ $any(d)[c.key] }}</span></span></label>
+            <div class="flex items-center gap-3"><label class="flex items-center gap-3 text-sm font-semibold"><input type="color" [name]="c.key" class="h-11 w-16 cursor-pointer rounded border border-line" [(ngModel)]="$any(d)[c.key]" (ngModelChange)="refresh()" />
+              {{ 'AdminGeneral.' + c.label | t }}</label><span class="font-mono text-xs text-muted" dir="ltr" aria-hidden="true">{{ $any(d)[c.key] }}</span></div>
           }
           <div class="flex flex-col gap-1">
             <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="logo" class="h-5 w-5" [(ngModel)]="d.useLogo" (ngModelChange)="refresh()" [disabled]="!site.logoUrl()" /> {{ 'AdminGeneral.designUseLogo' | t }}</label>
@@ -446,9 +445,9 @@ export class EmailDesignPanel extends Tab implements OnInit {
                     }
                     <label class="flex flex-col gap-1 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplGreeting' : 'AdminGeneral.tplSubject') | t }}
                       <input [name]="'s' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="200" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-normal" [(ngModel)]="v[loc].subject" (focus)="track(loc, 'subject', $event)" (ngModelChange)="preview(loc)" /></label>
-                    <span class="text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplFooter' : 'AdminGeneral.tplBody') | t }}</span>
                     <app-format-bar [el]="bodyEl" [anchor]="true" (changed)="v[loc].body = $event; preview(loc)" />
-                    <textarea #bodyEl [name]="'b' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" [rows]="ev === layout ? 3 : 5" maxlength="2000" [attr.aria-label]="(ev === layout ? 'AdminGeneral.tplFooter' : 'AdminGeneral.tplBody') | t"
+                    <label [for]="'tb-' + loc" class="-mb-2 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplFooter' : 'AdminGeneral.tplBody') | t }}</label>
+                    <textarea #bodyEl [id]="'tb-' + loc" [name]="'b' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" [rows]="ev === layout ? 3 : 5" maxlength="2000"
                       class="min-h-24 w-full rounded-lg border border-line bg-surface px-3 py-2 text-base" [(ngModel)]="v[loc].body" (focus)="track(loc, 'body', $event)" (ngModelChange)="preview(loc)"></textarea>
                     <label class="flex flex-col gap-1 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplButton' : 'AdminGeneral.tplButtonOverride') | t }}
                       <input [name]="'u' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="60" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-normal" [placeholder]="ev === layout ? '' : btnDefault(ev, loc)" [(ngModel)]="v[loc].button" (focus)="track(loc, 'button', $event)" (ngModelChange)="preview(loc)" />
@@ -459,11 +458,10 @@ export class EmailDesignPanel extends Tab implements OnInit {
                         <span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplLinkHint' | t }}</span></label>
                     }
                     @if (ev !== layout) {
-                      <span class="text-sm font-semibold">{{ 'AdminGeneral.tplFooter' | t }}</span>
                       <app-format-bar [el]="footEl" [anchor]="true" (changed)="v[loc].footer = $event; preview(loc)" />
-                      <textarea #footEl [name]="'f' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" rows="3" maxlength="2000" [attr.aria-label]="'AdminGeneral.tplFooter' | t"
+                      <label [for]="'tf-' + loc" class="-mb-2 flex flex-col text-sm font-semibold">{{ 'AdminGeneral.tplFooter' | t }}<span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplSharedField' | t }}</span></label>
+                      <textarea #footEl [id]="'tf-' + loc" [name]="'f' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" rows="3" maxlength="2000"
                         class="min-h-20 w-full rounded-lg border border-line bg-surface px-3 py-2 text-base" [(ngModel)]="v[loc].footer" (focus)="track(loc, 'footer', $event)" (ngModelChange)="preview(loc)"></textarea>
-                      <span class="-mt-2 text-xs text-muted">{{ 'AdminGeneral.tplSharedField' | t }}</span>
                     }
                     <div class="flex flex-col gap-2 rounded-lg border border-line bg-bg p-3">
                       <p class="text-xs font-semibold text-muted" dir="auto">{{ 'AdminGeneral.tplPreview' | t }}</p>
@@ -582,7 +580,7 @@ export class TemplatesTab extends Tab implements OnInit {
 
 @Component({
   selector: 'app-set-messages',
-  imports: [TPipe, FormsModule, Alert],
+  imports: [TPipe, FormsModule, Alert, FormatBar, PlaceholderPicker, RichText],
   template: `
     <div class="flex flex-col gap-4">
       <p class="max-w-prose text-muted">{{ 'AdminSystemMessages.intro' | t }}</p>
@@ -639,16 +637,19 @@ export class TemplatesTab extends Tab implements OnInit {
                       <h3 class="text-sm font-bold">{{ l === 'en' ? 'English' : 'العربية' }}</h3>
                     </header>
                     <div class="flex flex-col gap-3 p-4">
-                      <textarea [name]="'body' + l" rows="4" maxlength="1000" [attr.dir]="l === 'ar' ? 'rtl' : 'ltr'" [attr.aria-label]="l === 'en' ? 'English' : 'العربية'"
-                        class="min-h-24 w-full rounded-lg border border-line bg-surface px-3 py-2 text-start text-base" [value]="$any(vals)[l]" (input)="$any(vals)[l] = $any($event.target).value"></textarea>
+                      @if (isRich(k)) { <app-format-bar [el]="area" [anchor]="true" (changed)="$any(vals)[l] = $event" /> }
+                      <textarea #area [name]="'body' + l" [rows]="isRich(k) ? 6 : 4" maxlength="1000" [attr.dir]="l === 'ar' ? 'rtl' : 'ltr'" [attr.aria-label]="l === 'en' ? 'English' : 'العربية'"
+                        class="min-h-24 w-full rounded-lg border border-line bg-surface px-3 py-2 text-start text-base" [value]="$any(vals)[l]" (input)="$any(vals)[l] = $any($event.target).value"
+                        (focus)="focusEl = area; focusLoc = l; needField.set(false)"></textarea>
                       <div [attr.dir]="l === 'ar' ? 'rtl' : 'ltr'" class="rounded-lg border border-line bg-bg p-3 text-sm">
                         <p class="mb-1 text-xs font-semibold text-muted" dir="auto">{{ 'AdminSystemMessages.preview' | t }}</p>
-                        @if ($any(vals)[l].trim()) { <p class="whitespace-pre-line text-start" dir="auto">{{ $any(vals)[l] }}</p> } @else { <p class="text-muted">-</p> }
+                        @if ($any(vals)[l].trim()) { @if (isRich(k)) { <app-rich [text]="$any(vals)[l]" /> } @else { <p class="whitespace-pre-line text-start" dir="auto">{{ $any(vals)[l] }}</p> } } @else { <p class="text-muted">-</p> }
                       </div>
                     </div>
                   </section>
                 }
               </div>
+              <app-placeholder-picker [items]="tokensOf(k)" [notice]="needField() ? ('AdminSystemMessages.clickField' | t) : null" (insert)="insertToken($event)" />
               @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
               <div class="flex flex-wrap gap-2">
                 <button type="submit" [disabled]="busy() || !changed()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{{ 'AdminSystemMessages.save' | t }}</button>
@@ -674,6 +675,26 @@ export class MessagesTab extends Tab implements OnInit {
   private readonly over = signal<{ key: string; locale: string; body: string }[]>([]);
   protected vals = { en: '', ar: '' };
   private savedVals = { en: '', ar: '' };
+  protected focusEl: HTMLTextAreaElement | null = null;
+  protected focusLoc: string | null = null;
+  protected readonly needField = signal(false);
+  /** Messages shown with formatting on the sign-in pages (v1 SYSTEM_MESSAGES, except the plain title). */
+  private static readonly RICH = new Set(['Auth.login.subtitle', 'Auth.login.pendingNotice', 'Auth.login.suspendedNotice', 'Auth.callbackError', 'Auth.register.subtitle',
+    'Auth.register.sentBody', 'Auth.forgot.subtitle', 'Auth.code.subtitle', 'Auth.reset.subtitle', 'Auth.mfa.subtitle', 'Auth.errors.emailNotConfirmed', 'Auth.errors.rateLimited', 'Auth.errors.pendingApproval']);
+  protected isRich(k: string): boolean { return MessagesTab.RICH.has(k); }
+  /** The values this message fills in, then the site-wide ones (v1 tokens + GLOBAL_PLACEHOLDERS). */
+  protected tokensOf(k: string): PlaceholderInfo[] {
+    const std = this.std_();
+    const vars = [...new Set([...varsOf(String(std.en[k] ?? '')), ...varsOf(String(std.ar[k] ?? ''))])].filter((v) => !GLOBAL_TOKENS.includes(v));
+    return [...vars.map(describeVar), ...EMAIL_ALL_PLACEHOLDERS.filter((p) => GLOBAL_TOKENS.includes(p.token))];
+  }
+  protected insertToken(token: string): void {
+    const el = this.focusEl, l = this.focusLoc as 'en' | 'ar' | null;
+    if (!el || !l) { this.needField.set(true); return; }
+    const v = this.vals[l], s = el.selectionStart ?? v.length, e = el.selectionEnd ?? s;
+    this.vals[l] = v.slice(0, s) + token + v.slice(e);
+    requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + token.length, s + token.length); });
+  }
   protected readonly entries = computed(() => Object.entries(this.std_().en)
     .filter(([k, v]) => k.split('.').length >= 2 && !MessagesTab.HIDDEN.includes(k.split('.')[0]) && !/\{[^}]*,\s*(plural|select|selectordinal)/.test(v) && !/<[A-Za-z/]/.test(v))
     .map(([k]) => ({ key: k, area: k.split('.')[0], kind: MessagesTab.ERROR_WORDS.test(k) ? 'error' : 'message' })));
@@ -720,7 +741,7 @@ export class MessagesTab extends Tab implements OnInit {
 // ================================================================== uploads
 
 const FILE_GROUPS: Record<string, string[]> = {
-  images: ['png', 'jpg', 'jpeg', 'gif', 'webp'], documents: ['pdf', 'txt', 'doc', 'docx'], sheets: ['csv', 'xls', 'xlsx'], slides: ['ppt', 'pptx'], archives: ['zip'],
+  images: ['png', 'jpg', 'gif', 'webp'], documents: ['pdf', 'txt', 'doc', 'docx'], sheets: ['csv', 'xls', 'xlsx'], slides: ['ppt', 'pptx'], archives: ['zip'],
 };
 
 @Component({
@@ -738,7 +759,7 @@ const FILE_GROUPS: Record<string, string[]> = {
       <fieldset class="flex flex-col gap-3"><legend [class]="cls.label + ' mb-1'">{{ 'AdminGeneral.uploadTypes' | t }}</legend>
         @for (g of groups; track g) {
           <div><h3 class="text-sm font-semibold text-muted">{{ 'AdminGeneral.uploadGroup_' + g | t }}</h3>
-            <div class="flex flex-wrap gap-x-5">@for (x of fileGroups[g]; track x) { <label class="flex min-h-10 items-center gap-2 font-mono text-sm"><input type="checkbox" class="h-5 w-5" [checked]="m.exts.has(x)" (change)="toggleExt(x)" /> .{{ x }}</label> }</div></div>
+            <div class="flex flex-wrap gap-x-5">@for (x of fileGroups[g]; track x) { <label class="flex min-h-10 items-center gap-2 font-mono text-sm"><input type="checkbox" class="h-5 w-5" [checked]="m.exts.has(x)" (change)="toggleExt(x)" /> .{{ x }}@if (x === 'jpg') { .jpeg }</label> }</div></div>
         }
       </fieldset>
       <p class="text-sm text-muted">{{ 'AdminGeneral.uploadsNote' | t }}</p>
@@ -756,7 +777,11 @@ export class UploadsTab extends Tab implements OnInit {
     try { exts = JSON.parse(s?.uploadExtensions ?? '[]'); } catch { exts = []; }
     this.m = { maxMb: s?.uploadMaxMb ?? 10, maxFiles: s?.uploadMaxFiles ?? 5, exts: new Set(exts) };
   }
-  protected toggleExt(x: string): void { if (this.m.exts.has(x)) this.m.exts.delete(x); else this.m.exts.add(x); }
+  /** jpg and jpeg are one choice, as in v1. */
+  protected toggleExt(x: string): void {
+    const all = x === 'jpg' ? ['jpg', 'jpeg'] : [x];
+    if (this.m.exts.has(x)) all.forEach((e) => this.m.exts.delete(e)); else all.forEach((e) => this.m.exts.add(e));
+  }
   protected submit(): void { void this.save(() => this.put('uploads', { maxMb: Number(this.m.maxMb), maxFiles: Number(this.m.maxFiles), extensions: [...this.m.exts] })); }
 }
 
@@ -777,7 +802,7 @@ export class UploadsTab extends Tab implements OnInit {
               @if (f.hint) { <p class="text-xs text-muted">{{ 'AdminSettings.' + f.hint | t }}</p> }</div>
           }
         </div>
-        <h2 class="mt-2 text-lg font-bold">{{ 'AdminSettings.timersTitle' | t }}</h2>
+        <h3 class="mt-2 text-lg font-bold">{{ 'AdminSettings.timersTitle' | t }}</h3>
         <p class="-mt-2 text-sm text-muted">{{ 'AdminSettings.timersHelp' | t }}</p>
         <div class="grid gap-4 md:grid-cols-2">
           @for (f of timers; track f.key) {
@@ -797,17 +822,17 @@ export class UploadsTab extends Tab implements OnInit {
       </form>
 
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="saveReg()">
-        <h2 class="text-lg font-bold">{{ 'AdminSettings.regTitle' | t }}</h2><p class="text-sm text-muted">{{ 'AdminSettings.regHelp' | t }}</p>
+        <fieldset class="flex flex-col gap-3"><legend class="mb-1 text-lg font-bold">{{ 'AdminSettings.regTitle' | t }}</legend><p class="text-sm text-muted">{{ 'AdminSettings.regHelp' | t }}</p>
         @for (r of modes; track r) {
           <label class="flex items-start gap-2"><input type="radio" name="reg" class="mt-1 h-5 w-5" [value]="r" [(ngModel)]="reg" />
             <span><span class="font-semibold">{{ 'AdminSettings.reg_' + r | t }}</span><span class="block text-sm text-muted">{{ 'AdminSettings.reg_' + r + '_help' | t }}</span></span></label>
-        }
+        }</fieldset>
         <p class="text-sm text-muted">{{ 'AdminSettings.regNote' | t }}</p>
         ${SAVE}
       </form>
 
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="saveCaptcha()">
-        <h2 class="text-lg font-bold">{{ 'AdminSettings.captchaTitle' | t }}</h2><p class="text-sm text-muted">{{ 'AdminSettings.captchaHelp' | t }} {{ 'AdminSettings.captchaAlso' | t }}</p>
+        <h3 class="text-lg font-bold">{{ 'AdminSettings.captchaTitle' | t }}</h3><p class="text-sm text-muted">{{ 'AdminSettings.captchaHelp' | t }} {{ 'AdminSettings.captchaAlso' | t }}</p>
         @if (reg === 'pick_auto') { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminSettings.captchaRecommended' | t }}</p> }
         <label class="${CHECK}"><input type="checkbox" name="cap" class="h-5 w-5" [(ngModel)]="cap.enabled" /> {{ 'AdminSettings.captchaEnable' | t }}</label>
         <div class="grid gap-4 md:grid-cols-2">
@@ -820,7 +845,7 @@ export class UploadsTab extends Tab implements OnInit {
       </form>
 
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="savePw()">
-        <h2 class="text-lg font-bold">{{ 'AdminSettings.pwTitle' | t }}</h2><p class="text-sm text-muted">{{ 'AdminSettings.pwHelp' | t }}</p>
+        <h3 class="text-lg font-bold">{{ 'AdminSettings.pwTitle' | t }}</h3><p class="text-sm text-muted">{{ 'AdminSettings.pwHelp' | t }}</p>
         <div class="flex flex-col gap-1.5 md:max-w-xs"><label for="pw-min" [class]="cls.label">{{ 'AdminSettings.pwMinLength' | t }}${REQ}</label><input id="pw-min" name="min" type="number" min="8" max="72" dir="ltr" [class]="cls.input" [(ngModel)]="n['password_min_length']" /></div>
         <fieldset><legend [class]="cls.label">{{ 'AdminSettings.pwComplexity' | t }}</legend>
           @for (x of [['password_require_upper', 'pwUpper'], ['password_require_lower', 'pwLower'], ['password_require_number', 'pwNumber'], ['password_require_special', 'pwSpecial']]; track x[0]) {
@@ -890,23 +915,25 @@ export class SystemTab extends Tab implements OnInit {
     <p class="max-w-prose text-muted">{{ 'AdminSigninCodes.intro' | t }}</p>
     @if (m) {
       <form [class]="cls.card + ' flex flex-col gap-4 p-5'" (ngSubmit)="submit()">
-        <label class="${CHECK} font-semibold"><input type="checkbox" role="switch" name="on" class="h-5 w-5" [(ngModel)]="m.enabled" /> {{ 'AdminSigninCodes.switch' | t }}
-          <span class="ms-2 rounded-full px-2 py-0.5 text-xs font-bold" [class]="m.enabled ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (m.enabled ? 'AdminSigninCodes.on' : 'AdminSigninCodes.off') | t }}</span></label>
-        <p class="-mt-3 text-sm text-muted">{{ 'AdminSigninCodes.switchHint' | t }}</p>
-        <fieldset class="flex flex-col gap-1"><legend [class]="cls.label">{{ 'AdminSigninCodes.who' | t }}</legend>
+        <label class="flex items-start gap-3"><input type="checkbox" role="switch" name="on" class="mt-1 h-5 w-5" [(ngModel)]="m.enabled" />
+          <span><span class="font-semibold">{{ 'AdminSigninCodes.switch' | t }}</span>
+            <span class="ms-2 rounded-full px-2 py-0.5 text-xs font-bold" [class]="m.enabled ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (m.enabled ? 'AdminSigninCodes.on' : 'AdminSigninCodes.off') | t }}</span>
+            <span class="block text-sm text-muted">{{ 'AdminSigninCodes.switchHint' | t }}</span></span></label>
+        <h2 class="text-lg font-bold">{{ 'AdminSigninCodes.who' | t }}</h2>
+        <div role="radiogroup" [attr.aria-label]="'AdminSigninCodes.who' | t" class="flex flex-col gap-1">
           @for (a of ['customers', 'all']; track a) {
             <label class="flex items-start gap-2"><input type="radio" name="who" class="mt-1 h-5 w-5" [value]="a" [(ngModel)]="m.audience" />
               <span><span class="font-semibold">{{ 'AdminSigninCodes.' + a | t }}</span><span class="block text-sm text-muted">{{ 'AdminSigninCodes.' + a + 'Hint' | t }}</span></span></label>
-          }</fieldset>
+          }</div>
         <h2 class="text-lg font-bold">{{ 'AdminSigninCodes.rules' | t }}</h2>
         <div class="grid gap-4 md:grid-cols-2">
           @for (f of fields; track f.key) {
-            <div class="flex flex-col gap-1.5"><label [for]="'sc' + f.key" [class]="cls.label">{{ 'AdminSigninCodes.' + f.label | t }}${REQ}</label>
-              <div class="flex items-center gap-2"><input [id]="'sc' + f.key" [name]="f.key" type="number" dir="ltr" class="min-h-11 w-28 rounded-lg border border-line bg-surface px-3" [(ngModel)]="$any(m)[f.key]" />
-                <span class="text-sm text-muted">{{ 'AdminSigninCodes.' + f.label + 'Unit' | t }}</span></div></div>
+            <label [class]="cls.label + ' flex flex-col gap-1.5'"><span>{{ 'AdminSigninCodes.' + f.label | t }} ${REQ}</span>
+              <span class="flex items-center gap-2"><input [name]="f.key" type="number" dir="ltr" class="min-h-11 w-28 rounded-lg border border-line bg-surface px-3 font-normal" [(ngModel)]="$any(m)[f.key]" />
+                <span class="text-sm font-normal text-muted">{{ 'AdminSigninCodes.' + f.label + 'Unit' | t }}</span></span></label>
           }
         </div>
-        <section class="rounded-lg bg-bg p-4"><h3 class="font-semibold">{{ 'AdminSigninCodes.safeTitle' | t }}</h3>
+        <section class="rounded-lg bg-bg p-4"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.safeTitle' | t }}</h2>
           <ul class="mt-1 list-disc ps-5 text-sm">@for (n of [1, 2, 3, 4]; track n) { <li>{{ 'AdminSigninCodes.safe' + n | t }}</li> }</ul></section>
         <section class="flex flex-col gap-2"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.mailTitle' | t }}</h2>
           <p class="text-muted">{{ 'AdminSigninCodes.mailHint' | t }}</p>
@@ -958,11 +985,11 @@ interface HandoverData {
             <div class="flex flex-col gap-1.5"><label for="ho-new" [class]="cls.label">{{ 'AdminHandover.newAdmin' | t }}${REQ}</label>
               <select id="ho-new" name="new" [class]="cls.input" [(ngModel)]="t.newAdminId"><option value="">{{ 'AdminHandover.choose' | t }}</option>
                 @for (c of x.candidates; track c.id) { <option [value]="c.id">{{ c.fullName }} · {{ c.email }}@if (c.typeEn) { · {{ i18n.pick(c.typeEn, c.typeAr) }} }</option> }</select></div>
-            <div class="flex flex-col gap-1.5"><label for="ho-type" [class]="cls.label">{{ 'AdminHandover.myType' | t }}</label>
+            <div class="flex flex-col gap-1.5"><label for="ho-type" [class]="cls.label">{{ 'AdminHandover.myType' | t }}${REQ}</label>
               <select id="ho-type" name="type" [class]="cls.input" [(ngModel)]="t.myTypeId"><option value="">{{ 'AdminHandover.choose' | t }}</option>
                 @for (ty of x.types; track ty.id) { <option [value]="ty.id">{{ i18n.pick(ty.nameEn, ty.nameAr) }}</option> }</select>
               <p class="text-xs text-muted">{{ 'AdminHandover.myTypeHint' | t }}</p></div>
-            <div class="flex flex-col gap-1.5"><label for="ho-conf" [class]="cls.label">{{ 'AdminHandover.typeToConfirm' | t: { word: word() } }}</label>
+            <div class="flex flex-col gap-1.5"><label for="ho-conf" [class]="cls.label">{{ 'AdminHandover.typeToConfirm' | t: { word: word() } }}${REQ}</label>
               <input id="ho-conf" name="conf" dir="auto" autocomplete="off" [class]="cls.input" [(ngModel)]="t.confirm" /></div>
           </div>
           <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.danger" [disabled]="busy() || !t.newAdminId || !t.myTypeId">{{ 'AdminHandover.transferButton' | t }}</button><app-req-note /></div>
@@ -979,7 +1006,13 @@ interface HandoverData {
           </ul>
           @if (x.demo.meIsDemo) { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminHandover.errors.callerIsDemo' | t }}</p> }
           @else if (x.demo.realTickets) { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminHandover.errors.realTickets' | t }}</p> }
-          @else { <div><button type="button" [class]="cls.danger" [disabled]="busy()" (click)="removeDemo()">{{ 'AdminHandover.demoButton' | t }}</button></div> }
+          @else {
+            <form class="flex flex-col gap-4" novalidate (ngSubmit)="removeDemo()">
+              <div class="flex flex-col gap-1.5"><label for="ho-del" [class]="cls.label">{{ 'AdminHandover.typeToConfirm' | t: { word: 'DELETE' } }}${REQ}</label>
+                <input id="ho-del" name="del" dir="ltr" autocomplete="off" [class]="cls.input + ' max-w-xs'" [(ngModel)]="delWord" /></div>
+              <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.danger" [disabled]="busy() || delWord.trim().toUpperCase() !== 'DELETE'">{{ 'AdminHandover.demoButton' | t }}</button><app-req-note /></div>
+            </form>
+          }
         }
       </section>
     }`,
@@ -990,6 +1023,7 @@ export class HandoverTab extends Tab implements OnInit {
   protected readonly d = signal<HandoverData | null>(null);
   protected readonly word = computed(() => (this.i18n.locale() === 'ar' ? 'نقل' : 'TRANSFER'));
   protected t = { newAdminId: '', myTypeId: '', confirm: '' };
+  protected delWord = '';
   async ngOnInit(): Promise<void> { await this.load(); }
   private async load(): Promise<void> { this.d.set(await this.get<HandoverData>('handover')); }
   protected async transfer(): Promise<void> {
@@ -997,7 +1031,7 @@ export class HandoverTab extends Tab implements OnInit {
     if (await this.save(() => this.post('handover/transfer', this.t))) await this.auth.signOut();
   }
   protected async removeDemo(): Promise<void> {
-    if (!confirm(this.i18n.t('AdminHandover.demoButton') + '?')) return;
+    if (this.delWord.trim().toUpperCase() !== 'DELETE') return;
     this.busy.set(true); this.msg.set(null);
     try {
       const r = await this.post<{ users: number; organizations: number; tickets: number; articles: number }>('handover/remove-demo', {});
