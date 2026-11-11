@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { Auth, problemOf } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { SiteService } from '../../core/api';
-import { Alert, Card, Req, Submit, TextField } from '../../shared/ui';
+import { Alert, Card, NewPasswordFields, Req, Submit, TextField } from '../../shared/ui';
 
 /** Only same-site paths are accepted as "next" (safeNextPath today). */
 function safeNext(raw: string | null | undefined): string | null {
@@ -167,7 +167,7 @@ interface SignupOrg { id: string; name: string; branches: { id: string; name: st
 
 @Component({
   selector: 'app-register',
-  imports: [Card, Alert, TextField, Submit, Req, RouterLink, TPipe],
+  imports: [Card, Alert, TextField, Submit, Req, RouterLink, TPipe, NewPasswordFields],
   template: `
     <main class="px-4 py-12">
       @if (done()) {
@@ -204,8 +204,7 @@ interface SignupOrg { id: string; name: string; branches: { id: string; name: st
                 </select>
               </div>
             }
-            <app-text-field name="password" type="password" [label]="'Auth.fields.password' | t" autocomplete="new-password" [required]="true" [hint]="'Auth.password.rules.length' | t: { min: site.info()?.passwordPolicy?.minLength ?? 10 }" [(value)]="password" [error]="fieldErrors()['password']" />
-            <app-text-field name="confirm" type="password" [label]="'Auth.fields.confirmPassword' | t" autocomplete="new-password" [required]="true" [(value)]="confirmPw" [error]="fieldErrors()['confirm']" />
+            <app-new-password [(value)]="password" [(confirm)]="confirmPw" [error]="fieldErrors()['password']" [confirmError]="fieldErrors()['confirm']" />
             @if (error()) { <app-alert>{{ 'Auth.errors.' + error() | t }}</app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.register.submit' | t }}</app-submit>
           </form>
@@ -302,7 +301,7 @@ export class ForgotPage extends FormBase {
 
 @Component({
   selector: 'app-reset',
-  imports: [Card, Alert, TextField, Submit, RouterLink, TPipe],
+  imports: [Card, Alert, TextField, Submit, RouterLink, TPipe, NewPasswordFields],
   template: `
     <main class="px-4 py-12">
       <app-card [heading]="'Auth.reset.title' | t" [subtitle]="'Auth.reset.subtitle' | t">
@@ -314,7 +313,7 @@ export class ForgotPage extends FormBase {
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
             <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" dir="ltr" [required]="true" [(value)]="email" />
             <app-text-field name="code" [label]="'Auth.code.label' | t" [hint]="'Auth.code.hint' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="6" [required]="true" [(value)]="code" />
-            <app-text-field name="password" type="password" [label]="'Auth.fields.password' | t" autocomplete="new-password" [required]="true" [(value)]="password" [error]="fieldErrors()['password']" />
+            <app-new-password [(value)]="password" [(confirm)]="confirmPw" [error]="fieldErrors()['password']" [confirmError]="fieldErrors()['confirm']" />
             @if (error()) { <app-alert>{{ 'Auth.errors.' + error() | t }}</app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.reset.submit' | t }}</app-submit>
           </form>
@@ -328,8 +327,10 @@ export class ResetPage extends FormBase {
   protected readonly expired = this.route.snapshot.queryParamMap.get('expired') === '1';
   protected readonly code = signal('');
   protected readonly password = signal('');
+  protected readonly confirmPw = signal('');
   protected readonly done = signal(false);
   submit(): void {
+    if (this.password() !== this.confirmPw()) { this.fieldErrors.set({ confirm: 'passwordMismatch' }); return; }
     void this.run(async () => {
       await firstValueFrom(this.http.post('/api/auth/reset-password', { email: this.email().trim(), code: this.code().trim(), password: this.password() }));
       this.done.set(true);

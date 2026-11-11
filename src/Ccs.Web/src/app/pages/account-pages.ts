@@ -6,7 +6,7 @@ import QRCode from 'qrcode';
 import { Auth, problemOf } from '../core/auth';
 import { I18n, TPipe } from '../core/i18n';
 import { SiteService, TicketListItem, TicketsApi, TicketSummary } from '../core/api';
-import { Alert, StatusBadge, TextField } from '../shared/ui';
+import { Alert, NewPasswordFields, StatusBadge, Submit, TextField } from '../shared/ui';
 
 const HOME_ICON = { plus: 'M12 5v14M5 12h14', list: 'M4 6h16M4 12h16M4 18h10' };
 const HOME_KPI = {
@@ -178,40 +178,48 @@ export class HomePage {
 /** Account: profile summary, change password, two-step verification (authenticator app). */
 @Component({
   selector: 'app-account',
-  imports: [TPipe, TextField, Alert],
+  imports: [TPipe, TextField, Alert, NewPasswordFields, Submit],
   template: `
-    <main class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
+    <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div>
         <h1 class="text-3xl font-bold tracking-tight">{{ 'Account.title' | t }}</h1>
         <p class="mt-1 text-muted">{{ 'Account.subtitle' | t }}</p>
       </div>
       @if (auth.me(); as me) {
-        <section class="rounded-md border border-line bg-surface p-6">
-          <h2 class="mb-3 text-lg font-bold">{{ 'Account.profile' | t }}</h2>
-          <dl class="grid gap-3 sm:grid-cols-2">
-            <div><dt class="text-sm text-muted">{{ 'Auth.fields.fullName' | t }}</dt><dd class="font-semibold" dir="auto">{{ me.fullName }}</dd></div>
-            <div><dt class="text-sm text-muted">{{ 'Account.email' | t }}</dt><dd class="font-semibold" dir="ltr">{{ me.email }}</dd></div>
-            <div><dt class="text-sm text-muted">{{ 'Auth.fields.phone' | t }}</dt><dd class="font-semibold" dir="ltr">{{ me.phone ?? '-' }}</dd></div>
-            <div><dt class="text-sm text-muted">{{ 'Account.roles' | t }}</dt><dd class="font-semibold">{{ roles() }}</dd></div>
-          </dl>
+        <section aria-labelledby="access" class="rounded-md border border-line bg-surface p-6">
+          <h2 id="access" class="text-lg font-bold">{{ 'Account.roles' | t }}</h2>
+          <ul class="mt-3 flex flex-wrap gap-2">
+            @for (r of me.roles; track r) { <li class="rounded-full bg-brand-soft px-3 py-1 text-sm font-semibold text-brand-ink">{{ 'Roles.' + r | t }}</li> }
+          </ul>
+          <p class="mt-4 text-sm text-muted">{{ 'Account.status' | t }}: <span class="font-semibold text-ink">{{ 'Status.' + (me.accountStatus ?? 'active') | t }}</span></p>
         </section>
 
-        <section class="rounded-md border border-line bg-surface p-6">
-          <h2 class="mb-3 text-lg font-bold">{{ 'Account.password' | t }}</h2>
-          <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); changePassword()">
-            <app-text-field name="current" type="password" [label]="'Auth.change.current' | t" autocomplete="current-password" [required]="true" [(value)]="current" [error]="pwErrors()['currentPassword']" />
-            <app-text-field name="next" type="password" [label]="'Auth.change.newTitle' | t" autocomplete="new-password" [required]="true" [hint]="'Auth.password.rules.length' | t: { min: site.info()?.passwordPolicy?.minLength ?? 10 }" [(value)]="next" [error]="pwErrors()['password']" />
-            @if (pwMsg()) { <app-alert [tone]="pwTone()">{{ pwMsg() }}</app-alert> }
-            <div><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Auth.change.submit' | t }}</button></div>
+        <section aria-labelledby="profile" class="rounded-md border border-line bg-surface p-6">
+          <h2 id="profile" class="mb-4 text-lg font-bold">{{ 'Account.profile' | t }}</h2>
+          <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); saveProfile()">
+            <div class="flex flex-col gap-1.5">
+              <label for="acc-email" class="text-sm font-semibold">{{ 'Account.email' | t }}</label>
+              <input id="acc-email" [value]="me.email" readonly dir="ltr" aria-describedby="acc-email-hint" class="min-h-11 w-full rounded-lg border border-line bg-bg px-3 text-base text-muted" />
+              <p id="acc-email-hint" class="text-sm text-muted">{{ 'Account.emailNote' | t }}</p>
+            </div>
+            <app-text-field name="fullName" [label]="'Auth.fields.fullName' | t" autocomplete="name" [maxLength]="120" [required]="true" [(value)]="fullName" [error]="pfErrors()['fullName']" />
+            <app-text-field name="phone" type="tel" [label]="'Auth.fields.phone' | t" autocomplete="tel" dir="ltr" [maxLength]="40" [required]="true" [hint]="'Auth.fields.phoneHint' | t" [(value)]="phone" [error]="pfErrors()['phone']" />
+            <div class="flex flex-col gap-1.5">
+              <label for="acc-lang" class="text-sm font-semibold">{{ 'Auth.fields.language' | t }}</label>
+              <select id="acc-lang" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" (change)="lang.set($any($event.target).value)">
+                <option value="en" [selected]="lang() === 'en'">{{ 'Language.en' | t }}</option>
+                <option value="ar" [selected]="lang() === 'ar'">{{ 'Language.ar' | t }}</option>
+              </select>
+            </div>
+            @if (pfMsg()) { <app-alert [tone]="pfTone()">{{ pfMsg() }}</app-alert> }
+            <app-submit [pending]="pfBusy()">{{ 'Account.save' | t }}</app-submit>
           </form>
         </section>
 
         <section class="rounded-md border border-line bg-surface p-6">
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 class="text-lg font-bold">{{ 'Mfa.title' | t }}</h2>
-            <span class="rounded-full px-3 py-1 text-xs font-semibold" [class]="me.mfaEnabled ? 'bg-ok-soft text-ok' : 'bg-bg text-muted border border-line'">{{ (me.mfaEnabled ? 'Mfa.on' : 'Mfa.off') | t }}</span>
-          </div>
-          <p class="mb-4 text-muted">{{ 'Mfa.intro' | t }}</p>
+          <h2 class="mb-4 text-lg font-bold">{{ 'Mfa.title' | t }}</h2>
+          <p class="mb-4 text-sm text-muted">{{ 'Mfa.intro' | t }}</p>
+          <p class="mb-4 text-sm font-semibold">{{ 'Mfa.status' | t }}: <span [class]="me.mfaEnabled ? 'text-ok' : 'text-muted'">{{ (me.mfaEnabled ? 'Mfa.on' : 'Mfa.off') | t }}</span></p>
           @if (me.mfaEnabled) {
             @if (confirmOff()) {
               <div class="flex flex-wrap items-center gap-2"><span class="text-sm font-semibold">{{ 'Mfa.confirmOff' | t }}</span>
@@ -244,6 +252,17 @@ export class HomePage {
             </form>
           }
         </section>
+
+        <section aria-labelledby="pw" class="rounded-md border border-line bg-surface p-6">
+          <h2 id="pw" class="mb-4 text-lg font-bold">{{ 'Account.password' | t }}</h2>
+          <form class="flex max-w-md flex-col gap-4" novalidate (submit)="$event.preventDefault(); changePassword()">
+            <app-text-field name="current" type="password" [label]="'Auth.change.current' | t" autocomplete="current-password" [required]="true" [(value)]="current" [error]="pwErrors()['currentPassword']" />
+            <h3 class="mt-2 text-lg font-bold">{{ 'Auth.change.newTitle' | t }}</h3>
+            <app-new-password [(value)]="next" [(confirm)]="confirmNext" [error]="pwErrors()['password']" [confirmError]="pwErrors()['confirm']" />
+            @if (pwMsg()) { <app-alert [tone]="pwTone()">{{ pwMsg() }}</app-alert> }
+            <app-submit [pending]="false">{{ 'Auth.change.submit' | t }}</app-submit>
+          </form>
+        </section>
       }
     </main>`,
   changeDetection: ChangeDetectionStrategy.Default,
@@ -272,8 +291,30 @@ export class AccountPage {
   }
   protected readonly roles = computed(() => (this.auth.me()?.roles ?? []).map((r) => this.i18n.t('Roles.' + r)).join(', '));
 
+  protected readonly confirmNext = signal('');
+  // Profile form (v1 ProfileForm): name, phone and language.
+  protected readonly fullName = signal(this.auth.me()?.fullName ?? '');
+  protected readonly phone = signal(this.auth.me()?.phone ?? '');
+  protected readonly lang = signal<string>(this.auth.me()?.preferredLocale ?? this.i18n.locale());
+  protected readonly pfErrors = signal<Record<string, string>>({});
+  protected readonly pfMsg = signal<string | null>(null);
+  protected readonly pfTone = signal<'error' | 'success'>('success');
+  protected readonly pfBusy = signal(false);
+  saveProfile(): void {
+    this.pfErrors.set({}); this.pfMsg.set(null); this.pfBusy.set(true);
+    firstValueFrom(this.http.put('/api/me', { fullName: this.fullName(), phone: this.phone(), preferredLocale: this.lang() }))
+      .then(async () => { await this.auth.loadMe(); this.pfTone.set('success'); this.pfMsg.set(this.i18n.t('Account.saved')); })
+      .catch((e) => {
+        const p = problemOf(e);
+        if (p.field && p.field !== 'preferredLocale') this.pfErrors.set({ [p.field]: p.code });
+        else { this.pfTone.set('error'); this.pfMsg.set(this.i18n.t('Auth.errors.' + (this.i18n.has('Auth.errors.' + p.code) ? p.code : 'generic'))); }
+      })
+      .finally(() => this.pfBusy.set(false));
+  }
+
   changePassword(): void {
     this.pwErrors.set({}); this.pwMsg.set(null);
+    if (this.next() !== this.confirmNext()) { this.pwErrors.set({ confirm: 'passwordMismatch' }); return; }
     firstValueFrom(this.http.post('/api/auth/change-password', { currentPassword: this.current(), password: this.next() }))
       .then(async () => {
         // All sessions end on a password change: sign in again with the new password.

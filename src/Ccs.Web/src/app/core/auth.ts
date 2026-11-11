@@ -27,6 +27,7 @@ export interface Me {
   customer: boolean;
   scopeLevel: string | null;
   leadsTeam?: boolean;
+  accountStatus?: string;
   mfaEnabled: boolean;
   unreadNotifications: number;
 }

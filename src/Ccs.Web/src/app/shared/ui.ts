@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input
 import { RouterLink } from '@angular/router';
 import { I18n, LOCALES, TPipe } from '../core/i18n';
 import { Router } from '@angular/router';
+import { SiteService } from '../core/api';
 
 /** Red asterisk after a mandatory label; the "* Required" legend appears by itself (styles.css). */
 @Component({
@@ -317,3 +318,54 @@ export const PRIORITY_STRIPE: Record<string, string> = {
   red: 'border-s-4 border-s-danger', amber: 'border-s-4 border-s-warn', blue: 'border-s-4 border-s-brand', green: 'border-s-4 border-s-ok', grey: '', light: '',
 };
 
+
+/** New password + confirmation with strength bar, rule checklist and live match message (v1 NewPasswordFields). */
+@Component({
+  selector: 'app-new-password',
+  imports: [TextField, TPipe],
+  template: `
+    <app-text-field [name]="name()" type="password" [label]="label() || ('Auth.fields.password' | t)" autocomplete="new-password" [required]="true" [(value)]="value" [error]="error()" />
+    <div class="-mt-2 flex flex-col gap-2">
+      <div class="grid grid-cols-4 gap-2" aria-hidden="true">
+        @for (n of [1, 2, 3, 4]; track n) { <span class="h-1.5 rounded-full" [class]="level() >= n ? bar[level()] : 'bg-line'"></span> }
+      </div>
+      <p class="text-sm font-semibold">{{ 'Auth.password.strength' | t }}: <span>{{ 'Auth.password.levels.' + level() | t }}</span></p>
+      <ul class="flex flex-col gap-0.5 text-sm">
+        @for (r of rules(); track r) {
+          <li class="flex items-center gap-2" [class]="!value() ? 'text-muted' : checks()[r] ? 'text-brand-ink' : 'text-danger'">
+            <span aria-hidden="true" class="w-4 text-center font-bold">{{ !value() ? '•' : checks()[r] ? '✓' : '✕' }}</span>
+            <span>{{ 'Auth.password.rules.' + r | t: { min: policy().minLength } }}<span class="sr-only">: {{ (checks()[r] ? 'Auth.password.met' : 'Auth.password.notMet') | t }}</span></span>
+          </li>
+        }
+      </ul>
+      <p class="sr-only" role="status" aria-live="polite">{{ value() ? ('Auth.password.summary' | t: { level: ('Auth.password.levels.' + level() | t), met: met(), total: rules().length }) : '' }}</p>
+    </div>
+    <app-text-field name="confirmPassword" type="password" [label]="'Auth.fields.confirmPassword' | t" autocomplete="new-password" [required]="true" [(value)]="confirm" [error]="confirmError()" />
+    @if (confirm() && confirm() !== value()) { <p role="alert" class="-mt-2 text-sm font-medium text-danger">{{ 'Auth.password.noMatch' | t }}</p> }
+    @if (confirm() && confirm() === value()) { <p role="status" class="-mt-2 text-sm font-medium text-brand-ink">{{ 'Auth.password.match' | t }}</p> }`,
+  host: { class: 'contents' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class NewPasswordFields {
+  private readonly site = inject(SiteService);
+  readonly name = input('password');
+  readonly label = input<string>('');
+  readonly value = model('');
+  readonly confirm = model('');
+  readonly error = input<string | undefined>();
+  readonly confirmError = input<string | undefined>();
+  protected readonly bar = ['bg-line', 'bg-danger', 'bg-[#d97706]', 'bg-[#ca9a04]', 'bg-brand'];
+  protected readonly policy = computed(() => {
+    const p = this.site.info()?.passwordPolicy;
+    return { minLength: p?.minLength ?? 10, upper: p?.requireUpper ?? true, lower: p?.requireLower ?? true, number: p?.requireNumber ?? true, special: p?.requireSpecial ?? true };
+  });
+  protected readonly rules = computed(() => (['length', 'upper', 'lower', 'number', 'special'] as const).filter((r) => r === 'length' || this.policy()[r]));
+  protected readonly checks = computed<Record<string, boolean>>(() => {
+    const pw = this.value();
+    return { length: pw.length >= this.policy().minLength, upper: /\p{Lu}/u.test(pw), lower: /\p{Ll}/u.test(pw), number: /\p{N}/u.test(pw), special: /[^\p{L}\p{N}\s]/u.test(pw) };
+  });
+  protected readonly met = computed(() => this.rules().filter((r) => this.checks()[r]).length);
+  protected readonly level = computed(() => { if (!this.value()) return 0; const m = this.met(); return m === this.rules().length ? 4 : Math.max(1, Math.min(3, m - 1)); });
+  /** True when every rule is met and both fields match. */
+  ok(): boolean { return this.met() === this.rules().length && this.value() === this.confirm(); }
+}
