@@ -220,6 +220,14 @@ public sealed partial class SettingsController(
     private async Task<EmailSettings> EmailAsync(CancellationToken ct) =>
         await db.EmailSettings.FirstOrDefaultAsync(ct) ?? db.EmailSettings.Add(new EmailSettings { Id = 1 }).Entity;
 
+    /// <summary>False when a saved SMTP password cannot be opened on this server (key ring changed): re-enter it.</summary>
+    private bool SmtpPasswordOpens(string? enc)
+    {
+        if (enc is null) return true;
+        try { dp.CreateProtector(SmtpPurpose).Unprotect(enc); return true; }
+        catch (System.Security.Cryptography.CryptographicException) { return false; }
+    }
+
     [HttpGet("email")]
     public async Task<object> Email(CancellationToken ct)
     {
@@ -227,7 +235,7 @@ public sealed partial class SettingsController(
         var e = await EmailAsync(ct);
         return new
         {
-            e.UseSmtp, e.Host, e.Port, e.Security, e.Username, HasPassword = e.PasswordEnc is not null, e.FromName, e.FromEmail, e.ReplyTo,
+            e.UseSmtp, e.Host, e.Port, e.Security, e.Username, HasPassword = e.PasswordEnc is not null, PasswordOk = SmtpPasswordOpens(e.PasswordEnc), e.FromName, e.FromEmail, e.ReplyTo,
             Design = EmailDesign.FromJson(e.Design), e.LastTestAt, e.LastTestOk, e.LastTestError,
         };
     }
@@ -486,11 +494,13 @@ public sealed partial class SettingsController(
         var rows = await db.AppSettings.AsNoTracking().Where(s => keys.Contains(s.Key)).ToDictionaryAsync(s => s.Key, s => s.Value, ct);
         var cap = await db.CaptchaSettings.AsNoTracking().FirstOrDefaultAsync(ct);
         var site = await db.SiteSettings.AsNoTracking().FirstOrDefaultAsync(ct);
+        var secretOk = await captchaCheck.SecretReadableAsync(ct);
+        var fault = (await captchaCheck.StateAsync(ct)).Fault ?? (cap?.SecretEnc is not null && !secretOk ? "secretUnreadable" : null);
         return new
         {
             settings = rows,
             registrationMode = site?.RegistrationMode ?? "approval",
-            captcha = new { enabled = cap?.Enabled ?? false, siteKey = cap?.SiteKey ?? "", hasSecret = cap?.SecretEnc is not null, fault = (await captchaCheck.StateAsync(ct)).Fault },
+            captcha = new { enabled = cap?.Enabled ?? false, siteKey = cap?.SiteKey ?? "", hasSecret = cap?.SecretEnc is not null, fault, secretOk },
         };
     }
 

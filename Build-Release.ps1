@@ -64,7 +64,7 @@ Copy-Item "$web\*" "$Out\ccs-web\" -Recurse
 Copy-Item database\* "$Out\database\" -Recurse
 Copy-Item migration\* "$Out\migration\" -Recurse
 Copy-Item docs\* "$Out\docs\" -Recurse
-Copy-Item deploy\Install-Ccs.ps1, deploy\Install-Ccs.cmd $Out
+Copy-Item deploy\Install-Ccs.ps1, deploy\Install-Ccs.cmd, deploy\Export-KeyCertificate.ps1, deploy\Export-KeyCertificate.cmd $Out
 "commit $stamp built on $env:COMPUTERNAME $(Get-Date -Format o)" | Set-Content "$Out\VERSION.txt"
 Write-Host "Release ready: $Out" -ForegroundColor Green
 

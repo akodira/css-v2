@@ -264,7 +264,7 @@ export class MenusTab extends Tab implements OnInit {
 // ================================================================== email: SMTP, test, design
 
 interface EmailData {
-  useSmtp: boolean; host: string; port: number; security: string; username: string; hasPassword: boolean; fromName: string; fromEmail: string; replyTo: string;
+  useSmtp: boolean; host: string; port: number; security: string; username: string; hasPassword: boolean; passwordOk?: boolean; fromName: string; fromEmail: string; replyTo: string;
   design: { headerColor: string; accentColor: string; pageBackground: string; logoUrl: string | null; showSiteName: boolean; rounded: boolean; largeCodeBox: boolean };
   lastTestAt: string | null; lastTestOk: boolean | null; lastTestError: string | null;
 }
@@ -287,6 +287,7 @@ interface EmailData {
           <div class="flex flex-col gap-1.5"><label for="e-pw" [class]="cls.label">{{ 'AdminGeneral.password' | t }}</label>
             <input id="e-pw" name="pw" type="password" dir="ltr" autocomplete="new-password" [class]="cls.input" [(ngModel)]="password" [placeholder]="e.hasPassword ? ('AdminGeneral.passwordSaved' | t) : ''" />
             <p class="text-xs text-muted">{{ (e.hasPassword ? 'AdminGeneral.passwordKeep' : 'AdminGeneral.passwordNone') | t }}</p>
+            @if (e.hasPassword && e.passwordOk === false) { <p role="alert" class="rounded-lg bg-danger-soft px-3 py-2 text-sm font-semibold text-danger">{{ 'V2.smtpPasswordUnreadable' | t }}</p> }
             @if (e.hasPassword) { <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="clr" [(ngModel)]="clear" /> {{ 'AdminGeneral.clearPassword' | t }}</label> }</div>
           <div class="flex flex-col gap-1.5"><label for="e-fn" [class]="cls.label">{{ 'AdminGeneral.fromName' | t }}</label><input id="e-fn" name="fn" dir="auto" [class]="cls.input" [(ngModel)]="e.fromName" /></div>
           <div class="flex flex-col gap-1.5"><label for="e-fe" [class]="cls.label">{{ 'AdminGeneral.fromEmail' | t }}${REQ}</label><input id="e-fe" name="fe" type="email" dir="ltr" [class]="cls.input" [(ngModel)]="e.fromEmail" /></div>

@@ -18,3 +18,15 @@ BEGIN
                OR (LEN(value) >= 2 AND LEFT(value, 1) = N'"' AND RIGHT(value, 1) = N'"'));
 END
 GO
+
+/* Data Protection key ring in the database (Nov 2026). The keys are encrypted with the "CCS Data Protection"
+   certificate, which stays outside the database; moving to a new server = restore the database + import that
+   certificate (deploy\Export-KeyCertificate.cmd on the old server). */
+IF OBJECT_ID(N'ccs.data_protection_keys', N'U') IS NULL
+    CREATE TABLE ccs.data_protection_keys (
+        id            int IDENTITY(1,1) NOT NULL CONSTRAINT PK_data_protection_keys PRIMARY KEY,
+        friendly_name nvarchar(200) NULL,
+        xml           nvarchar(max) NOT NULL,
+        created_at    datetime2(3) NOT NULL CONSTRAINT DF_data_protection_keys_created DEFAULT SYSUTCDATETIME()
+    );
+GO

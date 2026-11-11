@@ -5,6 +5,10 @@
   One IIS site "ccs-web": the Angular files at / and the API as the IIS application /api (own app pool).
   Run it again for every new release: it updates the files and keeps the database data and the secrets.
 
+  Moving to another server: on the old server run Export-KeyCertificate.cmd, then on the new server restore the
+  database, copy C:\CcsData\attachments, put ccs-key-certificate.pfx in C:\CcsData (or next to this script) and
+  run the installer; it asks for the certificate password.
+
   Unattended use (same result, no window):
     .\Install-Ccs.ps1 -HostName ccs.example.com -CertThumbprint 3F2A...C9 -Quiet
 #>
@@ -23,6 +27,7 @@ param(
     [string] $SupabaseUrl,                           # optional: copy all data from the old system (empties the CCS tables first)
     [string] $SupabaseServiceKey,                    # optional: also copy the ticket attachments
     [switch] $RealOnly,                              # with -SupabaseUrl: skip the demo users (@demo.cts.test) and their tickets
+    [string] $KeyCertPassword,                       # moving from another server: password of ccs-key-certificate.pfx
     [switch] $Quiet                                  # no window
 )
 $ErrorActionPreference = 'Stop'
@@ -99,7 +104,7 @@ if (-not $Quiet) {
     $l = New-Object Windows.Forms.Label -Property @{ Text = 'Certificate'; Left = 20; Top = $script:y + 3; Width = 170 }
     $cCert = New-Object Windows.Forms.ComboBox -Property @{ Left = 195; Top = $script:y; Width = 290; DropDownStyle = 'DropDownList' }
     [void]$cCert.Items.Add('Create a test certificate (testing only)')
-    $certs = @(Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) -and $_.FriendlyName -notlike 'CCS test*' })
+    $certs = @(Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) -and $_.FriendlyName -notlike 'CCS test*' -and $_.Subject -ne 'CN=CCS Data Protection' })
     foreach ($c in $certs) { [void]$cCert.Items.Add("$($c.GetNameInfo('SimpleName', $false))  (until $($c.NotAfter.ToString('yyyy-MM-dd')))") }
     $cCert.SelectedIndex = 0
     for ($i = 0; $i -lt $certs.Count; $i++) { if ($CertThumbprint -and $certs[$i].Thumbprint -eq $CertThumbprint) { $cCert.SelectedIndex = $i + 1 } }
@@ -119,6 +124,24 @@ function Fail($t) {
     Write-Host "`nFAILED: $t" -ForegroundColor Red
     if (-not $Quiet) { [Windows.Forms.MessageBox]::Show("Installation failed:`n`n$t", 'CCS v2', 'OK', 'Error') | Out-Null }
     exit 1
+}
+# Password box (window mode), used for the key certificate from an old server
+function Read-Secret([string]$prompt) {
+    $d = New-Object Windows.Forms.Form -Property @{ Text = 'CCS v2'; Width = 460; Height = 210; StartPosition = 'CenterScreen'; FormBorderStyle = 'FixedDialog'; MaximizeBox = $false; MinimizeBox = $false; Font = New-Object Drawing.Font('Segoe UI', 10) }
+    $l = New-Object Windows.Forms.Label -Property @{ Text = $prompt; Left = 15; Top = 12; Width = 415; Height = 60 }
+    $t = New-Object Windows.Forms.TextBox -Property @{ Left = 15; Top = 78; Width = 415; UseSystemPasswordChar = $true }
+    $b = New-Object Windows.Forms.Button -Property @{ Text = 'OK'; Left = 330; Top = 118; Width = 100; Height = 32; DialogResult = 'OK' }
+    $d.Controls.AddRange(@($l, $t, $b)); $d.AcceptButton = $b
+    if ($d.ShowDialog() -eq 'OK') { $t.Text } else { '' }
+}
+# The app pool must be able to read the private key of the key certificate
+function Grant-KeyRead($cert) {
+    $rsa = [Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($cert)
+    if ($rsa -is [Security.Cryptography.RSACng]) { $file = "$env:ProgramData\Microsoft\Crypto\Keys\$($rsa.Key.UniqueName)" }
+    else { $file = "$env:ProgramData\Microsoft\Crypto\RSA\MachineKeys\$($rsa.CspKeyContainerInfo.UniqueKeyContainerName)" }
+    if (-not (Test-Path $file)) { Fail "The private key file of the key certificate was not found ($file)." }
+    icacls $file /grant 'IIS AppPool\CcsApi:R' /Q | Out-Null
+    $global:LASTEXITCODE = 0
 }
 
 try {
@@ -198,7 +221,35 @@ SetVar 'App__PublicUrl' $Base
 if ($Separate) { SetVar 'Cors__WebOrigin' $Base }
 elseif ($null -ne (Var 'Cors__WebOrigin')) { Remove-WebConfigurationProperty -PSPath $apphost -Filter $ef -Name '.' -AtElement @{ name = 'Cors__WebOrigin' } }
 SetVar 'FileStore__Root' "$DataRoot\attachments"
-SetVar 'DataProtection__KeysFolder' "$DataRoot\keys"
+function RemoveVar($n) { if ($null -ne (Var $n)) { Remove-WebConfigurationProperty -PSPath $apphost -Filter $ef -Name '.' -AtElement @{ name = $n } } }
+
+# Key certificate: encrypts the Data Protection keys kept in the database (they open the saved SMTP password and
+# captcha secret). Moving to another server = restore the database + import this certificate.
+$KeyCertSubject = 'CN=CCS Data Protection'
+$pfx = @("$DataRoot\ccs-key-certificate.pfx", "$Package\ccs-key-certificate.pfx") | Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($pfx) {
+    if (-not $KeyCertPassword -and -not $Quiet) { $KeyCertPassword = Read-Secret "Key certificate from the old server found:`n$pfx`nEnter its password (the one used in Export-KeyCertificate)." }
+    if (-not $KeyCertPassword) { Fail "Found $pfx but no password. Run the installer again and enter the certificate password (or use -KeyCertPassword)." }
+    try { $imported = @(Import-PfxCertificate -FilePath $pfx -CertStoreLocation Cert:\LocalMachine\My -Exportable -Password (ConvertTo-SecureString $KeyCertPassword -AsPlainText -Force)) }
+    catch { Fail "Could not import $pfx (wrong password?). $($_.Exception.Message)" }
+    if (-not ($imported | Where-Object { $_.Subject -eq $KeyCertSubject })) { Fail "$pfx is not a CCS key certificate (subject must be $KeyCertSubject)." }
+    Move-Item $pfx "$pfx.imported-$(Get-Date -Format yyyyMMdd-HHmmss)" -Force
+    Ok "key certificate from the old server imported ($($imported[0].Thumbprint))"
+}
+$keyCerts = @(Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.Subject -eq $KeyCertSubject -and $_.HasPrivateKey } | Sort-Object NotAfter -Descending)
+$NewKeyCert = $false
+if (-not $keyCerts) {
+    $keyCerts = @(New-SelfSignedCertificate -Type Custom -Subject $KeyCertSubject -FriendlyName 'CCS Data Protection (opens saved secrets - back it up)' `
+        -CertStoreLocation Cert:\LocalMachine\My -KeyAlgorithm RSA -KeyLength 3072 -HashAlgorithm SHA256 -KeyExportPolicy Exportable `
+        -KeyUsage KeyEncipherment, DataEncipherment -NotAfter (Get-Date).AddYears(30))
+    $NewKeyCert = $true
+    Ok 'key certificate created (CCS Data Protection)'
+}
+foreach ($kc in $keyCerts) { Grant-KeyRead $kc }
+SetVar 'DataProtection__CertificateThumbprint' $keyCerts[0].Thumbprint
+RemoveVar 'DataProtection__KeysFolder'
+# Releases before Nov 2026 kept the keys in C:\CcsData\keys: the API moves the saved secrets from there once.
+if (Test-Path "$DataRoot\keys\key-*.xml") { SetVar 'DataProtection__LegacyKeysFolder' "$DataRoot\keys" } else { RemoveVar 'DataProtection__LegacyKeysFolder' }
 SetVar 'Serilog__WriteTo__0__Args__path' "$DataRoot\logs\api-.log"
 foreach ($n in 'ConnectionStrings__Ccs', 'Jwt__SigningKey', 'App__PublicUrl') { if (-not (Var $n)) { Fail "App pool setting $n was not saved." } }
 Ok 'settings stored on the CcsApi app pool (not in files)'
@@ -210,7 +261,7 @@ Sql -file $tmp | Out-Null; Ok 'SQL login IIS APPPOOL\CcsApi'
 
 #---------------------------------------------------------------- 4 files
 Step '4/6 Files'
-foreach ($d in "$DataRoot\attachments", "$DataRoot\keys", "$DataRoot\logs", "$SiteRoot\web", "$SiteRoot\api") { New-Item $d -ItemType Directory -Force | Out-Null }
+foreach ($d in "$DataRoot\attachments", "$DataRoot\logs", "$SiteRoot\web", "$SiteRoot\api") { New-Item $d -ItemType Directory -Force | Out-Null }
 robocopy "$Package\ccs-web" "$SiteRoot\web" /MIR /NFL /NDL /NJH /NJS /NP | Out-Null; if ($LASTEXITCODE -ge 8) { Fail 'copying web files failed' }
 robocopy "$Package\ccs-api" "$SiteRoot\api" /MIR /NFL /NDL /NJH /NJS /NP | Out-Null; if ($LASTEXITCODE -ge 8) { Fail 'copying API files failed' }
 icacls $DataRoot /grant 'IIS AppPool\CcsApi:(OI)(CI)M' /T /Q | Out-Null
@@ -327,16 +378,18 @@ if ($AdminEmail -and $AdminPassword) {
     # Same settings as the API's app pool; this window's Windows account must be allowed into SQL Server.
     $env:ConnectionStrings__Ccs = (Var 'ConnectionStrings__Ccs')
     $env:Jwt__SigningKey = (Var 'Jwt__SigningKey')
-    $env:DataProtection__KeysFolder = "$DataRoot\keys"
+    $env:DataProtection__CertificateThumbprint = $keyCerts[0].Thumbprint
     $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     $out = & dotnet "$SiteRoot\api\Ccs.Api.dll" create-admin $AdminEmail $AdminPassword 2>&1
     $code = $LASTEXITCODE; $ErrorActionPreference = $eap; $global:LASTEXITCODE = $code
     if ($LASTEXITCODE -ne 0) { Fail "Could not create the administrator:`n$($out | Out-String)" }
     Ok "administrator $AdminEmail can sign in"
 }
+$keyNote = "Back up the key certificate (Export-KeyCertificate.cmd) together with the database. A new server needs both."
+if ($NewKeyCert) { Write-Host "`n    $keyNote" -ForegroundColor Yellow }
 Write-Host "`nDone: $Base/en" -ForegroundColor Green
 if (-not $Quiet) {
-    [Windows.Forms.MessageBox]::Show("CCS v2 is installed and healthy.`n`nOpen $Base/en", 'CCS v2', 'OK', 'Information') | Out-Null
+    [Windows.Forms.MessageBox]::Show("CCS v2 is installed and healthy.`n`nOpen $Base/en$(if ($NewKeyCert) { "`n`n$keyNote" })", 'CCS v2', 'OK', 'Information') | Out-Null
     Start-Process "$Base/en"
 }
 } catch { Fail $_.Exception.Message }

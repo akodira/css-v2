@@ -3470,7 +3470,8 @@
       "noSiteKey": "The captcha is switched on but has no site key, so it is not shown and nobody is checked. Enter the site key and save.",
       "noSecret": "The captcha is switched on but has no secret key, so it is not shown and nobody is checked. Enter the secret key and save.",
       "secretUnreadable": "The saved secret key cannot be read on this server (the encryption keys changed), so the captcha is not shown and nobody is checked. Enter the secret key again and save."
-    }
+    },
+    "smtpPasswordUnreadable": "The saved SMTP password cannot be read on this server (the encryption keys changed). Enter it again and save."
   },
   "AdminV2": {
     "nav": {

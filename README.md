@@ -69,10 +69,19 @@ Send me any compiler or test errors and I will fix them.
 1. Install the **ASP.NET Core 10 Hosting Bundle**, **URL Rewrite** and **Application Request Routing** (enable proxy at server level).
 2. SQL Server: run the 4 scripts in `database/` on the production instance. `04_logins.sql` creates a least-privilege login. Prefer the app pool's Windows identity (gMSA).
 3. API site: `dotnet publish src/Ccs.Api -c Release -o C:\inetpub\ccs-api`. Create an IIS site on `https://localhost:8443` (or its own host name) with its own app pool, set to *No Managed Code*. Set these environment variables on the pool:
-   `ConnectionStrings__Ccs`, `Jwt__SigningKey`, `App__PublicUrl`. Create `D:\CcsData\{attachments,keys,logs}` outside the web root, give the pool identity write access, and include it in the nightly backup.
+   `ConnectionStrings__Ccs`, `Jwt__SigningKey`, `App__PublicUrl`. Create `D:\CcsData\{attachments,logs}` outside the web root, give the pool identity write access, and include it in the nightly backup.
 4. Web site: `cd src/Ccs.Web; npm ci; npx ng build`, then copy `dist/Ccs.Web/browser/*` to `C:\inetpub\ccs-web`. Create the public HTTPS site. Its `web.config` serves the SPA and proxies `/api` to the API site.
 5. Check `https://<site>/api/health` (database check) and sign in. The Hangfire dashboard is at `https://localhost:8443/api/jobs`, from the server itself only.
-6. Backups: nightly SQL backup plus `D:\CcsData`, with a restore you have actually tested.
+6. Backups: nightly SQL backup plus `D:\CcsData\attachments`, with a restore you have actually tested.
+
+### Encryption keys and moving to another server
+
+The keys that protect the saved SMTP password and captcha secret are stored **in the database** (`ccs.data_protection_keys`), encrypted with the certificate **CN=CCS Data Protection** (LocalMachine\My), which the installer creates. The certificate is not in the database, so a database backup alone cannot open the secrets.
+
+- Backup: run `Export-KeyCertificate.cmd` once (it writes `C:\CcsData\backup\ccs-key-certificate.pfx` with a password you choose). Keep the file and password with the backups, but not in the same place.
+- Move: restore the database on the new server, copy `C:\CcsData\attachments`, put `ccs-key-certificate.pfx` in `C:\CcsData`, run `Install-Ccs.cmd` and enter the certificate password. Nothing has to be re-entered.
+- Lost certificate: the app keeps running; Settings shows "enter it again" for the SMTP password and captcha secret.
+- Releases before Nov 2026 kept the keys in `C:\CcsData\keys`. The first start after updating moves the saved secrets into the new key ring; the old folder can then be deleted.
 
 ## Migrate the data
 

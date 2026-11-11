@@ -48,6 +48,15 @@ public sealed class CaptchaVerifier(CcsDbContext db, IHttpClientFactory http, ID
 
     public async Task<CaptchaState> StateAsync(CancellationToken ct) => (await LoadAsync(ct)).State;
 
+    /// <summary>True when a secret is saved and this server can open it (whether or not the captcha is on).</summary>
+    public async Task<bool> SecretReadableAsync(CancellationToken ct)
+    {
+        var enc = await db.CaptchaSettings.AsNoTracking().Select(x => x.SecretEnc).FirstOrDefaultAsync(ct);
+        if (string.IsNullOrWhiteSpace(enc)) return false;
+        try { return !string.IsNullOrEmpty(dp.CreateProtector(ProtectorPurpose).Unprotect(enc)); }
+        catch (CryptographicException) { return false; }
+    }
+
     public async Task RequireAsync(string action, string? token, CancellationToken ct)
     {
         var (state, secret) = await LoadAsync(ct);

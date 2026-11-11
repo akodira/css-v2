@@ -48,15 +48,9 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher<AppUser>, BcryptCompatiblePasswordHasher>();
         services.AddScoped<IMfaStatus, MfaStatus>();
 
-        // Data Protection keys on disk (same folder for every API instance) - protects SMTP and captcha secrets.
-        var keys = config["DataProtection:KeysFolder"];
-        var dp = services.AddDataProtection().SetApplicationName("ccs-v2");
-        if (!string.IsNullOrWhiteSpace(keys))
-        {
-            dp.PersistKeysToFileSystem(new DirectoryInfo(keys));
-            // Production (Windows Server): keys at rest are encrypted with machine DPAPI. CI runs on Linux, where DPAPI does not exist.
-            if (OperatingSystem.IsWindows()) dp.ProtectKeysWithDpapi(protectToLocalMachine: true);
-        }
+        // Data Protection key ring in SQL Server, encrypted with the "CCS Data Protection" certificate
+        // (protects the SMTP password and captcha secret; moves with the database + certificate).
+        Ccs.Infrastructure.Security.KeyRing.AddCcsKeyRing(services, config);
 
         services.Configure<JwtOptions>(config.GetSection(JwtOptions.Section));
         services.Configure<FileStoreOptions>(config.GetSection(FileStoreOptions.Section));

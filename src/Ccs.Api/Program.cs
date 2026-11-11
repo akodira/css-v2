@@ -145,6 +145,10 @@ if (runJobs)
     CcsJobs.Schedule(app.Services.GetRequiredService<IRecurringJobManager>());
 }
 
+// One-time: secrets saved with the old key folder are moved to the SQL Server key ring (no-op afterwards).
+if (!string.IsNullOrWhiteSpace(app.Configuration.GetConnectionString("Ccs")))
+    await Ccs.Api.KeyRingMigration.RunAsync(app.Services, app.Configuration, app.Logger);
+
 app.Run();
 
 /// <summary>The Hangfire dashboard is reachable only from the server itself (RDP to the box to look at jobs).</summary>
