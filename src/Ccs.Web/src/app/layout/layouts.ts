@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet } from '@angular/common';
 import { Auth } from '../core/auth';
 import { I18n, TPipe } from '../core/i18n';
@@ -98,7 +98,41 @@ export class Footer {
   imports: [RouterOutlet, RouterLink, Logo, LanguageSwitcher, TPipe, Footer],
   template: `
     <header data-site-header class="sticky top-0 z-30 border-b border-line bg-surface md:static">
-      <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+      <!-- Phone (v1 PublicNav): one slim bar - brand, Sign in, menu button; the panel holds Create account / My account, language, Sign out -->
+      <div class="md:hidden">
+        <div class="flex h-16 items-center gap-2 px-3">
+          <a [routerLink]="'/' + i18n.locale()" class="block min-w-0 flex-1 overflow-hidden" [attr.aria-label]="name()"><app-logo [name]="name()" [sub]="sub()" [logoUrl]="site.logoUrl()" /></a>
+          @if (!auth.signedIn()) {
+            <a [routerLink]="'/' + i18n.locale() + '/login'" class="flex min-h-11 shrink-0 items-center rounded-lg bg-brand px-4 text-[0.95rem] font-bold text-white hover:bg-brand-ink">{{ 'Nav.signIn' | t }}</a>
+          }
+          <button type="button" [attr.aria-expanded]="open()" aria-controls="public-menu" [attr.aria-label]="(open() ? 'Nav.closeMenu' : 'Nav.menu') | t" (click)="open.set(!open())"
+            class="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-line bg-surface hover:bg-bg">
+            @if (open()) {
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            } @else {
+              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+            }
+          </button>
+        </div>
+        @if (open()) {
+          <button type="button" tabindex="-1" [attr.aria-label]="'Nav.closeMenu' | t" (click)="open.set(false)" class="fixed inset-x-0 bottom-0 top-16 z-40 cursor-default bg-black/50"></button>
+          <nav id="public-menu" [attr.aria-label]="'Nav.menu' | t" class="fixed inset-x-0 top-16 z-50 flex max-h-[calc(100dvh-4rem)] flex-col gap-2 overflow-y-auto border-b border-line bg-surface px-3 pb-4 pt-2 shadow-2xl">
+            @if (!auth.signedIn()) {
+              @if (site.info()?.site?.registrationMode !== 'closed') {
+                <div class="pt-1"><a [routerLink]="'/' + i18n.locale() + '/register'" (click)="open.set(false)" class="flex min-h-12 items-center justify-center rounded-lg border border-brand font-bold text-brand-ink hover:bg-brand-soft">{{ 'Nav.register' | t }}</a></div>
+              }
+            } @else {
+              <div><a [routerLink]="auth.homePath()" (click)="open.set(false)" class="flex min-h-12 items-center rounded-lg px-3 font-semibold text-ink/80 hover:bg-brand-soft hover:text-brand-ink">{{ 'Nav.account' | t }}</a></div>
+            }
+            <div class="border-t border-line pt-3"><p class="mb-1 px-1 text-xs font-bold text-muted">{{ 'Nav.language' | t }}</p><app-language-switcher /></div>
+            @if (auth.signedIn()) {
+              <div class="border-t border-line pt-1"><button type="button" (click)="open.set(false); auth.signOut()" class="flex min-h-12 w-full cursor-pointer items-center rounded-lg px-3 font-semibold text-danger hover:bg-bg">{{ 'Nav.signOut' | t }}</button></div>
+            }
+          </nav>
+        }
+      </div>
+      <!-- Tablet and wider: full header -->
+      <div class="mx-auto hidden max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 md:flex">
         <a [routerLink]="'/' + i18n.locale()" class="block" [attr.aria-label]="name()"><app-logo [name]="name()" [sub]="sub()" [logoUrl]="site.logoUrl()" /></a>
         <div class="flex flex-wrap items-center gap-2">
           <app-language-switcher />
@@ -121,6 +155,12 @@ export class Footer {
 })
 export class PublicLayout {
   protected readonly i18n = inject(I18n);
+  /** Phone menu; closes on page change and Escape (v1 PublicNav). */
+  protected readonly open = signal(false);
+  constructor() {
+    inject(Router).events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => this.open.set(false));
+  }
+  @HostListener('document:keydown.escape') protected esc(): void { this.open.set(false); }
   protected readonly auth = inject(Auth);
   protected readonly site = inject(SiteService);
   protected readonly name = computed(() => this.i18n.pick(this.site.info()?.site?.headerNameEn, this.site.info()?.site?.headerNameAr) || this.i18n.t('Brand.name'));
