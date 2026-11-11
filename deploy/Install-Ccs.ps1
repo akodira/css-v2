@@ -40,13 +40,15 @@ Get-ChildItem $Package -Recurse -File | Unblock-File -ErrorAction SilentlyContin
 #---------------------------------------------------------------- saved settings from the last install (C:\CcsData\installer-settings.json)
 # Only values not typed on the command line are taken; nothing secret is stored (no passwords, no keys).
 $SettingsFile = Join-Path $DataRoot 'installer-settings.json'
+$Remembered = @{}
 if (Test-Path $SettingsFile) {
     try {
         $saved = Get-Content $SettingsFile -Raw | ConvertFrom-Json
         foreach ($k in 'HostName', 'ApiHostName', 'CertThumbprint', 'SqlInstance', 'Database', 'SiteRoot', 'Port') {
+            if ($k -eq 'ApiHostName' -and $PSBoundParameters.ContainsKey('HostName')) { continue }   # a typed address means "exactly this layout"
             if (-not $PSBoundParameters.ContainsKey($k) -and $null -ne $saved.$k -and "$($saved.$k)" -ne '') {
                 Set-Variable -Name $k -Value ($(if ($k -eq 'Port') { [int]$saved.$k } else { [string]$saved.$k }))
-                $PSBoundParameters[$k] = (Get-Variable $k).Value   # saved values win over what IIS shows
+                $Remembered[$k] = $true   # saved values win over what IIS shows
             }
         }
     } catch { }
@@ -59,14 +61,14 @@ if (Test-Path $appcmd) {
     $cur = (& $appcmd list site ccs-web /text:bindings 2>$null) -split ',' | Where-Object { $_ -like 'https/*' } | Select-Object -First 1
     if ($cur -match '^https/[^:]*:(\d+):(.*)$') {
         $curPort = [int]$Matches[1]; $curHost = $Matches[2]
-        if (-not $PSBoundParameters.ContainsKey('HostName') -and $curHost) { $HostName = $curHost }
-        if (-not $PSBoundParameters.ContainsKey('Port')) { $Port = $curPort }
-        if (-not $PSBoundParameters.ContainsKey('CertThumbprint')) {
+        if (-not $PSBoundParameters.ContainsKey('HostName') -and -not $Remembered.HostName -and $curHost) { $HostName = $curHost }
+        if (-not $PSBoundParameters.ContainsKey('Port') -and -not $Remembered.Port) { $Port = $curPort }
+        if (-not $PSBoundParameters.ContainsKey('CertThumbprint') -and -not $Remembered.CertThumbprint) {
             $ssl = (netsh http show sslcert hostnameport="${HostName}:$Port" 2>$null) | Select-String 'Certificate Hash\s*:\s*([0-9a-fA-F]+)'
-            if ($ssl) { $CertThumbprint = $ssl.Matches[0].Groups[1].Value }
+            if ($ssl) { $CertThumbprint = $ssl.Matches[0].Groups[1].Value; $Remembered.CertThumbprint = $true }
         }
     }
-    if (-not $PSBoundParameters.ContainsKey('ApiHostName')) {
+    if (-not $PSBoundParameters.ContainsKey('ApiHostName') -and -not $PSBoundParameters.ContainsKey('HostName') -and -not $Remembered.ApiHostName) {
         $api = (& $appcmd list site ccs-api /text:bindings 2>$null) -split ',' | Where-Object { $_ -like 'https/*' } | Select-Object -First 1
         if ($api -match '^https/[^:]*:\d+:(.+)$') { $ApiHostName = $Matches[1] }
     }
@@ -126,6 +128,13 @@ if ($ApiHostName -eq $HostName) { $ApiHostName = '' }
 $Separate = [bool]$ApiHostName
 $ApiBase = if (-not $Separate) { $Base } elseif ($Port -eq 443) { "https://$ApiHostName" } else { "https://${ApiHostName}:$Port" }
 $Names = @($HostName) + @($ApiHostName | Where-Object { $_ })
+# A remembered certificate is reused only if it still exists, is valid and covers every address (else a new one is chosen/made).
+if ($CertThumbprint -and $Remembered.CertThumbprint) {
+    $c = Get-Item "Cert:\LocalMachine\My\$CertThumbprint" -ErrorAction SilentlyContinue
+    $dns = if ($c) { @($c.DnsNameList | ForEach-Object { "$_" }) } else { @() }
+    $covers = { param($n) $dns | Where-Object { $_ -eq $n -or ($_ -like '`*.*' -and $n -like ('*' + $_.Substring(1)) -and ($n.Split('.').Count -eq $_.Split('.').Count)) } }
+    if (-not $c -or $c.NotAfter -lt (Get-Date) -or @($Names | Where-Object { -not (& $covers $_) }).Count) { $CertThumbprint = '' }
+}
 Step '1/6 Checking the server'
 $need = [ordered]@{
     'IIS'                         = "$env:windir\system32\inetsrv\w3wp.exe"
