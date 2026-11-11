@@ -385,8 +385,16 @@ interface TeamMemberRow { teamId: string; userId: string; isLeader: boolean; ful
                 <span><span class="font-semibold" dir="auto">{{ r.fullName }}</span> <span class="text-sm text-muted" dir="ltr">{{ r.email }}</span>
                   @if (r.isLeader) { <span class="ms-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-ink">{{ 'Team.leader' | t }}</span> }</span>
                 <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
-                  <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" class="h-5 w-5" [checked]="r.autoAssign" (change)="set(r, { autoAssign: $any($event.target).checked })" />{{ 'Team.switchFor' | t: { name: r.fullName } }}</label>
-                  <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" class="h-5 w-5" [checked]="r.canCreateForCustomers" (change)="set(r, { canCreateForCustomers: $any($event.target).checked })" />{{ 'Team.createFor' | t: { name: r.fullName } }}</label>
+                  <div class="flex flex-wrap items-center gap-3">
+                    <label class="flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" class="h-5 w-5" [checked]="r.autoAssign" [disabled]="state()[r.userId + 'a'] === 'saving'" [attr.aria-label]="'Team.switchFor' | t: { name: r.fullName }"
+                      (change)="set(r, 'a', { autoAssign: $any($event.target).checked })" />{{ (r.autoAssign ? 'Team.on' : 'Team.off') | t }}</label>
+                    @if (state()[r.userId + 'a'] === 'saving') { <span class="text-sm text-muted">{{ 'Team.saving' | t }}</span> } @else if (state()[r.userId + 'a'] === 'saved') { <span role="status" class="text-sm font-semibold text-brand-ink">{{ 'Team.saved' | t }}</span> }
+                  </div>
+                  <div class="flex flex-wrap items-center gap-3">
+                    <label class="flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" class="h-5 w-5" [checked]="r.canCreateForCustomers" [disabled]="state()[r.userId + 'c'] === 'saving'" [attr.aria-label]="'Team.createFor' | t: { name: r.fullName }"
+                      (change)="set(r, 'c', { canCreateForCustomers: $any($event.target).checked })" />{{ (r.canCreateForCustomers ? 'Team.createOn' : 'Team.createOff') | t }}</label>
+                    @if (state()[r.userId + 'c'] === 'saving') { <span class="text-sm text-muted">{{ 'Team.saving' | t }}</span> } @else if (state()[r.userId + 'c'] === 'saved') { <span role="status" class="text-sm font-semibold text-brand-ink">{{ 'Team.saved' | t }}</span> }
+                  </div>
                 </div>
               </li>
             }
@@ -402,8 +410,13 @@ export class MyTeamPage {
   protected readonly msg = signal<{ tone: 'error' | 'success'; text: string } | null>(null);
   constructor() { void this.load(); }
   private async load(): Promise<void> { this.teams.set(await firstValueFrom(this.http.get<{ id: string; nameEn: string; nameAr: string; members: TeamMemberRow[] }[]>('/api/console/my-team'))); }
-  protected async set(r: TeamMemberRow, b: Partial<Pick<TeamMemberRow, 'autoAssign' | 'canCreateForCustomers'>>): Promise<void> {
-    try { await firstValueFrom(this.http.put('/api/console/my-team/' + r.userId, b)); this.msg.set({ tone: 'success', text: this.i18n.t('Team.saved') }); await this.load(); }
-    catch { this.msg.set({ tone: 'error', text: this.i18n.t('Directory.errors.generic') }); }
+  /** Saves one switch as soon as it changes and says so next to it (v1 AutoAssignSwitch / TicketCreationSwitch). */
+  protected readonly state = signal<Record<string, 'saving' | 'saved'>>({});
+  protected async set(r: TeamMemberRow, which: 'a' | 'c', b: Partial<Pick<TeamMemberRow, 'autoAssign' | 'canCreateForCustomers'>>): Promise<void> {
+    const key = r.userId + which;
+    this.msg.set(null);
+    this.state.update((s) => ({ ...s, [key]: 'saving' }));
+    try { await firstValueFrom(this.http.put('/api/console/my-team/' + r.userId, b)); Object.assign(r, b); this.state.update((s) => ({ ...s, [key]: 'saved' })); }
+    catch { this.state.update((s) => { const n = { ...s }; delete n[key]; return n; }); this.msg.set({ tone: 'error', text: this.i18n.t('Directory.errors.generic') }); await this.load(); }
   }
 }

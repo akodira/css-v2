@@ -2448,30 +2448,81 @@
     },
     "agent": {
       "summary": "Works tickets and answers customers.",
-      "can1": "Reply to customers",
-      "can2": "Add internal notes",
-      "can3": "Change status and priority",
-      "can4": "Use saved replies"
+      "can1": "See and work the tickets assigned to them",
+      "can2": "Pick up unassigned tickets",
+      "can3": "Reply to customers",
+      "can4": "Add internal notes",
+      "can5": "Change status and priority",
+      "can6": "Mark tickets resolved",
+      "can7": "Use saved replies",
+      "can8": "View customers",
+      "can9": "Own reports"
     },
     "team_leader": {
       "summary": "An agent who also directs the team.",
       "can1": "Everything an agent can do",
       "can2": "Assign tickets to others",
-      "can3": "See the team's workload"
+      "can3": "Close tickets and change category",
+      "can4": "See the whole team and its workload",
+      "can5": "Manage customers",
+      "can6": "Manage saved replies",
+      "can7": "Team reports and export"
     },
     "admin": {
       "summary": "Runs the whole system.",
-      "can1": "Users, roles and permissions",
-      "can2": "Settings, SLA and templates",
-      "can3": "Approve new accounts",
-      "can4": "Everything else"
+      "can1": "Everything, in every organization",
+      "can2": "Users, roles and permissions",
+      "can3": "Organizations, teams and branches",
+      "can4": "Settings, SLA and templates",
+      "can5": "Categories and catalog",
+      "can6": "Approve new accounts",
+      "can7": "All reports, export and audit log"
     },
     "management_viewer": {
       "summary": "Watches results without changing anything.",
-      "can1": "Dashboards and reports",
-      "can2": "View tickets (read only)",
-      "can3": "Cannot reply or change anything"
-    }
+      "can1": "Dashboards and all reports",
+      "can2": "View all tickets (read only)",
+      "can3": "View customers (read only)",
+      "can4": "Cannot reply or change anything"
+    },
+    "organization_admin": {
+      "summary": "Manages people for the organizations you choose, and the ones below them.",
+      "can1": "Add and edit staff and customers",
+      "can2": "Approve new accounts",
+      "can3": "Everything a team leader does on tickets: reply, assign, resolve, close, change category",
+      "can4": "See all teams and all reports",
+      "can5": "Only inside the chosen organizations",
+      "title": "Organization admin"
+    },
+    "branch_admin": {
+      "summary": "Manages people for the branches you choose.",
+      "can1": "Add and edit staff and customers",
+      "can2": "Approve new accounts",
+      "can3": "Everything a team leader does on tickets: reply, assign, resolve, close, change category",
+      "can4": "See all teams and all reports",
+      "can5": "Only inside the chosen branches",
+      "title": "Branch admin"
+    },
+    "tag": "Limited to a part of the company",
+    "editable": "Editable in People › Permissions",
+    "permNote": "These lists show what each role can do by default. What a person can finally do is decided by their account type, and you can change it any time under People › Permissions.",
+    "scopeOrgTitle": "Which organizations will they manage?",
+    "scopeBranchTitle": "Which branches will they manage?",
+    "scopeOrgHint": "Choosing an organization also covers the organizations inside it.",
+    "scopeBranchHint": "Branches are grouped by their organization. Use Select all to take a whole organization.",
+    "searchOrgs": "Search organizations",
+    "searchBranches": "Search branches or organizations",
+    "selectShown": "Select all shown",
+    "clear": "Clear",
+    "selectAll": "Select all",
+    "clearGroup": "Clear",
+    "none": "Nothing chosen yet. Tick at least one below.",
+    "count": "{n} chosen · showing {shown} of {total}",
+    "noMatch": "No match.",
+    "branchesN": "{n} branches",
+    "inside": "inside {name}",
+    "includes": "includes {names}",
+    "remove": "Remove {name}"
   },
   "AdminSigninCodes": {
     "title": "Sign-in codes",

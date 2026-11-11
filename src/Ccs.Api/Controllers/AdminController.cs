@@ -41,6 +41,9 @@ public sealed class AdminController(
     public sealed record TeamBody(string NameEn, string NameAr, bool IsActive);
     public sealed record MemberRow(Guid UserId, bool IsLeader);
     public sealed record MembersBody(MemberRow[] Members);
+    public sealed record StaffCreateBody(string FullName, string Email, string? Phone, string Password, string[]? Roles, string? Scoped, Guid[]? Orgs, Guid[]? Branches);
+    public sealed record RolesBody(string[] Roles);
+    public sealed record DetailsBody(string FullName, string Email, string? Phone);
 
     private static AuthError Err(string code, string? field = null, int status = 400) => new(code, status, field);
 
@@ -547,6 +550,8 @@ public sealed class AdminController(
         var candidates = await (from p in db.Profiles join ur in db.CcsUserRoles on p.Id equals ur.UserId join r in db.CcsRoles on ur.RoleId equals r.Id
                                 where p.AccountStatus == AccountStatus.Active && (r.Code == RoleCode.Agent || r.Code == RoleCode.TeamLeader)
                                 orderby p.FullName select new { p.Id, p.FullName, p.Email, Role = r.Code }).ToListAsync(ct);
+        // One line per person, even with both the Agent and the Team leader role.
+        candidates = candidates.GroupBy(x => x.Id).Select(g => g.OrderByDescending(x => x.Role == RoleCode.TeamLeader).First()).ToList();
         return new
         {
             teams = teams.Select(t => new
@@ -608,9 +613,9 @@ public sealed class AdminController(
                            where ids.Contains(ur.UserId) select new { ur.UserId, r.Code }).ToListAsync(ct);
         foreach (var m in wanted)
         {
-            var code = roles.FirstOrDefault(r => r.UserId == m.UserId)?.Code;
-            if (code is not (RoleCode.Agent or RoleCode.TeamLeader)) throw Err("user_must_be_agent_or_team_leader");
-            if (m.IsLeader && code != RoleCode.TeamLeader) throw Err("leaderRole");
+            var codes = roles.Where(r => r.UserId == m.UserId).Select(r => r.Code).ToList();
+            if (!codes.Any(x => x is RoleCode.Agent or RoleCode.TeamLeader)) throw Err("user_must_be_agent_or_team_leader");
+            if (m.IsLeader && !codes.Contains(RoleCode.TeamLeader)) throw Err("leaderRole");
         }
         var before = await db.TeamMembers.AsNoTracking().Where(m => m.TeamId == id).Select(m => new { m.UserId, m.IsLeader }).ToListAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -628,6 +633,199 @@ public sealed class AdminController(
         var ar = Name(b.NameAr, "nameAr");
         if (await db.Teams.AnyAsync(x => x.Id != t.Id && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
         t.NameEn = en; t.NameAr = ar; t.IsActive = b.IsActive; t.UpdatedAt = clock.UtcNow;
+    }
+
+    // ---------------------------------------------------------------- staff screen (v1 /admin/users)
+
+    /// <summary>Staff with every role, account type, what they can reach, teams and what they lead (v1 admin_list_users + scopeOf).</summary>
+    [HttpGet("staff")]
+    public async Task<object> Staff(CancellationToken ct)
+    {
+        var c = await Need(null, ct);
+        var roleRows = await (from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id select new { ur.UserId, r.Code }).ToListAsync(ct);
+        var rolesOf = roleRows.GroupBy(x => x.UserId).ToDictionary(g => g.Key, g => g.Select(x => x.Code).OrderBy(x => RoleCode.All.ToList().IndexOf(x)).ToList());
+        var staffIds = rolesOf.Where(kv => !kv.Value.Contains(RoleCode.Customer)).Select(kv => kv.Key).ToList();
+        var people = await db.Profiles.AsNoTracking().Where(p => staffIds.Contains(p.Id)).OrderBy(p => p.FullName).ToListAsync(ct);
+        var orgs = await db.Organizations.AsNoTracking().Select(o => new { o.Id, o.Name, o.TeamLeaderId, o.IsActive }).ToListAsync(ct);
+        var branches = await db.Branches.AsNoTracking().Select(b => new { b.Id, b.OrganizationId, b.Name, b.TeamLeaderId, b.IsActive }).ToListAsync(ct);
+        var types = await db.AccountTypes.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);
+        var typeAccess = await db.AccountTypeAccess.AsNoTracking().ToListAsync(ct);
+        var scopes = await db.AdminScopes.AsNoTracking().Where(s => staffIds.Contains(s.UserId)).ToListAsync(ct);
+        var places = await db.StaffPlacements.AsNoTracking().Where(s => staffIds.Contains(s.UserId)).ToListAsync(ct);
+        var teams = await (from m in db.TeamMembers.AsNoTracking() join t in db.Teams on m.TeamId equals t.Id where staffIds.Contains(m.UserId)
+                           select new { m.UserId, t.NameEn, t.NameAr }).ToListAsync(ct);
+        var mfa = (await users.Users.Where(u => u.TwoFactorEnabled && staffIds.Contains(u.Id)).Select(u => u.Id).ToListAsync(ct)).ToHashSet();
+        string OrgName(Guid id) => orgs.FirstOrDefault(o => o.Id == id)?.Name ?? "?";
+        string BrName(Guid id) => branches.FirstOrDefault(b => b.Id == id)?.Name ?? "?";
+        // A line per place: "Org · Branch", or the organization with an "all branches" marker the screen translates.
+        object Line(Guid org, Guid? br) => br is Guid b ? new { org = OrgName(org), branch = (string?)BrName(b) } : new { org = OrgName(org), branch = (string?)null };
+        return new
+        {
+            me = c.UserId,
+            orgs = orgs.Where(o => o.IsActive).OrderBy(o => o.Name).Select(o => new { o.Id, o.Name }),
+            branches = branches.Where(b => b.IsActive).OrderBy(b => b.Name).Select(b => new { b.Id, b.OrganizationId, b.Name }),
+            staff = people.Select(p =>
+            {
+                var roles = rolesOf[p.Id];
+                var ty = p.AccountTypeId is Guid tid && types.TryGetValue(tid, out var tt) ? tt : null;
+                var isAdmin = roles.Contains(RoleCode.Admin);
+                var picked = scopes.Where(s => s.UserId == p.Id).Select(s => Line(s.OrganizationId, s.BranchId)).ToList();
+                var placed = places.Where(s => s.UserId == p.Id).Select(s => Line(s.OrganizationId, s.BranchId)).ToList();
+                // Same order of rules as v1 scopeOf(): scoped admin → their scope; placed → placement; admin / all-access / no type → everything; else the type's places.
+                string kind; List<object> access;
+                if (ty?.ScopeLevel is not null && !isAdmin) { kind = picked.Count == 0 ? "none" : "list"; access = picked; }
+                else if (placed.Count > 0 && !isAdmin) { kind = "list"; access = placed; }
+                else if (isAdmin || ty is null || ty.AllAccess) { kind = "all"; access = []; }
+                else { access = typeAccess.Where(a => a.AccountTypeId == ty.Id).Select(a => Line(a.OrganizationId, a.BranchId)).ToList(); kind = access.Count == 0 ? "none" : "list"; }
+                var leads = orgs.Where(o => o.TeamLeaderId == p.Id).Select(o => o.Name)
+                    .Concat(branches.Where(b => b.TeamLeaderId == p.Id).Select(b => OrgName(b.OrganizationId) + " · " + b.Name)).Distinct().ToList();
+                return new
+                {
+                    p.Id, p.FullName, p.Email, p.Phone, Status = p.AccountStatus, Roles = roles, p.CreatedAt, IsSelf = p.Id == c.UserId,
+                    Mfa = mfa.Contains(p.Id), TypeNameEn = ty?.NameEn, TypeNameAr = ty?.NameAr, ScopeLevel = ty?.ScopeLevel,
+                    AccessKind = kind, Access = access, Leads = leads,
+                    Teams = teams.Where(t => t.UserId == p.Id).Select(t => new { t.NameEn, t.NameAr }),
+                };
+            }),
+        };
+    }
+
+    /// <summary>v1 createUserAction for staff: several roles, or an Organization / Branch Admin with the places they manage.</summary>
+    [HttpPost("staff")]
+    public async Task<object> CreateStaff(StaffCreateBody b, CancellationToken ct)
+    {
+        await Need(null, ct);
+        var scoped = b.Scoped is "organization" or "branch" ? b.Scoped : null;
+        string[] roles = scoped is not null ? [RoleCode.Agent] : (b.Roles ?? []).Distinct().ToArray();
+        CheckRoles(roles, staffOnly: true);
+        Guid[] pickOrgs = b.Orgs ?? [], pickBranches = b.Branches ?? [];
+        if (scoped is not null && (scoped == "organization" ? pickOrgs.Length : pickBranches.Length) == 0) throw Err("scopeRequired", "scope");
+        var email = (b.Email ?? "").Trim().ToLowerInvariant();
+        if (!email.Contains('@') || email.Length > 254) throw Err("required", "email");
+        var name = Name(b.FullName, "fullName");
+        if (string.IsNullOrEmpty(b.Password)) throw Err("passwordWeak", "password");
+        if (await users.FindByEmailAsync(email) is not null) throw Err("emailTaken", "email", 409);
+        await CheckPhoneAsync(b.Phone, null, ct);
+        Guid? typeId = null;
+        if (scoped is not null)
+        {
+            typeId = await db.AccountTypes.Where(t => t.ScopeLevel == scoped).OrderByDescending(t => t.IsBuiltin).ThenBy(t => t.CreatedAt).Select(t => (Guid?)t.Id).FirstOrDefaultAsync(ct)
+                     ?? throw Err("generic");
+        }
+        var user = new AppUser { Id = Guid.NewGuid(), UserName = email, Email = email, EmailConfirmed = true };
+        var r = await users.CreateAsync(user, b.Password);
+        if (!r.Succeeded) throw Err(r.Errors.Any(e => e.Code.StartsWith("password", StringComparison.OrdinalIgnoreCase)) ? "passwordWeak" : "generic", "password");
+        var now = clock.UtcNow;
+        var p = new Profile { Id = user.Id, FullName = name, Email = email, Phone = Clean(b.Phone), CreatedAt = now, UpdatedAt = now, PasswordChangedAt = now, AccountStatus = AccountStatus.Active, AccountTypeId = typeId };
+        db.Profiles.Add(p);
+        foreach (var code in roles) db.CcsUserRoles.Add(new UserRole { UserId = user.Id, RoleId = await RoleIdAsync(code, ct) });
+        if (scoped is not null)
+        {
+            var rows = scoped == "organization"
+                ? await db.Organizations.Where(o => pickOrgs.Contains(o.Id)).Select(o => new { OrganizationId = o.Id, BranchId = (Guid?)null }).ToListAsync(ct)
+                : await db.Branches.Where(x => pickBranches.Contains(x.Id)).Select(x => new { x.OrganizationId, BranchId = (Guid?)x.Id }).ToListAsync(ct);
+            foreach (var x in rows)
+            {
+                db.AdminScopes.Add(new AdminScope { Id = Guid.NewGuid(), UserId = user.Id, OrganizationId = x.OrganizationId, BranchId = x.BranchId });
+                db.StaffPlacements.Add(new StaffPlacement { Id = Guid.NewGuid(), UserId = user.Id, OrganizationId = x.OrganizationId, BranchId = x.BranchId });
+            }
+        }
+        audit.Write("user.create", "profile", p.Id, null, new { p.FullName, p.Email, roles, scoped });
+        try { await db.SaveChangesAsync(ct); }
+        catch { await users.DeleteAsync(user); throw; }
+        return new { p.Id };
+    }
+
+    /// <summary>v1 admin_set_user_roles(): the ticked roles replace the old ones. Customer stays alone; nobody drops their own Administrator role.</summary>
+    [HttpPut("users/{id:guid}/roles")]
+    public async Task<IActionResult> SetRoles(Guid id, RolesBody b, CancellationToken ct)
+    {
+        var c = await Need(null, ct);
+        var p = await db.Profiles.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        var roles = (b.Roles ?? []).Distinct().ToArray();
+        CheckRoles(roles, staffOnly: false);
+        var old = await (from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id where ur.UserId == id select r.Code).ToListAsync(ct);
+        if (id == c.UserId && old.Contains(RoleCode.Admin) && !roles.Contains(RoleCode.Admin)) throw Err("cannot_remove_own_admin");
+        if (old.Contains(RoleCode.Admin) && !roles.Contains(RoleCode.Admin)) await GuardLastAdminAsync(id, ct);
+        await db.CcsUserRoles.Where(x => x.UserId == id).ExecuteDeleteAsync(ct);
+        foreach (var code in roles) db.CcsUserRoles.Add(new UserRole { UserId = id, RoleId = await RoleIdAsync(code, ct) });
+        if (!roles.Any(x => x is RoleCode.Agent or RoleCode.TeamLeader)) await db.TeamMembers.Where(m => m.UserId == id).ExecuteDeleteAsync(ct);
+        else if (!roles.Contains(RoleCode.TeamLeader)) await db.TeamMembers.Where(m => m.UserId == id && m.IsLeader).ExecuteUpdateAsync(s => s.SetProperty(m => m.IsLeader, false), ct);
+        if (roles.Contains(RoleCode.Customer)) { p.AutoAssign = false; p.CanCreateForCustomers = false; }
+        p.UpdatedAt = clock.UtcNow;
+        audit.Write("user.roles", "profile", id, new { roles = old }, new { roles });
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>v1 UserEditForm: name, email and phone only.</summary>
+    [HttpPut("users/{id:guid}/details")]
+    public async Task<IActionResult> SetDetails(Guid id, DetailsBody b, CancellationToken ct)
+    {
+        var (_, p, _) = await TargetAsync(id, ct);
+        var before = new { p.FullName, p.Email, p.Phone };
+        p.FullName = Name(b.FullName, "fullName");
+        await CheckPhoneAsync(b.Phone, id, ct);
+        p.Phone = Clean(b.Phone);
+        var email = (b.Email ?? "").Trim().ToLowerInvariant();
+        if (email != p.Email)
+        {
+            if (!email.Contains('@') || email.Length > 254) throw Err("required", "email");
+            if (await users.FindByEmailAsync(email) is not null) throw Err("emailTaken", "email", 409);
+            var u = await users.FindByIdAsync(id.ToString()) ?? throw new NotFoundException();
+            u.Email = email; u.UserName = email; u.NormalizedEmail = null; u.NormalizedUserName = null;
+            if (!(await users.UpdateAsync(u)).Succeeded) throw Err("emailTaken", "email", 409);
+            p.Email = email;
+        }
+        p.UpdatedAt = clock.UtcNow;
+        audit.Write("user.update", "profile", id, before, new { p.FullName, p.Email, p.Phone });
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    private static void CheckRoles(string[] roles, bool staffOnly)
+    {
+        if (roles.Length == 0) throw Err("at_least_one_role", "roles");
+        if (roles.Any(r => !RoleCode.All.Contains(r))) throw Err("invalid_role", "roles");
+        if (roles.Contains(RoleCode.Customer) && (staffOnly || roles.Length > 1)) throw Err("customer_role_is_exclusive", "roles");
+    }
+
+    /// <summary>v1 approved_accounts(): active customers, with when and by whom they were approved.</summary>
+    [HttpGet("approved")]
+    public async Task<object> Approved(CancellationToken ct)
+    {
+        await Need(Permission.ApproveCustomers, ct);
+        var custIds = from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id where r.Code == RoleCode.Customer select ur.UserId;
+        var list = await (from p in db.Profiles.AsNoTracking()
+                          where p.AccountStatus == AccountStatus.Active && custIds.Contains(p.Id)
+                          join o in db.Organizations on p.OrganizationId equals (Guid?)o.Id into os from o in os.DefaultIfEmpty()
+                          join b in db.Branches on p.BranchId equals (Guid?)b.Id into bs from b in bs.DefaultIfEmpty()
+                          select new { p.Id, p.FullName, p.Email, p.Phone, Organization = o == null ? null : o.Name, Branch = b == null ? null : b.Name, RegisteredAt = p.CreatedAt }).ToListAsync(ct);
+        var ids = list.Select(x => x.Id).ToList();
+        var logs = await (from l in db.AuditLogs.AsNoTracking()
+                          where (l.Action == "user.approve" || l.Action == "customer.approved") && l.EntityId != null && ids.Contains(l.EntityId.Value)
+                          select new { l.EntityId, l.CreatedAt, l.ActorId }).ToListAsync(ct);
+        var last = logs.GroupBy(l => l.EntityId!.Value).ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.CreatedAt).First());
+        var actorIds = last.Values.Where(x => x.ActorId != null).Select(x => x.ActorId!.Value).Distinct().ToList();
+        var actors = await db.Profiles.AsNoTracking().Where(p => actorIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+        return list.Select(x =>
+        {
+            var a = last.GetValueOrDefault(x.Id);
+            return new
+            {
+                x.Id, x.FullName, x.Email, x.Phone, x.Organization, x.Branch, x.RegisteredAt,
+                ApprovedAt = a?.CreatedAt, ApprovedBy = a?.ActorId is Guid g && actors.TryGetValue(g, out var n) ? n : null,
+            };
+        }).OrderByDescending(x => x.ApprovedAt ?? x.RegisteredAt).Take(500);
+    }
+
+    /// <summary>Everyone placed in an organization, for the customers list under each organization (v1 organizations page).</summary>
+    [HttpGet("organizations/people")]
+    public async Task<object> OrgPeople(CancellationToken ct)
+    {
+        await Need(null, ct);
+        return await db.Profiles.AsNoTracking().Where(p => p.OrganizationId != null).OrderBy(p => p.FullName)
+            .Select(p => new { p.Id, p.FullName, p.Email, p.Phone, Status = p.AccountStatus, p.OrganizationId, p.BranchId }).ToListAsync(ct);
     }
 
     // ---------------------------------------------------------------- helpers
@@ -696,7 +894,8 @@ public sealed class AdminController(
     private async Task CheckLeaderAsync(Guid? id, CancellationToken ct)
     {
         if (id is null) return;
-        if (await RoleOfAsync(id.Value, ct) != RoleCode.TeamLeader) throw Err("leaderRole", "teamLeaderId");
+        if (!await (from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id where ur.UserId == id.Value && r.Code == RoleCode.TeamLeader select ur).AnyAsync(ct))
+            throw Err("leaderRole", "teamLeaderId");
     }
 
     private async Task CheckPhoneAsync(string? phone, Guid? self, CancellationToken ct)

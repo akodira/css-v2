@@ -11,7 +11,7 @@ import { AuditPage, MyTeamPage, ReportsPage, SlaReportPage } from './pages/conso
 import { AccountPage, HomePage, NotificationsPage } from './pages/account-pages';
 import { CannedPage, KbArticlePage, KbListPage } from './pages/help-pages';
 import { AdminCatalogPage, AdminPrioritiesPage, AdminSlaPage, AdminTicketTypesPage } from './pages/admin/catalog-pages';
-import { AdminApprovalsPage, AdminCustomersPage, AdminOrgsPage, AdminStaffPage, CustomerProfilePage, AdminTeamsPage, AdminTypesPage } from './pages/admin/admin-pages';
+import { AdminCustomersPage, CustomerProfilePage, AdminTypesPage } from './pages/admin/admin-pages';
 
 /** The language is the first part of every address: /en/... or /ar/... */
 const localeGuard: CanActivateFn = async (route) => {
@@ -81,16 +81,16 @@ export const routes: Routes = [
           { path: 'console/notifications', canActivate: [requireRole(STAFF_ROLES)], component: NotificationsPage },
           { path: 'console/account', canActivate: [requireRole(STAFF_ROLES)], component: AccountPage },
           { path: 'console/customers', canActivate: [requireRole(STAFF_ROLES)], component: AdminCustomersPage },
-          { path: 'console/approvals', canActivate: [requireRole(STAFF_ROLES)], component: AdminApprovalsPage },
+          { path: 'console/approvals', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminApprovalsPage) },
           { path: 'console', canActivate: [requireRole(STAFF_ROLES)], component: ConsoleQueuePage },
           { path: 'console/tickets/new', canActivate: [requireRole(['admin', 'team_leader', 'agent'])], component: NewTicketPage, data: { staff: true } },
           { path: 'console/tickets/:id', canActivate: [requireRole(STAFF_ROLES)], component: ConsoleTicketPage },
-          { path: 'admin/users', canActivate: [requireRole(['admin'])], component: AdminStaffPage },
+          { path: 'admin/users', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminStaffPage) },
           { path: 'admin/customers', redirectTo: 'console/customers' },
-          { path: 'admin/approvals', canActivate: [requireRole(STAFF_ROLES)], component: AdminApprovalsPage },
+          { path: 'admin/approvals', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminApprovalsPage) },
           { path: 'admin/permissions', canActivate: [requireRole(['admin'])], component: AdminTypesPage },
-          { path: 'admin/organizations', canActivate: [requireRole(['admin'])], component: AdminOrgsPage },
-          { path: 'admin/teams', canActivate: [requireRole(['admin'])], component: AdminTeamsPage },
+          { path: 'admin/organizations', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminOrgsPage) },
+          { path: 'admin/teams', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminTeamsPage) },
           { path: 'admin/ticket-types', canActivate: [requireRole(STAFF_ROLES)], component: AdminTicketTypesPage },
           { path: 'admin/catalog', canActivate: [requireRole(STAFF_ROLES)], component: AdminCatalogPage },
           { path: 'admin/priorities', canActivate: [requireRole(STAFF_ROLES)], component: AdminPrioritiesPage },
