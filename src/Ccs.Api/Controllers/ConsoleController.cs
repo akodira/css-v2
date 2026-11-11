@@ -143,11 +143,14 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
             branches = await access.VisibleBranches(db.Branches.AsNoTracking(), c).CountAsync(ct),
         };
 
-        var period = all.Where(t => t.CreatedAt >= from && t.CreatedAt < to);
+        // v1 report_tickets(): period figures count everything visible with reports_all, otherwise only my assigned tickets.
+        var me = c.UserId;
+        var rep = c.Admin || c.Has(Permission.ReportsAll) ? all : all.Where(t => t.AssignedAgentId == me);
+        var period = rep.Where(t => t.CreatedAt >= from && t.CreatedAt < to);
         var rows = await (from t in period
                           join p in db.Profiles on t.RequesterId equals p.Id
                           select new { t.Id, t.Status, t.Priority, t.CategoryId, t.AssignedAgentId, t.CreatedAt, t.ResolvedAt, p.OrganizationId, p.BranchId }).ToListAsync(ct);
-        var resolvedInPeriod = await all.Where(t => t.ResolvedAt >= from && t.ResolvedAt < to).Select(t => new { t.CreatedAt, ResolvedAt = t.ResolvedAt!.Value }).ToListAsync(ct);
+        var resolvedInPeriod = await rep.Where(t => t.ResolvedAt >= from && t.ResolvedAt < to).Select(t => new { t.CreatedAt, ResolvedAt = t.ResolvedAt!.Value }).ToListAsync(ct);
         var ids = rows.Select(r => r.Id).ToList();
         var sla = await db.TicketSlaRecords.AsNoTracking().Where(r => ids.Contains(r.TicketId))
             .Select(r => new { r.TicketId, r.FirstRespondedAt, r.BreachedAt }).ToListAsync(ct);
