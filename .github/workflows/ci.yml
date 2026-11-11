@@ -90,7 +90,7 @@ jobs:
         run: |
           Install-WindowsFeature Web-Server, Web-Default-Doc, Web-Static-Content, Web-Http-Errors, Web-Http-Logging, `
             Web-Request-Monitor, Web-Filtering, Web-Stat-Compression, Web-Dyn-Compression, Web-AppInit, Web-WebSockets, `
-            Web-Mgmt-Console -IncludeManagementTools | Out-Null
+            Web-Mgmt-Console, Web-DAV-Publishing -IncludeManagementTools | Out-Null
           Invoke-WebRequest https://aka.ms/dotnet/10.0/dotnet-hosting-win.exe -OutFile $env:TEMP\hosting.exe
           Start-Process $env:TEMP\hosting.exe -ArgumentList '/install', '/quiet', '/norestart' -Wait
           choco install urlrewrite -y --no-progress
