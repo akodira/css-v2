@@ -457,52 +457,105 @@ export class TemplatesTab extends Tab implements OnInit {
   selector: 'app-set-messages',
   imports: [TPipe, FormsModule, Alert],
   template: `
-    ${MSG}
-    <p class="max-w-prose text-muted">{{ 'AdminSystemMessages.intro' | t }}</p>
-    <div class="flex flex-wrap gap-2">
-      <label for="sm-q" class="sr-only">{{ 'AdminSystemMessages.search' | t }}</label>
-      <input id="sm-q" type="search" dir="auto" [placeholder]="'AdminSystemMessages.search' | t" [class]="cls.input + ' max-w-md'" [value]="q()" (input)="q.set($any($event.target).value)" />
-      <label class="${CHECK} text-sm"><input type="checkbox" [checked]="onlyEdited()" (change)="onlyEdited.set(!onlyEdited())" /> {{ 'AdminSystemMessages.edited' | t }}</label>
-    </div>
-    <p class="text-sm text-muted">{{ 'AdminSystemMessages.shown' | t: { shown: shown().length, total: matches().length } }}</p>
-    <ul class="flex flex-col gap-2">
-      @for (k of shown(); track k) {
-        <li [class]="cls.card + ' p-4'">
-          <div class="flex flex-wrap items-center gap-2"><span class="font-mono text-xs text-muted" dir="ltr">{{ k }}</span>
-            @if (isEdited(k)) { <span [class]="cls.badgeWarn">{{ 'AdminSystemMessages.edited' | t }}</span> }</div>
-          @if (open() === k) {
-            <form class="mt-3 grid gap-3 md:grid-cols-2" (ngSubmit)="saveMsg(k)">
-              <div class="flex flex-col gap-1"><label [for]="'en' + k" [class]="cls.label">{{ 'AdminSystemMessages.english' | t }}</label>
-                <textarea [id]="'en' + k" name="en" rows="3" dir="ltr" [class]="cls.input + ' py-2'" [(ngModel)]="ed.en" [placeholder]="std(k, 'en')"></textarea></div>
-              <div class="flex flex-col gap-1"><label [for]="'ar' + k" [class]="cls.label">{{ 'AdminSystemMessages.arabic' | t }}</label>
-                <textarea [id]="'ar' + k" name="ar" rows="3" dir="rtl" [class]="cls.input + ' py-2'" [(ngModel)]="ed.ar" [placeholder]="std(k, 'ar')"></textarea></div>
-              <div class="flex flex-wrap gap-2 md:col-span-2"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSystemMessages.save' | t }}</button>
-                <button type="button" [class]="cls.btn2" (click)="ed = { en: '', ar: '' }; saveMsg(k)">{{ 'AdminSystemMessages.reset' | t }}</button>
-                <button type="button" [class]="cls.btn2" (click)="open.set(null)">{{ 'AdminSystemMessages.cancel' | t }}</button></div>
+    <div class="flex flex-col gap-4">
+      <p class="max-w-prose text-muted">{{ 'AdminSystemMessages.intro' | t }}</p>
+      <div class="flex flex-wrap items-start gap-5">
+        <nav [attr.aria-label]="'AdminSystemMessages.messagesList' | t" class="flex w-full flex-col gap-3 rounded-xl border border-line bg-surface p-3 shadow-card md:w-80 md:shrink-0">
+          <input type="search" [value]="q()" (input)="q.set($any($event.target).value); limit.set(60)" [placeholder]="'AdminSystemMessages.search' | t" [attr.aria-label]="'AdminSystemMessages.search' | t" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-sm" />
+          <div class="grid grid-cols-2 gap-2">
+            <select [attr.aria-label]="'AdminSystemMessages.area' | t" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-sm" (change)="area.set($any($event.target).value); limit.set(60)">
+              <option value="all">{{ 'AdminSystemMessages.allAreas' | t }}</option>
+              @for (a of areas(); track a) { <option [value]="a" [selected]="a === area()">{{ areaName(a) }}</option> }
+            </select>
+            <select [attr.aria-label]="'AdminSystemMessages.type' | t" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-sm" (change)="kind.set($any($event.target).value); limit.set(60)">
+              <option value="all">{{ 'AdminSystemMessages.allTypes' | t }}</option>
+              <option value="message">{{ 'AdminSystemMessages.typeMessages' | t }}</option>
+              <option value="error">{{ 'AdminSystemMessages.typeErrors' | t }}</option>
+            </select>
+          </div>
+          <p class="px-1 text-xs text-muted" role="status">{{ 'AdminSystemMessages.shown' | t: { n: filtered().length, total: entries().length } }}</p>
+          <ul class="flex max-h-[34rem] flex-col gap-1 overflow-y-auto">
+            @for (e of filtered().slice(0, limit()); track e.key) {
+              <li>
+                <button type="button" (click)="pick(e.key)" [attr.aria-current]="e.key === sel() ? 'true' : null"
+                  class="flex min-h-11 w-full cursor-pointer flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-start" [class]="e.key === sel() ? 'bg-brand-soft text-brand-ink' : 'hover:bg-bg'">
+                  <span class="line-clamp-2 text-sm font-semibold" dir="auto">{{ textOf(e.key) }}</span>
+                  <span class="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                    <span>{{ areaName(e.area) }}</span>
+                    @if (e.kind === 'error') { <span class="rounded-full bg-danger-soft px-1.5 text-danger">{{ 'AdminSystemMessages.typeError' | t }}</span> }
+                    @if (isEdited(e.key)) { <span class="rounded-full bg-ok-soft px-1.5 text-ok">{{ 'AdminSystemMessages.edited' | t }}</span> }
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+          @if (filtered().length > limit()) { <button type="button" class="min-h-9 cursor-pointer rounded-md border border-line bg-surface px-3 text-sm font-semibold hover:bg-bg" (click)="limit.set(limit() + 60)">{{ 'AdminSystemMessages.more' | t }}</button> }
+          @if (!filtered().length) { <p class="px-1 text-sm text-muted">{{ 'AdminSystemMessages.none' | t }}</p> }
+        </nav>
+
+        <section class="min-w-0 flex-[1_1_28rem]" aria-live="polite">
+          @if (sel(); as k) {
+            <form class="flex flex-col gap-4" novalidate (ngSubmit)="saveMsg(k, false)">
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <h2 class="text-xl font-bold">{{ i18n.has(itemKey(k) + '.label') ? i18n.t(itemKey(k) + '.label') : ('AdminSystemMessages.editing' | t) }}</h2>
+                  @if (isEdited(k)) { <span class="rounded-full bg-ok-soft px-2.5 py-0.5 text-xs font-semibold text-ok">{{ 'AdminSystemMessages.edited' | t }}</span> }
+                </div>
+                <p class="mt-1 text-sm text-muted">{{ i18n.has(itemKey(k) + '.where') ? i18n.t(itemKey(k) + '.where') : ('AdminSystemMessages.whereGeneric' | t) }}</p>
+                <code dir="ltr" class="mt-1 inline-block break-all rounded bg-bg px-1.5 py-0.5 text-xs text-muted">{{ k }}</code>
+              </div>
+              <div class="grid grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] gap-4">
+                @for (l of ['en', 'ar']; track l) {
+                  <section class="min-w-0 overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+                    <header class="flex items-center gap-2 border-b border-line bg-bg px-4 py-2.5">
+                      <span dir="ltr" class="rounded-md bg-brand-soft px-2 py-0.5 text-xs font-bold text-brand-ink">{{ l === 'en' ? 'EN' : 'AR' }}</span>
+                      <h3 class="text-sm font-bold">{{ l === 'en' ? 'English' : 'العربية' }}</h3>
+                    </header>
+                    <div class="flex flex-col gap-3 p-4">
+                      <textarea [name]="'body' + l" rows="4" maxlength="1000" [attr.dir]="l === 'ar' ? 'rtl' : 'ltr'" [attr.aria-label]="l === 'en' ? 'English' : 'العربية'"
+                        class="min-h-24 w-full rounded-lg border border-line bg-surface px-3 py-2 text-start text-base" [value]="$any(vals)[l]" (input)="$any(vals)[l] = $any($event.target).value"></textarea>
+                      <div [attr.dir]="l === 'ar' ? 'rtl' : 'ltr'" class="rounded-lg border border-line bg-bg p-3 text-sm">
+                        <p class="mb-1 text-xs font-semibold text-muted" dir="auto">{{ 'AdminSystemMessages.preview' | t }}</p>
+                        @if ($any(vals)[l].trim()) { <p class="whitespace-pre-line text-start" dir="auto">{{ $any(vals)[l] }}</p> } @else { <p class="text-muted">-</p> }
+                      </div>
+                    </div>
+                  </section>
+                }
+              </div>
+              @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
+              <div class="flex flex-wrap gap-2">
+                <button type="submit" [disabled]="busy() || !changed()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{{ 'AdminSystemMessages.save' | t }}</button>
+                <button type="button" [disabled]="busy() || (!isEdited(k) && !changed())" (click)="saveMsg(k, true)" class="min-h-11 cursor-pointer rounded-md border border-line bg-surface px-3 text-sm font-semibold hover:bg-bg disabled:cursor-not-allowed disabled:opacity-40">{{ 'AdminSystemMessages.reset' | t }}</button>
+              </div>
             </form>
-          } @else {
-            <button type="button" class="mt-1 block w-full cursor-pointer text-start" (click)="edit(k)"><span dir="auto">{{ i18n.t(k) }}</span></button>
           }
-        </li>
-      }
-    </ul>
-    @if (matches().length > shown().length) { <button type="button" [class]="cls.btn2" (click)="limit.set(limit() + 100)">{{ 'AdminSystemMessages.more' | t }}</button> }`,
+        </section>
+      </div>
+    </div>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class MessagesTab extends Tab implements OnInit {
+  /** Same catalog rules as v1: every plain-text message except this screen's own wording and internal lists. */
+  private static readonly HIDDEN = ['AdminSystemMessages', 'Placeholders', 'StatusInfo', 'AdminV2', 'V2', 'Help'];
+  private static readonly ERROR_WORDS = /error|fail|invalid|expired|denied|forbidden|rateLimited|wrong|required|tooLong|taken|notFound|unavailable|tooLarge|badType/i;
   protected readonly q = signal('');
-  protected readonly onlyEdited = signal(false);
-  protected readonly limit = signal(100);
-  protected readonly open = signal<string | null>(null);
-  private readonly keys = signal<string[]>([]);
+  protected readonly area = signal('all');
+  protected readonly kind = signal<'all' | 'message' | 'error'>('all');
+  protected readonly limit = signal(60);
+  protected readonly sel = signal<string | null>('Auth.register.sentBody');
   private readonly std_ = signal<{ en: Record<string, string>; ar: Record<string, string> }>({ en: {}, ar: {} });
   private readonly over = signal<{ key: string; locale: string; body: string }[]>([]);
-  protected ed = { en: '', ar: '' };
-  protected readonly matches = computed(() => {
-    const s = this.q().trim().toLowerCase(); const st = this.std_();
-    return this.keys().filter((k) => (!this.onlyEdited() || this.isEdited(k)) && (!s || k.toLowerCase().includes(s) || (st.en[k] ?? '').toLowerCase().includes(s) || (st.ar[k] ?? '').includes(s)));
+  protected vals = { en: '', ar: '' };
+  private savedVals = { en: '', ar: '' };
+  protected readonly entries = computed(() => Object.entries(this.std_().en)
+    .filter(([k, v]) => k.split('.').length >= 2 && !MessagesTab.HIDDEN.includes(k.split('.')[0]) && !/\{[^}]*,\s*(plural|select|selectordinal)/.test(v) && !/<[A-Za-z/]/.test(v))
+    .map(([k]) => ({ key: k, area: k.split('.')[0], kind: MessagesTab.ERROR_WORDS.test(k) ? 'error' : 'message' })));
+  protected readonly areas = computed(() => [...new Set(this.entries().map((e) => e.area))].sort((a, b) => this.areaName(a).localeCompare(this.areaName(b))));
+  protected readonly filtered = computed(() => {
+    const n = this.q().trim().toLowerCase();
+    return this.entries().filter((e) => (this.area() === 'all' || e.area === this.area()) && (this.kind() === 'all' || e.kind === this.kind())
+      && (!n || e.key.toLowerCase().includes(n) || this.textOf(e.key).toLowerCase().includes(n)));
   });
-  protected readonly shown = computed(() => this.matches().slice(0, this.limit()));
 
   async ngOnInit(): Promise<void> {
     const [en, ar] = await Promise.all(['en', 'ar'].map((l) => firstValueFrom(this.http.get<Record<string, unknown>>(`/i18n/${l}.json`))));
@@ -510,19 +563,31 @@ export class MessagesTab extends Tab implements OnInit {
       for (const [k, v] of Object.entries(o)) { const key = p ? `${p}.${k}` : k; if (typeof v === 'string') out[key] = v; else if (v && typeof v === 'object' && !Array.isArray(v)) flat(v as Record<string, unknown>, key, out); }
       return out;
     };
-    const fe = flat(en), fa = flat(ar);
-    this.std_.set({ en: fe, ar: fa });
-    this.keys.set(Object.keys(fe).filter((k) => !k.startsWith('AdminV2.') && !k.startsWith('Help.')).sort());
+    this.std_.set({ en: flat(en), ar: flat(ar) });
     await this.loadOver();
+    this.pick(this.sel() ?? this.entries()[0]?.key ?? '');
   }
   private async loadOver(): Promise<void> { this.over.set(await this.get('messages')); }
+  protected areaName(a: string): string { const k = 'AdminSystemMessages.areas.' + a; return this.i18n.has(k) ? this.i18n.t(k) : a; }
+  protected itemKey(k: string): string { return 'AdminSystemMessages.items.' + k.replaceAll('.', '_'); }
+  private cur(k: string, l: 'en' | 'ar'): string { return this.over().find((o) => o.key === k && o.locale === l)?.body ?? this.std_()[l][k] ?? ''; }
+  protected textOf(k: string): string { return this.cur(k, this.i18n.locale() === 'ar' ? 'ar' : 'en'); }
   protected isEdited(k: string): boolean { return this.over().some((o) => o.key === k); }
-  protected std(k: string, l: 'en' | 'ar'): string { return this.std_()[l][k] ?? ''; }
-  protected edit(k: string): void {
-    this.ed = { en: this.over().find((o) => o.key === k && o.locale === 'en')?.body ?? '', ar: this.over().find((o) => o.key === k && o.locale === 'ar')?.body ?? '' };
-    this.open.set(k);
+  protected changed(): boolean { return this.vals.en !== this.savedVals.en || this.vals.ar !== this.savedVals.ar; }
+  protected pick(k: string): void {
+    this.msg.set(null); this.sel.set(k);
+    this.vals = { en: this.cur(k, 'en'), ar: this.cur(k, 'ar') }; this.savedVals = { ...this.vals };
   }
-  protected async saveMsg(k: string): Promise<void> { if (await this.save(() => this.put('messages', { key: k, en: this.ed.en, ar: this.ed.ar }))) { await this.loadOver(); this.open.set(null); } }
+  protected async saveMsg(k: string, reset: boolean): Promise<void> {
+    const std = this.std_();
+    // Text equal to the standard wording is stored as "no override".
+    const body = reset ? { key: k, en: '', ar: '' } : { key: k, en: this.vals.en === std.en[k] ? '' : this.vals.en, ar: this.vals.ar === std.ar[k] ? '' : this.vals.ar };
+    if (await this.save(() => this.put('messages', body))) {
+      await this.loadOver();
+      this.pick(k);
+      this.msg.set({ tone: 'success', text: this.i18n.t(reset ? 'AdminSystemMessages.resetDone' : 'AdminSystemMessages.saved') });
+    }
+  }
 }
 
 // ================================================================== uploads
