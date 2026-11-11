@@ -315,7 +315,7 @@ export class ConsoleQueuePage {
                     }
                     <textarea id="body" rows="5" maxlength="10000" dir="auto" class="rounded-lg border border-line p-3 text-base" [class]="kind() === 'internal_note' ? 'bg-warn-soft' : 'bg-surface'" [value]="body()" (input)="body.set($any($event.target).value)"></textarea>
                   </div>
-                  <app-file-picker [label]="'Console.ticket.attachments' | t" [(files)]="files" [disabled]="pending()" />
+                  <app-file-picker [label]="'NewTicket.attachments' | t" [(files)]="files" [disabled]="pending()" />
                   @if (notice() && where() === 'reply') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
                   <div><button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ 'Console.reply.submit' | t }}</button></div>
                 </form>

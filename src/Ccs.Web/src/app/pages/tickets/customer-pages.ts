@@ -260,7 +260,7 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <label for="sub" class="text-sm font-semibold">{{ 'NewTicket.subcategory' | t }}</label>
+            <label for="sub" class="text-sm font-semibold">{{ (staff ? 'StaffTicket.subcategory' : 'NewTicket.subcategory') | t }}</label>
             <select id="sub" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base disabled:bg-bg" [disabled]="!subcategories().length" [value]="subcategoryId()" (change)="subcategoryId.set($any($event.target).value)">
               <option value="">{{ 'NewTicket.noSubcategory' | t }}</option>
               @for (s of subcategories(); track s.id) { <option [value]="s.id" [selected]="s.id === subcategoryId()">{{ i18n.pick(s.nameEn, s.nameAr) }}</option> }
@@ -292,7 +292,7 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
           }
 
           <div class="flex flex-col gap-1.5">
-            <label for="desc" class="text-sm font-semibold">{{ 'NewTicket.description' | t }}<app-req /></label>
+            <label for="desc" class="text-sm font-semibold">{{ (staff ? 'StaffTicket.description' : 'NewTicket.description') | t }}<app-req /></label>
             <textarea id="desc" rows="7" maxlength="10000" dir="auto" class="rounded-lg border border-line bg-surface p-3 text-base aria-[invalid=true]:border-danger"
               [value]="description()" (input)="description.set($any($event.target).value)" [attr.aria-invalid]="err()['description'] ? true : null"></textarea>
             <p class="text-sm" [class]="err()['description'] ? 'font-medium text-danger' : 'text-muted'">{{ (err()['description'] ? 'NewTicket.errors.descriptionLength' : 'NewTicket.descriptionHint') | t }}</p>
