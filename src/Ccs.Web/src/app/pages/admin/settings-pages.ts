@@ -9,7 +9,7 @@ import { MenuRow, SiteService } from '../../core/api';
 import { adminError } from '../../core/admin-api';
 import { apiUrl } from '../../core/api-base';
 import { I18n, TPipe } from '../../core/i18n';
-import { Alert } from '../../shared/ui';
+import { Alert, Req, ReqNote } from '../../shared/ui';
 import { CLS, Msg } from './admin-pages';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
@@ -46,6 +46,9 @@ abstract class Tab {
 }
 const MSG = `@if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }`;
 const SAVE = `<div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCommon.save' | t }}</button></div>`;
+/** Save with the "* Required" legend after it (v1 forms that have required fields). */
+const SAVE_REQ = `<div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCommon.save' | t }}</button><app-req-note /></div>`;
+const REQ = `<app-req />`;
 
 // ================================================================== branding
 
@@ -174,10 +177,13 @@ interface MenuFull extends Omit<MenuRow, 'audience'> { audience: string; isVisib
               <div class="flex flex-wrap items-center gap-2 px-3 py-2">
                 <span class="min-w-0 flex-1 font-semibold" dir="auto">{{ i18n.pick(r.labelEn, r.labelAr) }}
                   <span class="font-mono text-xs font-normal text-muted" dir="ltr">{{ r.kind === 'group' ? ('AdminGeneral.groupLabel' | t) : r.href }}</span>
-                  @if (r.systemKey) { <span [class]="cls.badgeOff + ' ms-1'">{{ 'AdminGeneral.builtIn' | t }}</span> }
+                  @if (r.systemKey) { <span class="text-sm font-normal text-muted"> · {{ 'AdminGeneral.builtIn' | t }}</span> }
+                  @else if (area === 'header' || area === 'footer') { <span class="text-sm font-normal text-muted"> · {{ 'AdminGeneral.aud_' + r.audience | t }}</span> }
                   @if (!r.isVisible) { <span [class]="cls.badgeWarn + ' ms-1'">{{ 'AdminGeneral.hidden' | t }}</span> }</span>
-                <button type="button" [class]="cls.btn2" (click)="move(r, -1)" [attr.aria-label]="'AdminGeneral.moveUp' | t">↑</button>
-                <button type="button" [class]="cls.btn2" (click)="move(r, 1)" [attr.aria-label]="'AdminGeneral.moveDown' | t">↓</button>
+                @if (area === 'header' || area === 'footer') {
+                  <button type="button" [class]="cls.btn2" (click)="move(r, -1)" [attr.aria-label]="'AdminGeneral.moveUp' | t">▲</button>
+                  <button type="button" [class]="cls.btn2" (click)="move(r, 1)" [attr.aria-label]="'AdminGeneral.moveDown' | t">▼</button>
+                }
                 <button type="button" [class]="cls.btn2" (click)="open.set(open() === r.id ? null : r.id)">{{ (open() === r.id ? 'AdminGeneral.close' : 'AdminGeneral.edit') | t }}</button>
                 @if (!r.systemKey) { <button type="button" [class]="cls.danger" (click)="remove(r)">{{ 'AdminGeneral.delete' | t }}</button> }
               </div>
@@ -187,7 +193,7 @@ interface MenuFull extends Omit<MenuRow, 'audience'> { audience: string; isVisib
         </ul>
         <div class="flex flex-wrap gap-2">
           <button type="button" [class]="cls.btn2" (click)="startNew(area, 'link')">{{ 'AdminGeneral.addLink' | t }}</button>
-          @if (area === 'header' || area === 'footer') { <button type="button" [class]="cls.btn2" (click)="startNew(area, 'group')">{{ 'AdminGeneral.addGroup' | t }}</button> }
+          @if (area === 'header') { <button type="button" [class]="cls.btn2" (click)="startNew(area, 'group')">{{ 'AdminGeneral.addGroup' | t }}</button> }
         </div>
         @if (nw?.area === area) { <form class="rounded-lg border border-dashed border-line p-3" (ngSubmit)="create()"><ng-container *ngTemplateOutlet="form; context: { m: nw, id: 'new', sys: false }" /></form> }
       </section>
@@ -265,15 +271,15 @@ interface EmailData {
 
 @Component({
   selector: 'app-set-email',
-  imports: [TPipe, FormsModule, Alert],
+  imports: [TPipe, FormsModule, Alert, Req, ReqNote],
   template: `
     ${MSG}
     @if (e) {
       <form [class]="cls.card + ' flex flex-col gap-4 p-5'" (ngSubmit)="saveSmtp()">
         <label class="${CHECK} font-semibold"><input type="checkbox" name="use" class="h-5 w-5" [(ngModel)]="e.useSmtp" /> {{ 'AdminGeneral.useSmtp' | t }}</label>
         <div class="grid gap-4 md:grid-cols-2">
-          <div class="flex flex-col gap-1.5"><label for="e-host" [class]="cls.label">{{ 'AdminGeneral.host' | t }}</label><input id="e-host" name="host" dir="ltr" [class]="cls.input" [(ngModel)]="e.host" /></div>
-          <div class="flex flex-col gap-1.5"><label for="e-port" [class]="cls.label">{{ 'AdminGeneral.port' | t }}</label><input id="e-port" name="port" type="number" min="1" max="65535" dir="ltr" [class]="cls.input" [(ngModel)]="e.port" /></div>
+          <div class="flex flex-col gap-1.5"><label for="e-host" [class]="cls.label">{{ 'AdminGeneral.host' | t }}${REQ}</label><input id="e-host" name="host" dir="ltr" [class]="cls.input" [(ngModel)]="e.host" /></div>
+          <div class="flex flex-col gap-1.5"><label for="e-port" [class]="cls.label">{{ 'AdminGeneral.port' | t }}${REQ}</label><input id="e-port" name="port" type="number" min="1" max="65535" dir="ltr" [class]="cls.input" [(ngModel)]="e.port" /></div>
           <div class="flex flex-col gap-1.5"><label for="e-sec" [class]="cls.label">{{ 'AdminGeneral.security' | t }}</label>
             <select id="e-sec" name="sec" [class]="cls.input" [(ngModel)]="e.security"><option value="starttls">{{ 'AdminGeneral.secStarttls' | t }}</option><option value="ssl">{{ 'AdminGeneral.secSsl' | t }}</option><option value="none">{{ 'AdminGeneral.secNone' | t }}</option></select>
             <p class="text-xs text-muted">{{ 'AdminGeneral.hint' + (e.security === 'ssl' ? 'Ssl' : e.security === 'none' ? 'None' : 'Starttls') | t }}</p></div>
@@ -283,10 +289,10 @@ interface EmailData {
             <p class="text-xs text-muted">{{ (e.hasPassword ? 'AdminGeneral.passwordKeep' : 'AdminGeneral.passwordNone') | t }}</p>
             @if (e.hasPassword) { <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="clr" [(ngModel)]="clear" /> {{ 'AdminGeneral.clearPassword' | t }}</label> }</div>
           <div class="flex flex-col gap-1.5"><label for="e-fn" [class]="cls.label">{{ 'AdminGeneral.fromName' | t }}</label><input id="e-fn" name="fn" dir="auto" [class]="cls.input" [(ngModel)]="e.fromName" /></div>
-          <div class="flex flex-col gap-1.5"><label for="e-fe" [class]="cls.label">{{ 'AdminGeneral.fromEmail' | t }}</label><input id="e-fe" name="fe" type="email" dir="ltr" [class]="cls.input" [(ngModel)]="e.fromEmail" /></div>
+          <div class="flex flex-col gap-1.5"><label for="e-fe" [class]="cls.label">{{ 'AdminGeneral.fromEmail' | t }}${REQ}</label><input id="e-fe" name="fe" type="email" dir="ltr" [class]="cls.input" [(ngModel)]="e.fromEmail" /></div>
           <div class="flex flex-col gap-1.5"><label for="e-rt" [class]="cls.label">{{ 'AdminGeneral.replyTo' | t }}</label><input id="e-rt" name="rt" type="email" dir="ltr" [class]="cls.input" [(ngModel)]="e.replyTo" /></div>
         </div>
-        ${SAVE}
+        ${SAVE_REQ}
       </form>
 
       <section [class]="cls.card + ' flex flex-col gap-3 p-5'">
@@ -527,14 +533,14 @@ const FILE_GROUPS: Record<string, string[]> = {
 
 @Component({
   selector: 'app-set-uploads',
-  imports: [TPipe, FormsModule, Alert],
+  imports: [TPipe, FormsModule, Alert, Req, ReqNote],
   template: `
     ${MSG}
     <form [class]="cls.card + ' flex flex-col gap-4 p-5'" (ngSubmit)="submit()">
       <p class="text-muted">{{ 'AdminGeneral.uploadsIntro' | t }}</p>
       <div class="grid gap-4 md:grid-cols-2">
-        <div class="flex flex-col gap-1.5"><label for="u-mb" [class]="cls.label">{{ 'AdminGeneral.uploadMaxMb' | t }}</label><input id="u-mb" name="mb" type="number" min="1" max="50" dir="ltr" [class]="cls.input" [(ngModel)]="m.maxMb" /></div>
-        <div class="flex flex-col gap-1.5"><label for="u-n" [class]="cls.label">{{ 'AdminGeneral.uploadMaxFiles' | t }}</label><input id="u-n" name="n" type="number" min="1" max="20" dir="ltr" [class]="cls.input" [(ngModel)]="m.maxFiles" /></div>
+        <div class="flex flex-col gap-1.5"><label for="u-mb" [class]="cls.label">{{ 'AdminGeneral.uploadMaxMb' | t }}${REQ}</label><input id="u-mb" name="mb" type="number" min="1" max="50" dir="ltr" [class]="cls.input" [(ngModel)]="m.maxMb" /></div>
+        <div class="flex flex-col gap-1.5"><label for="u-n" [class]="cls.label">{{ 'AdminGeneral.uploadMaxFiles' | t }}${REQ}</label><input id="u-n" name="n" type="number" min="1" max="20" dir="ltr" [class]="cls.input" [(ngModel)]="m.maxFiles" /></div>
       </div>
       <p class="-mt-2 text-sm text-muted">{{ 'AdminGeneral.uploadLimitsHint' | t: { mb: 50, files: 20 } }}</p>
       <fieldset class="flex flex-col gap-3"><legend [class]="cls.label + ' mb-1'">{{ 'AdminGeneral.uploadTypes' | t }}</legend>
@@ -544,7 +550,7 @@ const FILE_GROUPS: Record<string, string[]> = {
         }
       </fieldset>
       <p class="text-sm text-muted">{{ 'AdminGeneral.uploadsNote' | t }}</p>
-      ${SAVE}
+      ${SAVE_REQ}
     </form>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
@@ -566,29 +572,36 @@ export class UploadsTab extends Tab implements OnInit {
 
 @Component({
   selector: 'app-set-system',
-  imports: [TPipe, FormsModule, Alert],
+  imports: [TPipe, FormsModule, Alert, Req, ReqNote],
   template: `
     ${MSG}
     <p class="max-w-prose text-muted">{{ 'AdminSettings.subtitle' | t }}</p>
     @if (loaded()) {
       <form [class]="cls.card + ' flex flex-col gap-4 p-5'" (ngSubmit)="saveRules()">
         <div class="grid gap-4 md:grid-cols-2">
-          @for (f of basic; track f.key) {
-            <div class="flex flex-col gap-1.5"><label [for]="f.key" [class]="cls.label">{{ 'AdminSettings.' + f.label | t }}</label>
+          @for (f of basic.slice(0, 2); track f.key) {
+            <div class="flex flex-col gap-1.5"><label [for]="f.key" [class]="cls.label">{{ 'AdminSettings.' + f.label | t }}${REQ}</label>
+              <input [id]="f.key" [name]="f.key" type="number" dir="ltr" [class]="cls.input" [(ngModel)]="n[f.key]" />
+              @if (f.hint) { <p class="text-xs text-muted">{{ 'AdminSettings.' + f.hint | t }}</p> }</div>
+          }
+        </div>
+        <h2 class="mt-2 text-lg font-bold">{{ 'AdminSettings.timersTitle' | t }}</h2>
+        <p class="-mt-2 text-sm text-muted">{{ 'AdminSettings.timersHelp' | t }}</p>
+        <div class="grid gap-4 md:grid-cols-2">
+          @for (f of timers; track f.key) {
+            <div class="flex flex-col gap-1.5"><label [for]="f.key" [class]="cls.label">{{ 'AdminSettings.' + f.label | t }}${REQ}</label><input [id]="f.key" [name]="f.key" type="number" dir="ltr" [class]="cls.input" [(ngModel)]="n[f.key]" /></div>
+          }
+        </div>
+        <p class="text-sm text-muted">{{ 'AdminSettings.timersHint' | t }}</p>
+        <div class="grid gap-4 md:grid-cols-2">
+          @for (f of basic.slice(2); track f.key) {
+            <div class="flex flex-col gap-1.5"><label [for]="f.key" [class]="cls.label">{{ 'AdminSettings.' + f.label | t }}${REQ}</label>
               <input [id]="f.key" [name]="f.key" type="number" dir="ltr" [class]="cls.input" [(ngModel)]="n[f.key]" />
               @if (f.hint) { <p class="text-xs text-muted">{{ 'AdminSettings.' + f.hint | t }}</p> }</div>
           }
         </div>
         <label class="${CHECK}"><input type="checkbox" name="email" class="h-5 w-5" [(ngModel)]="b['email_enabled']" /> {{ 'AdminSettings.email' | t }}</label>
-        <h2 class="mt-2 text-lg font-bold">{{ 'AdminSettings.timersTitle' | t }}</h2>
-        <p class="-mt-2 text-sm text-muted">{{ 'AdminSettings.timersHelp' | t }}</p>
-        <div class="grid gap-4 md:grid-cols-2">
-          @for (f of timers; track f.key) {
-            <div class="flex flex-col gap-1.5"><label [for]="f.key" [class]="cls.label">{{ 'AdminSettings.' + f.label | t }}</label><input [id]="f.key" [name]="f.key" type="number" dir="ltr" [class]="cls.input" [(ngModel)]="n[f.key]" /></div>
-          }
-        </div>
-        <p class="text-sm text-muted">{{ 'AdminSettings.timersHint' | t }}</p>
-        ${SAVE}
+        ${SAVE_REQ}
       </form>
 
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="saveReg()">
@@ -616,23 +629,21 @@ export class UploadsTab extends Tab implements OnInit {
 
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="savePw()">
         <h2 class="text-lg font-bold">{{ 'AdminSettings.pwTitle' | t }}</h2><p class="text-sm text-muted">{{ 'AdminSettings.pwHelp' | t }}</p>
-        <div class="flex flex-col gap-1.5 md:max-w-xs"><label for="pw-min" [class]="cls.label">{{ 'AdminSettings.pwMinLength' | t }}</label><input id="pw-min" name="min" type="number" min="8" max="72" dir="ltr" [class]="cls.input" [(ngModel)]="n['password_min_length']" /></div>
+        <div class="flex flex-col gap-1.5 md:max-w-xs"><label for="pw-min" [class]="cls.label">{{ 'AdminSettings.pwMinLength' | t }}${REQ}</label><input id="pw-min" name="min" type="number" min="8" max="72" dir="ltr" [class]="cls.input" [(ngModel)]="n['password_min_length']" /></div>
         <fieldset><legend [class]="cls.label">{{ 'AdminSettings.pwComplexity' | t }}</legend>
           @for (x of [['password_require_upper', 'pwUpper'], ['password_require_lower', 'pwLower'], ['password_require_number', 'pwNumber'], ['password_require_special', 'pwSpecial']]; track x[0]) {
             <label class="${CHECK}"><input type="checkbox" [name]="x[0]" class="h-5 w-5" [(ngModel)]="b[x[0]]" /> {{ 'AdminSettings.' + x[1] | t }}</label>
           }</fieldset>
         <label class="${CHECK} font-semibold"><input type="checkbox" name="exp" class="h-5 w-5" [(ngModel)]="b['password_expiry_enabled']" /> {{ 'AdminSettings.pwExpire' | t }}</label>
         <p class="-mt-2 text-sm text-muted">{{ 'AdminSettings.pwExpireHelp' | t }}</p>
-        @if (b['password_expiry_enabled']) {
-          <div class="grid gap-4 md:grid-cols-2">
+        <div class="grid gap-4 md:grid-cols-2">
             @for (x of [['password_expiry_days', 'pwExpiryDays'], ['password_warn_1_days', 'pwWarn1'], ['password_warn_2_days', 'pwWarn2'], ['password_warn_3_days', 'pwWarn3']]; track x[0]) {
               <div class="flex flex-col gap-1.5"><label [for]="x[0]" [class]="cls.label">{{ 'AdminSettings.' + x[1] | t }}</label><input [id]="x[0]" [name]="x[0]" type="number" dir="ltr" [class]="cls.input" [(ngModel)]="n[x[0]]" /></div>
             }
-          </div>
-          <p class="text-sm text-muted">{{ 'AdminSettings.pwWarnHint' | t }}</p>
-        }
+        </div>
+        <p class="text-sm text-muted">{{ 'AdminSettings.pwWarnHint' | t }}</p>
         <p class="text-sm text-muted">{{ 'AdminSettings.pwApplies' | t }}</p>
-        ${SAVE}
+        ${SAVE_REQ}
       </form>
       <p class="text-sm text-muted">{{ 'AdminSettings.note' | t }}</p>
     }`,
@@ -681,13 +692,14 @@ export class SystemTab extends Tab implements OnInit {
 
 @Component({
   selector: 'app-set-signin-codes',
-  imports: [TPipe, FormsModule, Alert, RouterLink],
+  imports: [TPipe, FormsModule, Alert, RouterLink, Req, ReqNote],
   template: `
     ${MSG}
     <p class="max-w-prose text-muted">{{ 'AdminSigninCodes.intro' | t }}</p>
     @if (m) {
       <form [class]="cls.card + ' flex flex-col gap-4 p-5'" (ngSubmit)="submit()">
-        <label class="${CHECK} font-semibold"><input type="checkbox" name="on" class="h-5 w-5" [(ngModel)]="m.enabled" /> {{ 'AdminSigninCodes.switch' | t }}</label>
+        <label class="${CHECK} font-semibold"><input type="checkbox" role="switch" name="on" class="h-5 w-5" [(ngModel)]="m.enabled" /> {{ 'AdminSigninCodes.switch' | t }}
+          <span class="ms-2 rounded-full px-2 py-0.5 text-xs font-bold" [class]="m.enabled ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (m.enabled ? 'AdminSigninCodes.on' : 'AdminSigninCodes.off') | t }}</span></label>
         <p class="-mt-3 text-sm text-muted">{{ 'AdminSigninCodes.switchHint' | t }}</p>
         <fieldset class="flex flex-col gap-1"><legend [class]="cls.label">{{ 'AdminSigninCodes.who' | t }}</legend>
           @for (a of ['customers', 'all']; track a) {
@@ -697,15 +709,24 @@ export class SystemTab extends Tab implements OnInit {
         <h2 class="text-lg font-bold">{{ 'AdminSigninCodes.rules' | t }}</h2>
         <div class="grid gap-4 md:grid-cols-2">
           @for (f of fields; track f.key) {
-            <div class="flex flex-col gap-1.5"><label [for]="'sc' + f.key" [class]="cls.label">{{ 'AdminSigninCodes.' + f.label | t }}</label>
+            <div class="flex flex-col gap-1.5"><label [for]="'sc' + f.key" [class]="cls.label">{{ 'AdminSigninCodes.' + f.label | t }}${REQ}</label>
               <div class="flex items-center gap-2"><input [id]="'sc' + f.key" [name]="f.key" type="number" dir="ltr" class="min-h-11 w-28 rounded-lg border border-line bg-surface px-3" [(ngModel)]="$any(m)[f.key]" />
                 <span class="text-sm text-muted">{{ 'AdminSigninCodes.' + f.label + 'Unit' | t }}</span></div></div>
           }
         </div>
         <section class="rounded-lg bg-bg p-4"><h3 class="font-semibold">{{ 'AdminSigninCodes.safeTitle' | t }}</h3>
           <ul class="mt-1 list-disc ps-5 text-sm">@for (n of [1, 2, 3, 4]; track n) { <li>{{ 'AdminSigninCodes.safe' + n | t }}</li> }</ul></section>
-        <p class="text-sm">{{ 'AdminSigninCodes.mailHint' | t }} <a [routerLink]="'/' + i18n.locale() + '/admin/general/settings/templates'" class="font-semibold text-brand-ink underline">{{ 'AdminSigninCodes.mailButton' | t }}</a></p>
-        ${SAVE}
+        <section class="flex flex-col gap-2"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.mailTitle' | t }}</h2>
+          <p class="text-muted">{{ 'AdminSigninCodes.mailHint' | t }}</p>
+          <div><a [routerLink]="'/' + i18n.locale() + '/admin/general/settings/templates'" class="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg">{{ 'AdminSigninCodes.mailButton' | t }}</a></div></section>
+        <section class="flex flex-col gap-2"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.previewTitle' | t }}</h2>
+          <div aria-hidden="true" class="flex max-w-xs flex-col gap-2.5 rounded-xl border border-dashed border-muted p-4">
+            <div class="flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-muted">{{ 'AdminSigninCodes.email' | t }}</div>
+            <div class="flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-muted">{{ 'AdminSigninCodes.password' | t }}</div>
+            <div class="flex min-h-11 items-center justify-center rounded-lg bg-brand font-bold text-white">{{ 'AdminSigninCodes.signIn' | t }}</div>
+            <div class="text-center font-semibold text-brand-ink underline">{{ 'AdminSigninCodes.alt' | t }}</div>
+          </div></section>
+        ${SAVE_REQ}
       </form>
     }`,
   changeDetection: ChangeDetectionStrategy.Default,
@@ -733,7 +754,7 @@ interface HandoverData {
 
 @Component({
   selector: 'app-set-handover',
-  imports: [TPipe, FormsModule, Alert],
+  imports: [TPipe, FormsModule, Alert, Req, ReqNote],
   template: `
     ${MSG}
     @if (d(); as x) {
@@ -742,9 +763,9 @@ interface HandoverData {
         <p class="text-sm text-muted">{{ 'AdminHandover.transferIntro' | t }}</p>
         @if (!x.candidates.length) { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminHandover.noCandidates' | t }}</p> } @else {
           <div class="grid gap-4 md:grid-cols-2">
-            <div class="flex flex-col gap-1.5"><label for="ho-new" [class]="cls.label">{{ 'AdminHandover.newAdmin' | t }}</label>
+            <div class="flex flex-col gap-1.5"><label for="ho-new" [class]="cls.label">{{ 'AdminHandover.newAdmin' | t }}${REQ}</label>
               <select id="ho-new" name="new" [class]="cls.input" [(ngModel)]="t.newAdminId"><option value="">{{ 'AdminHandover.choose' | t }}</option>
-                @for (c of x.candidates; track c.id) { <option [value]="c.id">{{ c.fullName }} ({{ c.email }})</option> }</select></div>
+                @for (c of x.candidates; track c.id) { <option [value]="c.id">{{ c.fullName }} · {{ c.email }}@if (c.typeEn) { · {{ i18n.pick(c.typeEn, c.typeAr) }} }</option> }</select></div>
             <div class="flex flex-col gap-1.5"><label for="ho-type" [class]="cls.label">{{ 'AdminHandover.myType' | t }}</label>
               <select id="ho-type" name="type" [class]="cls.input" [(ngModel)]="t.myTypeId"><option value="">{{ 'AdminHandover.choose' | t }}</option>
                 @for (ty of x.types; track ty.id) { <option [value]="ty.id">{{ i18n.pick(ty.nameEn, ty.nameAr) }}</option> }</select>
@@ -752,7 +773,7 @@ interface HandoverData {
             <div class="flex flex-col gap-1.5"><label for="ho-conf" [class]="cls.label">{{ 'AdminHandover.typeToConfirm' | t: { word: word() } }}</label>
               <input id="ho-conf" name="conf" dir="auto" autocomplete="off" [class]="cls.input" [(ngModel)]="t.confirm" /></div>
           </div>
-          <div><button type="submit" [class]="cls.danger" [disabled]="busy() || !t.newAdminId || !t.myTypeId">{{ 'AdminHandover.transferButton' | t }}</button></div>
+          <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.danger" [disabled]="busy() || !t.newAdminId || !t.myTypeId">{{ 'AdminHandover.transferButton' | t }}</button><app-req-note /></div>
         }
       </form>
 
