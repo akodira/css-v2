@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@a
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { I18n, TPipe } from '../../core/i18n';
-import { PRIORITY_TONE, StatusBadge } from '../../shared/ui';
+import { PRIORITY_TONE, PrioIcon, StatusBadge } from '../../shared/ui';
 import { BarList, Donut, GroupedColumns, Ring, StackedBars, TrendChart } from '../../shared/charts';
 
 interface Named { nameEn: string; nameAr: string }
@@ -11,7 +11,7 @@ interface Dash {
   kpi: { total: number; fresh: number; working: number; done: number; overdue: number; orgs: number; branches: number };
   created: number; resolved: number; daily: { day: string; created: number; resolved: number }[];
   slaMet: number; slaTotal: number; avgFirstResponseMinutes: number | null; avgResolutionMinutes: number | null;
-  byStatus: Record<string, number>; byPriority: (Named & { code: string; color: string; n: number })[]; byCategory: (Named & { n: number })[];
+  byStatus: Record<string, number>; byPriority: (Named & { code: string; color: string; icon?: string; n: number })[]; byCategory: (Named & { n: number })[];
   byOrg: { name: string; total: number; resolved: number }[]; byBranch: { name: string; org: string; total: number; resolved: number }[];
   workload: { name: string; n: number }[];
   satisfaction: { count: number; average: number | null; dist: number[]; resolvedTotal: number };
@@ -33,7 +33,7 @@ const STATUSES = ['new', 'open', 'in_progress', 'pending_customer', 'pending_int
 /** Staff dashboard: same layout and figures as the current /console/dashboard (last 30 days). */
 @Component({
   selector: 'app-dashboard',
-  imports: [TPipe, RouterLink, StatusBadge, TrendChart, Ring, BarList, Donut, GroupedColumns, StackedBars],
+  imports: [TPipe, RouterLink, StatusBadge, TrendChart, Ring, BarList, Donut, GroupedColumns, StackedBars, PrioIcon],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <header class="flex flex-wrap items-end justify-between gap-3">
@@ -134,7 +134,7 @@ const STATUSES = ['new', 'open', 'in_progress', 'pending_customer', 'pending_int
                     <tr class="border-b border-line last:border-0">
                       <td class="py-3 pe-3"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink hover:underline" dir="ltr">{{ r.reference }}</a><p class="max-w-56 truncate text-muted" dir="auto">{{ r.subject }}</p></td>
                       <td class="py-3 pe-3" dir="auto">{{ r.customer }}</td>
-                      <td class="py-3 pe-3"><span class="inline-flex rounded px-2 py-0.5 text-xs font-semibold" [class]="prioTone(r.priority)">{{ prioName(r.priority) }}</span></td>
+                      <td class="py-3 pe-3"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prioTone(r.priority)"><app-prio-icon [name]="prioIcon(r.priority)" [size]="12" />{{ prioName(r.priority) }}</span></td>
                       <td class="py-3 pe-3"><app-status-badge [status]="r.status" [staff]="true" /></td>
                       <td class="py-3 text-muted">{{ ago(r.updatedAt) }}</td>
                     </tr>
@@ -180,6 +180,7 @@ export class DashboardPage {
   protected link(p: string): string { return `/${this.i18n.locale()}${p}`; }
   protected pct(a: number, b: number): number | null { return b ? Math.round((a / b) * 100) : null; }
   protected named(rows: (Named & { n: number })[]) { return rows.map((r) => ({ label: this.i18n.pick(r.nameEn, r.nameAr), value: r.n })); }
+  protected prioIcon(code: string): string { return this.d()?.byPriority.find((x) => x.code === code)?.icon ?? 'minus'; }
   protected prioName(code: string): string { const p = this.d()?.byPriority.find((x) => x.code === code); return p ? this.i18n.pick(p.nameEn, p.nameAr) : code; }
   protected prioTone(code: string): string { const p = this.d()?.byPriority.find((x) => x.code === code); return PRIORITY_TONE[p?.color ?? 'grey'] ?? PRIORITY_TONE['grey']; }
   protected human(min: number | null): string {

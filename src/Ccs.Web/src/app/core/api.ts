@@ -9,7 +9,7 @@ import { apiUrl } from './api-base';
 export interface Paged<T> { items: T[]; total: number; page: number; pageSize: number }
 
 export interface TicketListItem {
-  id: string; reference: string; subject: string; status: string; priority: string; priorityColor: string | null;
+  id: string; reference: string; subject: string; status: string; priority: string; priorityColor: string | null; priorityIcon?: string | null;
   priorityEn: string | null; priorityAr: string | null; categoryEn: string; categoryAr: string; teamEn: string | null; teamAr: string | null; assigneeName: string | null;
   requesterName: string; slaState: string | null; resolutionDue: string | null; createdAt: string; updatedAt: string;
   requesterEmail?: string | null; firstResponseDue?: string | null; firstRespondedAt?: string | null; pausedAt?: string | null;
@@ -26,7 +26,7 @@ export interface Message {
 export interface TimelineEntry { at: string; from: string | null; to: string; reason: string | null; closureReason: string | null; byName: string | null }
 export interface Names {
   typeEn: string | null; typeAr: string | null; categoryEn: string; categoryAr: string; subcategoryEn: string | null; subcategoryAr: string | null;
-  teamEn: string | null; teamAr: string | null; assignee: string | null; priorityEn: string | null; priorityAr: string | null; priorityColor: string | null;
+  teamEn: string | null; teamAr: string | null; assignee: string | null; priorityEn: string | null; priorityAr: string | null; priorityColor: string | null; priorityIcon?: string | null;
   closureEn: string | null; closureAr: string | null; closureAllowsReopen: boolean;
 }
 export interface TicketDetail {

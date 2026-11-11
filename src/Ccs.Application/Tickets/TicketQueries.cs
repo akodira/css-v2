@@ -23,7 +23,7 @@ public sealed record TicketListItem(
     string CategoryEn, string CategoryAr, string? TeamEn, string? TeamAr, string? AssigneeName, string RequesterName,
     string? SlaState, DateTimeOffset? ResolutionDue, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
     string? RequesterEmail = null, DateTimeOffset? FirstResponseDue = null, DateTimeOffset? FirstRespondedAt = null,
-    DateTimeOffset? PausedAt = null, int PausedTotalSeconds = 0, DateTimeOffset? ResolvedAt = null);
+    DateTimeOffset? PausedAt = null, int PausedTotalSeconds = 0, DateTimeOffset? ResolvedAt = null, string? PriorityIcon = null);
 
 public sealed record TicketSummary(int Total, int Active, int Waiting, int Resolved, int Closed, int Unassigned, int Breached);
 
@@ -51,7 +51,7 @@ public sealed record TicketDetail(
 /// <summary>Display names for the header of the ticket page, in both languages.</summary>
 public sealed record Names(string? TypeEn, string? TypeAr, string CategoryEn, string CategoryAr, string? SubcategoryEn, string? SubcategoryAr,
     string? TeamEn, string? TeamAr, string? Assignee, string? PriorityEn, string? PriorityAr, string? PriorityColor,
-    string? ClosureEn, string? ClosureAr, bool ClosureAllowsReopen);
+    string? ClosureEn, string? ClosureAr, bool ClosureAllowsReopen, string? PriorityIcon = null);
 
 public sealed class TicketQueries(ICcsDbContext db, AccessService access)
 {
@@ -138,7 +138,8 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
                                sr == null ? null : sr.FirstRespondedAt,
                                sr == null ? null : sr.PausedAt,
                                sr == null ? 0 : sr.PausedTotalSeconds,
-                               t.ResolvedAt))
+                               t.ResolvedAt,
+                               db.Priorities.Where(p => p.Code == t.Priority).Select(p => p.Icon).FirstOrDefault()))
                           .Skip((page.SafePage - 1) * page.SafeSize).Take(page.SafeSize).ToListAsync(ct);
         return new PagedResult<TicketListItem>(items, total, page.SafePage, page.SafeSize);
     }
@@ -258,7 +259,7 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
         var prio = await db.Priorities.AsNoTracking().FirstOrDefaultAsync(x => x.Code == t.Priority, ct);
         var cr = t.ClosureReason is string code ? await db.ClosureReasons.AsNoTracking().FirstOrDefaultAsync(x => x.Code == code, ct) : null;
         return new Names(type?.NameEn, type?.NameAr, cat.NameEn, cat.NameAr, sub?.NameEn, sub?.NameAr, team?.NameEn, team?.NameAr, agent,
-            prio?.NameEn, prio?.NameAr, prio?.Color, cr?.NameEn, cr?.NameAr, cr?.CustomerMayReopen ?? true);
+            prio?.NameEn, prio?.NameAr, prio?.Color, cr?.NameEn, cr?.NameAr, cr?.CustomerMayReopen ?? true, prio?.Icon);
     }
 
     /// <summary>Customers see pending_internal as "in progress" (same masking as the notification trigger).</summary>

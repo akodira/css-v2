@@ -94,14 +94,15 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
     {
         var (c, all) = await ReportUser(ct);
         if (days is not (7 or 30 or 90)) days = 30;
-        var to = clock.UtcNow; var from = to.AddDays(-days);
+        // v1: from 00:00 Cairo (days-1) days ago, to now + 60s.
+        var to = clock.UtcNow.AddSeconds(60); var from = CairoMidnight(Day(clock.UtcNow).AddDays(-(days - 1)));
         var q = Scope(c, all);
         var rows = await RowsAsync(q, from, to, ct);
         var resolvedIn = await q.Where(t => t.ResolvedAt >= from && t.ResolvedAt < to).Select(t => new { t.CreatedAt, ResolvedAt = t.ResolvedAt!.Value }).ToListAsync(ct);
         var created = rows.GroupBy(r => Day(r.CreatedAt)).ToDictionary(g => g.Key, g => g.Count());
         var resolved = resolvedIn.GroupBy(r => Day(r.ResolvedAt)).ToDictionary(g => g.Key, g => g.Count());
         var daily = new List<object>();
-        for (var d = Day(from); d <= Day(to.AddSeconds(-1)); d = d.AddDays(1)) daily.Add(new { day = d, created = created.GetValueOrDefault(d), resolved = resolved.GetValueOrDefault(d) });
+        for (var d = Day(from); d <= Day(clock.UtcNow); d = d.AddDays(1)) daily.Add(new { day = d, created = created.GetValueOrDefault(d), resolved = resolved.GetValueOrDefault(d) });
 
         var cats = await db.TicketCategories.AsNoTracking().ToDictionaryAsync(x => x.Id, x => new { x.NameEn, x.NameAr }, ct);
         var teams = await db.Teams.AsNoTracking().ToDictionaryAsync(x => x.Id, x => new { x.NameEn, x.NameAr }, ct);
@@ -310,7 +311,9 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
         var c = await access.RequireSignedInAsync(ct);
         if (!c.Admin && !c.Viewer) throw new ForbiddenException();
         page = Math.Clamp(page, 1, 1000);
-        var types = await db.AuditLogs.AsNoTracking().Select(a => a.EntityType).Distinct().OrderBy(x => x).ToListAsync(ct);
+        // v1: entity types from the newest 500 entries, sorted by code point (JS default sort).
+        var types = (await db.AuditLogs.AsNoTracking().OrderByDescending(a => a.CreatedAt).Take(500).Select(a => a.EntityType).ToListAsync(ct))
+            .Distinct().OrderBy(x => x, StringComparer.Ordinal).ToList();
         var q = db.AuditLogs.AsNoTracking();
         if (!string.IsNullOrEmpty(entity) && types.Contains(entity)) q = q.Where(a => a.EntityType == entity);
         var total = await q.CountAsync(ct);

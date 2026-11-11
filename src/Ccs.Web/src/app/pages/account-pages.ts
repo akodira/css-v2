@@ -348,20 +348,20 @@ interface NotificationRow { id: string; eventType: string; ticketId: string | nu
   selector: 'app-notifications',
   imports: [TPipe, RouterLink],
   template: `
-    <main class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
+    <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div><h1 class="text-3xl font-bold tracking-tight">{{ 'Notifications.title' | t }}</h1><p class="mt-1 text-muted">{{ 'Notifications.subtitle' | t }}</p></div>
-        <button type="button" (click)="markAll()" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg">{{ 'Notifications.markAll' | t }}</button>
+        @if (hasUnread()) { <button type="button" (click)="markAll()" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg">{{ 'Notifications.markAll' | t }}</button> }
       </div>
-      <ul class="flex flex-col gap-2">
+      <ul class="flex flex-col gap-3">
         @for (n of items(); track n.id) {
-          <li class="rounded-md border p-4" [class]="n.readAt ? 'border-line bg-surface' : 'border-brand/40 bg-brand-soft'">
-            <p class="font-semibold" dir="auto">{{ title(n) }}</p>
-            <p class="text-sm text-muted" dir="auto">{{ body(n) }}</p>
-            <div class="mt-2 flex flex-wrap items-center gap-3 text-sm">
-              <span class="text-muted">{{ i18n.date(n.createdAt) }}</span>
-              @if (n.ticketId) { <a [routerLink]="ticketLink(n.ticketId)" (click)="read(n)" class="font-semibold text-brand-ink underline">{{ 'Notifications.open' | t }}</a> }
-              @if (!n.readAt) { <button type="button" (click)="read(n)" class="cursor-pointer font-semibold text-brand-ink underline">{{ 'Notifications.markRead' | t }}</button> }
+          <li [class]="'rounded-md border p-4 ' + (n.readAt ? 'border-line bg-surface' : 'border-brand bg-brand-soft')">
+            <p class="font-semibold" dir="auto">{{ title(n) }}@if (!n.readAt) { <span class="ms-2 rounded-full bg-brand px-2 py-0.5 text-xs text-white">{{ 'Notifications.unread' | t }}</span> }</p>
+            <p class="mt-1" dir="auto">{{ body(n) }}</p>
+            <p class="mt-2 text-sm text-muted">{{ i18n.date(n.createdAt) }}</p>
+            <div class="mt-3 flex flex-wrap items-center gap-3">
+              @if (n.ticketId) { <a [routerLink]="ticketLink(n.ticketId)" (click)="read(n)" class="flex min-h-11 items-center font-semibold text-brand-ink underline">{{ 'Notifications.open' | t }}</a> }
+              @if (!n.readAt) { <button type="button" (click)="read(n)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-3 text-sm font-semibold">{{ 'Notifications.markRead' | t }}</button> }
             </div>
           </li>
         } @empty { <li class="rounded-md border border-line bg-surface p-8 text-center text-muted">{{ 'Notifications.empty' | t }}</li> }
@@ -374,6 +374,7 @@ export class NotificationsPage {
   private readonly auth = inject(Auth);
   private readonly http = inject(HttpClient);
   protected readonly items = signal<NotificationRow[]>([]);
+  protected readonly hasUnread = computed(() => this.items().some((n) => !n.readAt));
   constructor() { this.load(); }
   load(): void { void firstValueFrom(this.http.get<{ items: NotificationRow[] }>('/api/notifications')).then((r) => this.items.set(r.items)); }
   private params(n: NotificationRow): Record<string, unknown> { try { return JSON.parse(n.payload) as Record<string, unknown>; } catch { return {}; } }

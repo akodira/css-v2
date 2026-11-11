@@ -148,8 +148,8 @@ export const GENERAL_ARTICLES: Article[] = [
     id: "s-people", kind: "feature", area: "customers", audience: [...s], path: "/console/people",
     title: { en: "People in your branch or organization", ar: "الأشخاص في فرعك أو مؤسستك" },
     summary: {
-      en: "For branch and organization administrators. Add, edit, suspend or reactivate the customers, agents and team leaders inside the branches and organizations you manage. The page appears only when the main Administrator has given you a scope.",
-      ar: "لمديري الفروع والمؤسسات. أضف العملاء والموظفين وقادة الفرق داخل الفروع والمؤسسات التي تديرها، وعدّلهم أو أوقفهم أو أعد تفعيلهم. تظهر الصفحة فقط عندما يمنحك المدير الرئيسي نطاقًا.",
+      en: "For branch and organization administrators. Add, edit, suspend or reactivate the customers, agents and team leaders inside the branches and organizations you manage. The page appears only when the main Administrator has given you a scope (when adding you, they tick Organization admin or Branch admin and choose your organizations or branches). Its menu item is People.",
+      ar: "لمديري الفروع والمؤسسات. أضف العملاء والموظفين وقادة الفرق داخل الفروع والمؤسسات التي تديرها، وعدّلهم أو أوقفهم أو أعد تفعيلهم. تظهر الصفحة فقط عندما يمنحك المدير الرئيسي نطاقًا (عند إضافتك يحدد «مدير المؤسسة» أو «مدير الفرع» ويختار مؤسساتك أو فروعك). وبند القائمة هو «الأشخاص».",
     },
   },
 

@@ -10,7 +10,7 @@ import {
   AccessRow, AccountTypeRow, AdminApi, AdminUser, BranchRow, Lookups, OrgRow, TeamRow, TeamsResult, TypeBody, UserBody,
   adminError, generatePassword,
 } from '../../core/admin-api';
-import { Alert, Req, StatusBadge } from '../../shared/ui';
+import { Alert, PRIORITY_TONE, PrioIcon, Req, StatusBadge } from '../../shared/ui';
 import { WhereEditor } from './where-editor';
 
 // Same look as the v1 admin screens: cards with a header that opens, forms inside.
@@ -456,7 +456,7 @@ interface CustomerProfile {
 
 @Component({
   selector: 'app-customer-profile',
-  imports: [TPipe, Alert, PersonForm, RouterLink, StatusBadge, FormsModule],
+  imports: [TPipe, Alert, PersonForm, RouterLink, StatusBadge, FormsModule, PrioIcon],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <a [routerLink]="'/' + i18n.locale() + '/admin/customers'" class="text-sm font-semibold text-brand-ink underline">{{ 'Customers.title' | t }}</a>
@@ -524,7 +524,7 @@ interface CustomerProfile {
               @for (r of d.tickets; track r.id) {
                 <li class="flex flex-wrap items-center justify-between gap-2 rounded border border-line bg-surface p-4">
                   <a [routerLink]="'/' + i18n.locale() + '/console/tickets/' + r.id" class="font-semibold text-brand-ink underline" dir="auto"><span dir="ltr">{{ r.reference }}</span> · {{ r.subject }}</a>
-                  <span class="flex items-center gap-2"><span class="rounded-full bg-bg px-3 py-1 text-xs font-semibold text-muted">{{ priorityName(r.priority) }}</span><app-status-badge [status]="r.status" [staff]="true" /></span>
+                  <span class="flex items-center gap-2"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prioTone(r.priority)"><app-prio-icon [name]="prioOf(r.priority)?.icon ?? 'minus'" [size]="12" />{{ priorityName(r.priority) }}</span><app-status-badge [status]="r.status" [staff]="true" /></span>
                 </li>
               }
             </ul>
@@ -539,7 +539,7 @@ export class CustomerProfilePage extends AdminBase implements OnInit {
   private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
   private readonly tickets = inject(TicketsApi);
-  private readonly prios = signal<{ code: string; nameEn: string; nameAr: string }[]>([]);
+  private readonly prios = signal<{ code: string; nameEn: string; nameAr: string; color: string; icon: string }[]>([]);
   protected readonly d = signal<CustomerProfile | null>(null);
   protected readonly staffRoles = ['agent', 'team_leader', 'admin', 'management_viewer'];
   protected readonly activeTeams = computed(() => (this.lk()?.teams ?? []).filter((t) => t.isActive));
@@ -553,6 +553,8 @@ export class CustomerProfilePage extends AdminBase implements OnInit {
   protected async reload(): Promise<void> {
     try { this.d.set(await firstValueFrom(this.http.get<CustomerProfile>('/api/console/customers/' + this.id))); } catch (e) { this.fail(e); }
   }
+  protected prioOf(code: string) { return this.prios().find((x) => x.code === code); }
+  protected prioTone(code: string): string { return PRIORITY_TONE[this.prioOf(code)?.color ?? 'grey'] ?? PRIORITY_TONE['grey']; }
   protected priorityName(code: string): string {
     const p = this.prios().find((x) => x.code === code);
     return p ? this.i18n.pick(p.nameEn, p.nameAr) : code;

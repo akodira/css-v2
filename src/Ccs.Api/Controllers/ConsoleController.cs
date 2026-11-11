@@ -180,7 +180,7 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
             .OrderByDescending(x => x.total).ThenBy(x => x.name).ToList();
 
         var cats = await db.TicketCategories.AsNoTracking().Select(x => new { x.Id, x.NameEn, x.NameAr }).ToListAsync(ct);
-        var prios = await db.Priorities.AsNoTracking().OrderBy(p => p.SortOrder).Select(p => new { p.Code, p.NameEn, p.NameAr, p.Color }).ToListAsync(ct);
+        var prios = await db.Priorities.AsNoTracking().OrderBy(p => p.SortOrder).Select(p => new { p.Code, p.NameEn, p.NameAr, p.Color, p.Icon }).ToListAsync(ct);
         var agentIds = await all.Where(t => t.AssignedAgentId != null && Open.Contains(t.Status)).GroupBy(t => t.AssignedAgentId!.Value)
             .Select(g => new { Id = g.Key, N = g.Count() }).OrderByDescending(x => x.N).Take(6).ToListAsync(ct);
         var agentNames = await db.Profiles.AsNoTracking().Where(p => agentIds.Select(a => a.Id).Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
@@ -200,7 +200,7 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
             avgFirstResponseMinutes = firsts.Count == 0 ? (double?)null : Math.Round(firsts.Average(), 1),
             avgResolutionMinutes = resolutions.Count == 0 ? (double?)null : Math.Round(resolutions.Average(), 1),
             byStatus = rows.GroupBy(r => r.Status).ToDictionary(g => g.Key, g => g.Count()),
-            byPriority = prios.Select(p => new { p.Code, p.NameEn, p.NameAr, p.Color, n = rows.Count(r => r.Priority == p.Code) }).Where(x => x.n > 0),
+            byPriority = prios.Select(p => new { p.Code, p.NameEn, p.NameAr, p.Color, p.Icon, n = rows.Count(r => r.Priority == p.Code) }).Where(x => x.n > 0),
             byCategory = cats.Select(x => new { x.NameEn, x.NameAr, n = rows.Count(r => r.CategoryId == x.Id) }).Where(x => x.n > 0).OrderByDescending(x => x.n),
             byOrg, byBranch,
             workload = agentIds.Select(a => new { name = agentNames.GetValueOrDefault(a.Id, ""), n = a.N }),

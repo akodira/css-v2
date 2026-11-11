@@ -5,7 +5,7 @@ import { I18n, TPipe } from '../../core/i18n';
 import { Paged, SiteService, TicketDetail, TicketListItem, TicketsApi } from '../../core/api';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, Req, SlaChip, SlaClockCard, SortTh, StatusBadge } from '../../shared/ui';
+import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, PrioIcon, Req, SlaChip, SlaClockCard, SortTh, StatusBadge } from '../../shared/ui';
 import { AutoRefreshBar, autoRefresh } from '../tickets/customer-pages';
 import { CannedApi } from '../help-pages';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
@@ -30,7 +30,7 @@ const SLA_TONE: Record<string, string> = {
 /** Support console queue: same counters, team SLA strip, views, filters and columns as the current console. */
 @Component({
   selector: 'app-console-queue',
-  imports: [RouterLink, TPipe, StatusBadge, SortTh, SlaChip],
+  imports: [RouterLink, TPipe, StatusBadge, SortTh, SlaChip, PrioIcon],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <header>
@@ -120,7 +120,7 @@ const SLA_TONE: Record<string, string> = {
                   <td class="px-4 py-3"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink underline" dir="ltr">{{ r.reference }}</a><p class="mt-1 max-w-64 truncate" dir="auto">{{ r.subject }}</p></td>
                   <td class="px-4 py-3"><p dir="auto">{{ r.requesterName }}</p><p class="text-muted" dir="ltr">{{ r.requesterEmail }}</p></td>
                   <td class="px-4 py-3"><p dir="auto">{{ i18n.pick(r.teamEn, r.teamAr) || ('Console.noTeam' | t) }}</p><p class="text-muted" dir="auto">{{ r.assigneeName ?? ('Console.unassignedLabel' | t) }}</p></td>
-                  <td class="px-4 py-3"><span class="inline-flex rounded px-2 py-0.5 text-xs font-semibold" [class]="prio(r.priorityColor)">{{ i18n.pick(r.priorityEn, r.priorityAr) || r.priority }}</span></td>
+                  <td class="px-4 py-3"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prio(r.priorityColor)"><app-prio-icon [name]="r.priorityIcon ?? 'minus'" [size]="12" />{{ i18n.pick(r.priorityEn, r.priorityAr) || r.priority }}</span></td>
                   <td class="px-4 py-3"><app-status-badge [status]="r.status" [staff]="true" /></td>
                   <td class="px-4 py-3">
                     @if (clockOf(r); as ck) { <app-sla-chip [clock]="ck" /> } @else if (r.slaState) { <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold" [class]="sla[r.slaState] ?? ''">{{ 'Sla.' + r.slaState | t }}</span> } @else { - }
@@ -218,7 +218,7 @@ export class ConsoleQueuePage {
 /** Ticket workspace: reply or internal note, status change, claim (spec 7). Escalation, links and fields arrive in stage 4. */
 @Component({
   selector: 'app-console-ticket',
-  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions, AutoRefreshBar, SlaClockCard, Req],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions, AutoRefreshBar, SlaClockCard, Req, PrioIcon],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -230,7 +230,7 @@ export class ConsoleQueuePage {
           <div class="flex flex-wrap items-center justify-between gap-3">
             <p dir="ltr" class="font-semibold">{{ tk.reference }}</p>
             <div class="flex flex-wrap gap-2">
-              <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold" [class]="prio(tk.names.priorityColor)">{{ i18n.pick(tk.names.priorityEn, tk.names.priorityAr) }}</span>
+              <span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prio(tk.names.priorityColor)"><app-prio-icon [name]="tk.names.priorityIcon ?? 'minus'" [size]="12" />{{ i18n.pick(tk.names.priorityEn, tk.names.priorityAr) }}</span>
               <app-status-badge [status]="tk.status" [staff]="true" />
             </div>
           </div>

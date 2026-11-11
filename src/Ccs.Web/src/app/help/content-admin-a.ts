@@ -181,8 +181,8 @@ export const ADMIN_A_ARTICLES: Article[] = [
     id: "roles-guide", kind: "feature", area: "people", audience: [], path: "/admin/users",
     title: { en: "Roles at a glance", ar: "الأدوار باختصار" },
     summary: {
-      en: "Customer: asks for help and follows their own requests. Agent: works tickets and answers customers. Team leader: an agent who also directs the team and assigns tickets. Administrator: runs the whole system. Management viewer: watches dashboards, reports and tickets without changing anything. A customer role cannot be combined with staff roles. What a person can finally do is decided by their account type under Permissions.",
-      ar: "العميل: يطلب المساعدة ويتابع طلباته. الموظف: يعالج التذاكر ويجيب العملاء. قائد الفريق: موظف يوجّه الفريق ويسند التذاكر أيضًا. المدير: يدير النظام كله. المشاهد الإداري: يطّلع على اللوحات والتقارير والتذاكر دون تغيير شيء. ولا يمكن الجمع بين دور العميل وأدوار الموظفين. وما يستطيع الشخص فعله فعليًا تحدده نوع حسابه ضمن الصلاحيات.",
+      en: "Customer: asks for help and follows their own requests. Agent: works tickets and answers customers. Team leader: an agent who also directs the team and assigns tickets. Administrator: runs the whole system. Management viewer: watches dashboards, reports and tickets without changing anything. Organization admin and Branch admin: an agent who also manages the people, approvals and tickets of only the organizations or branches chosen for them. A customer role cannot be combined with staff roles. What a person can finally do is decided by their account type under Permissions.",
+      ar: "العميل: يطلب المساعدة ويتابع طلباته. الموظف: يعالج التذاكر ويجيب العملاء. قائد الفريق: موظف يوجّه الفريق ويسند التذاكر أيضًا. المدير: يدير النظام كله. المشاهد الإداري: يطّلع على اللوحات والتقارير والتذاكر دون تغيير شيء. مدير المؤسسة ومدير الفرع: موظف يدير أيضًا الأشخاص والموافقات والتذاكر في المؤسسات أو الفروع المختارة له فقط. ولا يمكن الجمع بين دور العميل وأدوار الموظفين. وما يستطيع الشخص فعله فعليًا تحدده نوع حسابه ضمن الصلاحيات.",
     },
   },
   {
@@ -198,14 +198,29 @@ export const ADMIN_A_ARTICLES: Article[] = [
     title: { en: "Add a staff member", ar: "إضافة موظف" },
     summary: { en: "Create the account and give a first password.", ar: "أنشئ الحساب وأعطِ كلمة مرور أولى." },
     steps: [
-      { en: "Open **Staff** and select **Add a user**.", ar: "افتح **الموظفون** واختر **إضافة مستخدم**." },
+      { en: "Open **People › Staff** and select **Add staff**.", ar: "افتح **الأشخاص › الموظفون** واختر **إضافة موظف**." },
       { en: "Enter the full name, email and phone number.", ar: "أدخل الاسم الكامل والبريد الإلكتروني ورقم الهاتف." },
       { en: "Select **Generate** for a **Temporary password**, or type one that meets the password policy.", ar: "اختر **توليد** لـ**كلمة مرور مؤقتة**، أو اكتب كلمة تحقق سياسة كلمات المرور." },
-      { en: "Choose the **Roles** and, if needed, the organization and branch.", ar: "اختر **الأدوار** و، عند الحاجة، المؤسسة والفرع." },
+      { en: "Choose the **Roles**. Each card lists everything that role can do. For a person who should manage only part of the company, choose **Organization admin** or **Branch admin** instead (see the next guide).", ar: "اختر **الأدوار**. تعرض كل بطاقة كل ما يستطيعه الدور. وللشخص الذي يجب أن يدير جزءًا من الشركة فقط اختر **مدير المؤسسة** أو **مدير الفرع** (انظر الدليل التالي)." },
       { en: "Select **Create**. Copy the temporary password now: it is shown only once. Give it to the person, who can change it under My account.", ar: "اختر **إنشاء**. انسخ كلمة المرور المؤقتة الآن فهي تظهر مرة واحدة فقط. سلّمها للشخص ويمكنه تغييرها من حسابي." },
     ],
     tips: [{ en: "Then give the person an account type under Permissions, and add them to a team under Teams.", ar: "بعد ذلك امنح الشخص نوع حساب ضمن الصلاحيات، وأضفه إلى فريق ضمن الفرق." }],
-    related: ["perm-type", "teams-members"],
+    related: ["users-scoped-admin", "perm-type", "teams-members"],
+  },
+  {
+    id: "users-scoped-admin", kind: "howto", area: "people", audience: [], path: "/admin/users",
+    title: { en: "Add an Organization admin or a Branch admin", ar: "إضافة مدير مؤسسة أو مدير فرع" },
+    summary: { en: "One step: the person, their account type and the organizations or branches they manage.", ar: "خطوة واحدة: الشخص ونوع حسابه والمؤسسات أو الفروع التي يديرها." },
+    steps: [
+      { en: "Open **People › Staff** and select **Add staff**. Enter the name, email, phone and a **Temporary password**.", ar: "افتح **الأشخاص › الموظفون** واختر **إضافة موظف**. أدخل الاسم والبريد والهاتف و**كلمة مرور مؤقتة**." },
+      { en: "Tick **Organization admin** (to manage whole organizations and the ones inside them) or **Branch admin** (to manage chosen branches). These two cards cannot be combined with other roles.", ar: "حدد **مدير المؤسسة** (لإدارة مؤسسات كاملة والمؤسسات التابعة لها) أو **مدير الفرع** (لإدارة فروع مختارة). لا يمكن الجمع بين هاتين البطاقتين وأي دور آخر." },
+      { en: "A list opens under the cards. Search, then tick the organizations or branches. For branches, **Select all** takes a whole organization. Your choices appear as chips you can remove.", ar: "تظهر قائمة تحت البطاقات. ابحث ثم حدد المؤسسات أو الفروع. وفي الفروع يختار **تحديد الكل** مؤسسة كاملة. وتظهر اختياراتك على شكل شارات يمكن إزالتها." },
+      { en: "Select **Create**. At least one organization or branch is required. The account is created as an agent with the matching account type and scope in one step.", ar: "اختر **إنشاء**. يلزم اختيار مؤسسة أو فرع واحد على الأقل. يُنشأ الحساب كموظف بنوع الحساب والنطاق المناسبين في خطوة واحدة." },
+    ],
+    tips: [
+      { en: "What these admins can do is decided by their account type under **People › Permissions**. You can change it there at any time, and change the chosen organizations or branches from the person\u2019s row in Staff.", ar: "ما يستطيعه هؤلاء المديرون يحدده نوع حسابهم ضمن **الأشخاص › الصلاحيات**، ويمكنك تغييره في أي وقت، وتغيير المؤسسات أو الفروع المختارة من صف الشخص في «الموظفون»." },
+    ],
+    related: ["users-add", "perm-type", "s-people"],
   },
   {
     id: "users-promote", kind: "howto", area: "people", audience: [], path: "/admin/customers",
@@ -304,6 +319,7 @@ export const ADMIN_A_ARTICLES: Article[] = [
     ],
     tips: [
       { en: "Give **Assign tickets to others** to make people with this type act as team leaders for their teams.", ar: "امنح **إسناد التذاكر للآخرين** لتصرّف أصحاب هذا النوع كقادة لفرقهم." },
+      { en: "The built-in types **Organization Admin** and **Branch Admin** limit a person to chosen organizations or branches. Normally you do not set them here: choose the matching card when adding the person under Staff.", ar: "النوعان المدمجان **مدير المؤسسة** و**مدير الفرع** يقصران الشخص على مؤسسات أو فروع مختارة. وعادةً لا تضبطهما هنا، بل اختر البطاقة المناسبة عند إضافة الشخص ضمن «الموظفون»." },
       { en: "Choosing Administrator fills access with everything and asks for confirmation before saving.", ar: "اختيار «مدير» يملأ النطاق بكل شيء ويطلب تأكيدًا قبل الحفظ." },
     ],
   },
@@ -341,6 +357,18 @@ export const ADMIN_A_FLOWS: Flow[] = [
       { label: { en: "Categories", ar: "التصنيفات" } },
       { label: { en: "Registration and emails", ar: "التسجيل والبريد" }, tone: "d" },
       { label: { en: "Go live", ar: "التشغيل" }, tone: "o" },
+    ],
+  },
+  {
+    id: "f-scoped-admin", area: "people", audience: [],
+    title: { en: "Adding an Organization or Branch admin", ar: "إضافة مدير مؤسسة أو مدير فرع" },
+    summary: { en: "One form does it all. Afterwards the new admin manages people only inside their scope.", ar: "نموذج واحد ينجز كل شيء. بعدها يدير المدير الجديد الأشخاص داخل نطاقه فقط." },
+    nodes: [
+      { label: { en: "Add staff", ar: "إضافة موظف" }, tone: "a" },
+      { label: { en: "Tick Organization admin or Branch admin", ar: "تحديد مدير مؤسسة أو مدير فرع" } },
+      { label: { en: "Choose organizations or branches", ar: "اختيار المؤسسات أو الفروع" } },
+      { label: { en: "Create", ar: "إنشاء" } },
+      { label: { en: "Admin manages People in their scope", ar: "يدير المدير الأشخاص داخل نطاقه" }, tone: "o" },
     ],
   },
   {

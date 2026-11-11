@@ -111,6 +111,10 @@ app.UseRouting();   // explicit: routing must run AFTER the path fix above (othe
 
 // ---- Pipeline --------------------------------------------------------------------------------
 app.UseForwardedHeaders(new ForwardedHeadersOptions { ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto });
+// Request log sits outside the exception handler, so it sees the final status: business answers
+// (400/403/404/409) are Information without a stack trace; only 5xx are errors.
+app.UseSerilogRequestLogging(o => o.GetLevel = (ctx, _, ex) =>
+    ex is not null || ctx.Response.StatusCode >= 500 ? Serilog.Events.LogEventLevel.Error : Serilog.Events.LogEventLevel.Information);
 app.UseExceptionHandler();
 if (!app.Environment.IsDevelopment()) app.UseHsts();
 app.UseHttpsRedirection();
@@ -121,9 +125,6 @@ app.Use(async (ctx, next) =>
     ctx.Response.Headers.XFrameOptions = "DENY";
     await next();
 });
-app.UseSerilogRequestLogging(o => o.GetLevel = (ctx, _, ex) =>
-    ex is Ccs.Application.Common.AppException ? Serilog.Events.LogEventLevel.Information          // business answers (400/403/404/409), not faults
-    : ex is not null || ctx.Response.StatusCode >= 500 ? Serilog.Events.LogEventLevel.Error : Serilog.Events.LogEventLevel.Information);
 if (!string.IsNullOrWhiteSpace(webOrigin)) app.UseCors();
 app.UseAuthentication();
 app.UseRateLimiter();
