@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AccountTypeRow, AccessRow } from '../../core/admin-api';
 import { TPipe } from '../../core/i18n';
-import { Alert, Req } from '../../shared/ui';
+import { Alert, Req, ReqNote } from '../../shared/ui';
 import { AdminBase } from './admin-pages';
 
 // Batch 4B: Permissions laid out as in v1 — tabs (Account types | Staff), a table of types with View / Edit,
@@ -209,7 +209,7 @@ interface AccessEntry { all: boolean; branches: string[] }
 /** One account type: 1 name, 2 access, 3 permissions (v1 AccountTypeEditor). The built-in Administrator opens read only. */
 @Component({
   selector: 'app-admin-type',
-  imports: [TPipe, Alert, FormsModule, RouterLink, Req],
+  imports: [TPipe, Alert, FormsModule, RouterLink, Req, ReqNote],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -290,7 +290,7 @@ interface AccessEntry { all: boolean; branches: string[] }
             @if (!locked() && perms.has('assign_others')) { <p class="text-sm text-muted">{{ 'Permissions.leaderHint' | t }}</p> }
           </section>
           <div class="flex flex-wrap items-center gap-3">
-            @if (!locked()) { <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Permissions.saveType' | t }}</button> }
+            @if (!locked()) { <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Permissions.saveType' | t }}</button><app-req-note /> }
             <a [routerLink]="base" class="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-5 font-semibold hover:bg-bg">{{ (locked() ? 'Permissions.backToTypes' : 'Permissions.cancel') | t }}</a>
             @if (!locked() && row()) {
               @if (row()!.staff > 0) { <span class="text-sm text-muted">{{ 'Permissions.deleteBlocked' | t: { n: row()!.staff } }}</span> }
