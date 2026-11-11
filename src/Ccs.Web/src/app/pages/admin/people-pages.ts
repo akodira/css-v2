@@ -229,7 +229,6 @@ interface StaffData { me: string; orgs: Pick[]; branches: BranchPick[]; staff: S
       </form>
       @if (!u.isSelf) {
         <div class="mt-4 border-t border-line pt-3 [&_.mt-4]:mt-0 [&_.border-t]:border-0 [&_.pt-4]:pt-0">
-          <p class="mb-1 text-sm font-semibold">{{ 'AdminUsers.turnBackTitle' | t }}</p>
           <app-turn-back [userId]="u.id" (done)="act.emit({ kind: 'reload' })" />
         </div>
       }
@@ -473,7 +472,7 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
                     <ul class="flex flex-col gap-2">
                       @for (mb of t.members; track mb.userId) {
                         <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
-                          <span><span class="font-semibold" dir="auto">{{ mb.fullName }}</span> <span class="text-sm text-muted" dir="ltr">{{ mb.email }}</span>
+                          <span><span class="font-semibold" dir="auto">{{ mb.fullName }}</span>{{ ' ' }}<span class="text-sm text-muted" dir="ltr">{{ mb.email }}</span>
                             @if (mb.isLeader) { <span class="ms-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-ink">{{ 'AdminTeams.leader' | t }}</span> }</span>
                           <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg disabled:opacity-60" [disabled]="busy()" (click)="removeMember(t, mb.userId)">{{ 'AdminTeams.remove' | t }}<span class="sr-only"> {{ mb.fullName }}</span></button>
                         </li>
@@ -586,7 +585,6 @@ interface OrgPerson { id: string; fullName: string; email: string; phone: string
       </div>
       @if (row()) {
         <label class="flex min-h-11 items-center gap-2"><input type="checkbox" name="active" class="h-5 w-5" [(ngModel)]="m.isActive" /> {{ 'Directory.active' | t }}</label>
-        @if (!branch()) { <label class="flex min-h-11 items-center gap-2"><input type="checkbox" name="shared" class="h-5 w-5" [(ngModel)]="m.sharedAccessEnabled" /> {{ 'AdminV2.sharedAccess' | t }}</label> }
       }
       <div class="flex flex-wrap items-center gap-3">
         <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ (row() ? 'Directory.saveChanges' : branch() ? 'Directory.addBranch' : 'Directory.addOrganization') | t }}</button>
@@ -767,7 +765,10 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
   protected async reload(): Promise<void> {
     try {
       const [rows, people] = await Promise.all([this.api.get<OrgRow[]>('organizations'), this.api.get<OrgPerson[]>('organizations/people')]);
-      this.rows.set(rows); this.people.set(people);
+      // Same order as v1 (Postgres collation): "Al-Qalyubia" before "Alex".
+      const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+      for (const o of rows) o.branches.sort(byName);
+      this.rows.set(rows.sort(byName)); this.people.set(people);
       if (!this.parent || !rows.some((o) => o.id === this.parent && o.isActive)) this.parent = rows.find((o) => o.isActive)?.id ?? '';
     } catch (e) { this.fail(e); }
   }

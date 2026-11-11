@@ -338,7 +338,7 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
         var members = await (from m in db.TeamMembers.AsNoTracking()
                              join p in db.Profiles on m.UserId equals p.Id
                              where teamIds.Contains(m.TeamId) && p.AccountStatus == AccountStatus.Active
-                             orderby m.IsLeader descending, p.FullName
+                             orderby m.IsLeader descending, p.CreatedAt // leader, then the earliest added (v1 row order)
                              select new { m.TeamId, m.UserId, m.IsLeader, p.FullName, p.Email, p.AutoAssign, p.CanCreateForCustomers }).ToListAsync(ct);
         // Leaders first in each team; the biggest team first (v1 shows Technical support, then the others).
         return teams.OrderByDescending(t => members.Count(m => m.TeamId == t.Id)).ThenBy(t => t.NameEn)

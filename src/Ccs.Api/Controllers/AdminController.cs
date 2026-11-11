@@ -549,7 +549,7 @@ public sealed class AdminController(
                              select new { m.TeamId, m.UserId, m.IsLeader, p.FullName, p.Email }).ToListAsync(ct);
         var candidates = await (from p in db.Profiles join ur in db.CcsUserRoles on p.Id equals ur.UserId join r in db.CcsRoles on ur.RoleId equals r.Id
                                 where p.AccountStatus == AccountStatus.Active && (r.Code == RoleCode.Agent || r.Code == RoleCode.TeamLeader)
-                                orderby p.FullName select new { p.Id, p.FullName, p.Email, Role = r.Code }).ToListAsync(ct);
+                                orderby p.CreatedAt descending select new { p.Id, p.FullName, p.Email, Role = r.Code }).ToListAsync(ct); // newest first, as v1
         // One line per person, even with both the Agent and the Team leader role.
         candidates = candidates.GroupBy(x => x.Id).Select(g => g.OrderByDescending(x => x.Role == RoleCode.TeamLeader).First()).ToList();
         return new
@@ -645,7 +645,7 @@ public sealed class AdminController(
         var roleRows = await (from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id select new { ur.UserId, r.Code }).ToListAsync(ct);
         var rolesOf = roleRows.GroupBy(x => x.UserId).ToDictionary(g => g.Key, g => g.Select(x => x.Code).OrderBy(x => RoleCode.All.ToList().IndexOf(x)).ToList());
         var staffIds = rolesOf.Where(kv => !kv.Value.Contains(RoleCode.Customer)).Select(kv => kv.Key).ToList();
-        var people = await db.Profiles.AsNoTracking().Where(p => staffIds.Contains(p.Id)).OrderBy(p => p.FullName).ToListAsync(ct);
+        var people = await db.Profiles.AsNoTracking().Where(p => staffIds.Contains(p.Id)).OrderByDescending(p => p.CreatedAt).ToListAsync(ct); // newest first, as v1
         var orgs = await db.Organizations.AsNoTracking().Select(o => new { o.Id, o.Name, o.TeamLeaderId, o.IsActive }).ToListAsync(ct);
         var branches = await db.Branches.AsNoTracking().Select(b => new { b.Id, b.OrganizationId, b.Name, b.TeamLeaderId, b.IsActive }).ToListAsync(ct);
         var types = await db.AccountTypes.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);

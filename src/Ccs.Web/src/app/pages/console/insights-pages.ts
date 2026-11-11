@@ -382,7 +382,7 @@ interface TeamMemberRow { teamId: string; userId: string; isLeader: boolean; ful
           <ul class="flex flex-col gap-2">
             @for (r of t.members; track r.userId) {
               <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
-                <span><span class="font-semibold" dir="auto">{{ r.fullName }}</span> <span class="text-sm text-muted" dir="ltr">{{ r.email }}</span>
+                <span><span class="font-semibold" dir="auto">{{ r.fullName }}</span>{{ ' ' }}<span class="text-sm text-muted" dir="ltr">{{ r.email }}</span>
                   @if (r.isLeader) { <span class="ms-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-ink">{{ 'Team.leader' | t }}</span> }</span>
                 <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
                   <div class="flex flex-wrap items-center gap-3">

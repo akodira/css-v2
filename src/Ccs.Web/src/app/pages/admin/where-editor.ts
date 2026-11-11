@@ -77,7 +77,7 @@ export class WhereEditor implements OnInit {
   protected readonly busy = signal(false);
   protected readonly msg = signal<Msg>(null);
 
-  protected readonly shownOrgs = computed(() => (this.lk()?.orgs ?? []).filter((o) => o.name.toLowerCase().includes(this.q().trim().toLowerCase())));
+  protected readonly shownOrgs = computed(() => [...(this.lk()?.orgs ?? [])].sort((a, b) => a.name.localeCompare(b.name)).filter((o) => o.name.toLowerCase().includes(this.q().trim().toLowerCase())));
   protected readonly scopeRows = computed(() => {
     const orgs = this.lk()?.orgs ?? [];
     if (this.w()?.scopeLevel === 'organization') return orgs.map((o) => ({ id: o.id, label: o.name }));
