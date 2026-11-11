@@ -272,52 +272,94 @@ export class AdminStaffPage extends AdminBase implements OnInit {
 
 // ================================================================== customers
 
+interface CustomerRow { id: string; fullName: string; email: string; phone: string | null; accountStatus: string; createdAt: string; organization: string | null; branch: string | null; tickets: number; open: number }
+
+/** Customers screen, same as v1 /console/customers: add form (admins), search, and a table of the customers this person may see. */
 @Component({
   selector: 'app-admin-customers',
-  imports: [TPipe, Alert, PersonForm, RouterLink],
+  imports: [TPipe, Alert, PersonForm, RouterLink, FormsModule],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       ${HEADER}
-      <details [class]="cls.card" #add>
-        <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'Customers.addCustomer' | t }}</span></summary>
-        <div class="px-5 pb-5">
-          @if (lk()) { <app-person-form #pf mode="customer" [lk]="lk()" [busy]="busy()" (save)="create($event, pf, add)" /> }
-        </div>
-      </details>
-      ${SEARCH}
+      @if (isAdmin()) {
+        <details [class]="cls.card" #add>
+          <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'Customers.addCustomer' | t }}</span></summary>
+          <div class="px-5 pb-5">
+            @if (lk()) { <app-person-form #pf mode="customer" [lk]="lk()" [busy]="busy()" (save)="create($event, pf, add)" /> }
+          </div>
+        </details>
+      }
+      <form role="search" class="flex flex-wrap gap-2" (ngSubmit)="search()">
+        <label class="sr-only" for="cq">{{ 'Customers.search' | t }}</label>
+        <input id="cq" name="q" type="search" dir="auto" [placeholder]="'Customers.searchPlaceholder' | t" [(ngModel)]="term"
+          class="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 text-base" />
+        <button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Customers.searchButton' | t }}</button>
+      </form>
       @if (!rows()) { <p class="text-muted">…</p> }
-      @else if (!filtered().length) { <p class="text-muted">{{ 'Customers.empty' | t }}</p> }
-      <ul class="flex flex-col gap-3">
-        @for (u of filtered(); track u.id) {
-          <li><details [class]="cls.card">
-            <summary [class]="cls.summary">
-              <span class="flex flex-wrap items-center gap-2">
-                <span class="text-lg font-bold" dir="auto">{{ u.fullName || '-' }}</span>
-                <span [class]="u.status === 'active' ? cls.badgeOn : cls.badgeOff">{{ 'Status.' + u.status | t }}</span>
-              </span>
-              <span class="mt-0.5 block text-sm text-muted"><span dir="ltr">{{ u.email }}</span>
-                @if (u.phone) { · <span dir="ltr">{{ u.phone }}</span> }
-                · {{ u.organizationId ? orgName(u.organizationId) + (u.branchId ? ' · ' + branchName(u.branchId) : '') : ('Customers.noOrganization' | t) }}
-                · {{ 'Customers.ticketCounts' | t: { total: u.tickets, open: u.openTickets } }}
-              </span>
-            </summary>
-            <div class="px-5 pb-5">
-              <a [routerLink]="'/' + i18n.locale() + '/console/customers/' + u.id" class="mb-3 inline-flex min-h-11 items-center font-semibold text-brand-ink underline">{{ 'Customers.history' | t }} · {{ 'Customers.edit' | t }}</a>
-              @if (canManage()) { <app-person-form mode="customer" [user]="u" [lk]="lk()" [busy]="busy()" (save)="update(u, $event)" (act)="action(u, $event)" /> }
-              @else { <p class="text-sm text-muted">{{ 'Customers.registered' | t }}: {{ i18n.date(u.createdAt) }}</p> }
-            </div>
-          </details></li>
-        }
-      </ul>
+      @else if (!rows()!.length) { <p role="status" class="rounded-md border border-line bg-surface p-6 text-muted">{{ 'Customers.empty' | t }}</p> }
+      @else {
+        <div class="relative overflow-x-auto rounded-md border border-line bg-surface">
+          <table class="w-full min-w-[48rem] text-start">
+            <caption class="sr-only">{{ 'Customers.title' | t }}</caption>
+            <thead class="bg-chrome text-white"><tr class="text-sm">
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Customers.name' | t }}</th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Customers.email' | t }}</th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Customers.organization' | t }}</th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Customers.branch' | t }}</th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Customers.statusHeader' | t }}</th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Customers.registered' | t }}</th>
+              <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Customers.tickets' | t }}</th>
+            </tr></thead>
+            <tbody>
+              @for (r of rows(); track r.id) {
+                <tr class="border-b border-line last:border-0">
+                  <td class="px-4 py-3"><a [routerLink]="'/' + i18n.locale() + '/console/customers/' + r.id" class="font-semibold text-brand-ink underline" dir="auto">{{ r.fullName || r.email }}</a></td>
+                  <td class="px-4 py-3" dir="ltr">{{ r.email }}</td>
+                  <td class="px-4 py-3" dir="auto">{{ r.organization ?? '-' }}</td>
+                  <td class="px-4 py-3" dir="auto">{{ r.branch ?? '-' }}</td>
+                  <td class="px-4 py-3">{{ 'Customers.status.' + r.accountStatus | t }}</td>
+                  <td class="px-4 py-3">{{ i18n.day(r.createdAt) }}</td>
+                  <td class="px-4 py-3">{{ 'Customers.ticketCounts' | t: { total: r.tickets, open: r.open } }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </main>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
-export class AdminCustomersPage extends AdminStaffPage {
-  protected override readonly title = 'Customers.title';
-  protected override readonly subtitle = 'Customers.subtitle';
-  protected override readonly kind = 'customers' as const;
+export class AdminCustomersPage extends AdminBase implements OnInit {
+  protected readonly title = 'Customers.title';
+  protected readonly subtitle = 'Customers.subtitle';
   private readonly auth = inject(Auth);
-  protected readonly canManage = computed(() => !!this.auth.me()?.roles.includes('admin') || this.auth.has('customers_manage'));
+  private readonly http = inject(HttpClient);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  protected readonly isAdmin = computed(() => !!this.auth.me()?.roles.includes('admin'));
+  protected readonly rows = signal<CustomerRow[] | null>(null);
+  protected term = '';
+
+  async ngOnInit(): Promise<void> {
+    this.term = this.route.snapshot.queryParamMap.get('q') ?? '';
+    await Promise.all([this.isAdmin() ? this.loadLookups() : Promise.resolve(), this.reload()]);
+  }
+  protected async reload(): Promise<void> {
+    try {
+      const q = this.term.trim().slice(0, 80);
+      this.rows.set(await firstValueFrom(this.http.get<CustomerRow[]>('/api/console/customers', { params: q ? { q } : {} })));
+    } catch (e) { this.fail(e); }
+  }
+  protected search(): void {
+    void this.router.navigate([], { relativeTo: this.route, queryParams: { q: this.term.trim() || null }, replaceUrl: true });
+    void this.reload();
+  }
+  protected async create(body: UserBody, form: PersonForm, box: HTMLDetailsElement): Promise<void> {
+    if (await this.run(() => this.api.post('users', body), 'Directory.createdUser', { email: body.email, password: body.password })) {
+      form.reset();
+      box.open = false;
+    }
+  }
 }
 
 // ================================================================== approvals

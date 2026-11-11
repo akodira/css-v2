@@ -13,6 +13,7 @@ public sealed record AccessContext
     public bool Admin { get; init; }
     public bool Staff { get; init; }                  // agent, team_leader or admin
     public bool Viewer { get; init; }                 // management_viewer
+    public bool TeamLeader { get; init; }             // has the team_leader role
     public bool Customer { get; init; }
     public bool AllScope { get; init; }               // admin, or all_access type with no placement/admin scope
     public IReadOnlySet<string> Permissions { get; init; } = new HashSet<string>();

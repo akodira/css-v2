@@ -81,6 +81,12 @@ export class I18n {
     return (this.locale() === 'ar' ? ar || en : en || ar) ?? '';
   }
 
+  /** Date only, v1 dateStyle "medium": "Nov 5, 2026". */
+  day(iso: string | null | undefined): string {
+    if (!iso) return '-';
+    return new Intl.DateTimeFormat(this.locale() === 'ar' ? 'ar' : 'en-US', { dateStyle: 'medium', timeZone: 'Africa/Cairo' }).format(new Date(iso));
+  }
+
   date(iso: string | null | undefined, style: 'medium' | 'short' = 'medium'): string {
     if (!iso) return '-';
     // Same as v1 (next-intl with locale "en" / "ar"): "Nov 5, 2026, 12:32 PM".

@@ -193,6 +193,8 @@ jobs:
             Check 'queue counters and team SLA strip' ($null -ne $cnt.strip -and $null -ne $cnt.dueSoon)
             $bad = Invoke-RestMethod https://ccs.test/api/console/badges -Headers $h
             Check 'sidebar counts' ($null -ne $bad.tickets)
+            $cus = @(Invoke-RestMethod 'https://ccs.test/api/console/customers?q=a' -Headers $h)
+            Check "customers screen (admin sees $($cus.Count))" ($cus.Count -ge 0 -and ($cus.Count -eq 0 -or $null -ne $cus[0].tickets))
             $lst = Invoke-RestMethod 'https://ccs.test/api/tickets?group=open&sla=breached&view=escalated&search=x' -Headers $h
             Check 'queue filters (active, SLA, escalated, customer search)' ($null -ne $lst.total)
             function Cfg($m, $u, $b) { if ($null -eq $b) { Invoke-RestMethod "https://ccs.test/api/admin/settings/$u" -Method $m -Headers $h } else { Invoke-RestMethod "https://ccs.test/api/admin/settings/$u" -Method $m -Headers $h -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes(($b | ConvertTo-Json -Depth 6))) } }

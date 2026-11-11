@@ -68,6 +68,33 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         return new { mine, unassigned, breached, dueSoon, closed, escalated, strip = showStrip ? new { green, yellow, red, overdue } : null };
     }
 
+    /// <summary>Customers screen (v1 console_customers): customers this person may see, newest first, max 200,
+    /// with the number of their tickets the person can open.</summary>
+    [HttpGet("customers")]
+    public async Task<object> Customers([FromQuery] string? q, CancellationToken ct)
+    {
+        var c = await Internal(ct);
+        var customers = from p in db.Profiles.AsNoTracking()
+                        where db.CcsUserRoles.Any(ur => ur.UserId == p.Id && db.CcsRoles.Any(r => r.Id == ur.RoleId && r.Code == RoleCode.Customer))
+                        select p;
+        customers = access.CustomersInScope(customers, c);
+        var term = (q ?? "").Trim();
+        if (term.Length > 80) term = term[..80];
+        if (term.Length > 0)
+            customers = customers.Where(p => p.FullName.Contains(term) || p.Email.Contains(term) || (p.Phone ?? "").Contains(term)
+                || db.Organizations.Any(o => o.Id == p.OrganizationId && o.Name.Contains(term))
+                || db.Branches.Any(b => b.Id == p.BranchId && b.Name.Contains(term)));
+        var visible = access.VisibleTickets(db.Tickets.AsNoTracking(), c);
+        return await customers.OrderByDescending(p => p.CreatedAt).Take(200).Select(p => new
+        {
+            p.Id, p.FullName, p.Email, p.Phone, p.AccountStatus, p.CreatedAt,
+            organization = db.Organizations.Where(o => o.Id == p.OrganizationId).Select(o => o.Name).FirstOrDefault(),
+            branch = db.Branches.Where(b => b.Id == p.BranchId).Select(b => b.Name).FirstOrDefault(),
+            tickets = visible.Count(t => t.RequesterId == p.Id),
+            open = visible.Count(t => t.RequesterId == p.Id && Open.Contains(t.Status)),
+        }).ToListAsync(ct);
+    }
+
     /// <summary>Teams for the queue filter.</summary>
     [HttpGet("teams")]
     public async Task<object> Teams(CancellationToken ct)
@@ -83,7 +110,9 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         var c = await access.RequireSignedInAsync(ct);
         if (!c.Internal) return new { tickets = 0, approvals = 0 };
         var q = access.VisibleTickets(db.Tickets.AsNoTracking(), c);
-        var unassigned = await q.CountAsync(t => t.AssignedAgentId == null && Open.Contains(t.Status), ct);
+        // v1: active tickets that are mine or still unassigned.
+        var uid = c.UserId;
+        var unassigned = await q.CountAsync(t => (t.AssignedAgentId == null || t.AssignedAgentId == uid) && Open.Contains(t.Status), ct);
         var approvals = 0;
         if (c.Admin || c.Has(Permission.ApproveCustomers))
             approvals = await db.Profiles.CountAsync(p => p.AccountStatus == AccountStatus.PendingApproval, ct);
@@ -97,7 +126,11 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         var c = await Internal(ct);
         var all = access.VisibleTickets(db.Tickets.AsNoTracking(), c);
         var to = clock.UtcNow;
-        var from = to.AddDays(-30);
+        // v1 reportSummary(30): from 00:00 Cairo, 29 days before today, so the chart shows 30 Cairo days ending today.
+        var cairo = Ccs.Domain.Rules.BusinessCalendar.ResolveTimeZone("Africa/Cairo");
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(to, cairo).DateTime);
+        var startLocal = today.AddDays(-29).ToDateTime(TimeOnly.MinValue);
+        var from = new DateTimeOffset(startLocal, cairo.GetUtcOffset(startLocal));
 
         var kpi = new
         {
@@ -106,8 +139,8 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
             working = await all.CountAsync(t => Open.Contains(t.Status) && t.Status != TicketStatus.New, ct),
             done = await all.CountAsync(t => t.Status == TicketStatus.Resolved || t.Status == TicketStatus.Closed, ct),
             overdue = await all.CountAsync(t => db.TicketSlaRecords.Any(r => r.TicketId == t.Id && r.State == SlaState.Breached), ct),
-            orgs = await db.Organizations.CountAsync(ct),
-            branches = await db.Branches.CountAsync(ct),
+            orgs = await access.VisibleOrganizations(db.Organizations.AsNoTracking(), c).CountAsync(ct),
+            branches = await access.VisibleBranches(db.Branches.AsNoTracking(), c).CountAsync(ct),
         };
 
         var period = all.Where(t => t.CreatedAt >= from && t.CreatedAt < to);
@@ -135,8 +168,8 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         var firsts = rows.Join(sla.Where(s => s.FirstRespondedAt != null), r => r.Id, s => s.TicketId, (r, s) => (s.FirstRespondedAt!.Value - r.CreatedAt).TotalMinutes).ToList();
         var resolutions = resolvedInPeriod.Select(r => (r.ResolvedAt - r.CreatedAt).TotalMinutes).ToList();
 
-        var orgs = await db.Organizations.AsNoTracking().Select(o => new { o.Id, o.Name }).ToListAsync(ct);
-        var branches = await db.Branches.AsNoTracking().Join(db.Organizations, b => b.OrganizationId, o => o.Id, (b, o) => new { b.Id, b.Name, Org = o.Name }).ToListAsync(ct);
+        var orgs = await access.VisibleOrganizations(db.Organizations.AsNoTracking(), c).Select(o => new { o.Id, o.Name }).ToListAsync(ct);
+        var branches = await access.VisibleBranches(db.Branches.AsNoTracking(), c).Join(db.Organizations, b => b.OrganizationId, o => o.Id, (b, o) => new { b.Id, b.Name, Org = o.Name }).ToListAsync(ct);
         static bool Fin(DateTimeOffset? r) => r is not null;
         var byOrg = orgs.Select(o => new { name = o.Name, total = rows.Count(r => r.OrganizationId == o.Id), resolved = rows.Count(r => r.OrganizationId == o.Id && Fin(r.ResolvedAt)) })
             .OrderByDescending(x => x.total).ThenBy(x => x.name).ToList();

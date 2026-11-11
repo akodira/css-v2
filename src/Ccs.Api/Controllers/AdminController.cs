@@ -92,7 +92,12 @@ public sealed class AdminController(
             "pending" => rows.Where(x => x.Role == RoleCode.Customer && x.p.AccountStatus == AccountStatus.PendingApproval),
             _ => rows.Where(x => x.Role != null && x.Role != RoleCode.Customer),
         };
-        if (kind != "staff" && !c.Admin && !c.AllScope)
+        if (kind == "customers" && !c.Admin)
+        {
+            var scoped = access.CustomersInScope(db.Profiles, c);
+            rows = rows.Where(x => scoped.Any(s => s.Id == x.p.Id));
+        }
+        else if (kind != "staff" && !c.Admin && !c.AllScope)
         {
             var orgIds = c.Scope.Where(s => s.BranchId == null).Select(s => s.OrganizationId).ToList();
             var branchIds = c.Scope.Where(s => s.BranchId != null).Select(s => s.BranchId!.Value).ToList();

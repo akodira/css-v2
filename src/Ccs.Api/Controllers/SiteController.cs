@@ -84,7 +84,7 @@ public sealed class MeController(AccessService access, CcsDbContext db) : Contro
         {
             p.Id, p.FullName, p.Email, p.Phone, p.PreferredLocale, p.OrganizationId, p.BranchId,
             roles, permissions = c.Permissions.OrderBy(x => x), c.Admin, staff = c.Staff, viewer = c.Viewer,
-            customer = roles.Contains(RoleCode.Customer), scopeLevel = c.ScopeLevel, teams = c.Teams, mfaEnabled = mfa,
+            customer = roles.Contains(RoleCode.Customer), scopeLevel = c.ScopeLevel, teams = c.Teams, leadsTeam = c.LeaderOfTeams.Count > 0, mfaEnabled = mfa,
             unreadNotifications = unread, p.PasswordChangedAt,
         };
     }

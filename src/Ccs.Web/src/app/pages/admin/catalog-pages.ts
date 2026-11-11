@@ -1,3 +1,4 @@
+import { RouterLink } from '@angular/router';
 import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
@@ -132,10 +133,11 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
 
 @Component({
   selector: 'app-admin-catalog',
-  imports: [TPipe, Alert, FormsModule, Req, NgTemplateOutlet],
+  imports: [TPipe, Alert, FormsModule, Req, NgTemplateOutlet, RouterLink],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       ${HEADER}
+      <p><a [routerLink]="'/' + i18n.locale() + '/admin/ticket-types'" class="inline-flex min-h-11 items-center font-semibold text-brand-ink underline">{{ 'AdminV2.nav.ticketTypes' | t }}</a></p>
 
       <!-- shared form parts -->
       <ng-template #names let-m="m" let-id="id">

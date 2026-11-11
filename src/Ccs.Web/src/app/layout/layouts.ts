@@ -50,9 +50,9 @@ const ITEM_ICON: Record<string, string> = {
 };
 /** Where each menu address lives in this version. Screens not built yet are left out of the menu. */
 const ROUTE: Record<string, string> = {
-  '/console/dashboard': '/console/dashboard', '/console': '/console', '/console/canned': '/console/canned', '/console/approvals': '/admin/approvals',
-  '/console/customers': '/admin/customers', '/kb': '/kb',
-  '/admin/users': '/admin/users', '/admin/customers': '/admin/customers', '/admin/teams': '/admin/teams', '/admin/permissions': '/admin/permissions',
+  '/console/dashboard': '/console/dashboard', '/console': '/console', '/console/canned': '/console/canned', '/console/approvals': '/console/approvals',
+  '/console/customers': '/console/customers', '/kb': '/kb',
+  '/admin/users': '/admin/users', '/admin/customers': '/console/customers', '/admin/teams': '/admin/teams', '/admin/permissions': '/admin/permissions',
   '/admin/organizations': '/admin/organizations', '/admin/escalation': '/admin/escalation', '/admin/catalog': '/admin/catalog', '/admin/ticket-types': '/admin/ticket-types',
   '/admin/priorities': '/admin/priorities', '/admin/ticket-status': '/admin/ticket-status', '/admin/kb': '/admin/kb', '/admin/sla': '/admin/sla',
   '/admin/general/settings': '/admin/general/settings', '/admin/general/help': '/admin/general/help', '/console/help': '/console/help', '/console/people': '/console/people',
@@ -142,7 +142,7 @@ export class PublicLayout {
             <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
           <div class="min-w-0 flex-1 overflow-hidden"><a [routerLink]="homeLink()" class="block"><app-logo [name]="name()" [sub]="sub()" [dark]="true" [logoUrl]="site.logoUrl()" /></a></div>
-          <a [routerLink]="'/' + i18n.locale() + '/notifications'" [attr.aria-label]="bellLabel()" class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20">
+          <a [routerLink]="area() + '/notifications'" [attr.aria-label]="bellLabel()" class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white/10 hover:bg-white/20">
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="icons['bell']" /></svg>
             @if (unread()) { <span aria-hidden="true" class="absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs font-bold text-white">{{ unread() }}</span> }
           </a>
@@ -212,13 +212,13 @@ export class PublicLayout {
           <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
             <div class="flex-1" aria-hidden="true"></div>
             <app-language-switcher />
-            <a [routerLink]="'/' + i18n.locale() + '/notifications'" [attr.aria-label]="bellLabel()" class="relative flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-line bg-surface hover:bg-bg">
+            <a [routerLink]="area() + '/notifications'" [attr.aria-label]="bellLabel()" class="relative flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-line bg-surface hover:bg-bg">
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="icons['bell']" /></svg>
               @if (unread()) { <span aria-hidden="true" class="absolute -end-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-danger px-1 text-xs font-bold text-white">{{ unread() }}</span> }
             </a>
             <div class="flex items-center gap-2">
               <span aria-hidden="true" class="flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-sm font-bold text-brand-ink">{{ initials() }}</span>
-              <a [routerLink]="'/' + i18n.locale() + '/account'" class="flex flex-col text-sm leading-tight hover:underline">
+              <a [routerLink]="area() + '/account'" class="flex flex-col text-sm leading-tight hover:underline">
                 <span class="font-semibold" dir="auto">{{ auth.me()?.fullName }}</span>
                 <span class="text-muted">{{ roleLabel() }}</span>
               </a>
@@ -249,6 +249,8 @@ export class Shell {
   protected readonly initials = computed(() => (this.auth.me()?.fullName ?? '').split(/\s+/).map((w) => w[0]).slice(0, 2).join('').toUpperCase());
   protected readonly roleLabel = computed(() => { const r = this.auth.me()?.roles ?? []; const top = ['admin', 'team_leader', 'agent', 'management_viewer', 'customer'].find((x) => r.includes(x)); return top ? this.i18n.t('Roles.' + top) : ''; });
   protected readonly homeLink = computed(() => this.auth.homePath());
+  /** Staff keep Account and Notifications inside the console (v1 /console/account, /console/notifications). */
+  protected readonly area = computed(() => '/' + this.i18n.locale() + (this.auth.isStaff() ? '/console' : ''));
 
   /** Menu groups: customers get the portal menu; staff the console (admin entries arrive with stage 8). */
   protected readonly groups = computed<SideGroup[]>(() => {
@@ -303,17 +305,15 @@ export class Shell {
     const admin = roles.includes('admin');
     const has = (p: string) => this.auth.has(p);
     const canKb = admin || has('manage_kb'), canCatalog = admin || has('manage_catalog'), canSettings = admin || has('manage_settings');
+    // Same rules as v1 StaffShell: who sees which built-in item.
     const can: Record<string, boolean> = {
-      canned: admin || has('reply'), team: admin || roles.includes('team_leader'), reports: has('reports_own') || has('reports_all'), kb_console: !canKb, users: admin, people: !!me?.scopeLevel, hierarchy: false, escalation: admin,
-      admin_customers: admin, customers: !admin && has('customers_view'), admin_teams: admin, permissions: admin, organizations: admin,
-      catalog: canCatalog, ticket_types: canCatalog, priorities: canCatalog, ticket_status: canSettings, approvals: admin || has('approve_customers'),
-      kb_admin: canKb, sla_settings: canSettings, audit: admin || roles.includes('management_viewer'), settings: canSettings, help: !canSettings, help_center: canSettings, sla: true,
+      canned: admin || has('reply'), team: !!me?.leadsTeam, reports: has('reports_own') || has('reports_all'), kb_console: !(admin || canKb),
+      users: admin, people: !admin && !!me?.scopeLevel, hierarchy: false, escalation: admin, admin_customers: admin, customers: !admin, admin_teams: admin,
+      permissions: admin, organizations: admin, catalog: canCatalog, priorities: canCatalog, ticket_status: canSettings,
+      approvals: admin || has('approve_customers'), help: !canSettings, help_center: canSettings, kb_admin: canKb, sla_settings: canSettings,
+      audit: admin || roles.includes('management_viewer'), settings: canSettings,
     };
     const rows = [...this.site.menus()];
-    // Ticket types has its own screen here; place it after Categories.
-    const cat = rows.find((r) => r.systemKey === 'catalog');
-    if (cat && !rows.some((r) => r.systemKey === 'ticket_types'))
-      rows.push({ ...cat, id: 'ticket-types', href: '/admin/ticket-types', systemKey: 'ticket_types', labelEn: this.i18n.t('AdminV2.nav.ticketTypes'), labelAr: this.i18n.t('AdminV2.nav.ticketTypes'), sortOrder: cat.sortOrder + 0.5 });
     // Menus imported before these screens existed get them added here (same defaults as v1's migrations).
     const add = (key: string, area: string, href: string, en: string, ar: string, order: number) => {
       if (!rows.some((r) => r.systemKey === key)) rows.push({ ...(rows[0] ?? {}), id: 'x-' + key, area, kind: 'link', parentId: null, href, systemKey: key, labelEn: en, labelAr: ar, sortOrder: order } as typeof rows[number]);
@@ -326,13 +326,14 @@ export class Shell {
     const by = new Map<string, { order: number; item: SideItem }[]>();
     for (const r of rows) {
       if (!['console', 'admin', 'general'].includes(r.area) || r.kind !== 'link' || !r.href) continue;
+      if ((r as typeof r & { isVisible?: boolean }).isVisible === false) continue;
       if (r.systemKey && !(can[r.systemKey] ?? true)) continue;
       const path = ROUTE[r.href];
       if (!path || seen.has(path)) continue;          // screens of later stages stay out of the menu until they exist
       seen.add(path);
       const gid = (r.systemKey && GROUP_OF[r.systemKey]) || 'more';
       const item: SideItem = { path, label: this.i18n.locale() === 'ar' ? r.labelAr : r.labelEn, icon: (r.systemKey && ITEM_ICON[r.systemKey]) || 'catalog',
-        exact: r.systemKey === 'dashboard' || r.systemKey === 'tickets', also: r.systemKey === 'tickets' ? ['/console/tickets'] : undefined,
+        exact: r.systemKey === 'dashboard' || r.systemKey === 'tickets', also: r.systemKey === 'tickets' ? ['/console/tickets'] : r.systemKey === 'admin_customers' ? ['/console/customers'] : undefined,
         badge: r.systemKey ? badge[r.systemKey] || undefined : undefined };
       (by.get(gid) ?? by.set(gid, []).get(gid)!).push({ order: r.sortOrder, item });
     }

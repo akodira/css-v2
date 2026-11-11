@@ -1,5 +1,5 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router, Routes } from '@angular/router';
+import { CanActivateFn, CanMatchFn, Router, Routes } from '@angular/router';
 import { Auth, STAFF_ROLES, requireRole } from './core/auth';
 import { I18n, isLocale } from './core/i18n';
 import { PublicLayout, Shell } from './layout/layouts';
@@ -27,6 +27,15 @@ const guestOnly: CanActivateFn = () => {
   return auth.signedIn() ? inject(Router).createUrlTree([auth.homePath()]) : true;
 };
 
+/** Home for a signed-in customer renders inside the customer frame. */
+const customerSignedIn: CanMatchFn = () => { const a = inject(Auth); return a.signedIn() && !a.isStaff(); };
+
+/** Staff use the console copies of Account and Notifications (v1 redirects /account to /console/account). */
+const staffTo = (page: string): CanActivateFn => (route) => {
+  const a = inject(Auth);
+  return a.isStaff() ? inject(Router).createUrlTree(['/' + inject(I18n).locale() + '/console/' + page], { queryParams: route.queryParams }) : true;
+};
+
 /** Customers and staff share the frame; visitors get the public header. */
 const signedIn: CanActivateFn = requireRole();
 
@@ -36,6 +45,14 @@ export const routes: Routes = [
     path: ':locale',
     canActivate: [localeGuard],
     children: [
+      {
+        // Signed-in customers see Home inside their frame (menu, bell), as in v1.
+        path: '',
+        pathMatch: 'full',
+        component: Shell,
+        canMatch: [customerSignedIn],
+        children: [{ path: '', component: HomePage }],
+      },
       {
         path: '',
         component: PublicLayout,
@@ -59,13 +76,17 @@ export const routes: Routes = [
           { path: 'tickets', canActivate: [requireRole(['customer'])], component: MyTicketsPage },
           { path: 'tickets/new', canActivate: [requireRole(['customer'])], component: NewTicketPage },
           { path: 'tickets/:id', canActivate: [requireRole(['customer'])], component: TicketDetailPage },
-          { path: 'notifications', component: NotificationsPage },
-          { path: 'account', component: AccountPage },
+          { path: 'notifications', canActivate: [staffTo('notifications')], component: NotificationsPage },
+          { path: 'account', canActivate: [staffTo('account')], component: AccountPage },
+          { path: 'console/notifications', canActivate: [requireRole(STAFF_ROLES)], component: NotificationsPage },
+          { path: 'console/account', canActivate: [requireRole(STAFF_ROLES)], component: AccountPage },
+          { path: 'console/customers', canActivate: [requireRole(STAFF_ROLES)], component: AdminCustomersPage },
+          { path: 'console/approvals', canActivate: [requireRole(STAFF_ROLES)], component: AdminApprovalsPage },
           { path: 'console', canActivate: [requireRole(STAFF_ROLES)], component: ConsoleQueuePage },
           { path: 'console/tickets/new', canActivate: [requireRole(['admin', 'team_leader', 'agent'])], component: NewTicketPage, data: { staff: true } },
           { path: 'console/tickets/:id', canActivate: [requireRole(STAFF_ROLES)], component: ConsoleTicketPage },
           { path: 'admin/users', canActivate: [requireRole(['admin'])], component: AdminStaffPage },
-          { path: 'admin/customers', canActivate: [requireRole(STAFF_ROLES)], component: AdminCustomersPage },
+          { path: 'admin/customers', redirectTo: 'console/customers' },
           { path: 'admin/approvals', canActivate: [requireRole(STAFF_ROLES)], component: AdminApprovalsPage },
           { path: 'admin/permissions', canActivate: [requireRole(['admin'])], component: AdminTypesPage },
           { path: 'admin/organizations', canActivate: [requireRole(['admin'])], component: AdminOrgsPage },
@@ -89,15 +110,11 @@ export const routes: Routes = [
           { path: 'console/help', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/help-center-page').then((m) => m.HelpCenterPage) },
           { path: 'admin/general/help', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/help-center-page').then((m) => m.HelpCenterPage) },
           { path: 'console/people', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/console/people-page').then((m) => m.PeoplePage) },
-          { path: 'console/notifications', redirectTo: 'notifications' },
           { path: 'admin/ticket-status/guide', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/status-guide-page').then((m) => m.StatusGuidePage) },
           { path: 'console/customers/:id', canActivate: [requireRole(STAFF_ROLES)], component: CustomerProfilePage },
-          { path: 'console/account', redirectTo: 'account' },
           { path: 'console/kb', redirectTo: 'kb' },
           { path: 'console/kb/:slug', redirectTo: 'kb/:slug' },
           { path: 'admin/settings', redirectTo: 'admin/general/settings/system' },
-          { path: 'console/approvals', redirectTo: 'admin/approvals' },
-          { path: 'console/customers', redirectTo: 'admin/customers' },
         ],
       },
       { path: '**', redirectTo: '' },

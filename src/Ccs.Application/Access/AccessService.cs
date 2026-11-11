@@ -86,6 +86,7 @@ public sealed class AccessService(ICcsDbContext db, ICurrentUser current, IMfaSt
             Admin = admin,
             Staff = staff && active,
             Viewer = viewer && active,
+            TeamLeader = roles.Contains(RoleCode.TeamLeader) && active,
             Customer = customer,
             AllScope = admin || (!placed && !scoped && (type is null || type.AllAccess)),
             Permissions = perms,
@@ -128,6 +129,70 @@ public sealed class AccessService(ICcsDbContext db, ICurrentUser current, IMfaSt
                          || (p.BranchId != null && branches.Contains(p.BranchId.Value)))))
                     && (viewer || allTeams || (t.TeamId != null && teams.Contains(t.TeamId.Value)))
                     && ((t.AssignedAgentId == null && viewUnassigned) || (t.AssignedAgentId != null && viewOthers))))));
+    }
+
+    /// <summary>
+    /// customer_in_scope(p, strict): the customers a person may list on the Customers screen (v1 console_customers).
+    /// Admins and viewers: everyone. Staff: customers of organizations/branches they lead, plus
+    /// (all-scope staff, not team leaders) customers whose tickets are assigned to them, or (placed staff) customers in their scope.
+    /// </summary>
+    public IQueryable<Profile> CustomersInScope(IQueryable<Profile> source, AccessContext c)
+    {
+        if (!c.Active) return source.Where(_ => false);
+        if (c.Admin || c.Viewer) return source;
+        if (!c.Staff) return source.Where(_ => false);
+        var uid = c.UserId;
+        bool allScope = c.AllScope, teamLeader = c.TeamLeader;
+        var wholeOrgs = c.Scope.Where(s => s.BranchId is null).Select(s => s.OrganizationId).Distinct().ToList();
+        var branchIds = c.Scope.Where(s => s.BranchId is not null).Select(s => s.BranchId!.Value).Distinct().ToList();
+        var orgs = db.Organizations; var branches = db.Branches; var tickets = db.Tickets;
+        return source.Where(p =>
+            orgs.Any(o => o.Id == p.OrganizationId && o.TeamLeaderId == uid)
+            || branches.Any(b => b.Id == p.BranchId && b.TeamLeaderId == uid)
+            || (allScope
+                ? !teamLeader && tickets.Any(t => t.RequesterId == p.Id && t.AssignedAgentId == uid)
+                : (p.OrganizationId != null && wholeOrgs.Contains(p.OrganizationId.Value)) || (p.BranchId != null && branchIds.Contains(p.BranchId.Value))));
+    }
+
+    /// <summary>customer_in_scope(p, loose): leads their organization/branch, or can open one of their tickets.</summary>
+    private IQueryable<Profile> CustomersLoose(AccessContext c)
+    {
+        var uid = c.UserId;
+        var visible = VisibleTickets(db.Tickets, c);
+        var orgs = db.Organizations; var branches = db.Branches;
+        return db.Profiles.Where(p =>
+            orgs.Any(o => o.Id == p.OrganizationId && o.TeamLeaderId == uid)
+            || branches.Any(b => b.Id == p.BranchId && b.TeamLeaderId == uid)
+            || visible.Any(t => t.RequesterId == p.Id));
+    }
+
+    /// <summary>org_visible(): organizations a person may see (dashboard counts, reports).</summary>
+    public IQueryable<Organization> VisibleOrganizations(IQueryable<Organization> source, AccessContext c)
+    {
+        if (!c.Active) return source.Where(_ => false);
+        if (c.Admin || c.Viewer) return source;
+        var uid = c.UserId; var myOrg = c.OrganizationId ?? Guid.Empty;
+        var scopedOrgs = c.ScopeLevel is null ? [] : c.Scope.Where(s => s.BranchId is null).Select(s => s.OrganizationId).Distinct().ToList();
+        bool staff = c.Staff;
+        var branches = db.Branches; var loose = staff ? CustomersLoose(c) : db.Profiles.Where(_ => false);
+        return source.Where(o => o.Id == myOrg || scopedOrgs.Contains(o.Id)
+            || (staff && (o.TeamLeaderId == uid || branches.Any(b => b.OrganizationId == o.Id && b.TeamLeaderId == uid)
+                          || loose.Any(p => p.OrganizationId == o.Id))));
+    }
+
+    /// <summary>branch_visible(): branches a person may see.</summary>
+    public IQueryable<Branch> VisibleBranches(IQueryable<Branch> source, AccessContext c)
+    {
+        if (!c.Active) return source.Where(_ => false);
+        if (c.Admin || c.Viewer) return source;
+        var uid = c.UserId; var myBranch = c.BranchId ?? Guid.Empty;
+        var scopedOrgs = c.ScopeLevel is null ? [] : c.Scope.Where(s => s.BranchId is null).Select(s => s.OrganizationId).Distinct().ToList();
+        var scopedBranches = c.ScopeLevel is null ? [] : c.Scope.Where(s => s.BranchId is not null).Select(s => s.BranchId!.Value).Distinct().ToList();
+        bool staff = c.Staff;
+        var orgs = db.Organizations; var loose = staff ? CustomersLoose(c) : db.Profiles.Where(_ => false);
+        return source.Where(b => b.Id == myBranch || scopedOrgs.Contains(b.OrganizationId) || scopedBranches.Contains(b.Id)
+            || (staff && (b.TeamLeaderId == uid || orgs.Any(o => o.Id == b.OrganizationId && o.TeamLeaderId == uid)
+                          || loose.Any(p => p.BranchId == b.Id))));
     }
 
     public async Task<TicketFacts?> GetFactsAsync(Guid ticketId, CancellationToken ct = default) =>

@@ -26,6 +26,7 @@ export interface Me {
   viewer: boolean;
   customer: boolean;
   scopeLevel: string | null;
+  leadsTeam?: boolean;
   mfaEnabled: boolean;
   unreadNotifications: number;
 }
