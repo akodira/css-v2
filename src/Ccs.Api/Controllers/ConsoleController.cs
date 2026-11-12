@@ -28,7 +28,7 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         return c.Internal ? c : throw new ForbiddenException();
     }
 
-    /// <summary>Counters above the queue and the "My team" SLA strip (admins: all teams; scoped admins: their organizations or branches; leaders: their teams).</summary>
+    /// <summary>Counters above the queue and the "My team" SLA strip (admins: all teams; leaders: their teams).</summary>
     [HttpGet("counts")]
     public async Task<object> Counts(CancellationToken ct)
     {
@@ -42,16 +42,14 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         var escIds = await tickets.EscalatedIdsAsync(c, ct);
         var escalated = escIds.Count == 0 ? 0 : await q.CountAsync(t => escIds.Contains(t.Id) && Open.Contains(t.Status), ct);
 
-        var scoped = !c.Admin && c.ScopeLevel is not null;   // Organization admin / Branch admin: the tickets in their scope (already limited by VisibleTickets)
-        var showStrip = c.Admin || scoped || c.LeaderOfTeams.Count > 0;
-        var stripKind = c.Admin ? "all" : scoped ? "scope" : "team";
+        var showStrip = c.Admin || c.LeaderOfTeams.Count > 0;
         int green = 0, yellow = 0, red = 0, overdue = 0;
         if (showStrip)
         {
             var lead = c.LeaderOfTeams.ToList();
             var rows = await (from t in q
                               join r in db.TicketSlaRecords on t.Id equals r.TicketId
-                              where Open.Contains(t.Status) && (c.Admin || scoped || (t.TeamId != null && lead.Contains(t.TeamId.Value)))
+                              where Open.Contains(t.Status) && (c.Admin || (t.TeamId != null && lead.Contains(t.TeamId.Value)))
                               select new { t.CreatedAt, SlaResolvedAt = r.ResolvedAt, r.FirstResponseDue, r.ResolutionDue, r.FirstRespondedAt, r.PausedAt, r.PausedTotalSeconds }).ToListAsync(ct);
             var now = clock.UtcNow;
             foreach (var r in rows)
@@ -69,7 +67,7 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
                 else green++;
             }
         }
-        return new { mine, unassigned, breached, dueSoon, closed, escalated, strip = showStrip ? new { green, yellow, red, overdue, kind = stripKind } : null };
+        return new { mine, unassigned, breached, dueSoon, closed, escalated, strip = showStrip ? new { green, yellow, red, overdue } : null };
     }
 
     /// <summary>Customers screen (v1 console_customers): customers this person may see, newest first, max 200,

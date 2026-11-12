@@ -2695,11 +2695,7 @@
     "strip_close": "Getting close",
     "strip_red": "Red",
     "strip_overdue": "Overdue",
-    "strip_hint": "Counts for open tickets of your teams (the running clock of each ticket).",
-    "strip_titleAll": "All teams",
-    "strip_titleScope": "My scope",
-    "strip_hintAll": "Counts for open tickets of all teams (the running clock of each ticket).",
-    "strip_hintScope": "Counts for open tickets inside your organizations or branches (the running clock of each ticket)."
+    "strip_hint": "Counts for open tickets of your teams (the running clock of each ticket)."
   },
   "StatusInfo": {
     "new_desc": "The ticket was just received and nobody has started on it yet.",
