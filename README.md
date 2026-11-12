@@ -94,6 +94,14 @@ node migrate.mjs --real-only          # empties CCS_Test, copies, then prints co
 .\copy-files.ps1 -SupabaseUrl https://rqlibtzbdrltayykfcly.supabase.co -ServiceKey <key> -Root D:\CcsData\attachments -SqlServer SQL01 -Database CCS_Test
 ```
 
+Adding a few accounts later, to a system that is already in use (nothing is emptied):
+
+```powershell
+node migrate.mjs --add-users cairo.orgadmin@demo.cts.test,nasrcity.branchadmin@demo.cts.test
+```
+
+Each account keeps its old password, role, admin scope, placement and teams. An email that already exists is skipped. If the organization or branch it belongs to is missing in the new system, the script stops before adding anything and says which one.
+
 * Passwords: the Supabase bcrypt hashes (`$2a$`) move as they are. The first successful sign-in re-hashes them with Identity, so nobody resets a password.
 * Two-step: TOTP secrets move into Identity when present. **Today no one has a verified factor, so no one needs to enrol again.**
 * Secrets are re-entered in Admin, not copied: SMTP password and Turnstile secret.

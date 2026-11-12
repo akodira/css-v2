@@ -12,6 +12,10 @@
  *
  *   --real-only   skip demo data (users ending in @demo.cts.test and everything they own) - open decision #1
  *   --dry-run     read and count only, write nothing
+ *   --add-users a@x.com,b@y.com
+ *                 adds only those accounts (login, password hash, profile, roles, scopes, placement, teams) to a database
+ *                 that is already in use. Nothing is emptied or changed; an email that already exists is skipped.
+ *                 The organizations, branches and account types they point to must already be in the target.
  */
 import pg from 'pg';
 import sql from 'mssql/msnodesqlv8.js';
@@ -20,6 +24,11 @@ const args = new Set(process.argv.slice(2));
 const REAL_ONLY = args.has('--real-only');
 const DRY = args.has('--dry-run');
 const DEMO = '%@demo.cts.test';
+const addIdx = process.argv.indexOf('--add-users');
+const ADD_EMAILS = addIdx > 0 ? String(process.argv[addIdx + 1] ?? '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean) : null;
+if (addIdx > 0 && !ADD_EMAILS.length) { console.error('Give the emails: --add-users a@x.com,b@y.com'); process.exit(1); }
+let ONLY_IDS = null;   // set by addUsers(): the ids of the accounts being added
+const ONLY_USER_TABLES = { profiles: 'id', user_roles: 'user_id', admin_scopes: 'user_id', staff_placement: 'user_id', team_members: 'user_id' };
 
 if (!process.env.PG_URL || !process.env.MSSQL) {
   console.error('Set PG_URL and MSSQL (see the header of this file).');
@@ -109,7 +118,7 @@ async function copyTable(table) {
   const src = await sourceColumns(table);
   const deferred = new Set([...(DEFERRED_FK[table] ?? []), ...(SELF_REF[table] ? [SELF_REF[table]] : [])]);
   const use = cols.filter((c) => src.has(c.name));
-  const where = REAL_ONLY && REAL_FILTER[table] ? `WHERE ${REAL_FILTER[table]}` : '';
+  const where = ONLY_IDS ? `WHERE "${ONLY_USER_TABLES[table]}" IN (${ONLY_IDS.map((i) => `'${i}'`).join(', ')})` : REAL_ONLY && REAL_FILTER[table] ? `WHERE ${REAL_FILTER[table]}` : '';
   const order = table === 'tickets' ? 'ORDER BY created_at, reference' : table === 'audit_logs' ? 'ORDER BY id' : '';
   const { rows } = await pgc.query(`SELECT ${use.map((c) => `"${c.name}"`).join(', ')} FROM public."${table}" ${where} ${order}`);
   if (DRY || rows.length === 0) { log(`${table}: ${rows.length} rows${DRY ? ' (dry run)' : ''}`); return rows.length; }
@@ -150,7 +159,7 @@ async function copyTable(table) {
  * Email and phone confirmation move as they are. Authenticator secrets move when readable (spec 9, step 5).
  */
 async function migrateUsers() {
-  const where = REAL_ONLY ? `WHERE p.email NOT ILIKE '${DEMO}'` : '';
+  const where = ONLY_IDS ? `WHERE u.id IN (${ONLY_IDS.map((i) => `'${i}'`).join(', ')})` : REAL_ONLY ? `WHERE p.email NOT ILIKE '${DEMO}'` : '';
   const { rows } = await pgc.query(`
     SELECT u.id, u.email, u.phone, u.encrypted_password, u.email_confirmed_at, u.phone_confirmed_at, u.banned_until,
            (SELECT f.secret FROM auth.mfa_factors f WHERE f.user_id = u.id AND f.status = 'verified' AND f.factor_type = 'totp' LIMIT 1) AS totp_secret,
@@ -186,6 +195,41 @@ async function migrateUsers() {
   log(`AspNetUsers: ${rows.length} rows (${reEnrol} people with two-step on must enrol again)`);
   await copyTable('profiles');
   return { users: rows.length, mfaReEnrol: reEnrol };
+}
+
+/** Adds the named accounts to a database that is in use. Nothing existing is touched. */
+async function addUsers(emails) {
+  const found = (await pgc.query(`SELECT id, lower(email) AS email, organization_id, branch_id, account_type_id FROM public.profiles WHERE lower(email) = ANY($1)`, [emails])).rows;
+  const missing = emails.filter((e) => !found.some((f) => f.email === e));
+  if (missing.length) log(`Not found in Supabase, skipped: ${missing.join(', ')}`);
+  const have = new Set((await ms.request().query('SELECT LOWER(Email) e FROM dbo.AspNetUsers')).recordset.map((x) => x.e));
+  const fresh = found.filter((f) => !have.has(f.email));
+  found.filter((f) => have.has(f.email)).forEach((f) => log(`Already in the new system, skipped: ${f.email}`));
+  // The places they belong to must already be there (same ids as in Supabase).
+  for (const f of fresh) {
+    for (const [tbl, col, id] of [['organizations', 'organization_id', f.organization_id], ['branches', 'branch_id', f.branch_id], ['account_types', 'account_type_id', f.account_type_id]]) {
+      if (id && !(await ms.request().input('i', sql.UniqueIdentifier, id).query(`SELECT 1 x FROM ccs.[${tbl}] WHERE id = @i`)).recordset.length)
+        throw new Error(`${f.email}: ${col} ${id} is not in the new system. Nothing was added.`);
+    }
+  }
+  if (!fresh.length) { log('Nothing to add.'); return; }
+  // Their admin scopes, placements and teams point at organizations, branches and teams: those must be there too.
+  const links = (await pgc.query(`
+    SELECT 'organizations' tbl, 'admin scope' what, a.organization_id id, p.email FROM public.admin_scopes a JOIN public.profiles p ON p.id = a.user_id WHERE a.user_id = ANY($1)
+    UNION ALL SELECT 'branches', 'admin scope', a.branch_id, p.email FROM public.admin_scopes a JOIN public.profiles p ON p.id = a.user_id WHERE a.user_id = ANY($1) AND a.branch_id IS NOT NULL
+    UNION ALL SELECT 'organizations', 'placement', a.organization_id, p.email FROM public.staff_placement a JOIN public.profiles p ON p.id = a.user_id WHERE a.user_id = ANY($1)
+    UNION ALL SELECT 'branches', 'placement', a.branch_id, p.email FROM public.staff_placement a JOIN public.profiles p ON p.id = a.user_id WHERE a.user_id = ANY($1) AND a.branch_id IS NOT NULL
+    UNION ALL SELECT 'teams', 'team', a.team_id, p.email FROM public.team_members a JOIN public.profiles p ON p.id = a.user_id WHERE a.user_id = ANY($1)`,
+    [fresh.map((f) => f.id)])).rows;
+  for (const l of links) {
+    if (!(await ms.request().input('i', sql.UniqueIdentifier, l.id).query(`SELECT 1 x FROM ccs.[${l.tbl}] WHERE id = @i`)).recordset.length)
+      throw new Error(`${l.email}: the ${l.what} points at ${l.tbl} ${l.id}, which is not in the new system. Create it there with the same id first, or tell Claude. Nothing was added.`);
+  }
+  ONLY_IDS = fresh.map((f) => f.id);
+  if (DRY) { log(`Would add: ${fresh.map((f) => f.email).join(', ')} (dry run)`); return; }
+  await migrateUsers();
+  for (const t of ['user_roles', 'admin_scopes', 'staff_placement', 'team_members']) await copyTable(t);
+  log(`Added: ${fresh.map((f) => f.email).join(', ')}. They sign in with their old passwords.`);
 }
 
 async function emptyTarget() {
@@ -224,6 +268,7 @@ async function verify() {
 async function main() {
   await pgc.connect();
   ms = await sql.connect({ connectionString: process.env.MSSQL, driver: 'msnodesqlv8' });
+  if (ADD_EMAILS) { await addUsers(ADD_EMAILS); await pgc.end(); await ms.close(); return; }
   log(`Connected. Mode: ${REAL_ONLY ? 'real data only' : 'all data'}${DRY ? ', dry run' : ''}`);
   if (!DRY) await emptyTarget();
   for (const t of ORDER) {
