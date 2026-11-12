@@ -266,6 +266,26 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
             </select>
           </div>
 
+          @for (f of fields(); track f.id) {
+            <div class="flex flex-col gap-1.5">
+              <label [for]="'cf-' + f.key" class="text-sm font-semibold">{{ i18n.pick(f.labelEn, f.labelAr) }}@if (f.isRequired) {<app-req />}</label>
+              @switch (f.type) {
+                @case ('long_text') { <textarea [id]="'cf-' + f.key" rows="3" dir="auto" class="rounded-lg border border-line bg-surface p-3" (input)="setField(f.key, $any($event.target).value)"></textarea> }
+                @case ('checkbox') { <input [id]="'cf-' + f.key" type="checkbox" class="h-5 w-5" (change)="setField(f.key, $any($event.target).checked)" /> }
+                @case ('dropdown') {
+                  <select [id]="'cf-' + f.key" class="min-h-11 rounded-lg border border-line bg-surface px-3" (change)="setField(f.key, $any($event.target).value)">
+                    <option value="">-</option>
+                    @for (c of choices(f.options); track c.value) { <option [value]="c.value">{{ c.label }}</option> }
+                  </select>
+                }
+                @case ('number') { <input [id]="'cf-' + f.key" type="number" dir="ltr" class="min-h-11 rounded-lg border border-line bg-surface px-3" (input)="setField(f.key, $any($event.target).value === '' ? null : +$any($event.target).value)" /> }
+                @case ('date') { <input [id]="'cf-' + f.key" type="date" class="min-h-11 rounded-lg border border-line bg-surface px-3" (input)="setField(f.key, $any($event.target).value)" /> }
+                @default { <input [id]="'cf-' + f.key" dir="auto" class="min-h-11 rounded-lg border border-line bg-surface px-3" (input)="setField(f.key, $any($event.target).value)" /> }
+              }
+              @if (err()[f.key]) { <p class="text-sm font-medium text-danger">{{ 'Auth.errors.required' | t }}</p> }
+            </div>
+          }
+
           @if (o.customerPicksPriority) {
             <div class="flex flex-col gap-1.5">
               <label for="prio" class="text-sm font-semibold">{{ 'NewTicket.priority' | t }}<app-req /></label>
@@ -296,26 +316,6 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
               [value]="description()" (input)="description.set($any($event.target).value)" [attr.aria-invalid]="err()['description'] ? true : null"></textarea>
             <p class="text-sm" [class]="err()['description'] ? 'font-medium text-danger' : 'text-muted'">{{ (err()['description'] ? 'NewTicket.errors.descriptionLength' : 'NewTicket.descriptionHint') | t }}</p>
           </div>
-
-          @for (f of fields(); track f.id) {
-            <div class="flex flex-col gap-1.5">
-              <label [for]="'cf-' + f.key" class="text-sm font-semibold">{{ i18n.pick(f.labelEn, f.labelAr) }}@if (f.isRequired) {<app-req />}</label>
-              @switch (f.type) {
-                @case ('long_text') { <textarea [id]="'cf-' + f.key" rows="3" dir="auto" class="rounded-lg border border-line bg-surface p-3" (input)="setField(f.key, $any($event.target).value)"></textarea> }
-                @case ('checkbox') { <input [id]="'cf-' + f.key" type="checkbox" class="h-5 w-5" (change)="setField(f.key, $any($event.target).checked)" /> }
-                @case ('dropdown') {
-                  <select [id]="'cf-' + f.key" class="min-h-11 rounded-lg border border-line bg-surface px-3" (change)="setField(f.key, $any($event.target).value)">
-                    <option value="">-</option>
-                    @for (c of choices(f.options); track c.value) { <option [value]="c.value">{{ c.label }}</option> }
-                  </select>
-                }
-                @case ('number') { <input [id]="'cf-' + f.key" type="number" dir="ltr" class="min-h-11 rounded-lg border border-line bg-surface px-3" (input)="setField(f.key, $any($event.target).value === '' ? null : +$any($event.target).value)" /> }
-                @case ('date') { <input [id]="'cf-' + f.key" type="date" class="min-h-11 rounded-lg border border-line bg-surface px-3" (input)="setField(f.key, $any($event.target).value)" /> }
-                @default { <input [id]="'cf-' + f.key" dir="auto" class="min-h-11 rounded-lg border border-line bg-surface px-3" (input)="setField(f.key, $any($event.target).value)" /> }
-              }
-              @if (err()[f.key]) { <p class="text-sm font-medium text-danger">{{ 'Auth.errors.required' | t }}</p> }
-            </div>
-          }
 
           <app-file-picker [label]="(staff ? 'StaffTicket.attachments' : 'NewTicket.attachments') | t" [(files)]="files" [disabled]="pending()" />
 
