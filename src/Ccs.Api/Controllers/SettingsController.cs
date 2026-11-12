@@ -480,7 +480,7 @@ public sealed partial class SettingsController(
     {
         ["reopen_window_days"] = (0, 365), ["auto_close_days"] = (1, 90), ["min_reply_chars"] = (0, 500),
         ["pending_reminder_1_day"] = (1, 60), ["pending_reminder_2_day"] = (1, 60), ["pending_final_day"] = (1, 90), ["no_response_close_days"] = (1, 120),
-        ["resolved_reminder_day"] = (1, 60), ["auto_refresh_seconds"] = (0, 600),
+        ["resolved_reminder_day"] = (1, 60), ["auto_refresh_seconds"] = (0, 600), ["idle_timeout_minutes"] = (0, 1440),
         ["password_min_length"] = (8, 128), ["password_expiry_days"] = (7, 730), ["password_warn_1_days"] = (1, 60), ["password_warn_2_days"] = (1, 60), ["password_warn_3_days"] = (1, 60),
     };
     private static readonly string[] BoolRules =

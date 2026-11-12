@@ -70,7 +70,7 @@ public sealed class SiteController(CcsDbContext db, SettingsService settings, Cc
 [ApiController]
 [Authorize]
 [Route("api/me")]
-public sealed class MeController(AccessService access, CcsDbContext db) : ControllerBase
+public sealed class MeController(AccessService access, CcsDbContext db, SettingsService settings) : ControllerBase
 {
     [HttpGet]
     public async Task<object> Get(CancellationToken ct)
@@ -86,6 +86,7 @@ public sealed class MeController(AccessService access, CcsDbContext db) : Contro
             roles, permissions = c.Permissions.OrderBy(x => x), c.Admin, staff = c.Staff, viewer = c.Viewer,
             customer = roles.Contains(RoleCode.Customer), scopeLevel = c.ScopeLevel, teams = c.Teams, leadsTeam = c.LeaderOfTeams.Count > 0, mfaEnabled = mfa,
             unreadNotifications = unread, p.PasswordChangedAt, p.AccountStatus,
+            idleTimeoutMinutes = await settings.GetIntAsync("idle_timeout_minutes", 5, ct),
         };
     }
 

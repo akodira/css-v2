@@ -30,6 +30,7 @@ export interface Me {
   accountStatus?: string;
   mfaEnabled: boolean;
   unreadNotifications: number;
+  idleTimeoutMinutes?: number;
 }
 
 /** Problem response from the API: { status, title, code, field? }. */
@@ -43,7 +44,7 @@ export function problemOf(err: unknown): ApiProblem {
   return { status: 0, code: 'generic' };
 }
 
-const IDLE_LIMIT_MS = 5 * 60 * 1000;
+let idleLimitMs = 5 * 60 * 1000;   // set from Settings > System rules after sign-in; 0 turns idle sign-out off
 const IDLE_KEY = 'ccs.lastActive';
 const IDLE_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'] as const;
 
@@ -73,7 +74,7 @@ export class Auth {
   /** Called once at start-up: restores the session from the refresh cookie, if any. */
   async restore(): Promise<void> {
     // Closed the tab or slept the PC for longer than the idle limit: end the session instead of resuming it.
-    if (this.idleFor() > IDLE_LIMIT_MS) { try { await firstValueFrom(this.http.post('/api/auth/sign-out', {})); } catch { /* already gone */ } this.touch(0); return; }
+    if (idleLimitMs > 0 && this.idleFor() > idleLimitMs) { try { await firstValueFrom(this.http.post('/api/auth/sign-out', {})); } catch { /* already gone */ } this.touch(0); return; }
     await this.refresh();
   }
 
@@ -93,7 +94,7 @@ export class Auth {
     this.touch(Date.now());
     for (const e of IDLE_EVENTS) window.addEventListener(e, this.onActivity, { passive: true, capture: true });
     this.idleTimer = setInterval(() => {
-      if (this.signedIn() && this.idleFor() > IDLE_LIMIT_MS) void this.idleSignOut();
+      if (this.signedIn() && idleLimitMs > 0 && this.idleFor() > idleLimitMs) void this.idleSignOut();
     }, 10000);
   }
   private stopIdleWatch(): void {
@@ -140,7 +141,9 @@ export class Auth {
   }
 
   async loadMe(): Promise<void> {
-    this.me.set(await firstValueFrom(this.http.get<Me>('/api/me')));
+    const me = await firstValueFrom(this.http.get<Me>('/api/me'));
+    idleLimitMs = (me.idleTimeoutMinutes ?? 5) * 60 * 1000;
+    this.me.set(me);
   }
 
   /** Where a person lands after signing in (same rule as homeFor() today). */

@@ -157,7 +157,7 @@
       "noAccount": "New here?",
       "register": "Create an account",
       "suspendedNotice": "This account is suspended. Contact support.",
-      "idleNotice": "You were signed out after 5 minutes of inactivity. Please sign in again.",
+      "idleNotice": "You were signed out because of inactivity. Please sign in again.",
       "pendingNotice": "Your account is waiting for approval by the administrator. You can sign in after it is approved.",
       "codeLink": "Email me a one-time code"
     },
@@ -1235,7 +1235,9 @@
     "pwWarnHint": "Example: 7, 4 and 1 send warnings a week, four days and one day before the password expires. Use 0 to skip a warning. The wording is editable under Email templates (\"Your password expires\").",
     "captchaAlso": "Also protects the forgot-password and email-code forms.",
     "autoRefresh": "Automatic page refresh (seconds)",
-    "autoRefreshHint": "Ticket lists and ticket pages re-read their data every this many seconds while the page is open. Use 0 to turn it off, otherwise 10 to 3600."
+    "autoRefreshHint": "Ticket lists and ticket pages re-read their data every this many seconds while the page is open. Use 0 to turn it off, otherwise 10 to 3600.",
+    "idleTimeout": "Sign out after inactivity (minutes)",
+    "idleTimeoutHint": "People are signed out after this many minutes without using the page. Use 0 to turn it off, otherwise 1 to 1440."
   },
   "Customers": {
     "title": "Customers",

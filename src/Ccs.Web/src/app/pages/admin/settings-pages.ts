@@ -888,6 +888,7 @@ export class SystemTab extends Tab implements OnInit {
   protected readonly basic = [
     { key: 'reopen_window_days', label: 'reopen', hint: 'reopenHint' }, { key: 'auto_close_days', label: 'autoClose', hint: 'autoCloseHint' },
     { key: 'min_reply_chars', label: 'minReply', hint: '' }, { key: 'auto_refresh_seconds', label: 'autoRefresh', hint: 'autoRefreshHint' },
+    { key: 'idle_timeout_minutes', label: 'idleTimeout', hint: 'idleTimeoutHint' },
   ];
   protected readonly timers = [
     { key: 'pending_reminder_1_day', label: 'reminder1' }, { key: 'pending_reminder_2_day', label: 'reminder2' }, { key: 'pending_final_day', label: 'finalWarning' },
@@ -895,7 +896,7 @@ export class SystemTab extends Tab implements OnInit {
   ];
   protected readonly modes = ['closed', 'approval', 'pick_approval', 'pick_auto'];
   private readonly defaults: Record<string, number> = {
-    reopen_window_days: 30, auto_close_days: 5, min_reply_chars: 20, auto_refresh_seconds: 30, pending_reminder_1_day: 2, pending_reminder_2_day: 4, pending_final_day: 7,
+    reopen_window_days: 30, auto_close_days: 5, min_reply_chars: 20, auto_refresh_seconds: 30, idle_timeout_minutes: 5, pending_reminder_1_day: 2, pending_reminder_2_day: 4, pending_final_day: 7,
     no_response_close_days: 10, resolved_reminder_day: 3, password_min_length: 10, password_expiry_days: 90, password_warn_1_days: 7, password_warn_2_days: 4, password_warn_3_days: 1,
   };
   protected readonly loaded = signal(false);
