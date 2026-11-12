@@ -924,31 +924,34 @@ export class SystemTab extends Tab implements OnInit {
     ${MSG}
     <p class="max-w-prose text-muted">{{ 'AdminSigninCodes.intro' | t }}</p>
     @if (m) {
-      <form [class]="cls.card + ' flex flex-col gap-4 p-5'" (ngSubmit)="submit()">
-        <label class="flex items-start gap-3"><input type="checkbox" role="switch" name="on" class="mt-1 h-5 w-5" [(ngModel)]="m.enabled" />
-          <span><span class="font-semibold">{{ 'AdminSigninCodes.switch' | t }}</span>
+      <form class="flex max-w-xl flex-col gap-4" (ngSubmit)="submit()">
+        <section [class]="cls.card + ' flex flex-col gap-4 p-4'">
+          <label class="flex items-start justify-between gap-3"><span><span class="font-semibold">{{ 'AdminSigninCodes.switch' | t }}</span>
             <span class="ms-2 rounded-full px-2 py-0.5 text-xs font-bold" [class]="m.enabled ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (m.enabled ? 'AdminSigninCodes.on' : 'AdminSigninCodes.off') | t }}</span>
-            <span class="block text-sm text-muted">{{ 'AdminSigninCodes.switchHint' | t }}</span></span></label>
-        <h2 class="text-lg font-bold">{{ 'AdminSigninCodes.who' | t }}</h2>
-        <div role="radiogroup" [attr.aria-label]="'AdminSigninCodes.who' | t" class="flex flex-col gap-1">
-          @for (a of ['customers', 'all']; track a) {
-            <label class="flex items-start gap-2"><input type="radio" name="who" class="mt-1 h-5 w-5" [value]="a" [(ngModel)]="m.audience" />
-              <span><span class="font-semibold">{{ 'AdminSigninCodes.' + a | t }}</span><span class="block text-sm text-muted">{{ 'AdminSigninCodes.' + a + 'Hint' | t }}</span></span></label>
-          }</div>
-        <h2 class="text-lg font-bold">{{ 'AdminSigninCodes.rules' | t }}</h2>
-        <div class="grid gap-4 md:grid-cols-2">
-          @for (f of fields; track f.key) {
-            <label [class]="cls.label + ' flex flex-col gap-1.5'"><span>{{ 'AdminSigninCodes.' + f.label | t }} ${REQ}</span>
-              <span class="flex items-center gap-2"><input [name]="f.key" type="number" dir="ltr" class="min-h-11 w-28 rounded-lg border border-line bg-surface px-3 font-normal" [(ngModel)]="$any(m)[f.key]" />
-                <span class="text-sm font-normal text-muted">{{ 'AdminSigninCodes.' + f.label + 'Unit' | t }}</span></span></label>
-          }
-        </div>
-        <section class="rounded-lg bg-bg p-4"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.safeTitle' | t }}</h2>
-          <ul class="mt-1 list-disc ps-5 text-sm">@for (n of [1, 2, 3, 4]; track n) { <li>{{ 'AdminSigninCodes.safe' + n | t }}</li> }</ul></section>
-        <section class="flex flex-col gap-2"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.mailTitle' | t }}</h2>
+            <span class="block text-sm text-muted">{{ 'AdminSigninCodes.switchHint' | t }}</span></span>
+            <input type="checkbox" role="switch" name="on" class="mt-1 h-5 w-5 shrink-0" [(ngModel)]="m.enabled" /></label>
+          <h2 class="text-lg font-bold">{{ 'AdminSigninCodes.who' | t }}</h2>
+          <div role="radiogroup" [attr.aria-label]="'AdminSigninCodes.who' | t" class="flex flex-col gap-3">
+            @for (a of ['customers', 'all']; track a) {
+              <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3" [class]="m.audience === a ? 'border-brand bg-brand-soft' : 'border-line'"><input type="radio" name="who" class="mt-1 h-5 w-5" [value]="a" [(ngModel)]="m.audience" />
+                <span><span class="font-semibold">{{ 'AdminSigninCodes.' + a | t }}</span><span class="block text-sm text-muted">{{ 'AdminSigninCodes.' + a + 'Hint' | t }}</span></span></label>
+            }</div>
+        </section>
+        <section [class]="cls.card + ' flex flex-col gap-4 p-4'"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.rules' | t }}</h2>
+          <div class="grid gap-4 sm:grid-cols-2">
+            @for (f of fields; track f.key) {
+              <label [class]="cls.label + ' flex flex-col gap-1.5'"><span>{{ 'AdminSigninCodes.' + f.label | t }} ${REQ}</span>
+                <input [name]="f.key" type="number" dir="ltr" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 font-normal" [(ngModel)]="$any(m)[f.key]" />
+                <span class="text-sm font-normal text-muted">{{ 'AdminSigninCodes.' + f.label + 'Unit' | t }}</span></label>
+            }
+          </div>
+        </section>
+        <section [class]="cls.card + ' p-4'"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.safeTitle' | t }}</h2>
+          <ul class="mt-2 list-disc ps-5 text-sm">@for (n of [1, 2, 3, 4]; track n) { <li>{{ 'AdminSigninCodes.safe' + n | t }}</li> }</ul></section>
+        <section [class]="cls.card + ' flex flex-col gap-2 p-4'"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.mailTitle' | t }}</h2>
           <p class="text-muted">{{ 'AdminSigninCodes.mailHint' | t }}</p>
           <div><a [routerLink]="'/' + i18n.locale() + '/admin/general/settings/templates'" class="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg">{{ 'AdminSigninCodes.mailButton' | t }}</a></div></section>
-        <section class="flex flex-col gap-2"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.previewTitle' | t }}</h2>
+        <section [class]="cls.card + ' flex flex-col gap-2 p-4'"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.previewTitle' | t }}</h2>
           <div aria-hidden="true" class="flex max-w-xs flex-col gap-2.5 rounded-xl border border-dashed border-muted p-4">
             <div class="flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-muted">{{ 'AdminSigninCodes.email' | t }}</div>
             <div class="flex min-h-11 items-center rounded-lg border border-line bg-surface px-3 text-muted">{{ 'AdminSigninCodes.password' | t }}</div>
