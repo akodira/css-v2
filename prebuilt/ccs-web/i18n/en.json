@@ -1003,7 +1003,7 @@
       "name": "Enter 2 to 120 characters.",
       "number": "Enter a whole number of 0 or more.",
       "slug": "Use lowercase letters, numbers and hyphens (2 to 80 characters).",
-      "key": "Use lowercase letters, numbers and underscores, starting with a letter (2 to 41 characters).",
+      "key": "Use only lowercase letters, numbers and underscores, e.g. meter_no.",
       "type": "Choose a valid type.",
       "typeLocked": "The type cannot change because tickets already have values for this field.",
       "options": "List each option as: value | English label | Arabic label. Values must be unique and use letters, numbers, dot, dash or underscore.",

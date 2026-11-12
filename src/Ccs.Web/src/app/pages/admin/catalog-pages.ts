@@ -137,7 +137,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminCatalog.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminCatalog.subtitle' | t }}</p></div>
-      @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
+      @if (msg(); as m) { @if (!(msgAt() && m.tone === 'error')) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> } }
 
       <!-- shared form parts -->
       <ng-template #names let-m="m" let-id="id">
@@ -453,6 +453,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
               <ng-container *ngTemplateOutlet="fieldForm; context: { m: editField[f.id], id: 'f' + f.id, locked: f.hasValues, isNew: false }" />
               <div class="flex flex-wrap gap-2"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCatalog.save' | t }}</button>
                 @if (!f.hasValues) { <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="remove('fields/' + f.id)">{{ 'Directory.delete' | t }}</button> }</div>
+              @if (msgAt() === f.id) { @if (msg(); as m) { @if (m.tone === 'error') { <app-alert tone="error">{{ m.text }}</app-alert> } } }
             </form></div>
           </details>
         }
@@ -460,6 +461,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
           <div class="p-3"><form [class]="formCls" novalidate (ngSubmit)="createField(addf)">
             <ng-container *ngTemplateOutlet="fieldForm; context: { m: nwField, id: 'nf', locked: false, isNew: true }" />
             <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCatalog.addField' | t }}</button></div>
+            @if (msgAt() === 'new') { @if (msg(); as m) { @if (m.tone === 'error') { <app-alert tone="error">{{ m.text }}</app-alert> } } }
           </form></div></details>
       </section>
     </main>`,
@@ -574,10 +576,18 @@ export class AdminCatalogPage extends AdminBase implements OnInit {
     if (await this.run(() => this.api.post('subcategories', this.nwSub(catId)))) { delete this.newSubs[catId]; this.addMode.set(null); }
   }
   protected updateSub(s: SubRow): void { void this.run(() => this.api.put('subcategories/' + s.id, this.editSub[s.id])); }
+  /** Which field form the last error belongs to ('new' or a field id), so it shows under that form. */
+  protected readonly msgAt = signal<string | null>(null);
+  private pendingAt: string | null = null;
+  protected override async run(fn: () => Promise<unknown>, okKey?: string, params?: Record<string, unknown>): Promise<boolean> {
+    this.msgAt.set(this.pendingAt); this.pendingAt = null;
+    return super.run(fn, okKey, params);
+  }
   protected async createField(box: HTMLDetailsElement): Promise<void> {
+    this.pendingAt = 'new';
     if (await this.run(() => this.api.post('fields', fieldBody(this.nwField)))) { this.nwField = blankField(); box.open = false; }
   }
-  protected updateField(f: FieldRow): void { void this.run(() => this.api.put('fields/' + f.id, fieldBody(this.editField[f.id]))); }
+  protected updateField(f: FieldRow): void { this.pendingAt = f.id; void this.run(() => this.api.put('fields/' + f.id, fieldBody(this.editField[f.id]))); }
   protected remove(path: string): void { void this.run(() => this.api.del(path), 'AdminV2.deleted'); }
 }
 
