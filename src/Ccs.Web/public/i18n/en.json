@@ -157,6 +157,7 @@
       "noAccount": "New here?",
       "register": "Create an account",
       "suspendedNotice": "This account is suspended. Contact support.",
+      "idleNotice": "You were signed out after 5 minutes of inactivity. Please sign in again.",
       "pendingNotice": "Your account is waiting for approval by the administrator. You can sign in after it is approved.",
       "codeLink": "Email me a one-time code"
     },

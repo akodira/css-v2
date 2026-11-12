@@ -63,6 +63,7 @@ abstract class FormBase {
       @if (notice()) { <p role="note" dir="auto" class="mx-auto mb-4 max-w-md rounded-lg border border-line bg-brand-soft px-4 py-3 text-sm font-medium text-brand-ink">{{ notice() }}</p> }
       <app-card [heading]="'Auth.login.title' | t" [subtitle]="'Auth.login.subtitle' | t">
         @if (reason() === 'suspended') { <app-alert><app-rich [text]="'Auth.login.suspendedNotice' | t" [compact]="true" /></app-alert> }
+        @if (reason() === 'idle') { <app-alert><app-rich [text]="'Auth.login.idleNotice' | t" [compact]="true" /></app-alert> }
         @if (reason() === 'pending_approval') { <app-alert><app-rich [text]="'Auth.login.pendingNotice' | t" [compact]="true" /></app-alert> }
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="email" [label]="'Auth.fields.identifier' | t" autocomplete="username" dir="ltr" [required]="true" [(value)]="identifier" [error]="fieldErrors()['identifier']" />

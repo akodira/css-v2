@@ -43,6 +43,10 @@ export function problemOf(err: unknown): ApiProblem {
   return { status: 0, code: 'generic' };
 }
 
+const IDLE_LIMIT_MS = 5 * 60 * 1000;
+const IDLE_KEY = 'ccs.lastActive';
+const IDLE_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'] as const;
+
 /**
  * Session handling. The access token (15 min) stays in memory only; the refresh token is an HttpOnly,
  * Secure, SameSite=Strict cookie scoped to /api/auth, so script on the page can never read it.
@@ -68,7 +72,39 @@ export class Auth {
 
   /** Called once at start-up: restores the session from the refresh cookie, if any. */
   async restore(): Promise<void> {
+    // Closed the tab or slept the PC for longer than the idle limit: end the session instead of resuming it.
+    if (this.idleFor() > IDLE_LIMIT_MS) { try { await firstValueFrom(this.http.post('/api/auth/sign-out', {})); } catch { /* already gone */ } this.touch(0); return; }
     await this.refresh();
+  }
+
+  /** Idle sign-out: 5 minutes without a click, key, scroll or touch (any open tab counts as activity). */
+  private idleTimer: ReturnType<typeof setInterval> | null = null;
+  private lastTouch = 0;
+  private readonly onActivity = (): void => {
+    const now = Date.now();
+    if (now - this.lastTouch > 5000) { this.lastTouch = now; this.touch(now); }
+  };
+  private touch(at: number): void { try { localStorage.setItem(IDLE_KEY, String(at || Date.now())); } catch { /* storage blocked */ } }
+  private idleFor(): number {
+    try { const v = Number(localStorage.getItem(IDLE_KEY)); return v ? Date.now() - v : 0; } catch { return 0; }
+  }
+  private startIdleWatch(): void {
+    if (this.idleTimer) return;
+    this.touch(Date.now());
+    for (const e of IDLE_EVENTS) window.addEventListener(e, this.onActivity, { passive: true, capture: true });
+    this.idleTimer = setInterval(() => {
+      if (this.signedIn() && this.idleFor() > IDLE_LIMIT_MS) void this.idleSignOut();
+    }, 10000);
+  }
+  private stopIdleWatch(): void {
+    if (!this.idleTimer) return;
+    clearInterval(this.idleTimer); this.idleTimer = null;
+    for (const e of IDLE_EVENTS) window.removeEventListener(e, this.onActivity, { capture: true });
+  }
+  private async idleSignOut(): Promise<void> {
+    try { await firstValueFrom(this.http.post('/api/auth/sign-out', {})); } catch { /* already gone */ }
+    this.clear();
+    await this.router.navigate([`/${this.i18n.locale()}/login`], { queryParams: { reason: 'idle' } });
   }
 
   refresh(): Promise<boolean> {
@@ -122,9 +158,11 @@ export class Auth {
     this.mfaToken = null;
     this.token.set(s.accessToken);
     await this.loadMe();
+    this.startIdleWatch();
   }
 
   clear(): void {
+    this.stopIdleWatch();
     this.token.set(null);
     this.mfaToken = null;
     this.me.set(null);
