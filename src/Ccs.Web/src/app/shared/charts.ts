@@ -148,13 +148,13 @@ export class Donut {
           </text>
         }
       </svg>
-      <div class="sr-only"><table><caption>{{ label() }}</caption>
-        <thead><tr><th scope="col">{{ label() }}</th><th scope="col">{{ totalLabel() }}</th><th scope="col">{{ resolvedLabel() }}</th></tr></thead>
-        <tbody>@for (r of rows(); track $index) { <tr><th scope="row">{{ r.label }}</th><td>{{ r.total }}</td><td>{{ r.resolved }}</td></tr> }</tbody></table></div>
       <figcaption class="mt-1 flex flex-wrap gap-4 text-sm">
         <span class="flex items-center gap-1.5"><span aria-hidden="true" class="h-2.5 w-2.5 rounded-sm" style="background: #1f64e6"></span>{{ totalLabel() }}</span>
         <span class="flex items-center gap-1.5"><span aria-hidden="true" class="h-2.5 w-2.5 rounded-sm" style="background: #16915a"></span>{{ resolvedLabel() }}</span>
       </figcaption>
+      <div class="sr-only"><table><caption>{{ label() }}</caption>
+        <thead><tr><th scope="col">{{ label() }}</th><th scope="col">{{ totalLabel() }}</th><th scope="col">{{ resolvedLabel() }}</th></tr></thead>
+        <tbody>@for (r of rows(); track $index) { <tr><th scope="row">{{ r.label }}</th><td>{{ r.total }}</td><td>{{ r.resolved }}</td></tr> }</tbody></table></div>
     </figure>`,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
