@@ -187,7 +187,6 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
   imports: [RouterLink, TPipe, Req, ReqNote, Alert, FilePicker],
   template: `
     <main class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8">
-      @if (!staff) { <a [routerLink]="link('/tickets')" class="text-sm font-semibold text-brand-ink underline">{{ 'Tickets.title' | t }}</a> }
       <div>
         <h1 class="text-3xl font-bold tracking-tight">{{ (staff ? 'StaffTicket.title' : 'NewTicket.title') | t }}</h1>
         <p class="mt-1 text-muted">{{ (staff ? 'StaffTicket.subtitle' : 'NewTicket.subtitle') | t }}</p>
@@ -450,7 +449,7 @@ export class NewTicketPage {
 
 @Component({
   selector: 'app-ticket-detail',
-  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, CustomerLifecycle, TicketLinksNotice, CommentActions, AutoRefreshBar, Req],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, CustomerLifecycle, TicketLinksNotice, CommentActions, AutoRefreshBar, Req, ReqNote],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -519,11 +518,11 @@ export class NewTicketPage {
         @if (tk.status !== 'closed' && tk.status !== 'resolved') {
           <section class="rounded-md border border-line bg-surface p-6">
             <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); send()">
-              <label for="reply" class="text-sm font-semibold">{{ 'Ticket.reply.label' | t }}</label>
+              <label for="reply" class="text-sm font-semibold">{{ 'Ticket.reply.label' | t }}<app-req /></label>
               <textarea id="reply" rows="4" maxlength="10000" dir="auto" [placeholder]="'Ticket.reply.placeholder' | t" class="rounded-lg border border-line bg-surface p-3" [value]="reply()" (input)="reply.set($any($event.target).value)"></textarea>
-              <app-file-picker [label]="'Ticket.attachments' | t" [(files)]="files" [disabled]="pending()" />
+              <app-file-picker [label]="'NewTicket.attachments' | t" [(files)]="files" [disabled]="pending()" />
               @if (msg()) { <app-alert [tone]="msgTone()">{{ msg() }}</app-alert> }
-              <div><button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ 'Ticket.reply.submit' | t }}</button></div>
+              <div><button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ 'Ticket.reply.submit' | t }}</button> <app-req-note /></div>
             </form>
           </section>
         }
