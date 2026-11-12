@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@a
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
 import { TPipe } from '../../core/i18n';
-import { Alert, PRIORITY_TONE, PrioIcon, Req } from '../../shared/ui';
+import { Alert, PRIORITY_TONE, PrioIcon, Req, ReqNote } from '../../shared/ui';
 import { AdminBase, HEADER, SEARCH } from './admin-pages';
 
 // ---- contracts (CatalogAdminController) --------------------------------------------------------
@@ -736,7 +736,7 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
 
 @Component({
   selector: 'app-admin-sla',
-  imports: [TPipe, Alert, FormsModule, Req, PrioIcon],
+  imports: [TPipe, Alert, FormsModule, Req, PrioIcon, ReqNote],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminSla.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminSla.subtitle' | t }}</p></div>
@@ -837,6 +837,7 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
           <label class="flex min-w-56 flex-1 flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.calendars.newName' | t }}<app-req /><input name="nn" maxlength="80" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="nwCal.name" /></label>
           <label class="flex min-w-56 flex-1 flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.calendars.timezone' | t }}<app-req /><input name="nz" dir="ltr" placeholder="Africa/Cairo" [class]="cls.input + ' font-normal'" [(ngModel)]="nwCal.timezone" /></label>
           <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.calendars.create' | t }}</button>
+          <app-req-note />
         </form>
       </section>
 
@@ -898,6 +899,10 @@ export class AdminSlaPage extends AdminBase implements OnInit {
   private async loadAssignments(): Promise<void> {
     try {
       const a = await this.api.get<NonNullable<ReturnType<typeof this.asg>>>('calendar-assignments');
+      // v1 order (database collation): "Al-Qalyubia" before "Alex"
+      a.organizations.sort((x, y) => x.name.localeCompare(y.name));
+      a.branches.sort((x, y) => x.name.localeCompare(y.name));
+      a.teams.sort((x, y) => x.nameEn.localeCompare(y.nameEn));
       for (const o of a.organizations) this.pick['o' + o.id] = o.businessHoursId ?? '';
       for (const b of a.branches) this.pick['b' + b.id] = b.businessHoursId ?? '';
       for (const t of a.teams) this.pick['t' + t.id] = t.businessHoursId ?? '';

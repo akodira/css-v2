@@ -64,7 +64,7 @@ const STATUSES = ['new', 'open', 'in_progress', 'pending_customer', 'pending_int
 
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <section [class]="card + ' lg:col-span-2'"><h2 class="mb-3 text-lg font-bold">{{ 'Dashboard.trends' | t }}</h2>
-            <app-trend-chart [data]="x.daily" [createdLabel]="'Dashboard.created' | t" [resolvedLabel]="'Dashboard.resolved' | t" [summary]="'Dashboard.trendSummary' | t: { created: x.created, resolved: x.resolved }" /></section>
+            <app-trend-chart [data]="x.daily" [dayLabel]="'Dashboard.day' | t" [createdLabel]="'Dashboard.created' | t" [resolvedLabel]="'Dashboard.resolved' | t" [summary]="'Dashboard.trendSummary' | t: { created: x.created, resolved: x.resolved }" /></section>
           <section [class]="card"><h2 class="mb-2 text-lg font-bold">{{ 'Dashboard.slaCompliance' | t }}</h2>
             <app-ring [percent]="compliance()" [label]="compliance() === null ? ('Dashboard.slaNone' | t) : ('Dashboard.slaRing' | t: { percent: compliance() })" />
             <p class="mt-2 text-center text-sm text-muted">{{ compliance() === null ? ('Dashboard.slaNone' | t) : ('Dashboard.slaCount' | t: { met: x.slaMet, total: x.slaTotal }) }}</p>
@@ -147,6 +147,7 @@ const STATUSES = ['new', 'open', 'in_progress', 'pending_customer', 'pending_int
               <li><a [routerLink]="link('/console')" [queryParams]="{ view: 'unassigned' }" [class]="action + ' bg-brand text-white hover:bg-brand-ink'">{{ 'Dashboard.qaUnassigned' | t }}<span class="rounded-full bg-white/20 px-2 text-xs">{{ x.queue.unassigned }}</span></a></li>
               <li><a [routerLink]="link('/console')" [queryParams]="{ view: 'assigned' }" [class]="action">{{ 'Dashboard.qaMine' | t }}<span class="rounded-full bg-bg px-2 text-xs">{{ x.queue.mine }}</span></a></li>
               <li><a [routerLink]="link('/console')" [queryParams]="{ view: 'all', sla: 'breached', status: 'any' }" [class]="action">{{ 'Dashboard.qaBreached' | t }}<span class="rounded-full bg-bg px-2 text-xs">{{ x.queue.breached }}</span></a></li>
+              <li><a [routerLink]="link('/console/reports')" [class]="action">{{ 'Reports.title' | t }}</a></li>
             </ul></section>
         </div>
       }

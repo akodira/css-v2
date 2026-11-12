@@ -142,6 +142,7 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
             orgs = await db.Organizations.AsNoTracking().OrderBy(o => o.Name).Select(o => new { o.Id, o.Name }).ToListAsync(ct),
             branches = await db.Branches.AsNoTracking().OrderBy(b => b.Name).Select(b => new { b.Id, b.OrganizationId, b.Name }).ToListAsync(ct),
             teams = await db.Teams.AsNoTracking().OrderBy(t => t.NameEn).Select(t => new { t.Id, t.NameEn, t.NameAr }).ToListAsync(ct),
+            priorities = await db.Priorities.AsNoTracking().OrderBy(p => p.SortOrder).ThenBy(p => p.NameEn).Select(p => new { p.Code, p.NameEn, p.NameAr }).ToListAsync(ct),
         };
     }
 

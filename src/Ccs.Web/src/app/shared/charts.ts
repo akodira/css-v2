@@ -32,6 +32,7 @@ const grid = (max: number) => { const step = Math.max(1, Math.ceil(Math.max(4, m
         }
       </svg>
       <div class="sr-only"><table><caption>{{ summary() }}</caption>
+        <thead><tr><th scope="col">{{ dayLabel() }}</th><th scope="col">{{ createdLabel() }}</th><th scope="col">{{ resolvedLabel() }}</th></tr></thead>
         <tbody>@for (d of data(); track d.day) { <tr><th scope="row">{{ d.day }}</th><td>{{ d.created }}</td><td>{{ d.resolved }}</td></tr> }</tbody></table></div>
     </figure>`,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -41,6 +42,7 @@ export class TrendChart {
   readonly createdLabel = input('');
   readonly resolvedLabel = input('');
   readonly summary = input('');
+  readonly dayLabel = input('Day');
   protected readonly W = 640; protected readonly H = 240; protected readonly L = 36; protected readonly R = 12; private readonly T = 12; private readonly B = 28;
   protected readonly g = computed(() => grid(Math.max(0, ...this.data().flatMap((d) => [d.created, d.resolved]))));
   protected readonly ticks = computed(() => { const n = this.data().length; return n <= 6 ? [...Array(n).keys()] : [0, 1, 2, 3, 4].map((k) => Math.round((k * (n - 1)) / 4)); });

@@ -191,7 +191,7 @@ export const TONE_CLASS: Record<Tone, string> = {
 /** Priority chip colours (PRIORITY_TONE today). */
 export const PRIORITY_TONE: Record<string, string> = {
   red: 'bg-danger-soft text-danger', amber: 'bg-warn-soft text-warn-ink', blue: 'bg-brand-soft text-brand-ink',
-  green: 'bg-ok-soft text-ok', grey: 'bg-bg text-ink border border-line', light: 'bg-surface text-muted border border-line',
+  green: 'bg-ok-soft text-ok', grey: 'bg-bg text-ink border border-line', light: 'bg-bg text-muted border border-line',
 };
 
 /** Priority icons (v1 lib/priorities/icons.ts); until one is saved the colour picks it. */

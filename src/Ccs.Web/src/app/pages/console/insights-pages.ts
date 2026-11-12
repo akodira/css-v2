@@ -71,7 +71,7 @@ async function download(http: HttpClient, url: string): Promise<void> {
           </dl>
           <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <section [class]="card + ' lg:col-span-2'"><h2 class="mb-3 text-lg font-bold">{{ 'Reports.trend' | t }}</h2>
-              <app-trend-chart [data]="r.daily" [createdLabel]="'Reports.created' | t" [resolvedLabel]="'Reports.resolved' | t" [summary]="'Reports.trendSummary' | t: { created: r.created, resolved: r.resolved }" /></section>
+              <app-trend-chart [data]="r.daily" [createdLabel]="'Reports.created' | t" [resolvedLabel]="'Reports.resolved' | t" [summary]="'Reports.trendSummary' | t: { created: r.created, resolved: r.resolved }" [dayLabel]="'Reports.day' | t" /></section>
             <section [class]="card"><h2 class="mb-2 text-lg font-bold">{{ 'Reports.sla' | t }}</h2>
               <app-ring [percent]="pc(r.slaMet, r.slaTotal)" [label]="'Reports.sla' | t" />
               <p class="mt-2 text-center text-sm text-muted">{{ pc(r.slaMet, r.slaTotal) === null ? ('Reports.slaNone' | t) : ('Reports.slaCount' | t: { met: r.slaMet, total: r.slaTotal }) }}</p></section>
@@ -84,46 +84,69 @@ async function download(http: HttpClient, url: string): Promise<void> {
         }
 
         <section id="report-builder" [class]="card + ' flex flex-col gap-4'">
-          <div><h2 class="text-lg font-bold">{{ 'Reports.builderTitle' | t }}</h2><p class="text-sm text-muted">{{ 'Reports.builderHint' | t }}</p></div>
-          <form class="grid gap-3 md:grid-cols-4" (ngSubmit)="runBuilder()">
-            <label class="flex flex-col gap-1 text-sm font-semibold md:col-span-2">{{ 'Reports.reportType' | t }}
-              <select name="kind" [class]="field" [(ngModel)]="b.kind">
-                @for (g of kindGroups; track g.group) { <optgroup [label]="'Reports.group_' + g.group | t">@for (k of g.kinds; track k) { <option [value]="k">{{ 'Reports.kind_' + k | t }}</option> }</optgroup> }
-              </select></label>
-            <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Reports.from' | t }}<input name="from" type="date" [class]="field" [(ngModel)]="b.from" /></label>
-            <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Reports.to' | t }}<input name="to" type="date" [class]="field" [(ngModel)]="b.to" /></label>
-            <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Reports.fOrg' | t }}
-              <select name="org" [class]="field" [(ngModel)]="b.org"><option value="">{{ 'Reports.all' | t }}</option>@for (o of opts()?.orgs ?? []; track o.id) { <option [value]="o.id">{{ o.name }}</option> }</select></label>
-            <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Reports.fBranch' | t }}
-              <select name="branch" [class]="field" [(ngModel)]="b.branch"><option value="">{{ 'Reports.all' | t }}</option>@for (x of branchesOf(b.org); track x.id) { <option [value]="x.id">{{ x.name }}</option> }</select></label>
-            <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Reports.fTeam' | t }}
-              <select name="team" [class]="field" [(ngModel)]="b.team"><option value="">{{ 'Reports.all' | t }}</option>@for (x of opts()?.teams ?? []; track x.id) { <option [value]="x.id">{{ i18n.pick(x.nameEn, x.nameAr) }}</option> }</select></label>
-            <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Reports.fStatus' | t }}
-              <select name="status" [class]="field" [(ngModel)]="b.status"><option value="">{{ 'Reports.all' | t }}</option>@for (x of statuses; track x) { <option [value]="x">{{ 'StaffStatus.' + x | t }}</option> }</select></label>
-            <div class="flex flex-wrap items-end gap-2 md:col-span-4">
-              <button type="submit" [class]="btn">{{ 'Reports.display' | t }}</button>
-              @for (n of [7, 30, 90]; track n) { <button type="button" [class]="btn2" (click)="quick(n)">{{ 'Reports.lastDays' | t: { count: n } }}</button> }
-              @if (rows() && canExport()) { <button type="button" [class]="btn2" (click)="exportCsv('builder')">{{ 'Reports.exportCsv' | t }}</button> }
-              @if (rows()) { <button type="button" [class]="btn2" (click)="print()">{{ 'Reports.printPdf' | t }}</button> }
+          <h2 class="text-xl font-bold">{{ 'Reports.builderTitle' | t }}</h2>
+          <form class="flex flex-col gap-4" (ngSubmit)="runBuilder()">
+            <div class="flex flex-wrap items-end gap-4">
+              <label class="flex w-full flex-col gap-1 text-sm font-semibold sm:w-72">{{ 'Reports.reportType' | t }}
+                <select name="kind" [class]="field" [(ngModel)]="b.kind">
+                  @for (g of kindGroups; track g.group) { <optgroup [label]="'Reports.group_' + g.group | t">@for (k of g.kinds; track k) { <option [value]="k">{{ 'Reports.kind_' + k | t }}</option> }</optgroup> }
+                </select></label>
+              <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Reports.from' | t }}<input name="from" type="date" [max]="today" [class]="field + ' w-40'" [(ngModel)]="b.from" /></label>
+              <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Reports.to' | t }}<input name="to" type="date" [max]="today" [class]="field + ' w-40'" [(ngModel)]="b.to" /></label>
+              <nav [attr.aria-label]="'Reports.range' | t" class="flex gap-2">
+                @for (n of [7, 30, 90]; track n) {
+                  <button type="button" (click)="quick(n)" [attr.aria-current]="quickActive(n) ? 'true' : null" class="flex min-h-11 cursor-pointer items-center rounded-lg border px-4 text-sm font-semibold"
+                    [class]="quickActive(n) ? 'border-brand bg-brand-soft text-brand-ink' : 'border-line bg-surface hover:bg-bg'">{{ 'Reports.quickDays' | t: { count: n } }}</button>
+                }
+              </nav>
+            </div>
+            <div class="flex flex-wrap items-end gap-4">
+              <label class="flex w-full flex-col gap-1 text-sm font-semibold sm:w-52">{{ 'Reports.fOrg' | t }}
+                <select name="org" [class]="field" [(ngModel)]="b.org"><option value="">{{ 'Reports.all' | t }}</option>@for (o of opts()?.orgs ?? []; track o.id) { <option [value]="o.id">{{ o.name }}</option> }</select></label>
+              <label class="flex w-full flex-col gap-1 text-sm font-semibold sm:w-52">{{ 'Reports.fBranch' | t }}
+                <select name="branch" [class]="field" [(ngModel)]="b.branch"><option value="">{{ 'Reports.all' | t }}</option>@for (x of opts()?.branches ?? []; track x.id) { <option [value]="x.id">{{ x.label }}</option> }</select></label>
+              <label class="flex w-full flex-col gap-1 text-sm font-semibold sm:w-44">{{ 'Reports.fTeam' | t }}
+                <select name="team" [class]="field" [(ngModel)]="b.team"><option value="">{{ 'Reports.all' | t }}</option>@for (x of opts()?.teams ?? []; track x.id) { <option [value]="x.id">{{ i18n.pick(x.nameEn, x.nameAr) }}</option> }</select></label>
+              <label class="flex w-full flex-col gap-1 text-sm font-semibold sm:w-40">{{ 'Reports.fPriority' | t }}
+                <select name="priority" [class]="field" [(ngModel)]="b.priority"><option value="">{{ 'Reports.all' | t }}</option>@for (x of prios; track x.code) { <option [value]="x.code">{{ i18n.pick(x.nameEn, x.nameAr) }}</option> }</select></label>
+              <label class="flex w-full flex-col gap-1 text-sm font-semibold sm:w-40">{{ 'Reports.fStatus' | t }}
+                <select name="status" [class]="field" [(ngModel)]="b.status"><option value="">{{ 'Reports.all' | t }}</option>@for (x of statuses; track x) { <option [value]="x">{{ 'StaffStatus.' + x | t }}</option> }</select></label>
+              <button type="submit" class="ms-auto min-h-11 cursor-pointer rounded-lg bg-brand px-6 text-sm font-bold text-white hover:bg-brand-ink">{{ 'Reports.display' | t }}</button>
             </div>
           </form>
+        </section>
+
+        @if (!rows()) { <p [class]="card + ' text-muted'">{{ 'Reports.builderHint' | t }}</p> }
+        @else {
+        <section [class]="card + ' flex flex-col gap-4'">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 class="text-xl font-bold">{{ 'Reports.kind_' + shown.kind | t }}</h2>
+              <p class="mt-1 text-sm text-muted">{{ shown.from }} {{ 'Reports.toWord' | t }} {{ shown.to }} · {{ 'Reports.resultCount' | t: { rows: rows()!.length, tickets: tot().total } }}{{ filterNames() ? ' · ' + ('Reports.filters' | t) + ': ' + filterNames() : '' }}</p>
+            </div>
+            <div class="flex gap-2 print:hidden">
+              @if (canExport()) { <button type="button" [class]="btn2" (click)="exportCsv('builder')">{{ 'Reports.exportCsv' | t }}</button> }
+              <button type="button" [class]="btn2" (click)="print()">{{ 'Reports.printPdf' | t }}</button>
+              <button type="button" [class]="btn2" (click)="rows.set(null)">{{ 'Reports.backToOverview' | t }}</button>
+            </div>
+          </div>
           @if (rows(); as rs) {
-            <p class="text-sm text-muted">{{ 'Reports.resultCount' | t: { count: rs.length } }}</p>
             @if (!rs.length) { <p class="text-muted">{{ 'Reports.noData' | t }}</p> } @else {
               <app-bar-list [rows]="chartRows()" />
               <div class="relative overflow-x-auto"><table class="w-full min-w-[44rem] text-start text-sm">
                 <thead><tr class="border-b border-line text-muted">
-                  @for (hh of ['Reports.kind_' + b.kind, 'Reports.colTickets', 'Reports.colResolved', 'Reports.colOpen', 'Reports.colAvgFirst', 'Reports.colAvgResolve', 'Reports.colSla', 'Reports.colRating']; track hh) { <th scope="col" class="px-2 py-2 text-start font-semibold">{{ hh | t }}</th> }
+                  @for (hh of ['Reports.first_' + shown.kind, 'Reports.colTickets', 'Reports.colResolved', 'Reports.colOpen', 'Reports.colAvgFirst', 'Reports.colAvgResolve', 'Reports.colSla', 'Reports.colRating']; track hh) { <th scope="col" class="px-2 py-2 text-start font-semibold">{{ hh | t }}</th> }
                 </tr></thead>
                 <tbody>
                   @for (r of rs; track r.key) { <tr class="border-b border-line"><th scope="row" class="px-2 py-2 text-start font-medium"><span dir="auto">{{ label(r) }}</span>@if (r.sub) { <span class="block text-xs font-normal text-muted" dir="auto">{{ r.sub }}</span> }</th>
                     <td class="px-2 py-2">{{ r.total }}</td><td class="px-2 py-2">{{ r.resolved }}</td><td class="px-2 py-2">{{ r.open }}</td><td class="px-2 py-2">{{ h(r.avgFirst) }}</td><td class="px-2 py-2">{{ h(r.avgRes) }}</td>
-                    <td class="px-2 py-2">{{ pcText(r.slaMet, r.slaTotal) }}</td><td class="px-2 py-2">{{ r.avgRating === null ? '-' : r.avgRating + ' / 5' }}</td></tr> }
-                  <tr class="font-bold"><th scope="row" class="px-2 py-2 text-start">{{ 'Reports.totalRow' | t }}</th><td class="px-2 py-2">{{ tot().total }}</td><td class="px-2 py-2">{{ tot().resolved }}</td><td class="px-2 py-2">{{ tot().open }}</td><td></td><td></td><td class="px-2 py-2">{{ pcText(tot().slaMet, tot().slaTotal) }}</td><td></td></tr>
+                    <td class="px-2 py-2">{{ pcText(r.slaMet, r.slaTotal) }}</td><td class="px-2 py-2">{{ r.avgRating === null ? '-' : r.avgRating + ' / 5' }}{{ r.ratings ? ' (' + r.ratings + ')' : '' }}</td></tr> }
+                  <tr class="bg-bg font-bold"><th scope="row" class="px-2 py-2 text-start">{{ 'Reports.totalRow' | t }}</th><td class="px-2 py-2">{{ tot().total }}</td><td class="px-2 py-2">{{ tot().resolved }}</td><td class="px-2 py-2">{{ tot().open }}</td><td></td><td></td><td class="px-2 py-2">{{ pcText(tot().slaMet, tot().slaTotal) }}</td><td></td></tr>
                 </tbody></table></div>
             }
           }
         </section>
+        }
 
         @if (r.all) {
           @for (p of perf(); track p.title) {
@@ -171,9 +194,20 @@ export class ReportsPage implements OnInit {
   protected readonly days = signal(30);
   protected readonly s = signal<Summary | null>(null);
   protected readonly rows = signal<BRow[] | null>(null);
-  protected readonly opts = signal<{ orgs: { id: string; name: string }[]; branches: { id: string; organizationId: string; name: string }[]; teams: { id: string; nameEn: string; nameAr: string }[] } | null>(null);
-  private prios: { code: string; nameEn: string; nameAr: string }[] = [];
-  protected b = { kind: 'organization', from: cairoDay(-29), to: cairoDay(), org: '', branch: '', team: '', status: '' };
+  protected readonly opts = signal<{ orgs: { id: string; name: string }[]; branches: { id: string; organizationId: string; name: string; label: string }[]; teams: { id: string; nameEn: string; nameAr: string }[] } | null>(null);
+  protected prios: { code: string; nameEn: string; nameAr: string }[] = [];
+  protected b = { kind: 'organization', from: cairoDay(-29), to: cairoDay(), org: '', branch: '', team: '', priority: '', status: '' };
+  /** The filters of the report on screen (the form may have been edited since). */
+  protected shown = { ...this.b };
+  protected readonly today = cairoDay();
+  protected quickActive(n: number): boolean { return !!this.rows() && this.shown.to === this.today && this.shown.from === cairoDay(-(n - 1)); }
+  protected filterNames(): string {
+    const o = this.opts(); const f = this.shown;
+    const team = o?.teams.find((x) => x.id === f.team); const pr = this.prios.find((x) => x.code === f.priority);
+    return [f.org ? o?.orgs.find((x) => x.id === f.org)?.name : null, f.branch ? o?.branches.find((x) => x.id === f.branch)?.label : null,
+      team ? this.i18n.pick(team.nameEn, team.nameAr) : null, pr ? this.i18n.pick(pr.nameEn, pr.nameAr) : null,
+      f.status ? this.i18n.t('StaffStatus.' + f.status) : null].filter(Boolean).join(', ');
+  }
   protected readonly canExport = computed(() => !!this.auth.me()?.roles.includes('admin') || this.auth.has('export'));
 
   protected readonly breakdowns = computed(() => {
@@ -181,7 +215,7 @@ export class ReportsPage implements OnInit {
     const nm = (x: Named) => ({ label: this.i18n.pick(x.nameEn, x.nameAr) || this.i18n.t('Reports.none'), value: x.n });
     return [
       { title: 'Reports.byStatus', rows: STATUSES.map((s) => ({ label: this.i18n.t('StaffStatus.' + s), value: r.byStatus[s] ?? 0 })).filter((x) => x.value) },
-      { title: 'Reports.byPriority', rows: Object.entries(r.byPriority).map(([k, v]) => ({ label: this.prioName(k), value: v })) },
+      { title: 'Reports.byPriority', rows: this.prioRows(r.byPriority) },
       { title: 'Reports.byCategory', rows: r.byCategory.map(nm) },
       { title: 'Reports.byTeam', rows: r.byTeam.map(nm) },
     ];
@@ -199,11 +233,22 @@ export class ReportsPage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.load();
-    const [lk, opt] = await Promise.all([
-      firstValueFrom(this.http.get<{ orgs: { id: string; name: string }[]; branches: { id: string; organizationId: string; name: string }[]; teams: { id: string; nameEn: string; nameAr: string }[] }>('/api/reports/options')).catch(() => null),
-      firstValueFrom(this.http.get<{ priorities: { code: string; nameEn: string; nameAr: string }[] }>('/api/tickets/options')).catch(() => null),
-    ]);
-    this.opts.set(lk); this.prios = opt?.priorities ?? [];
+    const lk = await firstValueFrom(this.http.get<{ orgs: { id: string; name: string }[]; branches: { id: string; organizationId: string; name: string }[];
+      teams: { id: string; nameEn: string; nameAr: string }[]; priorities: { code: string; nameEn: string; nameAr: string }[] }>('/api/reports/options')).catch(() => null);
+    if (lk) {
+      // v1: database order ("Al-Qalyubia" before "Alex"); branches are labelled "Organization - Branch"
+      const orgs = [...lk.orgs].sort((x, y) => x.name.localeCompare(y.name));
+      const orgName = new Map(orgs.map((x) => [x.id, x.name]));
+      this.prios = lk.priorities ?? [];
+      this.opts.set({ orgs, teams: lk.teams, branches: [...lk.branches].sort((x, y) => x.name.localeCompare(y.name)).map((x) => ({ ...x, label: `${orgName.get(x.organizationId) ?? ''} - ${x.name}` })) });
+      this.s.update((v) => (v ? { ...v } : v));   // redraw "By priority" with names
+    }
+  }
+  /** v1: priorities in their set order, with their names. */
+  private prioRows(by: Record<string, number>) {
+    const known = this.prios.filter((p) => by[p.code]).map((p) => ({ label: this.i18n.pick(p.nameEn, p.nameAr), value: by[p.code] }));
+    const rest = Object.entries(by).filter(([k]) => !this.prios.some((p) => p.code === k)).map(([k, v]) => ({ label: k, value: v }));
+    return [...known, ...rest];
   }
   private async load(): Promise<void> { this.s.set(await firstValueFrom(this.http.get<Summary>('/api/reports/summary', { params: { days: this.days() } }))); }
   protected setDays(d: number): void { this.days.set(d); void this.load(); }
@@ -213,20 +258,20 @@ export class ReportsPage implements OnInit {
   protected prioName(code: string): string { const p = this.prios.find((x) => x.code === code); return p ? this.i18n.pick(p.nameEn, p.nameAr) : code; }
   protected branchesOf(org: string) { return (this.opts()?.branches ?? []).filter((x) => !org || x.organizationId === org); }
   protected label(r: BRow): string {
-    if (this.b.kind === 'status' && r.labelEn) return this.i18n.t('StaffStatus.' + r.labelEn);
-    if (this.b.kind === 'sla' && r.labelEn) return this.i18n.t(r.labelEn === 'met' ? 'Reports.kpi_slaMet' : r.labelEn === 'breached' ? 'Reports.kpi_slaBreached' : 'Reports.none');
-    if (this.b.kind === 'satisfaction' && r.labelEn && r.labelEn !== 'none') return this.i18n.t('Reports.csatStars', { count: Number(r.labelEn) });
+    if (this.shown.kind === 'status' && r.labelEn) return this.i18n.t('StaffStatus.' + r.labelEn);
+    if (this.shown.kind === 'sla' && r.labelEn) return this.i18n.t(r.labelEn === 'met' ? 'Reports.kpi_slaMet' : r.labelEn === 'breached' ? 'Reports.kpi_slaBreached' : 'Reports.none');
+    if (this.shown.kind === 'satisfaction' && r.labelEn && r.labelEn !== 'none') return this.i18n.t('Reports.csatStars', { count: Number(r.labelEn) });
     return this.i18n.pick(r.labelEn, r.labelAr) || this.i18n.t('Reports.none');
   }
   private builderParams(): Record<string, string> {
-    const p: Record<string, string> = { kind: this.b.kind, from: this.b.from, to: this.b.to };
-    for (const k of ['org', 'branch', 'team', 'status'] as const) if (this.b[k]) p[k] = this.b[k];
+    const p: Record<string, string> = { kind: this.shown.kind, from: this.shown.from, to: this.shown.to };
+    for (const k of ['org', 'branch', 'team', 'priority', 'status'] as const) if (this.shown[k]) p[k] = this.shown[k];
     return p;
   }
-  protected async runBuilder(): Promise<void> { this.rows.set((await firstValueFrom(this.http.get<{ rows: BRow[] }>('/api/reports/builder', { params: this.builderParams() }))).rows); }
+  protected async runBuilder(): Promise<void> { this.shown = { ...this.b }; this.rows.set((await firstValueFrom(this.http.get<{ rows: BRow[] }>('/api/reports/builder', { params: this.builderParams() }))).rows); }
   protected quick(n: number): void { this.b.from = cairoDay(-(n - 1)); this.b.to = cairoDay(); void this.runBuilder(); }
   protected exportCsv(kind: string): void {
-    const p = new URLSearchParams(kind === 'builder' ? { kind, report: this.b.kind, ...this.builderParams(), locale: this.i18n.locale() } : { kind, days: String(this.days()), locale: this.i18n.locale() });
+    const p = new URLSearchParams(kind === 'builder' ? { kind, report: this.shown.kind, ...this.builderParams(), locale: this.i18n.locale() } : { kind, days: String(this.days()), locale: this.i18n.locale() });
     if (kind === 'builder') p.set('kind', 'builder');
     void download(this.http, '/api/reports/export?' + p.toString());
   }

@@ -3,7 +3,7 @@ import { PlaceholderInfo, PlaceholderPicker } from '../shared/email-editor';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, Injectable, OnInit, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Auth } from '../core/auth';
 import { adminError } from '../core/admin-api';
@@ -47,7 +47,7 @@ interface KbArticle {
       <ul class="flex flex-col gap-3">
         @for (a of items(); track a.id) {
           <li class="rounded-md border border-line bg-surface p-5">
-            <a [routerLink]="'/' + i18n.locale() + '/kb/' + a.slug" class="text-lg font-bold text-brand-ink underline" dir="auto">{{ i18n.pick(a.titleEn, a.titleAr) }}</a>
+            <a [routerLink]="kbBase() + '/' + a.slug" class="text-lg font-bold text-brand-ink underline" dir="auto">{{ i18n.pick(a.titleEn, a.titleAr) }}</a>
             <p class="mt-1 text-sm text-muted">{{ meta(a) }}</p>
           </li>
         }
@@ -55,6 +55,9 @@ interface KbArticle {
     </main>`,
 })
 export class KbListPage implements OnInit {
+  private readonly kbRouter = inject(Router);
+  /** Staff read the knowledge base inside the console frame (v1 /console/kb). */
+  protected kbBase(): string { return '/' + this.i18n.locale() + (this.kbRouter.url.includes('/console/kb') ? '/console/kb' : '/kb'); }
   protected readonly i18n = inject(I18n);
   private readonly http = inject(HttpClient);
   protected readonly cls = CLS;
@@ -86,7 +89,7 @@ export class KbListPage implements OnInit {
   imports: [TPipe, RouterLink, Alert],
   template: `
     <main class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10">
-      <a [routerLink]="'/' + i18n.locale() + '/kb'" class="text-sm font-semibold text-brand-ink hover:underline">← {{ 'Kb.title' | t }}</a>
+      <a [routerLink]="kbBase()" class="text-sm font-semibold text-brand-ink hover:underline">← {{ 'Kb.title' | t }}</a>
       @if (missing()) { <app-alert>{{ 'Directory.errors.notFound' | t }}</app-alert> }
       @if (a(); as x) {
         <article [class]="cls.card + ' p-6 sm:p-8'">
@@ -109,7 +112,7 @@ export class KbListPage implements OnInit {
         </section>
         @if (x.related.length) {
           <section><h2 class="text-lg font-bold">{{ 'Kb.related' | t }}</h2>
-            <ul class="mt-2 flex flex-col gap-1">@for (r of x.related; track r.slug) { <li><a [routerLink]="'/' + i18n.locale() + '/kb/' + r.slug" class="text-brand-ink hover:underline" dir="auto">{{ i18n.pick(r.titleEn, r.titleAr) }}</a></li> }</ul>
+            <ul class="mt-2 flex flex-col gap-1">@for (r of x.related; track r.slug) { <li><a [routerLink]="kbBase() + '/' + r.slug" class="text-brand-ink hover:underline" dir="auto">{{ i18n.pick(r.titleEn, r.titleAr) }}</a></li> }</ul>
           </section>
         }
         <section [class]="cls.card + ' flex flex-wrap items-center justify-between gap-3 p-5'">
@@ -120,6 +123,9 @@ export class KbListPage implements OnInit {
     </main>`,
 })
 export class KbArticlePage {
+  private readonly kbRouter = inject(Router);
+  /** Staff read the knowledge base inside the console frame (v1 /console/kb). */
+  protected kbBase(): string { return '/' + this.i18n.locale() + (this.kbRouter.url.includes('/console/kb') ? '/console/kb' : '/kb'); }
   protected readonly i18n = inject(I18n);
   protected readonly auth = inject(Auth);
   private readonly http = inject(HttpClient);
