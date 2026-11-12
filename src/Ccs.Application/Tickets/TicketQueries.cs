@@ -115,6 +115,8 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
             ("updated", false) => q.OrderBy(t => t.UpdatedAt),
             _ => q.OrderByDescending(t => t.UpdatedAt),
         };
+        // Same tie-break as v1 (newest created, then id) so equal rows keep a stable, identical order.
+        q = ((IOrderedQueryable<Ticket>)q).ThenByDescending(t => t.CreatedAt).ThenBy(t => t.Id.ToString());
 
         var items = await (from t in q
                            join tcat in db.TicketCategories on t.CategoryId equals tcat.Id
