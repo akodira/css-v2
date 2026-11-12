@@ -68,7 +68,20 @@ export class I18n {
 
   /** The message value itself (an object or list, e.g. guide sections), like next-intl's t.raw(). */
   raw<T = unknown>(key: string): T | undefined {
-    return key.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Messages)[k] : undefined), this.messages()) as T | undefined;
+    const base = key.split('.').reduce<unknown>((o, k) => (o && typeof o === 'object' ? (o as Messages)[k] : undefined), this.messages());
+    if (base === null || typeof base !== 'object') return base as T | undefined;
+    // Texts the administrator changed inside this list or object ("Key.sections.2.title"): put them in a copy.
+    const pre = `${this.locale()}|${key}.`;
+    let copy: unknown;
+    for (const [k, v] of this.overrides()) {
+      if (!k.startsWith(pre)) continue;
+      copy ??= structuredClone(base);
+      const path = k.slice(pre.length).split('.');
+      let o = copy as Record<string, unknown>;
+      for (let i = 0; i < path.length - 1 && o && typeof o === 'object'; i++) o = o[path[i]] as Record<string, unknown>;
+      if (o && typeof o === 'object' && path[path.length - 1] in o) o[path[path.length - 1]] = v;
+    }
+    return (copy ?? base) as T;
   }
 
   has(key: string): boolean {

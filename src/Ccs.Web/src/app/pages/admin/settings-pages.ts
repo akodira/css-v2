@@ -679,7 +679,7 @@ export class TemplatesTab extends Tab implements OnInit {
 })
 export class MessagesTab extends Tab implements OnInit {
   /** Same catalog rules as v1: every plain-text message except this screen's own wording and internal lists. */
-  private static readonly HIDDEN = ['AdminSystemMessages', 'Placeholders', 'StatusInfo', 'AdminV2', 'V2', 'Help'];
+  private static readonly HIDDEN = ['AdminSystemMessages', 'Placeholders', 'StatusInfo', 'AdminV2', 'V2'];
   private static readonly ERROR_WORDS = /error|fail|invalid|expired|denied|forbidden|rateLimited|wrong|required|tooLong|taken|notFound|unavailable|tooLarge|badType/i;
   protected readonly q = signal('');
   protected readonly area = signal('all');
@@ -723,7 +723,7 @@ export class MessagesTab extends Tab implements OnInit {
   async ngOnInit(): Promise<void> {
     const [en, ar] = await Promise.all(['en', 'ar'].map((l) => firstValueFrom(this.http.get<Record<string, unknown>>(`/i18n/${l}.json`))));
     const flat = (o: Record<string, unknown>, p = '', out: Record<string, string> = {}) => {
-      for (const [k, v] of Object.entries(o)) { const key = p ? `${p}.${k}` : k; if (typeof v === 'string') out[key] = v; else if (v && typeof v === 'object' && !Array.isArray(v)) flat(v as Record<string, unknown>, key, out); }
+      for (const [k, v] of Object.entries(o)) { const key = p ? `${p}.${k}` : k; if (typeof v === 'string') out[key] = v; else if (v && typeof v === 'object') flat(v as Record<string, unknown>, key, out); }
       return out;
     };
     this.std_.set({ en: flat(en), ar: flat(ar) });

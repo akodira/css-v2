@@ -1068,7 +1068,8 @@
       "badColor": "Enter a colour like #1f64e6.",
       "badButtonLink": "Enter a page like /kb, or an address starting with https://, mailto: or tel:.",
       "flowNewStuck": "Staff must be able to move a ticket out of New.",
-      "flowNoResolve": "Staff must be able to reach Resolved."
+      "flowNoResolve": "Staff must be able to reach Resolved.",
+      "scopeRequired": "Choose at least one."
     }
   },
   "AdminCatalog": {
