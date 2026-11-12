@@ -56,14 +56,14 @@ const SLA_TONE: Record<string, string> = {
       </dl>
 
       @if (counts()?.strip; as st) {
-        <section [attr.aria-label]="'SlaClock.strip_title' | t" class="flex flex-col gap-2">
+        <section [attr.aria-label]="stripTitle(st.kind) | t" class="flex flex-col gap-2">
           <dl class="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div [class]="stat"><dt class="text-sm font-semibold text-muted">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_onTrack' | t }}</dt><dd class="text-3xl font-bold text-brand-ink">{{ st.green }}</dd></div>
-            <div [class]="stat"><dt class="text-sm font-semibold text-muted">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_close' | t }}</dt><dd class="text-3xl font-bold text-warn-ink">{{ st.yellow }}</dd></div>
-            <button type="button" (click)="setSla('due_soon')" [class]="stat + ' cursor-pointer text-start hover:bg-bg'"><dt class="text-sm font-semibold text-muted">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_red' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ st.red }}</dd></button>
-            <button type="button" (click)="setSla('breached')" class="cursor-pointer rounded-md border border-danger bg-danger-soft p-4 text-start hover:brightness-95"><dt class="text-sm font-semibold text-danger">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_overdue' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ st.overdue }}</dd></button>
+            <div [class]="stat"><dt class="text-sm font-semibold text-muted">{{ stripTitle(st.kind) | t }}: {{ 'SlaClock.strip_onTrack' | t }}</dt><dd class="text-3xl font-bold text-brand-ink">{{ st.green }}</dd></div>
+            <div [class]="stat"><dt class="text-sm font-semibold text-muted">{{ stripTitle(st.kind) | t }}: {{ 'SlaClock.strip_close' | t }}</dt><dd class="text-3xl font-bold text-warn-ink">{{ st.yellow }}</dd></div>
+            <button type="button" (click)="setSla('due_soon')" [class]="stat + ' cursor-pointer text-start hover:bg-bg'"><dt class="text-sm font-semibold text-muted">{{ stripTitle(st.kind) | t }}: {{ 'SlaClock.strip_red' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ st.red }}</dd></button>
+            <button type="button" (click)="setSla('breached')" class="cursor-pointer rounded-md border border-danger bg-danger-soft p-4 text-start hover:brightness-95"><dt class="text-sm font-semibold text-danger">{{ stripTitle(st.kind) | t }}: {{ 'SlaClock.strip_overdue' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ st.overdue }}</dd></button>
           </dl>
-          <p class="text-xs text-muted">{{ 'SlaClock.strip_hint' | t }}</p>
+          <p class="text-xs text-muted">{{ stripHint(st.kind) | t }}</p>
         </section>
       }
 
@@ -153,6 +153,8 @@ export class ConsoleQueuePage {
   protected readonly refreshSecs = inject(SiteService).info()?.autoRefreshSeconds ?? 30;
   protected readonly sla = SLA_TONE;
   protected readonly pstripe = PRIORITY_STRIPE;
+  protected stripTitle(k: string) { return k === 'all' ? 'SlaClock.strip_titleAll' : k === 'scope' ? 'SlaClock.strip_titleScope' : 'SlaClock.strip_title'; }
+  protected stripHint(k: string) { return k === 'all' ? 'SlaClock.strip_hintAll' : k === 'scope' ? 'SlaClock.strip_hintScope' : 'SlaClock.strip_hint'; }
   protected readonly stat = 'rounded-md border border-line bg-surface p-4';
   protected readonly field = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base';
   protected readonly statuses = ['new', 'open', 'in_progress', 'pending_customer', 'pending_internal', 'resolved', 'closed', 'reopened'];
@@ -175,7 +177,7 @@ export class ConsoleQueuePage {
   protected readonly desc = signal(this.qp.get('dir') !== 'asc');
   protected readonly paused = signal(false);
   protected readonly data = signal<Paged<TicketListItem> | null>(null);
-  protected readonly counts = signal<{ mine: number; unassigned: number; breached: number; dueSoon: number; closed: number; escalated: number; strip: { green: number; yellow: number; red: number; overdue: number } | null } | null>(null);
+  protected readonly counts = signal<{ mine: number; unassigned: number; breached: number; dueSoon: number; closed: number; escalated: number; strip: { green: number; yellow: number; red: number; overdue: number; kind: 'all' | 'scope' | 'team' } | null } | null>(null);
   protected readonly prios = signal<{ code: string; nameEn: string; nameAr: string }[]>([]);
   protected readonly teams = signal<{ id: string; nameEn: string; nameAr: string }[]>([]);
   protected readonly readOnly = computed(() => !(this.auth.me()?.roles ?? []).some((r) => r === 'agent' || r === 'team_leader' || r === 'admin'));
