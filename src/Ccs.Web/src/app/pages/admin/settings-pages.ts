@@ -712,7 +712,7 @@ export class MessagesTab extends Tab implements OnInit {
     this.vals[l] = v.slice(0, s) + token + v.slice(e);
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + token.length, s + token.length); });
   }
-  protected readonly entries = computed(() => Object.entries(this.std_().en)
+  protected readonly entries = computed(() => Object.entries(this.std_()[this.i18n.locale() === 'ar' ? 'ar' : 'en'])
     .filter(([k, v]) => k.split('.').length >= 2 && !MessagesTab.HIDDEN.includes(k.split('.')[0]) && !MessagesTab.HIDDEN_KEYS.includes(k) && !/\{[^}]*,\s*(plural|select|selectordinal)/.test(v) && !/<[A-Za-z/]/.test(v))
     .map(([k]) => ({ key: k, area: k.split('.')[0], kind: MessagesTab.ERROR_WORDS.test(k) ? 'error' : 'message' })));
   protected readonly areas = computed(() => [...new Set(this.entries().map((e) => e.area))].sort((a, b) => this.areaName(a).localeCompare(this.areaName(b))));
