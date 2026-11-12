@@ -50,13 +50,15 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
             var rows = await (from t in q
                               join r in db.TicketSlaRecords on t.Id equals r.TicketId
                               where Open.Contains(t.Status) && (c.Admin || (t.TeamId != null && lead.Contains(t.TeamId.Value)))
-                              select new { t.CreatedAt, t.ResolvedAt, r.FirstResponseDue, r.ResolutionDue, r.FirstRespondedAt, r.PausedAt, r.PausedTotalSeconds }).ToListAsync(ct);
+                              select new { t.CreatedAt, SlaResolvedAt = r.ResolvedAt, r.FirstResponseDue, r.ResolutionDue, r.FirstRespondedAt, r.PausedAt, r.PausedTotalSeconds }).ToListAsync(ct);
             var now = clock.UtcNow;
             foreach (var r in rows)
             {
                 // The running clock: first response until someone replies, then resolution.
-                DateTimeOffset? due = r.FirstRespondedAt is null && r.FirstResponseDue is not null ? r.FirstResponseDue : r.ResolutionDue;
-                if (due is null || r.PausedAt is not null) continue;
+                var firstClock = r.FirstRespondedAt is null && r.FirstResponseDue is not null;
+                DateTimeOffset? due = firstClock ? r.FirstResponseDue : r.ResolutionDue;
+                // A resolution clock that already has a resolved time is finished (met/late), not running (same as v1).
+                if (due is null || r.PausedAt is not null || (!firstClock && r.SlaResolvedAt is not null)) continue;
                 var total = Math.Max(1, (due.Value - r.CreatedAt).TotalSeconds - r.PausedTotalSeconds);
                 var left = (due.Value - now).TotalSeconds;
                 if (left <= 0) overdue++;

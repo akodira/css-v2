@@ -94,10 +94,10 @@ const REQ = `<app-req />`;
           <fieldset [class]="cls.card + ' flex flex-col gap-3 p-5'">
             <legend class="sr-only">{{ 'AdminGeneral.secColor' | t }}</legend>
             <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.secColor' | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.secColorHint' | t }}</p></div>
-            <div class="flex flex-wrap items-center gap-3">
-              <label for="b-color" [class]="cls.label">{{ 'AdminGeneral.brandColor' | t }}</label>
-              <input id="b-color" name="color" type="color" class="h-11 w-16 cursor-pointer rounded border border-line" [ngModel]="m['brandColor'] || '#1f64e6'" (ngModelChange)="m['brandColor'] = $event" />
-              <button type="button" [class]="cls.btn2" (click)="m['brandColor'] = ''">{{ 'AdminGeneral.useDefaultColor' | t }}</button>
+            <div class="flex flex-wrap items-end gap-4">
+              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminGeneral.brandColor' | t }}
+                <input name="color" type="color" class="h-11 w-24 cursor-pointer rounded-lg border border-line bg-surface p-1" [ngModel]="m['brandColor'] || '#1f64e6'" (ngModelChange)="m['brandColor'] = $event" /></label>
+              <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" name="useDefaultColor" class="h-5 w-5" [checked]="!m['brandColor']" (change)="m['brandColor'] = $any($event.target).checked ? '' : '#1f64e6'" />{{ 'AdminGeneral.useDefaultColor' | t }}</label>
             </div>
           </fieldset>
           }
@@ -349,7 +349,7 @@ interface TplDefaults { ticketEvents: string[]; authEvents: string[]; en: Record
 type Fields = { subject: string; body: string; button: string; link: string; greeting: string; footer: string };
 const LAYOUT = '_layout';
 const NO_FOOTER = '[[none]]';
-const DEFAULT_DESIGN = { headerColor: '#0d1b3e', accentColor: '#1f64e6', pageBackground: '#f1f5fb', useLogo: false, showSiteName: true, rounded: true, largeCodeBox: true };
+const DEFAULT_DESIGN = { headerColor: '#0b1a3a', accentColor: '#1f64e6', pageBackground: '#f0f4fb', useLogo: false, showSiteName: true, rounded: true, largeCodeBox: true };
 
 /** The look of every email, with a live preview (v1 EmailDesign, on the Email templates tab). */
 @Component({
@@ -680,6 +680,8 @@ export class TemplatesTab extends Tab implements OnInit {
 export class MessagesTab extends Tab implements OnInit {
   /** Same catalog rules as v1: every plain-text message except this screen's own wording and internal lists. */
   private static readonly HIDDEN = ['AdminSystemMessages', 'Placeholders', 'StatusInfo', 'AdminV2', 'V2'];
+  /** v2-only texts that v1 does not have, kept out of the list so the catalogue matches v1. */
+  private static readonly HIDDEN_KEYS = ['AdminCommon.errors.flowNewStuck', 'AdminCommon.errors.flowNoResolve'];
   private static readonly ERROR_WORDS = /error|fail|invalid|expired|denied|forbidden|rateLimited|wrong|required|tooLong|taken|notFound|unavailable|tooLarge|badType/i;
   protected readonly q = signal('');
   protected readonly area = signal('all');
@@ -711,7 +713,7 @@ export class MessagesTab extends Tab implements OnInit {
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + token.length, s + token.length); });
   }
   protected readonly entries = computed(() => Object.entries(this.std_().en)
-    .filter(([k, v]) => k.split('.').length >= 2 && !MessagesTab.HIDDEN.includes(k.split('.')[0]) && !/\{[^}]*,\s*(plural|select|selectordinal)/.test(v) && !/<[A-Za-z/]/.test(v))
+    .filter(([k, v]) => k.split('.').length >= 2 && !MessagesTab.HIDDEN.includes(k.split('.')[0]) && !MessagesTab.HIDDEN_KEYS.includes(k) && !/\{[^}]*,\s*(plural|select|selectordinal)/.test(v) && !/<[A-Za-z/]/.test(v))
     .map(([k]) => ({ key: k, area: k.split('.')[0], kind: MessagesTab.ERROR_WORDS.test(k) ? 'error' : 'message' })));
   protected readonly areas = computed(() => [...new Set(this.entries().map((e) => e.area))].sort((a, b) => this.areaName(a).localeCompare(this.areaName(b))));
   protected readonly filtered = computed(() => {
@@ -1040,7 +1042,7 @@ interface HandoverData {
 export class HandoverTab extends Tab implements OnInit {
   private readonly auth = inject(Auth);
   protected readonly d = signal<HandoverData | null>(null);
-  protected readonly word = computed(() => (this.i18n.locale() === 'ar' ? 'نقل' : 'TRANSFER'));
+  protected readonly word = computed(() => 'TRANSFER');
   protected t = { newAdminId: '', myTypeId: '', confirm: '' };
   protected delWord = '';
   async ngOnInit(): Promise<void> { await this.load(); }

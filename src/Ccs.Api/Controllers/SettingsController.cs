@@ -292,8 +292,8 @@ public sealed partial class SettingsController(
         var d = b.Design;
         var logo = d.UseLogo && site.LogoPath is not null ? $"/api/site/branding/{site.LogoPath}" : null;
         string Pick(string? c, string fallback) => c is not null && ColorRx().IsMatch(c) ? c : fallback;
-        var design = new EmailDesign(Pick(d.HeaderColor, "#0d1b3e"), Pick(d.AccentColor, "#1f64e6"),
-            Pick(d.PageBackground, "#f1f5fb"), logo, d.ShowSiteName, d.Rounded, d.LargeCodeBox);
+        var design = new EmailDesign(Pick(d.HeaderColor, "#0b1a3a"), Pick(d.AccentColor, "#1f64e6"),
+            Pick(d.PageBackground, "#f0f4fb"), logo, d.ShowSiteName, d.Rounded, d.LargeCodeBox);
         var ar = b.Rtl;
         var r = EmailRenderer.Render(ar ? "رمز الدخول" : "Your sign-in code",
             (ar ? "مرحبًا كمال،" : "Hello Kamal,") + "\n\n" + (ar ? "استخدم هذا الرمز لتسجيل الدخول. يعمل لمدة 10 دقائق." : "Use this code to sign in. It works for 10 minutes."),

@@ -7,7 +7,7 @@ using Ccs.Domain.Rules;
 namespace Ccs.Infrastructure.Email;
 
 public sealed record EmailDesign(
-    string HeaderColor = "#0d1b3e", string AccentColor = "#1f64e6", string PageBackground = "#f1f5fb",
+    string HeaderColor = "#0b1a3a", string AccentColor = "#1f64e6", string PageBackground = "#f0f4fb",
     string? LogoUrl = null, bool ShowSiteName = true, bool Rounded = true, bool LargeCodeBox = true)
 {
     public static EmailDesign FromJson(string? json)
