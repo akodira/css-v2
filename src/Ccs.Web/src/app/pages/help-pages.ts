@@ -178,9 +178,9 @@ export class CannedApi {
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       <ng-template #form let-m="m" let-id="id">
         <form class="flex flex-col gap-3 rounded-xl border border-line bg-bg p-4" novalidate (ngSubmit)="save(id, m)">
-          <div class="flex flex-col gap-1.5"><label [for]="'cn-title-' + (id ?? 'new')" class="text-sm font-semibold">{{ 'Canned.name' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="'cn-title-' + (id ?? 'new')" class="text-sm font-semibold"><span>{{ 'Canned.name' | t }}<app-req /></span></label>
             <input [id]="'cn-title-' + (id ?? 'new')" name="t" maxlength="120" dir="auto" [class]="field" [(ngModel)]="m.title" /></div>
-          <div class="flex flex-col gap-1.5"><label [for]="'cn-body-' + (id ?? 'new')" class="text-sm font-semibold">{{ 'Canned.body' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="'cn-body-' + (id ?? 'new')" class="text-sm font-semibold"><span>{{ 'Canned.body' | t }}<app-req /></span></label>
             <textarea #box [id]="'cn-body-' + (id ?? 'new')" name="b" rows="5" maxlength="5000" dir="auto" class="w-full rounded-lg border border-line bg-surface p-3 text-base" [(ngModel)]="m.body"></textarea>
             <p class="text-sm text-muted">{{ 'Canned.bodyHint' | t }}</p>
             <app-placeholder-picker [items]="tokens" (insert)="insert(box, m, $event)" /></div>

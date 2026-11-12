@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Lookups, OrgRow, BranchRow, TeamRow, TeamsResult, generatePassword } from '../../core/admin-api';
 import { I18n, TPipe } from '../../core/i18n';
-import { Alert, Req } from '../../shared/ui';
+import { Alert, Req, ReqNote } from '../../shared/ui';
 import { AdminBase, CLS, TurnBack } from './admin-pages';
 import { WhereEditor } from './where-editor';
 
@@ -236,8 +236,8 @@ interface StaffData { me: string; orgs: Pick[]; branches: BranchPick[]; staff: S
         <summary class="cursor-pointer text-sm font-semibold text-brand-ink">{{ 'Directory.editDetails' | t }}</summary>
         <form class="mt-3 flex flex-col gap-4 border-t border-line pt-4" novalidate (ngSubmit)="act.emit({ kind: 'details', details: d })">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.name' | t }}<app-req /><input name="n" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="d.fullName" /></label>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.email' | t }}<app-req /><input name="e" type="email" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="d.email" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.name' | t }}<app-req /></span><input name="n" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="d.fullName" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.email' | t }}<app-req /></span><input name="e" type="email" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="d.email" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" dir="ltr" placeholder="+20 10 1234 5678" [class]="cls.input + ' font-normal'" [(ngModel)]="d.phone" /></label>
           </div>
           <div class="flex flex-wrap items-center gap-3">
@@ -295,8 +295,8 @@ export class StaffBody implements OnInit {
           @if (created(); as c) { <app-alert tone="success">{{ 'Directory.createdUser' | t: c }}</app-alert> }
           <form class="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5" novalidate (ngSubmit)="create(add)">
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.name' | t }}<app-req /><input name="n" dir="auto" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.fullName" /></label>
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.email' | t }}<app-req /><input name="e" type="email" dir="ltr" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.email" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.name' | t }}<app-req /></span><input name="n" dir="auto" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.fullName" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.email' | t }}<app-req /></span><input name="e" type="email" dir="ltr" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.email" /></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" dir="ltr" placeholder="+20 10 1234 5678" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.phone" /></label>
               <div class="flex flex-col gap-1.5">
                 <label for="nw-pw" class="text-sm font-semibold">{{ 'Directory.tempPassword' | t }}<app-req /></label>
@@ -416,8 +416,8 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
         <div class="px-5 pb-5">
           <form class="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5" novalidate (ngSubmit)="create(add)">
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.nameEn' | t }}<app-req /><input name="en" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.nameEn" /></label>
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.nameAr' | t }}<app-req /><input name="ar" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.nameAr" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameEn' | t }}<app-req /></span><input name="en" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.nameEn" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameAr' | t }}<app-req /></span><input name="ar" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.nameAr" /></label>
             </div>
             <fieldset class="flex flex-col gap-1">
               <legend class="mb-1 text-sm font-semibold">{{ 'Directory.membersOptional' | t }}</legend>
@@ -492,8 +492,8 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
                     <summary class="cursor-pointer text-sm font-semibold text-brand-ink">{{ 'Directory.editDetails' | t }}</summary>
                     <form class="mt-3 flex flex-col gap-4 border-t border-line pt-4" novalidate (ngSubmit)="update(t)">
                       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.nameEn' | t }}<app-req /><input name="en" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameEn" /></label>
-                        <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.nameAr' | t }}<app-req /><input name="ar" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameAr" /></label>
+                        <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameEn' | t }}<app-req /></span><input name="en" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameEn" /></label>
+                        <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameAr' | t }}<app-req /></span><input name="ar" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameAr" /></label>
                       </div>
                       <label class="flex min-h-11 items-center gap-2"><input type="checkbox" name="act" class="h-5 w-5" [(ngModel)]="edit[t.id].isActive" /> {{ 'Directory.active' | t }}</label>
                       <div class="flex flex-wrap items-center gap-3">
@@ -569,16 +569,16 @@ interface OrgPerson { id: string; fullName: string; email: string; phone: string
 /** Name, location, telephone and team leader; the Active box only when editing (v1 OrganizationForm / BranchForm). */
 @Component({
   selector: 'app-place-form',
-  imports: [FormsModule, TPipe, Req],
+  imports: [FormsModule, TPipe, Req, ReqNote],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <form [class]="row() ? 'flex flex-col gap-4 border-t border-line pt-4' : framed() ? 'flex flex-col gap-4 rounded-xl border border-line bg-surface p-5' : 'flex flex-col gap-4'" novalidate (ngSubmit)="save.emit({ ...m })">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ (branch() ? 'Directory.branchName' : 'Directory.orgName') | t }}<app-req /><input name="name" dir="auto" maxlength="120" [class]="cls.input + ' font-normal'" [(ngModel)]="m.name" /></label>
+        <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ (branch() ? 'Directory.branchName' : 'Directory.orgName') | t }}<app-req /></span><input name="name" dir="auto" maxlength="120" [class]="cls.input + ' font-normal'" [(ngModel)]="m.name" /></label>
         <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.location' | t }}<input name="loc" dir="auto" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="m.location" /></label>
         <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.telephone' | t }}<input name="phone" dir="ltr" maxlength="24" placeholder="+20 2 1234 5678" [class]="cls.input + ' font-normal'" [(ngModel)]="m.phone" /></label>
         <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.teamLeader' | t }}
-          <select name="leader" [class]="cls.input + ' font-normal'" [(ngModel)]="m.teamLeaderId">
+          <select name="leader" [class]="cls.input" [(ngModel)]="m.teamLeaderId">
             <option [ngValue]="null">{{ 'Directory.noLeader' | t }}</option>
             @for (p of leaders(); track p.id) { <option [ngValue]="p.id">{{ p.fullName }} ({{ p.email }})</option> }
           </select></label>
@@ -588,6 +588,7 @@ interface OrgPerson { id: string; fullName: string; email: string; phone: string
       }
       <div class="flex flex-wrap items-center gap-3">
         <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ (row() ? 'Directory.saveChanges' : branch() ? 'Directory.addBranch' : 'Directory.addOrganization') | t }}</button>
+        <app-req-note />
         @if (row()) {
           @if (asking()) {
             <span class="flex flex-wrap items-center gap-2">
@@ -631,7 +632,7 @@ export class PlaceForm implements OnInit {
           <button type="button" [attr.aria-expanded]="mode() === 'org'" (click)="mode.set(mode() === 'org' ? null : 'org')" class="min-h-11 cursor-pointer rounded-lg border px-4 text-sm font-semibold" [class]="mode() === 'org' ? on : off">{{ 'AdminOrgs.addOrgBtn' | t }}</button>
           <button type="button" [attr.aria-expanded]="mode() === 'branch'" (click)="mode.set(mode() === 'branch' ? null : 'branch')" class="min-h-11 cursor-pointer rounded-lg border px-4 text-sm font-semibold" [class]="mode() === 'branch' ? on : off">{{ 'AdminOrgs.addBranchBtn' | t }}</button>
         </div>
-        @if (mode() === 'org') { <div class="basis-full rounded-xl border border-line bg-surface p-5 shadow-card"><app-place-form [leaders]="leaderList()" [busy]="busy()" (save)="createOrg($event)" /></div> }
+        @if (mode() === 'org') { <div class="basis-full rounded-xl border border-line bg-surface p-5 shadow-card"><app-place-form [framed]="true" [leaders]="leaderList()" [busy]="busy()" (save)="createOrg($event)" /></div> }
         @if (mode() === 'branch') {
           <div class="flex basis-full flex-col gap-3 rounded-xl border border-line bg-surface p-5 shadow-card">
             @if (!activeOrgs().length) { <p class="text-muted">{{ 'AdminOrgs.needOrg' | t }}</p> } @else {

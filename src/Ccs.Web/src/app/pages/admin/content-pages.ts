@@ -102,9 +102,9 @@ const blankReason = (): ReasonModel => ({ nameEn: '', nameAr: '', customerMayReo
         <p class="text-muted">{{ 'AdminStatus.closureHelp' | t }}</p>
         <ng-template #reasonForm let-m="m" let-id="id" let-system="system">
           <div class="grid gap-4 md:grid-cols-2">
-            <div class="flex flex-col gap-1.5"><label [for]="id + 'en'" [class]="cls.label">{{ 'AdminStatus.reasonNameEn' | t }}<app-req /></label>
+            <div class="flex flex-col gap-1.5"><label [for]="id + 'en'" [class]="cls.label"><span>{{ 'AdminStatus.reasonNameEn' | t }}<app-req /></span></label>
               <input [id]="id + 'en'" [name]="id + 'en'" dir="ltr" required maxlength="120" [class]="cls.input" [(ngModel)]="m.nameEn" /></div>
-            <div class="flex flex-col gap-1.5"><label [for]="id + 'ar'" [class]="cls.label">{{ 'AdminStatus.reasonNameAr' | t }}<app-req /></label>
+            <div class="flex flex-col gap-1.5"><label [for]="id + 'ar'" [class]="cls.label"><span>{{ 'AdminStatus.reasonNameAr' | t }}<app-req /></span></label>
               <input [id]="id + 'ar'" [name]="id + 'ar'" dir="rtl" required maxlength="120" [class]="cls.input" [(ngModel)]="m.nameAr" /></div>
           </div>
           <div class="flex flex-wrap gap-x-6">
@@ -388,10 +388,10 @@ const blankArt = (): ArtModel => ({ categoryId: null, slug: '', titleEn: '', tit
       <ng-template #catForm let-m="m" let-id="id" let-isNew="isNew">
         <form [class]="formCls" novalidate (ngSubmit)="isNew ? createCat() : updateCat(id)">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.slug' | t }}<app-req /><input name="sl" dir="ltr" maxlength="80" [class]="cls.input + ' font-normal'" [(ngModel)]="m.slug" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminKb.slug' | t }}<app-req /></span><input name="sl" dir="ltr" maxlength="80" [class]="cls.input + ' font-normal'" [(ngModel)]="m.slug" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.sort' | t }}<input name="so" type="number" min="0" [class]="cls.input + ' font-normal'" [(ngModel)]="m.sortOrder" /></label>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.nameEn' | t }}<app-req /><input name="en" dir="ltr" maxlength="120" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameEn" /></label>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.nameAr' | t }}<app-req /><input name="ar" dir="rtl" maxlength="120" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameAr" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminKb.nameEn' | t }}<app-req /></span><input name="en" dir="ltr" maxlength="120" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameEn" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminKb.nameAr' | t }}<app-req /></span><input name="ar" dir="rtl" maxlength="120" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameAr" /></label>
           </div>
           <label class="${CHECK}"><input type="checkbox" name="ac" class="h-5 w-5" [(ngModel)]="m.isActive" /> {{ 'AdminKb.active' | t }}</label>
           <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ (isNew ? 'AdminKb.addCategory' : 'AdminKb.save') | t }}</button></div>
@@ -401,7 +401,7 @@ const blankArt = (): ArtModel => ({ categoryId: null, slug: '', titleEn: '', tit
         <div class="flex flex-col gap-3">
           <form [class]="formCls" novalidate (ngSubmit)="isNew ? createArt() : updateArt(id)">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.slug' | t }}<app-req /><input name="sl" dir="ltr" maxlength="80" [class]="cls.input + ' font-normal'" [(ngModel)]="m.slug" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminKb.slug' | t }}<app-req /></span><input name="sl" dir="ltr" maxlength="80" [class]="cls.input + ' font-normal'" [(ngModel)]="m.slug" /></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.category' | t }}
                 <select name="ca" [class]="cls.input + ' font-normal'" [(ngModel)]="m.categoryId"><option [ngValue]="null">{{ 'AdminKb.noCategory' | t }}</option>@for (c of data()?.categories ?? []; track c.id) { <option [ngValue]="c.id">{{ i18n.pick(c.nameEn, c.nameAr) }}</option> }</select></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.statusLabel' | t }}
@@ -409,9 +409,9 @@ const blankArt = (): ArtModel => ({ categoryId: null, slug: '', titleEn: '', tit
               <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.visibilityLabel' | t }}
                 <select name="vi" [class]="cls.input + ' font-normal'" [(ngModel)]="m.visibility">@for (x of ['public', 'customers', 'internal']; track x) { <option [value]="x">{{ 'AdminKb.visibility.' + x | t }}</option> }</select></label>
             </div>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.titleEn' | t }}<app-req /><input name="te" dir="ltr" maxlength="200" [class]="cls.input + ' font-normal'" [(ngModel)]="m.titleEn" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminKb.titleEn' | t }}<app-req /></span><input name="te" dir="ltr" maxlength="200" [class]="cls.input + ' font-normal'" [(ngModel)]="m.titleEn" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.titleAr' | t }}<input name="ta" dir="rtl" maxlength="200" [class]="cls.input + ' font-normal'" [(ngModel)]="m.titleAr" /></label>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.bodyEn' | t }}<app-req /><textarea name="be" rows="8" dir="ltr" class="rounded-lg border border-line bg-surface p-3 text-base font-normal" [(ngModel)]="m.bodyEn"></textarea></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminKb.bodyEn' | t }}<app-req /></span><textarea name="be" rows="8" dir="ltr" class="rounded-lg border border-line bg-surface p-3 text-base font-normal" [(ngModel)]="m.bodyEn"></textarea></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.bodyAr' | t }}<textarea name="ba" rows="8" dir="rtl" class="rounded-lg border border-line bg-surface p-3 text-base font-normal" [(ngModel)]="m.bodyAr"></textarea></label>
             <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ (isNew ? 'AdminKb.addArticle' : 'AdminKb.save') | t }}</button></div>
           </form>

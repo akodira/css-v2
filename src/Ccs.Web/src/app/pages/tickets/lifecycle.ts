@@ -245,7 +245,7 @@ export class CommentActions {
               <select id="flow-target" [class]="cls.field" (change)="target.set($any($event.target).value)">
                 @for (r of lc.escalationTargets; track r.id) { <option [value]="r.id" [selected]="r.id === target()">{{ r.name }}{{ r.label ? ' — ' + r.label : '' }}</option> }
               </select></div>
-            <div class="flex flex-col gap-1.5"><label for="flow-reason" class="text-sm font-semibold">{{ 'Escalation.reason' | t }}<app-req /></label>
+            <div class="flex flex-col gap-1.5"><label for="flow-reason" class="text-sm font-semibold"><span>{{ 'Escalation.reason' | t }}<app-req /></span></label>
               <textarea id="flow-reason" rows="2" maxlength="1000" dir="auto" [class]="cls.area" [value]="escReason()" (input)="escReason.set($any($event.target).value)"></textarea></div>
             <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Escalation.submit' | t }}</button> <app-req-note /></div>
           </form>
@@ -353,7 +353,7 @@ export class StaffLifecycle extends Panel {
               <div><button type="button" (click)="open.set(true)" class="mt-1 min-h-11 cursor-pointer rounded-lg border border-line px-4 font-semibold hover:bg-brand-soft">{{ 'Lifecycle.customer.open' | t }}</button></div>
             } @else {
               <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); cancel()">
-                <div class="flex flex-col gap-1.5"><label for="cancel-reason" class="text-sm font-semibold">{{ 'Lifecycle.customer.reason' | t }}<app-req /></label>
+                <div class="flex flex-col gap-1.5"><label for="cancel-reason" class="text-sm font-semibold"><span>{{ 'Lifecycle.customer.reason' | t }}<app-req /></span></label>
                   <textarea id="cancel-reason" rows="3" maxlength="1000" dir="auto" [class]="cls.area" [value]="reason()" (input)="reason.set($any($event.target).value)"></textarea></div>
                 <div class="flex flex-wrap gap-2">
                   <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Lifecycle.customer.submit' | t }}</button>

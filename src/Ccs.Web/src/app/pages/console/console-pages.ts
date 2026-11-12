@@ -369,7 +369,7 @@ export class ConsoleQueuePage {
                       </select>
                     </div>
                     @if (to() === 'resolved') {
-                      <div class="flex flex-col gap-1.5"><label for="res" class="text-sm font-semibold">{{ 'Console.statusForm.resolution' | t }}<app-req /></label>
+                      <div class="flex flex-col gap-1.5"><label for="res" class="text-sm font-semibold"><span>{{ 'Console.statusForm.resolution' | t }}<app-req /></span></label>
                         <textarea id="res" rows="3" maxlength="5000" dir="auto" class="rounded-lg border border-line p-3" [value]="resolution()" (input)="resolution.set($any($event.target).value)"></textarea></div>
                     }
                     @if (to() === 'closed') {
@@ -380,7 +380,7 @@ export class ConsoleQueuePage {
                         </select></div>
                     }
                     @if (needsReason()) {
-                      <div class="flex flex-col gap-1.5"><label for="why" class="text-sm font-semibold">{{ 'Console.statusForm.reason' | t }}<app-req /></label>
+                      <div class="flex flex-col gap-1.5"><label for="why" class="text-sm font-semibold"><span>{{ 'Console.statusForm.reason' | t }}<app-req /></span></label>
                         <textarea id="why" rows="2" maxlength="1000" dir="auto" class="rounded-lg border border-line p-3" [value]="reason()" (input)="reason.set($any($event.target).value)"></textarea></div>
                     }
                     @if (notice() && where() === 'status') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }

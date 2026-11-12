@@ -95,20 +95,20 @@ export const SEARCH = `
   template: `
     <form class="flex flex-col gap-4" (ngSubmit)="submit()">
       <div class="grid gap-4 md:grid-cols-2">
-        <div class="flex flex-col gap-1.5"><label [for]="id + 'n'" [class]="cls.label">{{ 'Directory.name' | t }}<app-req /></label>
+        <div class="flex flex-col gap-1.5"><label [for]="id + 'n'" [class]="cls.label"><span>{{ 'Directory.name' | t }}<app-req /></span></label>
           <input [id]="id + 'n'" name="fullName" dir="auto" required maxlength="120" [class]="cls.input" [(ngModel)]="m.fullName" /></div>
-        <div class="flex flex-col gap-1.5"><label [for]="id + 'e'" [class]="cls.label">{{ 'Directory.email' | t }}<app-req /></label>
+        <div class="flex flex-col gap-1.5"><label [for]="id + 'e'" [class]="cls.label"><span>{{ 'Directory.email' | t }}<app-req /></span></label>
           <input [id]="id + 'e'" name="email" type="email" dir="ltr" required maxlength="254" [class]="cls.input" [(ngModel)]="m.email" /></div>
         <div class="flex flex-col gap-1.5"><label [for]="id + 'p'" [class]="cls.label">{{ 'Directory.phone' | t }}</label>
           <input [id]="id + 'p'" name="phone" type="tel" dir="ltr" maxlength="24" [class]="cls.input" [(ngModel)]="m.phone" /></div>
         @if (!user()) {
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'w'" [class]="cls.label">{{ 'Directory.tempPassword' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'w'" [class]="cls.label"><span>{{ 'Directory.tempPassword' | t }}<app-req /></span></label>
             <div class="flex gap-2"><input [id]="id + 'w'" name="password" dir="ltr" required [class]="cls.input" [(ngModel)]="m.password" autocomplete="new-password" />
               <button type="button" [class]="cls.btn2" (click)="m.password = gen()">{{ 'Directory.generate' | t }}</button></div>
             <p class="text-sm text-muted">{{ 'Directory.tempPasswordHint' | t }}</p></div>
         }
         @if (mode() === 'staff') {
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'r'" [class]="cls.label">{{ 'AdminV2.role' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'r'" [class]="cls.label"><span>{{ 'AdminV2.role' | t }}<app-req /></span></label>
             <select [id]="id + 'r'" name="role" [class]="cls.input" [(ngModel)]="m.role" [disabled]="!!user()?.isSelf">
               @for (r of staffRoles; track r) { <option [value]="r">{{ 'Roles.' + r | t }}</option> }
             </select></div>
@@ -302,9 +302,9 @@ export class AdminCustomersPage extends AdminBase implements OnInit {
     } @else {
       <form class="flex flex-col gap-5" (ngSubmit)="submit()">
         <div class="grid gap-4 md:grid-cols-2">
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'en'" [class]="cls.label">{{ 'Permissions.nameEn' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'en'" [class]="cls.label"><span>{{ 'Permissions.nameEn' | t }}<app-req /></span></label>
             <input [id]="id + 'en'" name="en" dir="ltr" required maxlength="120" [class]="cls.input" [(ngModel)]="m.nameEn" /></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'ar'" [class]="cls.label">{{ 'Permissions.nameAr' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'ar'" [class]="cls.label"><span>{{ 'Permissions.nameAr' | t }}<app-req /></span></label>
             <input [id]="id + 'ar'" name="ar" dir="rtl" lang="ar" required maxlength="120" [class]="cls.input" [(ngModel)]="m.nameAr" /></div>
         </div>
 

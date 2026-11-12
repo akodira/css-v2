@@ -37,9 +37,9 @@ const blankType = (): TypeModel => ({ nameEn: '', nameAr: '', descriptionEn: '',
       <p class="rounded-lg bg-brand-soft px-4 py-3 text-sm text-brand-ink">{{ 'AdminTicketTypes.rules' | t }}</p>
       <ng-template #form let-m="m" let-id="id">
         <div class="grid gap-4 md:grid-cols-2">
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'en'" [class]="cls.label">{{ 'Directory.nameEn' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'en'" [class]="cls.label"><span>{{ 'Directory.nameEn' | t }}<app-req /></span></label>
             <input [id]="id + 'en'" [name]="id + 'en'" dir="ltr" required maxlength="120" [class]="cls.input" [(ngModel)]="m.nameEn" /></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'ar'" [class]="cls.label">{{ 'Directory.nameAr' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'ar'" [class]="cls.label"><span>{{ 'Directory.nameAr' | t }}<app-req /></span></label>
             <input [id]="id + 'ar'" [name]="id + 'ar'" dir="rtl" lang="ar" required maxlength="120" [class]="cls.input" [(ngModel)]="m.nameAr" /></div>
           <div class="flex flex-col gap-1.5"><label [for]="id + 'de'" [class]="cls.label">{{ 'AdminTicketTypes.descEn' | t }}</label>
             <textarea [id]="id + 'de'" [name]="id + 'de'" rows="2" dir="ltr" maxlength="1000" [class]="cls.input + ' py-2'" [(ngModel)]="m.descriptionEn"></textarea></div>
@@ -141,9 +141,9 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
 
       <!-- shared form parts -->
       <ng-template #names let-m="m" let-id="id">
-        <div class="flex flex-col gap-1.5"><label [for]="id + 'en'" [class]="cls.label">{{ 'AdminCatalog.nameEn' | t }}<app-req /></label>
+        <div class="flex flex-col gap-1.5"><label [for]="id + 'en'" [class]="cls.label"><span>{{ 'AdminCatalog.nameEn' | t }}<app-req /></span></label>
           <input [id]="id + 'en'" [name]="id + 'en'" dir="ltr" required maxlength="120" [class]="cls.input" [(ngModel)]="m.nameEn" /></div>
-        <div class="flex flex-col gap-1.5"><label [for]="id + 'ar'" [class]="cls.label">{{ 'AdminCatalog.nameAr' | t }}<app-req /></label>
+        <div class="flex flex-col gap-1.5"><label [for]="id + 'ar'" [class]="cls.label"><span>{{ 'AdminCatalog.nameAr' | t }}<app-req /></span></label>
           <input [id]="id + 'ar'" [name]="id + 'ar'" dir="rtl" lang="ar" required maxlength="120" [class]="cls.input" [(ngModel)]="m.nameAr" /></div>
       </ng-template>
       <ng-template #catForm let-m="m" let-id="id">
@@ -185,16 +185,16 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
       </ng-template>
       <ng-template #fieldForm let-m="m" let-id="id" let-locked="locked" let-isNew="isNew">
         <div class="grid gap-4 md:grid-cols-2">
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'k'" [class]="cls.label">{{ 'AdminCatalog.fieldKey' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'k'" [class]="cls.label"><span>{{ 'AdminCatalog.fieldKey' | t }}<app-req /></span></label>
             <input [id]="id + 'k'" [name]="id + 'k'" dir="ltr" required maxlength="41" pattern="[a-z][a-z0-9_]{1,40}" [class]="cls.input" [(ngModel)]="m.key" [readonly]="!isNew" /></div>
           <div class="flex flex-col gap-1.5"><label [for]="id + 'ty'" [class]="cls.label">{{ 'AdminCatalog.fieldType' | t }}</label>
             <select [id]="id + 'ty'" [name]="id + 'ty'" [class]="cls.input" [(ngModel)]="m.type" [disabled]="locked">
               @for (ft of fieldTypes; track ft) { <option [value]="ft">{{ 'CustomFields.types.' + ft | t }}</option> }
             </select>
             @if (locked) { <p class="text-sm text-muted">{{ 'AdminCommon.errors.typeLocked' | t }}</p> }</div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'le'" [class]="cls.label">{{ 'AdminCatalog.nameEn' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'le'" [class]="cls.label"><span>{{ 'AdminCatalog.nameEn' | t }}<app-req /></span></label>
             <input [id]="id + 'le'" [name]="id + 'le'" dir="ltr" required maxlength="120" [class]="cls.input" [(ngModel)]="m.labelEn" /></div>
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'la'" [class]="cls.label">{{ 'AdminCatalog.nameAr' | t }}<app-req /></label>
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'la'" [class]="cls.label"><span>{{ 'AdminCatalog.nameAr' | t }}<app-req /></span></label>
             <input [id]="id + 'la'" [name]="id + 'la'" dir="rtl" required maxlength="120" [class]="cls.input" [(ngModel)]="m.labelAr" /></div>
           <div class="flex flex-col gap-1.5"><label [for]="id + 'ca'" [class]="cls.label">{{ 'AdminCatalog.appliesTo' | t }}</label>
             <select [id]="id + 'ca'" [name]="id + 'ca'" [class]="cls.input" [(ngModel)]="m.categoryId">
@@ -204,7 +204,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
           <div class="flex flex-col gap-1.5"><label [for]="id + 'so'" [class]="cls.label">{{ 'AdminCatalog.sort' | t }}</label>
             <input [id]="id + 'so'" [name]="id + 'so'" type="number" min="0" max="1000" [class]="cls.input" [(ngModel)]="m.sortOrder" /></div>
           @if (m.type === 'dropdown' || m.type === 'multi_select' || m.type === 'radio') {
-            <div class="flex flex-col gap-1.5 md:col-span-2"><label [for]="id + 'op'" [class]="cls.label">{{ 'AdminCatalog.options' | t }}<app-req /></label>
+            <div class="flex flex-col gap-1.5 md:col-span-2"><label [for]="id + 'op'" [class]="cls.label"><span>{{ 'AdminCatalog.options' | t }}<app-req /></span></label>
               <textarea [id]="id + 'op'" [name]="id + 'op'" rows="4" dir="auto" [class]="cls.input + ' py-2 font-mono text-sm'" [(ngModel)]="m.optionsText"></textarea>
               <p class="text-sm text-muted">{{ 'AdminCatalog.optionsHint' | t }}</p></div>
           }
@@ -233,8 +233,8 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
       <ng-template #typeForm let-m="m" let-id="id" let-row="row">
         <form [class]="formCls" novalidate (ngSubmit)="row ? updateType(row) : createType()">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminCatalog.nameEn' | t }}<app-req /><input [name]="id + 'en'" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameEn" /></label>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminCatalog.nameAr' | t }}<app-req /><input [name]="id + 'ar'" dir="rtl" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameAr" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminCatalog.nameEn' | t }}<app-req /></span><input [name]="id + 'en'" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameEn" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminCatalog.nameAr' | t }}<app-req /></span><input [name]="id + 'ar'" dir="rtl" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameAr" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminTicketTypes.descEn' | t }}<textarea [name]="id + 'de'" rows="3" dir="ltr" maxlength="300" class="rounded-lg border border-line bg-surface p-3 text-base font-normal" [(ngModel)]="m.descriptionEn"></textarea></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminTicketTypes.descAr' | t }}<textarea [name]="id + 'da'" rows="3" dir="rtl" maxlength="300" class="rounded-lg border border-line bg-surface p-3 text-base font-normal" [(ngModel)]="m.descriptionAr"></textarea></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminTicketTypes.examplesEn' | t }}<input [name]="id + 'xe'" dir="ltr" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="m.examplesEn" /></label>
@@ -635,8 +635,8 @@ const blankPrio = (): PrioModel => ({ nameEn: '', nameAr: '', color: 'blue', ico
       <ng-template #form let-m="m" let-id="id" let-row="row">
         <form [class]="row ? 'flex flex-col gap-4 border-t border-line pt-4' : 'flex flex-col gap-4 rounded-xl border border-line bg-surface p-5'" novalidate (ngSubmit)="row ? update(row) : create()">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminPriorities.nameEn' | t }}<app-req /><input [name]="id + 'en'" dir="ltr" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameEn" /></label>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminPriorities.nameAr' | t }}<app-req /><input [name]="id + 'ar'" dir="rtl" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameAr" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminPriorities.nameEn' | t }}<app-req /></span><input [name]="id + 'en'" dir="ltr" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameEn" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminPriorities.nameAr' | t }}<app-req /></span><input [name]="id + 'ar'" dir="rtl" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameAr" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminPriorities.color' | t }}
               <select [name]="id + 'co'" [class]="cls.input + ' font-normal'" [(ngModel)]="m.color">@for (c of colors; track c) { <option [value]="c">{{ 'AdminPriorities.colors.' + c | t }}</option> }</select></label>
             <fieldset class="flex flex-col gap-1.5">
@@ -649,8 +649,8 @@ const blankPrio = (): PrioModel => ({ nameEn: '', nameAr: '', color: 'blue', ico
               </div>
             </fieldset>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminPriorities.sort' | t }}<input [name]="id + 'so'" type="number" min="0" max="1000" [class]="cls.input + ' font-normal'" [(ngModel)]="m.sortOrder" /></label>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminPriorities.first' | t }}<app-req /><input [name]="id + 'fr'" type="number" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.firstResponseMinutes" /></label>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminPriorities.resolution' | t }}<app-req /><input [name]="id + 'rs'" type="number" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.resolutionMinutes" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminPriorities.first' | t }}<app-req /></span><input [name]="id + 'fr'" type="number" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.firstResponseMinutes" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminPriorities.resolution' | t }}<app-req /></span><input [name]="id + 'rs'" type="number" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.resolutionMinutes" /></label>
           </div>
           <p class="text-sm text-muted">{{ 'AdminPriorities.slaHint' | t }}</p>
           <p class="flex items-center gap-2 text-sm"><span class="text-muted">{{ 'AdminPriorities.preview' | t }}</span>
@@ -753,9 +753,9 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
             </summary>
             <form class="flex flex-col gap-4 border-t border-line p-5" novalidate (ngSubmit)="savePolicy(p)">
               <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.firstResponse' | t }}<app-req /><input name="fr" type="number" inputmode="numeric" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.firstResponseMinutes" /><span class="text-sm font-normal leading-snug text-muted">{{ 'AdminSla.firstResponseHint' | t }}</span></label>
-                <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.resolution' | t }}<app-req /><input name="rs" type="number" inputmode="numeric" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.resolutionMinutes" /><span class="text-sm font-normal leading-snug text-muted">{{ 'AdminSla.resolutionHint' | t }}</span></label>
-                <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.warning' | t }}<app-req /><input name="wn" type="number" inputmode="numeric" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.warningThresholdPct" /><span class="text-sm font-normal leading-snug text-muted">{{ 'AdminSla.warningHint' | t }}</span></label>
+                <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.firstResponse' | t }}<app-req /></span><input name="fr" type="number" inputmode="numeric" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.firstResponseMinutes" /><span class="text-sm font-normal leading-snug text-muted">{{ 'AdminSla.firstResponseHint' | t }}</span></label>
+                <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.resolution' | t }}<app-req /></span><input name="rs" type="number" inputmode="numeric" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.resolutionMinutes" /><span class="text-sm font-normal leading-snug text-muted">{{ 'AdminSla.resolutionHint' | t }}</span></label>
+                <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.warning' | t }}<app-req /></span><input name="wn" type="number" inputmode="numeric" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.warningThresholdPct" /><span class="text-sm font-normal leading-snug text-muted">{{ 'AdminSla.warningHint' | t }}</span></label>
               </div>
               <label class="${CHECK}"><input type="checkbox" name="pc" class="h-5 w-5" [(ngModel)]="m.pauseOnPendingCustomer" />{{ 'AdminSla.pauseCustomer' | t }}</label>
               <label class="${CHECK}"><input type="checkbox" name="pi" class="h-5 w-5" [(ngModel)]="m.pauseOnPendingInternal" />{{ 'AdminSla.pauseInternal' | t }}</label>
@@ -785,7 +785,7 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
             <div class="border-t border-line">
               <div class="flex flex-col gap-4 border-b border-line p-5">
                 <form class="flex flex-wrap items-end gap-3" novalidate (ngSubmit)="saveHours(h)">
-                  <label class="flex min-w-64 flex-1 flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.calendars.name' | t }}<app-req /><input name="nm" maxlength="80" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="c.name" /></label>
+                  <label class="flex min-w-64 flex-1 flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.name' | t }}<app-req /></span><input name="nm" maxlength="80" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="c.name" /></label>
                   <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.calendars.rename' | t }}</button>
                 </form>
                 <div class="flex flex-col gap-2">
@@ -799,7 +799,7 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
               </div>
               <div class="p-1">
                 <form class="flex flex-col gap-4 rounded-md border border-line bg-surface p-5" novalidate (ngSubmit)="saveHours(h)">
-                  <label class="flex max-w-sm flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.timezone' | t }}<app-req /><input name="tz" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="c.timezone" /></label>
+                  <label class="flex max-w-sm flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.timezone' | t }}<app-req /></span><input name="tz" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="c.timezone" /></label>
                   <div class="flex flex-col gap-3">
                     @for (d of days; track d) {
                       <div class="flex flex-wrap items-center gap-3">
@@ -825,8 +825,8 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
                   </ul>
                 }
                 <form class="flex flex-wrap items-end gap-3" novalidate (ngSubmit)="addHoliday(h)">
-                  <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.date' | t }}<app-req /><input type="date" name="hd" [class]="cls.input + ' w-44 font-normal'" [(ngModel)]="hol[h.id].date" /></label>
-                  <label class="flex flex-1 flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.holidayName' | t }}<app-req /><input name="hn" maxlength="100" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="hol[h.id].name" /></label>
+                  <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.date' | t }}<app-req /></span><input type="date" name="hd" [class]="cls.input + ' w-44 font-normal'" [(ngModel)]="hol[h.id].date" /></label>
+                  <label class="flex flex-1 flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.holidayName' | t }}<app-req /></span><input name="hn" maxlength="100" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="hol[h.id].name" /></label>
                   <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.addHoliday' | t }}</button>
                 </form>
               </div>
@@ -834,8 +834,8 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
           </details>
         }
         <form class="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-5 shadow-card" novalidate (ngSubmit)="createHours()">
-          <label class="flex min-w-56 flex-1 flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.calendars.newName' | t }}<app-req /><input name="nn" maxlength="80" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="nwCal.name" /></label>
-          <label class="flex min-w-56 flex-1 flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.calendars.timezone' | t }}<app-req /><input name="nz" dir="ltr" placeholder="Africa/Cairo" [class]="cls.input + ' font-normal'" [(ngModel)]="nwCal.timezone" /></label>
+          <label class="flex min-w-56 flex-1 flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.newName' | t }}<app-req /></span><input name="nn" maxlength="80" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="nwCal.name" /></label>
+          <label class="flex min-w-56 flex-1 flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.timezone' | t }}<app-req /></span><input name="nz" dir="ltr" placeholder="Africa/Cairo" [class]="cls.input + ' font-normal'" [(ngModel)]="nwCal.timezone" /></label>
           <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.calendars.create' | t }}</button>
           <app-req-note />
         </form>

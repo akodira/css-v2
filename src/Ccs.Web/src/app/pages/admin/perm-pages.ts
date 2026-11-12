@@ -226,9 +226,9 @@ interface AccessEntry { all: boolean; branches: string[] }
           <section aria-labelledby="st-name" [class]="card">
             <h2 id="st-name" class="flex items-center gap-3 text-xl font-bold"><span aria-hidden="true" [class]="step">1</span>{{ 'Permissions.stepName' | t }}</h2>
             <div class="grid gap-4 sm:grid-cols-2">
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Permissions.nameEn' | t }}<app-req />
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Permissions.nameEn' | t }}<app-req /></span>
                 <input name="en" dir="ltr" maxlength="80" [disabled]="locked()" [class]="cls.input + ' font-normal'" [(ngModel)]="nameEn" /></label>
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Permissions.nameAr' | t }}<app-req />
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Permissions.nameAr' | t }}<app-req /></span>
                 <input name="ar" dir="rtl" maxlength="80" [disabled]="locked()" [class]="cls.input + ' font-normal'" [(ngModel)]="nameAr" /></label>
             </div>
           </section>
