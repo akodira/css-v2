@@ -5,7 +5,7 @@ import { I18n, TPipe } from '../../core/i18n';
 import { Paged, SiteService, TicketDetail, TicketListItem, TicketsApi } from '../../core/api';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, PrioIcon, Req, SlaChip, SlaClockCard, SortTh, StatusBadge } from '../../shared/ui';
+import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, PrioIcon, Req, ReqNote, SlaChip, SlaClockCard, SortTh, StatusBadge } from '../../shared/ui';
 import { AutoRefreshBar, autoRefresh } from '../tickets/customer-pages';
 import { CannedApi } from '../help-pages';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
@@ -218,7 +218,7 @@ export class ConsoleQueuePage {
 /** Ticket workspace: reply or internal note, status change, claim (spec 7). Escalation, links and fields arrive in stage 4. */
 @Component({
   selector: 'app-console-ticket',
-  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions, AutoRefreshBar, SlaClockCard, Req, PrioIcon],
+  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions, AutoRefreshBar, SlaClockCard, Req, ReqNote, PrioIcon],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -319,7 +319,7 @@ export class ConsoleQueuePage {
                   </div>
                   <app-file-picker [label]="'NewTicket.attachments' | t" [(files)]="files" [disabled]="pending()" />
                   @if (notice() && where() === 'reply') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
-                  <div><button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ 'Console.reply.submit' | t }}</button></div>
+                  <div><button type="submit" [disabled]="pending()" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink disabled:opacity-60">{{ 'Console.reply.submit' | t }}</button> <app-req-note /></div>
                 </form>
               </section>
             }
@@ -384,7 +384,7 @@ export class ConsoleQueuePage {
                         <textarea id="why" rows="2" maxlength="1000" dir="auto" class="rounded-lg border border-line p-3" [value]="reason()" (input)="reason.set($any($event.target).value)"></textarea></div>
                     }
                     @if (notice() && where() === 'status') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
-                    <div><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.statusForm.submit' | t }}</button></div>
+                    <div><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.statusForm.submit' | t }}</button> <app-req-note /></div>
                   </form>
                 </section>
               }
@@ -433,7 +433,7 @@ export class ConsoleQueuePage {
                         <div class="flex flex-col gap-1.5"><label for="as-reason" class="text-sm font-semibold">{{ 'Console.assignForm.reason' | t }}</label>
                           <input id="as-reason" maxlength="1000" dir="auto" class="min-h-11 rounded-lg border border-line px-3 text-base" [value]="asReason()" (input)="asReason.set($any($event.target).value)" /></div>
                         @if (notice() && where() === 'assign') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
-                        <div><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.assignForm.submit' | t }}</button></div>
+                        <div><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.assignForm.submit' | t }}</button> <app-req-note /></div>
                       </form>
                     } @else if (notice() && where() === 'assign') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
                   </div>

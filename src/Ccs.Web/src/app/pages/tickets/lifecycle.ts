@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { problemOf } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { Message, NewTicketOptions, TicketDetail } from '../../core/api';
-import { Alert, Req } from '../../shared/ui';
+import { Alert, Req, ReqNote } from '../../shared/ui';
 
 export interface EscalationTarget { id: string; name: string; label: string; ruleKey: string }
 export interface TicketLinkDto { kind: 'duplicate_of' | 'follow_up_of'; direction: 'from' | 'to'; otherId: string | null; otherReference: string | null }
@@ -138,7 +138,7 @@ export class CommentActions {
 
 @Component({
   selector: 'app-staff-lifecycle',
-  imports: [TPipe, Alert, RouterLink, Req],
+  imports: [TPipe, Alert, RouterLink, Req, ReqNote],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (lc(); as lc) {
@@ -243,11 +243,11 @@ export class CommentActions {
             <p class="text-sm text-muted">{{ (lc.escalationTargets.length > 1 ? 'Escalation.ticketHelpMany' : 'Escalation.ticketHelp') | t }}</p>
             <div class="flex flex-col gap-1.5"><label for="flow-target" class="text-sm font-semibold">{{ 'Escalation.route' | t }}</label>
               <select id="flow-target" [class]="cls.field" (change)="target.set($any($event.target).value)">
-                @for (r of lc.escalationTargets; track r.id) { <option [value]="r.id" [selected]="r.id === target()">{{ r.name }}{{ r.label ? ' · ' + r.label : '' }}</option> }
+                @for (r of lc.escalationTargets; track r.id) { <option [value]="r.id" [selected]="r.id === target()">{{ r.name }}{{ r.label ? ' — ' + r.label : '' }}</option> }
               </select></div>
             <div class="flex flex-col gap-1.5"><label for="flow-reason" class="text-sm font-semibold">{{ 'Escalation.reason' | t }}<app-req /></label>
               <textarea id="flow-reason" rows="2" maxlength="1000" dir="auto" [class]="cls.area" [value]="escReason()" (input)="escReason.set($any($event.target).value)"></textarea></div>
-            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Escalation.submit' | t }}</button></div>
+            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Escalation.submit' | t }}</button> <app-req-note /></div>
           </form>
         </section>
       } @else if (on('escalate') && lc.canEscalate) {
@@ -256,7 +256,7 @@ export class CommentActions {
             <p class="text-sm text-muted">{{ 'Console.escalate.help' | t }}</p>
             <div class="flex flex-col gap-1.5"><label for="esc-reason" class="text-sm font-semibold">{{ 'Console.escalate.reason' | t }}</label>
               <textarea id="esc-reason" rows="2" maxlength="1000" dir="auto" [class]="cls.area" [value]="escReason()" (input)="escReason.set($any($event.target).value)"></textarea></div>
-            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Console.escalate.submit' | t }}</button></div>
+            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Console.escalate.submit' | t }}</button> <app-req-note /></div>
           </form>
         </section>
       }
