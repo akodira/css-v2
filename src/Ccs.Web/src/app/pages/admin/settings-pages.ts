@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, computed, effect, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
@@ -355,8 +356,9 @@ const DEFAULT_DESIGN = { headerColor: '#0d1b3e', accentColor: '#1f64e6', pageBac
       <div class="flex flex-wrap items-start gap-6">
         <form class="flex min-w-0 flex-[1_1_18rem] flex-col gap-4" (ngSubmit)="saveDesign()" novalidate>
           @for (c of colors; track c.key) {
-            <div class="flex items-center gap-3"><label class="flex items-center gap-3 text-sm font-semibold"><input type="color" [name]="c.key" class="h-11 w-16 cursor-pointer rounded border border-line" [(ngModel)]="$any(d)[c.key]" (ngModelChange)="refresh()" />
-              {{ 'AdminGeneral.' + c.label | t }}</label><span class="font-mono text-xs text-muted" dir="ltr" aria-hidden="true">{{ $any(d)[c.key] }}</span></div>
+            <div class="flex flex-col gap-1.5"><label class="text-sm font-semibold" [for]="'dc-' + c.key">{{ 'AdminGeneral.' + c.label | t }}</label>
+              <div class="flex items-center gap-3"><input type="color" [name]="c.key + '-c'" [attr.aria-label]="'AdminGeneral.' + c.label | t" class="h-11 w-16 cursor-pointer rounded-lg border border-line bg-surface p-1" [(ngModel)]="$any(d)[c.key]" (ngModelChange)="refresh()" />
+                <input type="text" [id]="'dc-' + c.key" [name]="c.key" maxlength="7" dir="ltr" class="min-h-11 w-32 rounded-lg border border-line bg-surface px-3 font-mono text-sm font-bold" [ngModel]="$any(d)[c.key]" (ngModelChange)="hex(c.key, $event)" /></div></div>
           }
           <div class="flex flex-col gap-1">
             <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="logo" class="h-5 w-5" [(ngModel)]="d.useLogo" (ngModelChange)="refresh()" [disabled]="!site.logoUrl()" /> {{ 'AdminGeneral.designUseLogo' | t }}</label>
@@ -379,7 +381,7 @@ const DEFAULT_DESIGN = { headerColor: '#0d1b3e', accentColor: '#1f64e6', pageBac
             <p class="text-xs font-semibold text-muted">{{ 'AdminGeneral.tplPreview' | t }}</p>
             <label class="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" class="h-4 w-4" [checked]="rtl" (change)="rtl = !rtl; refresh()" />{{ 'AdminGeneral.designPreviewAr' | t }}</label>
           </div>
-          <iframe [title]="'AdminGeneral.tplPreview' | t" [srcdoc]="html()" sandbox="" class="h-[34rem] w-full rounded-md border border-line bg-white"></iframe>
+          <iframe [title]="'AdminGeneral.tplPreview' | t" [srcdoc]="safe(html())" sandbox="" class="h-[34rem] w-full rounded-md border border-line bg-white"></iframe>
           <p class="text-xs text-muted">{{ 'AdminGeneral.designNote' | t }}</p>
         </div>
       </div>
@@ -392,6 +394,10 @@ export class EmailDesignPanel extends Tab implements OnInit {
   protected d = { ...DEFAULT_DESIGN };
   protected rtl = false;
   protected readonly html = signal('');
+  private readonly san = inject(DomSanitizer);
+  /** The preview HTML comes from our own server and is shown in a sandboxed frame; Angular would otherwise strip its styles. */
+  protected safe(h: string): SafeHtml { return this.san.bypassSecurityTrustHtml(h); }
+  protected hex(key: string, v: string): void { (this.d as Record<string, unknown>)[key] = v; if (/^#[0-9a-fA-F]{6}$/.test(v)) this.refresh(); }
   private timer: ReturnType<typeof setTimeout> | undefined;
   async ngOnInit(): Promise<void> {
     const e = await this.get<EmailData>('email'); const x = e.design;
@@ -467,7 +473,7 @@ export class EmailDesignPanel extends Tab implements OnInit {
                     <div class="flex flex-col gap-2 rounded-lg border border-line bg-bg p-3">
                       <p class="text-xs font-semibold text-muted" dir="auto">{{ 'AdminGeneral.tplPreview' | t }}</p>
                       <p class="text-sm" dir="auto"><span class="text-muted">{{ 'AdminGeneral.tplPreviewSubject' | t }} </span><strong>{{ pv()[loc].subject }}</strong></p>
-                      <iframe [title]="'AdminGeneral.tplPreview' | t" [srcdoc]="pv()[loc].html" sandbox="" class="h-80 w-full rounded-md border border-line bg-white"></iframe>
+                      <iframe [title]="'AdminGeneral.tplPreview' | t" [srcdoc]="safe(pv()[loc].html)" sandbox="" class="h-80 w-full rounded-md border border-line bg-white"></iframe>
                       <p class="text-xs text-muted">{{ 'AdminGeneral.tplPreviewNote' | t }}</p>
                     </div>
                     <div class="flex flex-col gap-2">
@@ -500,6 +506,8 @@ export class TemplatesTab extends Tab implements OnInit {
   protected readonly cur = signal<string | null>(null);
   protected readonly events = computed(() => { const d = this.defs(); return d ? [...d.ticketEvents, ...d.authEvents, LAYOUT] : []; });
   protected v: Record<'en' | 'ar', Fields> = { en: this.blank(), ar: this.blank() };
+  private readonly san = inject(DomSanitizer);
+  protected safe(h: string): SafeHtml { return this.san.bypassSecurityTrustHtml(h); }
   protected readonly pv = signal<Record<'en' | 'ar', { subject: string; html: string }>>({ en: { subject: '', html: '' }, ar: { subject: '', html: '' } });
   protected readonly needField = signal(false);
   protected readonly testing = signal(false);
