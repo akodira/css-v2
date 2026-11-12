@@ -136,11 +136,11 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
     [HttpGet("api/reports/options")]
     public async Task<object> Options(CancellationToken ct)
     {
-        await ReportUser(ct);
+        var (c, _) = await ReportUser(ct);
         return new
         {
-            orgs = await db.Organizations.AsNoTracking().OrderBy(o => o.Name).Select(o => new { o.Id, o.Name }).ToListAsync(ct),
-            branches = await db.Branches.AsNoTracking().OrderBy(b => b.Name).Select(b => new { b.Id, b.OrganizationId, b.Name }).ToListAsync(ct),
+            orgs = await access.VisibleOrganizations(db.Organizations.AsNoTracking(), c).OrderBy(o => o.Name).Select(o => new { o.Id, o.Name }).ToListAsync(ct),
+            branches = await access.VisibleBranches(db.Branches.AsNoTracking(), c).OrderBy(b => b.Name).Select(b => new { b.Id, b.OrganizationId, b.Name }).ToListAsync(ct),
             teams = await db.Teams.AsNoTracking().OrderBy(t => t.NameEn).Select(t => new { t.Id, t.NameEn, t.NameAr }).ToListAsync(ct),
             priorities = await db.Priorities.AsNoTracking().OrderBy(p => p.SortOrder).ThenBy(p => p.NameEn).Select(p => new { p.Code, p.NameEn, p.NameAr }).ToListAsync(ct),
         };
