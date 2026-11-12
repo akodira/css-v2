@@ -148,7 +148,7 @@ export class Donut {
           </text>
         }
       </svg>
-      <div class="sr-only"><table>
+      <div class="sr-only"><table><caption>{{ label() }}</caption>
         <thead><tr><th scope="col">{{ label() }}</th><th scope="col">{{ totalLabel() }}</th><th scope="col">{{ resolvedLabel() }}</th></tr></thead>
         <tbody>@for (r of rows(); track $index) { <tr><th scope="row">{{ r.label }}</th><td>{{ r.total }}</td><td>{{ r.resolved }}</td></tr> }</tbody></table></div>
       <figcaption class="mt-1 flex flex-wrap gap-4 text-sm">
