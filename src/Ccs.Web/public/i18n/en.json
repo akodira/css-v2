@@ -1236,6 +1236,7 @@
     "captchaAlso": "Also protects the forgot-password and email-code forms.",
     "autoRefresh": "Automatic page refresh (seconds)",
     "autoRefreshHint": "Ticket lists and ticket pages re-read their data every this many seconds while the page is open. Use 0 to turn it off, otherwise 10 to 3600.",
+    "idleTitle": "Automatic sign-out",
     "idleTimeout": "Sign out after inactivity (minutes)",
     "idleTimeoutHint": "People are signed out after this many minutes without using the page. Use 0 to turn it off, otherwise 1 to 1440."
   },

@@ -838,6 +838,14 @@ export class UploadsTab extends Tab implements OnInit {
         ${SAVE_REQ}
       </form>
 
+      <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="saveIdle()">
+        <h3 class="text-lg font-bold">{{ 'AdminSettings.idleTitle' | t }}</h3>
+        <div class="flex max-w-sm flex-col gap-1.5"><label for="idle_timeout_minutes" [class]="cls.label">{{ 'AdminSettings.idleTimeout' | t }}${REQ}</label>
+          <input id="idle_timeout_minutes" name="idle_timeout_minutes" type="number" dir="ltr" [class]="cls.input" [(ngModel)]="n['idle_timeout_minutes']" />
+          <p class="text-xs text-muted">{{ 'AdminSettings.idleTimeoutHint' | t }}</p></div>
+        ${SAVE_REQ}
+      </form>
+
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="saveReg()">
         <fieldset class="flex flex-col gap-3"><legend class="mb-1 text-lg font-bold">{{ 'AdminSettings.regTitle' | t }}</legend><p class="text-sm text-muted">{{ 'AdminSettings.regHelp' | t }}</p>
         @for (r of modes; track r) {
@@ -888,7 +896,6 @@ export class SystemTab extends Tab implements OnInit {
   protected readonly basic = [
     { key: 'reopen_window_days', label: 'reopen', hint: 'reopenHint' }, { key: 'auto_close_days', label: 'autoClose', hint: 'autoCloseHint' },
     { key: 'min_reply_chars', label: 'minReply', hint: '' }, { key: 'auto_refresh_seconds', label: 'autoRefresh', hint: 'autoRefreshHint' },
-    { key: 'idle_timeout_minutes', label: 'idleTimeout', hint: 'idleTimeoutHint' },
   ];
   protected readonly timers = [
     { key: 'pending_reminder_1_day', label: 'reminder1' }, { key: 'pending_reminder_2_day', label: 'reminder2' }, { key: 'pending_final_day', label: 'finalWarning' },
@@ -920,6 +927,7 @@ export class SystemTab extends Tab implements OnInit {
     void this.save(() => this.put('system', { settings: this.pick(['password_min_length', 'password_require_upper', 'password_require_lower', 'password_require_number', 'password_require_special',
       'password_expiry_enabled', 'password_expiry_days', 'password_warn_1_days', 'password_warn_2_days', 'password_warn_3_days']) }));
   }
+  protected saveIdle(): void { void this.save(() => this.put('system', { settings: this.pick(['idle_timeout_minutes']) })); }
   protected saveReg(): void { void this.save(() => this.put('registration', { mode: this.reg })); }
   protected async saveCaptcha(): Promise<void> { if (await this.save(() => this.put('captcha', { enabled: this.cap.enabled, siteKey: this.cap.siteKey, secret: this.cap.secret || null }))) { if (this.cap.secret || !this.cap.enabled) this.cap.fault = null; if (this.cap.secret) this.cap.hasSecret = true; this.cap.secret = ''; } }
 }
