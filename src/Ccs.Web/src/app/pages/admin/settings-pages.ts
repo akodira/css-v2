@@ -66,16 +66,6 @@ const REQ = `<app-req />`;
           <fieldset [class]="cls.card + ' flex flex-col gap-4 p-5'">
             <legend class="sr-only">{{ 'AdminGeneral.' + sec.title | t }}</legend>
             <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.' + sec.title | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.' + sec.title + 'Hint' | t }}</p></div>
-            @if (sec.image) {
-              <div class="flex flex-wrap items-center gap-3">
-                <span [class]="cls.label">{{ 'AdminGeneral.' + sec.image | t }}</span>
-                @if (img(sec.image); as src) { <img [src]="src" alt="" class="h-12 w-12 rounded border border-line object-contain" /> } @else { <span class="text-sm text-muted">{{ 'AdminGeneral.defaultIcon' | t }}</span> }
-                <label [class]="cls.btn2 + ' inline-flex cursor-pointer items-center'">{{ busy() ? ('AdminGeneral.uploading' | t) : ('AdminCatalog.edit' | t) }}
-                  <input type="file" class="sr-only" accept=".png,.jpg,.jpeg,.webp,.svg,.ico" (change)="upload(sec.image, $any($event.target))" /></label>
-                @if (img(sec.image)) { <button type="button" [class]="cls.btn2" (click)="remove(sec.image)">{{ 'AdminGeneral.removeImage' | t }}</button> }
-                <p class="w-full text-sm text-muted">{{ 'AdminGeneral.' + sec.image + 'Hint' | t }}</p>
-              </div>
-            }
             <div class="grid gap-4 md:grid-cols-2">
               @for (f of sec.fields; track f) {
                 <div [class]="'flex flex-col gap-1.5' + (f.startsWith('homeIntro') || f.startsWith('loginNotice') ? ' md:col-span-2' : '')">
@@ -83,22 +73,35 @@ const REQ = `<app-req />`;
                   @if (f.startsWith('homeIntro') || f.startsWith('loginNotice') || f.startsWith('footerText')) {
                     <textarea [id]="'b-' + f" [name]="f" rows="3" [attr.dir]="f.endsWith('Ar') ? 'rtl' : 'auto'" [class]="cls.input + ' py-2'" [(ngModel)]="m[f]"></textarea>
                   } @else {
-                    <input [id]="'b-' + f" [name]="f" [attr.dir]="f.endsWith('Ar') ? 'rtl' : f.startsWith('contact') && !f.startsWith('contactHours') ? 'ltr' : 'auto'" [class]="cls.input" [(ngModel)]="m[f]" />
+                    <input [id]="'b-' + f" [name]="f" [attr.dir]="f.endsWith('Ar') ? 'rtl' : f.startsWith('contact') && !f.startsWith('contactHours') ? 'ltr' : 'auto'" [class]="cls.input + ' font-semibold'" [(ngModel)]="m[f]" />
                   }
                 </div>
               }
             </div>
+            @if (sec.image) {
+              <div class="flex flex-col gap-1.5">
+                <span [class]="cls.label">{{ 'AdminGeneral.' + sec.image | t }}</span>
+                <div class="flex flex-wrap items-center gap-3">
+                  @if (img(sec.image); as src) { <img [src]="src" alt="" class="h-16 w-16 rounded-lg border border-line object-contain" /> } @else { <span class="flex h-16 w-16 items-center justify-center rounded-lg border border-line bg-brand-soft text-xs text-muted">{{ 'AdminGeneral.defaultIcon' | t }}</span> }
+                  <input type="file" class="text-sm" [attr.aria-label]="'AdminGeneral.' + sec.image | t" accept=".png,.jpg,.jpeg,.webp,.svg,.ico" (change)="upload(sec.image, $any($event.target))" />
+                  @if (img(sec.image)) { <button type="button" [class]="cls.btn2" (click)="remove(sec.image)">{{ 'AdminGeneral.removeImage' | t }}</button> }
+                </div>
+                <p class="text-sm text-muted">{{ 'AdminGeneral.' + sec.image + 'Hint' | t }}</p>
+              </div>
+            }
           </fieldset>
+          @if (sec.title === 'secFooter') {
+          <fieldset [class]="cls.card + ' flex flex-col gap-3 p-5'">
+            <legend class="sr-only">{{ 'AdminGeneral.secColor' | t }}</legend>
+            <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.secColor' | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.secColorHint' | t }}</p></div>
+            <div class="flex flex-wrap items-center gap-3">
+              <label for="b-color" [class]="cls.label">{{ 'AdminGeneral.brandColor' | t }}</label>
+              <input id="b-color" name="color" type="color" class="h-11 w-16 cursor-pointer rounded border border-line" [ngModel]="m['brandColor'] || '#1f64e6'" (ngModelChange)="m['brandColor'] = $event" />
+              <button type="button" [class]="cls.btn2" (click)="m['brandColor'] = ''">{{ 'AdminGeneral.useDefaultColor' | t }}</button>
+            </div>
+          </fieldset>
+          }
         }
-        <fieldset [class]="cls.card + ' flex flex-col gap-3 p-5'">
-          <legend class="sr-only">{{ 'AdminGeneral.secColor' | t }}</legend>
-          <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.secColor' | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.secColorHint' | t }}</p></div>
-          <div class="flex flex-wrap items-center gap-3">
-            <label for="b-color" [class]="cls.label">{{ 'AdminGeneral.brandColor' | t }}</label>
-            <input id="b-color" name="color" type="color" class="h-11 w-16 cursor-pointer rounded border border-line" [ngModel]="m['brandColor'] || '#1f64e6'" (ngModelChange)="m['brandColor'] = $event" />
-            <button type="button" [class]="cls.btn2" (click)="m['brandColor'] = ''">{{ 'AdminGeneral.useDefaultColor' | t }}</button>
-          </div>
-        </fieldset>
         ${SAVE}
       </form>
     }`,
@@ -172,21 +175,18 @@ interface MenuFull extends Omit<MenuRow, 'audience'> { audience: string; isVisib
   template: `
     ${MSG}
     @for (area of areas; track area) {
-      <section [class]="cls.card + ' flex flex-col gap-3 p-5'">
-        <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.menuArea.' + area | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.menuAreaHint.' + area | t }}</p></div>
-        <ul class="flex flex-col gap-2">
+      <section class="flex flex-col gap-3">
+        <div><h2 class="text-xl font-bold">{{ 'AdminGeneral.menuArea.' + area | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.menuAreaHint.' + area | t }}</p></div>
+        <ul class="flex flex-col gap-3">
           @for (r of itemsOf(area); track r.id) {
-            <li class="rounded-lg border border-line" [class.ms-6]="!!r.parentId">
-              <div class="flex flex-wrap items-center gap-2 px-3 py-2">
-                <span class="min-w-0 flex-1 font-semibold" dir="auto">{{ i18n.pick(r.labelEn, r.labelAr) }}
-                  <span class="font-mono text-xs font-normal text-muted" dir="ltr">{{ r.kind === 'group' ? ('AdminGeneral.groupLabel' | t) : r.href }}</span>
-                  @if (r.systemKey) { <span class="text-sm font-normal text-muted"> · {{ 'AdminGeneral.builtIn' | t }}</span> }
-                  @else if (area === 'header' || area === 'footer') { <span class="text-sm font-normal text-muted"> · {{ 'AdminGeneral.aud_' + r.audience | t }}</span> }
-                  @if (!r.isVisible) { <span [class]="cls.badgeWarn + ' ms-1'">{{ 'AdminGeneral.hidden' | t }}</span> }</span>
-                <button type="button" [class]="cls.btn2" (click)="move(r, -1)" [attr.aria-label]="'AdminGeneral.moveUp' | t">▲</button>
-                <button type="button" [class]="cls.btn2" (click)="move(r, 1)" [attr.aria-label]="'AdminGeneral.moveDown' | t">▼</button>
-                <button type="button" [class]="cls.btn2" (click)="open.set(open() === r.id ? null : r.id)">{{ (open() === r.id ? 'AdminGeneral.close' : 'AdminGeneral.edit') | t }}</button>
-                @if (!r.systemKey) { <button type="button" [class]="cls.danger" (click)="remove(r)">{{ 'AdminGeneral.delete' | t }}</button> }
+            <li class="rounded-xl border border-line bg-surface shadow-card" [class.ms-6]="!!r.parentId">
+              <div class="flex flex-wrap items-center gap-2 px-3 py-3">
+                <button type="button" [class]="cls.btn2 + ' !min-h-10 !px-3'" (click)="move(r, -1)" [disabled]="edge(r, -1)" [attr.aria-label]="'AdminGeneral.moveUp' | t">▲</button>
+                <button type="button" [class]="cls.btn2 + ' !min-h-10 !px-3'" (click)="move(r, 1)" [disabled]="edge(r, 1)" [attr.aria-label]="'AdminGeneral.moveDown' | t">▼</button>
+                <div class="min-w-0 flex-1 ps-1" dir="auto"><p class="font-semibold">{{ i18n.pick(r.labelEn, r.labelAr) }}@if (!r.isVisible) { <span [class]="cls.badgeWarn + ' ms-2'">{{ 'AdminGeneral.hidden' | t }}</span> }</p>
+                  <p class="text-sm text-muted"><span dir="ltr">{{ r.kind === 'group' ? ('AdminGeneral.groupLabel' | t) : r.href }}</span>@if (r.systemKey) { · {{ 'AdminGeneral.builtIn' | t }} } @else if (area === 'header' || area === 'footer') { · {{ 'AdminGeneral.aud_' + r.audience | t }} }</p></div>
+                <button type="button" [class]="cls.btn2 + ' !min-h-10'" (click)="open.set(open() === r.id ? null : r.id)">{{ (open() === r.id ? 'AdminGeneral.close' : 'AdminGeneral.edit') | t }}</button>
+                @if (!r.systemKey) { <button type="button" [class]="cls.danger + ' !min-h-10'" (click)="remove(r)">{{ 'AdminGeneral.delete' | t }}</button> }
               </div>
               @if (open() === r.id) { <form class="border-t border-line p-3" (ngSubmit)="update(r)"><ng-container *ngTemplateOutlet="form; context: { m: ed[r.id], id: r.id, sys: !!r.systemKey }" /></form> }
             </li>
@@ -253,6 +253,11 @@ export class MenusTab extends Tab implements OnInit {
   protected async update(r: MenuFull): Promise<void> { if (await this.save(() => this.put('menus/' + r.id, this.ed[r.id]))) { this.open.set(null); await this.load(); } }
   protected async remove(r: MenuFull): Promise<void> { if (confirm(this.i18n.t(r.kind === 'group' ? 'AdminGeneral.confirmDeleteGroup' : 'AdminGeneral.confirmDelete')) && await this.save(() => this.del('menus/' + r.id), 'AdminV2.deleted')) await this.load(); }
   /** Swaps the order with the neighbour in the same list (same area and parent). */
+  protected edge(r: MenuFull, dir: number): boolean {
+    const sib = this.rows().filter((x) => x.area === r.area && x.parentId === r.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
+    const j = sib.findIndex((x) => x.id === r.id) + dir;
+    return j < 0 || j >= sib.length;
+  }
   protected async move(r: MenuFull, dir: number): Promise<void> {
     const sib = this.rows().filter((x) => x.area === r.area && x.parentId === r.parentId).sort((a, b) => a.sortOrder - b.sortOrder);
     const i = sib.findIndex((x) => x.id === r.id), j = i + dir;
@@ -447,28 +452,29 @@ export class EmailDesignPanel extends Tab implements OnInit {
                   <form class="flex flex-col gap-3 p-4" novalidate (ngSubmit)="saveTpl(ev)">
                     @if (ev !== layout) {
                       <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.tplGreeting' | t }}
-                        <input [name]="'g' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="200" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-normal" [(ngModel)]="v[loc].greeting" (focus)="track(loc, 'greeting', $event)" (ngModelChange)="preview(loc)" />
+                        <input [name]="'g' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="200" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-semibold" [(ngModel)]="v[loc].greeting" (focus)="track(loc, 'greeting', $event)" (ngModelChange)="preview(loc)" />
                         <span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplSharedField' | t }}</span></label>
                     }
                     <label class="flex flex-col gap-1 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplGreeting' : 'AdminGeneral.tplSubject') | t }}
-                      <input [name]="'s' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="200" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-normal" [(ngModel)]="v[loc].subject" (focus)="track(loc, 'subject', $event)" (ngModelChange)="preview(loc)" /></label>
-                    <app-format-bar [el]="bodyEl" [anchor]="true" (changed)="v[loc].body = $event; preview(loc)" />
+                      <input [name]="'s' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="200" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-semibold" [(ngModel)]="v[loc].subject" (focus)="track(loc, 'subject', $event)" (ngModelChange)="preview(loc)" /></label>
                     <label [for]="'tb-' + loc" class="-mb-2 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplFooter' : 'AdminGeneral.tplBody') | t }}</label>
+                    <app-format-bar [el]="bodyEl" [anchor]="true" (changed)="v[loc].body = $event; preview(loc)" />
                     <textarea #bodyEl [id]="'tb-' + loc" [name]="'b' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" [rows]="ev === layout ? 3 : 5" maxlength="2000"
                       class="min-h-24 w-full rounded-lg border border-line bg-surface px-3 py-2 text-base" [(ngModel)]="v[loc].body" (focus)="track(loc, 'body', $event)" (ngModelChange)="preview(loc)"></textarea>
                     <label class="flex flex-col gap-1 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplButton' : 'AdminGeneral.tplButtonOverride') | t }}
-                      <input [name]="'u' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="60" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-normal" [placeholder]="ev === layout ? '' : btnDefault(ev, loc)" [(ngModel)]="v[loc].button" (focus)="track(loc, 'button', $event)" (ngModelChange)="preview(loc)" />
+                      <input [name]="'u' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="60" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-semibold" [placeholder]="ev === layout ? '' : btnDefault(ev, loc)" [(ngModel)]="v[loc].button" (focus)="track(loc, 'button', $event)" (ngModelChange)="preview(loc)" />
                       @if (ev !== layout) { <span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplButtonHint' | t: { text: btnDefault(ev, loc) } }}</span> }</label>
                     @if (ev !== layout && !isAuth(ev)) {
                       <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.tplLink' | t }}
-                        <input [name]="'l' + loc" dir="ltr" maxlength="300" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-normal" [placeholder]="'AdminGeneral.tplLinkAuto' | t" [(ngModel)]="v[loc].link" (focus)="track(loc, 'link', $event)" (ngModelChange)="preview(loc)" />
+                        <input [name]="'l' + loc" dir="ltr" maxlength="300" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-semibold" [placeholder]="'AdminGeneral.tplLinkAuto' | t" [(ngModel)]="v[loc].link" (focus)="track(loc, 'link', $event)" (ngModelChange)="preview(loc)" />
                         <span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplLinkHint' | t }}</span></label>
                     }
                     @if (ev !== layout) {
+                      <label [for]="'tf-' + loc" class="-mb-2 text-sm font-semibold">{{ 'AdminGeneral.tplFooter' | t }}</label>
                       <app-format-bar [el]="footEl" [anchor]="true" (changed)="v[loc].footer = $event; preview(loc)" />
-                      <label [for]="'tf-' + loc" class="-mb-2 flex flex-col text-sm font-semibold">{{ 'AdminGeneral.tplFooter' | t }}<span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplSharedField' | t }}</span></label>
                       <textarea #footEl [id]="'tf-' + loc" [name]="'f' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" rows="3" maxlength="2000"
                         class="min-h-20 w-full rounded-lg border border-line bg-surface px-3 py-2 text-base" [(ngModel)]="v[loc].footer" (focus)="track(loc, 'footer', $event)" (ngModelChange)="preview(loc)"></textarea>
+                      <p class="-mt-1 text-xs text-muted">{{ 'AdminGeneral.tplSharedField' | t }}</p>
                     }
                     <div class="flex flex-col gap-2 rounded-lg border border-line bg-bg p-3">
                       <p class="text-xs font-semibold text-muted" dir="auto">{{ 'AdminGeneral.tplPreview' | t }}</p>
@@ -814,13 +820,13 @@ export class UploadsTab extends Tab implements OnInit {
         <h3 class="mt-2 text-lg font-bold">{{ 'AdminSettings.timersTitle' | t }}</h3>
         <p class="-mt-2 text-sm text-muted">{{ 'AdminSettings.timersHelp' | t }}</p>
         <div class="grid gap-4 md:grid-cols-2">
-          @for (f of timers; track f.key) {
+          @for (f of timers.concat(basic.slice(2, 3)); track f.key) {
             <div class="flex flex-col gap-1.5"><label [for]="f.key" [class]="cls.label">{{ 'AdminSettings.' + f.label | t }}${REQ}</label><input [id]="f.key" [name]="f.key" type="number" dir="ltr" [class]="cls.input" [(ngModel)]="n[f.key]" /></div>
           }
         </div>
         <p class="text-sm text-muted">{{ 'AdminSettings.timersHint' | t }}</p>
         <div class="grid gap-4 md:grid-cols-2">
-          @for (f of basic.slice(2); track f.key) {
+          @for (f of basic.slice(3); track f.key) {
             <div class="flex flex-col gap-1.5"><label [for]="f.key" [class]="cls.label">{{ 'AdminSettings.' + f.label | t }}${REQ}</label>
               <input [id]="f.key" [name]="f.key" type="number" dir="ltr" [class]="cls.input" [(ngModel)]="n[f.key]" />
               @if (f.hint) { <p class="text-xs text-muted">{{ 'AdminSettings.' + f.hint | t }}</p> }</div>
@@ -861,6 +867,7 @@ export class UploadsTab extends Tab implements OnInit {
           @for (x of [['password_require_upper', 'pwUpper'], ['password_require_lower', 'pwLower'], ['password_require_number', 'pwNumber'], ['password_require_special', 'pwSpecial']]; track x[0]) {
             <label class="${CHECK}"><input type="checkbox" [name]="x[0]" class="h-5 w-5" [(ngModel)]="b[x[0]]" /> {{ 'AdminSettings.' + x[1] | t }}</label>
           }</fieldset>
+        <p class="text-sm text-muted">{{ 'AdminSettings.pwApplies' | t }}</p>
         <label class="${CHECK} font-semibold"><input type="checkbox" name="exp" class="h-5 w-5" [(ngModel)]="b['password_expiry_enabled']" /> {{ 'AdminSettings.pwExpire' | t }}</label>
         <p class="-mt-2 text-sm text-muted">{{ 'AdminSettings.pwExpireHelp' | t }}</p>
         <div class="grid gap-4 md:grid-cols-2">
@@ -869,7 +876,6 @@ export class UploadsTab extends Tab implements OnInit {
             }
         </div>
         <p class="text-sm text-muted">{{ 'AdminSettings.pwWarnHint' | t }}</p>
-        <p class="text-sm text-muted">{{ 'AdminSettings.pwApplies' | t }}</p>
         ${SAVE_REQ}
       </form>
       <p class="text-sm text-muted">{{ 'AdminSettings.note' | t }}</p>
