@@ -43,7 +43,7 @@ public static partial class EmailRenderer
             <body style="margin:0;padding:0;background:{Css(design.PageBackground)};">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{Css(design.PageBackground)};"><tr><td align="center" style="padding:24px 12px;">
             <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:{radius};overflow:hidden;font-family:'IBM Plex Sans','IBM Plex Sans Arabic',Segoe UI,Tahoma,Arial,sans-serif;color:#0f1b2d;">
-            <tr><td style="background:{Css(design.HeaderColor)};padding:20px 28px;text-align:{align};">
+            <tr><td style="background:{Css(design.HeaderColor)};padding:20px 28px;border-bottom:4px solid {Css(design.AccentColor)};text-align:{align};">
             """);
         if (design.LogoUrl is not null && SafeLink.IsAllowed(design.LogoUrl))
             html.Append($"<img src=\"{Enc(design.LogoUrl)}\" alt=\"{Enc(siteName)}\" height=\"32\" style=\"height:32px;border:0;vertical-align:middle;\">");
