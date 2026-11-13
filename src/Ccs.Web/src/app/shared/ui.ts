@@ -59,9 +59,9 @@ let fieldSeq = 0;
       <label [for]="id" class="text-sm font-semibold">{{ label() }}@if (required()) {<app-req />}</label>
       <div class="relative">
         <input [id]="id" [name]="name()" [type]="type() === 'password' && shown() ? 'text' : type()" [attr.autocomplete]="autocomplete()" [attr.dir]="type() === 'password' ? 'ltr' : dir()"
-          [attr.maxlength]="maxLength()" [required]="required()" [value]="value()" (input)="value.set($any($event.target).value)"
+          [attr.maxlength]="maxLength()" [attr.placeholder]="placeholder() || null" [required]="required()" [value]="value()" (input)="value.set($any($event.target).value)"
           [attr.aria-invalid]="error() ? true : null" [attr.aria-describedby]="error() ? id + '-err' : hint() ? id + '-hint' : null"
-          class="min-h-11 w-full rounded-lg border border-line bg-surface ps-3 text-base read-only:bg-bg read-only:text-muted aria-[invalid=true]:border-danger" [class]="type() === 'password' ? 'pe-12' : 'pe-3'" />
+          class="min-h-11 w-full rounded-lg border border-line bg-surface ps-3 text-base placeholder:text-muted read-only:bg-bg read-only:text-muted aria-[invalid=true]:border-danger" [class]="type() === 'password' ? 'pe-12' : 'pe-3'" />
         @if (type() === 'password') {
           <!-- v1 PasswordInput: eye button that shows or hides the text -->
           <button type="button" (click)="shown.set(!shown())" [attr.aria-pressed]="shown()" [attr.aria-label]="(shown() ? 'Auth.password.hide' : 'Auth.password.show') | t"
@@ -72,7 +72,7 @@ let fieldSeq = 0;
           </button>
         }
       </div>
-      @if (hint() && !error()) { <p [id]="id + '-hint'" class="text-sm text-muted">{{ hint() }}</p> }
+      @if (hint() && !error()) { <p [id]="id + '-hint'" class="text-muted" [class]="smallHint() ? 'text-xs' : 'text-sm'">{{ hint() }}</p> }
       @if (error()) { <p [id]="id + '-err'" class="text-sm font-medium text-danger">{{ 'Auth.errors.' + error() | t }}</p> }
     </div>`,
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -87,6 +87,9 @@ export class TextField {
   readonly maxLength = input<number>();
   readonly required = input(false);
   readonly hint = input<string>();
+  /** Show the hint at 12 px instead of 14 px (sign-in page). */
+  readonly smallHint = input(false);
+  readonly placeholder = input<string>();
   readonly error = input<string | undefined>();
   readonly value = model('');
   protected readonly shown = signal(false);

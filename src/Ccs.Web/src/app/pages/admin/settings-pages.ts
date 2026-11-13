@@ -696,7 +696,7 @@ export class MessagesTab extends Tab implements OnInit {
   protected focusLoc: string | null = null;
   protected readonly needField = signal(false);
   /** Messages shown with formatting on the sign-in pages (v1 SYSTEM_MESSAGES, except the plain title). */
-  private static readonly RICH = new Set(['Auth.login.subtitle', 'Auth.login.pendingNotice', 'Auth.login.suspendedNotice', 'Auth.callbackError', 'Auth.register.subtitle',
+  private static readonly RICH = new Set(['Auth.login.pendingNotice', 'Auth.login.suspendedNotice', 'Auth.callbackError', 'Auth.register.subtitle',
     'Auth.register.sentBody', 'Auth.forgot.subtitle', 'Auth.code.subtitle', 'Auth.reset.subtitle', 'Auth.mfa.subtitle', 'Auth.errors.emailNotConfirmed', 'Auth.errors.rateLimited', 'Auth.errors.pendingApproval']);
   protected isRich(k: string): boolean { return MessagesTab.RICH.has(k); }
   /** The values this message fills in, then the site-wide ones (v1 tokens + GLOBAL_PLACEHOLDERS). */

@@ -61,13 +61,13 @@ abstract class FormBase {
   template: `
     <main class="px-4 py-12">
       @if (notice()) { <p role="note" dir="auto" class="mx-auto mb-4 max-w-md rounded-lg border border-line bg-brand-soft px-4 py-3 text-sm font-medium text-brand-ink">{{ notice() }}</p> }
-      <app-card [heading]="'Auth.login.title' | t" [subtitle]="'Auth.login.subtitle' | t">
+      <app-card [heading]="'Auth.login.title' | t">
         @if (reason() === 'suspended') { <app-alert><app-rich [text]="'Auth.login.suspendedNotice' | t" [compact]="true" /></app-alert> }
         @if (reason() === 'idle') { <app-alert><app-rich [text]="'Auth.login.idleNotice' | t" [compact]="true" /></app-alert> }
         @if (reason() === 'pending_approval') { <app-alert><app-rich [text]="'Auth.login.pendingNotice' | t" [compact]="true" /></app-alert> }
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
-          <app-text-field name="email" [label]="'Auth.fields.identifier' | t" autocomplete="username" dir="ltr" [required]="true" [(value)]="identifier" [error]="fieldErrors()['identifier']" />
-          <app-text-field name="password" type="password" [label]="'Auth.fields.password' | t" autocomplete="current-password" [required]="true" [(value)]="password" [error]="fieldErrors()['password']" />
+          <app-text-field name="email" [label]="'Auth.fields.identifier' | t" [placeholder]="'Auth.login.identifierPlaceholder' | t" [hint]="'Auth.login.identifierHint' | t" [smallHint]="true" autocomplete="username" dir="ltr" [required]="true" [(value)]="identifier" [error]="fieldErrors()['identifier']" />
+          <app-text-field name="password" type="password" [label]="'Auth.fields.password' | t" [placeholder]="'Auth.login.passwordPlaceholder' | t" autocomplete="current-password" [required]="true" [(value)]="password" [error]="fieldErrors()['password']" />
           @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.login.submit' | t }}</app-submit>
         </form>
