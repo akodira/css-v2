@@ -98,7 +98,7 @@ export class Footer {
   imports: [RouterOutlet, RouterLink, Logo, LanguageSwitcher, TPipe, Footer],
   template: `
     <header data-site-header class="sticky top-0 z-30 border-b border-line bg-surface md:static">
-      <!-- Phone (v1 PublicNav): one slim bar - brand, Sign in, menu button; the panel holds Create account / My account, language, Sign out -->
+      <!-- Phone (v1 PublicNav): one slim bar - brand, Sign in, menu button; the panel holds Create account / My Account, language, Sign out -->
       <div class="md:hidden">
         <div class="flex h-16 items-center gap-2 px-3">
           <a [routerLink]="'/' + i18n.locale()" class="block min-w-0 flex-1 overflow-hidden" [attr.aria-label]="name()"><app-logo [name]="name()" [sub]="sub()" [logoUrl]="site.logoUrl()" /></a>

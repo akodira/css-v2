@@ -202,7 +202,7 @@ export const ADMIN_A_ARTICLES: Article[] = [
       { en: "Enter the full name, email and phone number.", ar: "أدخل الاسم الكامل والبريد الإلكتروني ورقم الهاتف." },
       { en: "Select **Generate** for a **Temporary password**, or type one that meets the password policy.", ar: "اختر **توليد** لـ**كلمة مرور مؤقتة**، أو اكتب كلمة تحقق سياسة كلمات المرور." },
       { en: "Choose the **Roles**. Each card lists everything that role can do. For a person who should manage only part of the company, choose **Organization admin** or **Branch admin** instead (see the next guide).", ar: "اختر **الأدوار**. تعرض كل بطاقة كل ما يستطيعه الدور. وللشخص الذي يجب أن يدير جزءًا من الشركة فقط اختر **مدير المؤسسة** أو **مدير الفرع** (انظر الدليل التالي)." },
-      { en: "Select **Create**. Copy the temporary password now: it is shown only once. Give it to the person, who can change it under My account.", ar: "اختر **إنشاء**. انسخ كلمة المرور المؤقتة الآن فهي تظهر مرة واحدة فقط. سلّمها للشخص ويمكنه تغييرها من حسابي." },
+      { en: "Select **Create**. Copy the temporary password now: it is shown only once. Give it to the person, who can change it under My Account.", ar: "اختر **إنشاء**. انسخ كلمة المرور المؤقتة الآن فهي تظهر مرة واحدة فقط. سلّمها للشخص ويمكنه تغييرها من حسابي." },
     ],
     tips: [{ en: "Then give the person an account type under Permissions, and add them to a team under Teams.", ar: "بعد ذلك امنح الشخص نوع حساب ضمن الصلاحيات، وأضفه إلى فريق ضمن الفرق." }],
     related: ["users-scoped-admin", "perm-type", "teams-members"],

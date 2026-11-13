@@ -94,7 +94,7 @@
     "ar": "العربية"
   },
   "Nav": {
-    "account": "My account",
+    "account": "My Account",
     "users": "Staff",
     "signIn": "Sign in",
     "register": "Create account",
@@ -286,7 +286,7 @@
     }
   },
   "Account": {
-    "title": "My account",
+    "title": "My Account",
     "subtitle": "Your profile and access.",
     "profile": "Profile",
     "save": "Save changes",
@@ -1337,7 +1337,7 @@
     "general": "General",
     "closeMenu": "Close menu",
     "accountMenu": "Account menu",
-    "myAccount": "My account",
+    "myAccount": "My Account",
     "language": "Language",
     "help": "Help",
     "group_people": "People",
@@ -1566,7 +1566,7 @@
     "phone": "Phone",
     "tempPassword": "Temporary password",
     "generate": "Generate",
-    "tempPasswordHint": "Give this password to the person. They can change it under My account.",
+    "tempPasswordHint": "Give this password to the person. They can change it under My Account.",
     "roles": "Roles",
     "organization": "Organization",
     "branch": "Branch",
@@ -2429,7 +2429,7 @@
       "Team": "Team view",
       "AuditLog": "Audit log",
       "Comments": "Ticket comments",
-      "Account": "My account",
+      "Account": "My Account",
       "AdminSettings": "System settings",
       "StaffStatus": "Staff statuses",
       "CustomerStatus": "Customer statuses",

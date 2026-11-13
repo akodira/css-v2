@@ -12,7 +12,7 @@ export const GENERAL_ARTICLES: Article[] = [
     title: { en: "Update your profile", ar: "تحديث ملفك الشخصي" },
     summary: { en: "Keep your name, phone and language current.", ar: "أبقِ اسمك وهاتفك ولغتك محدّثة." },
     steps: [
-      { en: "Open **My account** from the account menu.", ar: "افتح **حسابي** من قائمة الحساب." },
+      { en: "Open **My Account** from the account menu.", ar: "افتح **حسابي** من قائمة الحساب." },
       { en: "Edit your name, phone number or preferred language.", ar: "عدّل اسمك أو رقم هاتفك أو لغتك المفضلة." },
       { en: "Select **Save changes**.", ar: "اختر **حفظ التغييرات**." },
     ],
@@ -24,7 +24,7 @@ export const GENERAL_ARTICLES: Article[] = [
     summary: { en: "The whole system, including emails, follows your language.", ar: "يتبع النظام كله لغتك، بما في ذلك الرسائل البريدية." },
     steps: [
       { en: "Use the language switch in the page header.", ar: "استخدم مفتاح اللغة في ترويسة الصفحة." },
-      { en: "To make the choice permanent, set **Preferred language** in **My account**.", ar: "لتثبيت الاختيار حدّد **اللغة المفضلة** في **حسابي**." },
+      { en: "To make the choice permanent, set **Preferred language** in **My Account**.", ar: "لتثبيت الاختيار حدّد **اللغة المفضلة** في **حسابي**." },
     ],
     tips: [{ en: "Arabic pages read right to left.", ar: "تُقرأ الصفحات العربية من اليمين إلى اليسار." }],
   },
@@ -33,7 +33,7 @@ export const GENERAL_ARTICLES: Article[] = [
     title: { en: "Change your password", ar: "تغيير كلمة المرور" },
     summary: { en: "Use at least 10 characters.", ar: "استخدم 10 أحرف على الأقل." },
     steps: [
-      { en: "Open **My account** and find **Password**.", ar: "افتح **حسابي** وابحث عن **كلمة المرور**." },
+      { en: "Open **My Account** and find **Password**.", ar: "افتح **حسابي** وابحث عن **كلمة المرور**." },
       { en: "Enter your current password and the new one twice.", ar: "أدخل كلمة المرور الحالية ثم الجديدة مرتين." },
       { en: "Save. Use the eye button to check what you typed.", ar: "احفظ. استخدم زر العين للتحقق مما كتبته." },
     ],
@@ -65,7 +65,7 @@ export const GENERAL_ARTICLES: Article[] = [
     summary: { en: "Protect your account with a code from your phone. It is optional.", ar: "احمِ حسابك برمز من هاتفك. وهو اختياري." },
     steps: [
       { en: "Install an authenticator app such as Google Authenticator or Microsoft Authenticator.", ar: "ثبّت تطبيق مصادقة مثل Google Authenticator أو Microsoft Authenticator." },
-      { en: "In **My account** find **Two-step verification** and select **Turn on**.", ar: "في **حسابي** ابحث عن **التحقق بخطوتين** واختر **تشغيل**." },
+      { en: "In **My Account** find **Two-step verification** and select **Turn on**.", ar: "في **حسابي** ابحث عن **التحقق بخطوتين** واختر **تشغيل**." },
       { en: "Scan the QR code with the app, or type the secret key.", ar: "امسح رمز QR بالتطبيق، أو اكتب المفتاح السري." },
       { en: "Enter the 6-digit code the app shows and select **Confirm**.", ar: "أدخل الرمز المكوّن من 6 أرقام الذي يعرضه التطبيق واختر **تأكيد**." },
     ],

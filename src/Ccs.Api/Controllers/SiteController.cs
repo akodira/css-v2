@@ -92,7 +92,7 @@ public sealed class MeController(AccessService access, CcsDbContext db, Settings
 
     public sealed record ProfileBody(string? FullName, string? Phone, string? PreferredLocale);
 
-    /// <summary>My account: a person changes only their own name, phone and language (v1 updateProfileAction).</summary>
+    /// <summary>My Account: a person changes only their own name, phone and language (v1 updateProfileAction).</summary>
     [HttpPut]
     public async Task<IActionResult> Update(ProfileBody b, CancellationToken ct)
     {
