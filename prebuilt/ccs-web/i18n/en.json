@@ -151,7 +151,9 @@
     },
     "login": {
       "title": "Sign in",
-      "subtitle": "Use your email or mobile number (no need to type +2) and your password.",
+      "identifierHint": "Use your registered email or mobile number (without +2).",
+      "identifierPlaceholder": "Enter your email or mobile number",
+      "passwordPlaceholder": "Enter your password",
       "submit": "Sign in",
       "forgot": "Forgot your password?",
       "noAccount": "New here?",
@@ -2311,9 +2313,17 @@
       "unknownPlaceholder": "This message cannot use that placeholder. Use only the ones listed below the boxes."
     },
     "items": {
-      "Auth_login_subtitle": {
-        "label": "Sign-in intro",
-        "where": "Under the “Sign in” title"
+      "Auth_login_identifierHint": {
+        "label": "Sign-in: email or phone help",
+        "where": "Small text under the email or phone number box on the sign-in page"
+      },
+      "Auth_login_identifierPlaceholder": {
+        "label": "Sign-in: email or phone placeholder",
+        "where": "Grey text inside the empty email or phone number box on the sign-in page"
+      },
+      "Auth_login_passwordPlaceholder": {
+        "label": "Sign-in: password placeholder",
+        "where": "Grey text inside the empty password box on the sign-in page"
       },
       "Auth_login_pendingNotice": {
         "label": "Account waiting for approval",
