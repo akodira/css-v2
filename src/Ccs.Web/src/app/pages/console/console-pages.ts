@@ -27,7 +27,7 @@ const SLA_TONE: Record<string, string> = {
   paused: 'bg-bg text-muted border border-line', completed: 'bg-brand-soft text-brand-ink',
 };
 
-/** Support console queue: same counters, team SLA strip, views, filters and columns as the current console. */
+/** Support console queue: counters, views, filters and columns. The "My team" SLA counters are on the SLA report. */
 @Component({
   selector: 'app-console-queue',
   imports: [RouterLink, TPipe, StatusBadge, SortTh, SlaChip, PrioIcon],
@@ -54,18 +54,6 @@ const SLA_TONE: Record<string, string> = {
         <div [class]="stat + ' border-s-4 border-s-amber-500 bg-warn-soft'"><dt class="text-sm font-semibold text-warn-ink">{{ 'Console.summary.dueSoon' | t }}</dt><dd class="text-3xl font-bold text-warn-ink">{{ counts()?.dueSoon ?? 0 }}</dd></div>
         <button type="button" (click)="showClosed()" [attr.aria-current]="status() === 'closed' ? 'true' : null" [class]="stat + ' cursor-pointer border-s-4 border-s-ok bg-ok-soft text-start hover:brightness-95' + (status() === 'closed' ? ' ring-2 ring-ok' : '')"><dt class="text-sm font-semibold text-ok">{{ 'Console.summary.closed' | t }}</dt><dd class="text-3xl font-bold text-ok">{{ counts()?.closed ?? 0 }}</dd></button>
       </dl>
-
-      @if (counts()?.strip; as st) {
-        <section [attr.aria-label]="'SlaClock.strip_title' | t" class="flex flex-col gap-2">
-          <dl class="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div [class]="stat"><dt class="text-sm font-semibold text-muted">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_onTrack' | t }}</dt><dd class="text-3xl font-bold text-brand-ink">{{ st.green }}</dd></div>
-            <div [class]="stat"><dt class="text-sm font-semibold text-muted">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_close' | t }}</dt><dd class="text-3xl font-bold text-warn-ink">{{ st.yellow }}</dd></div>
-            <button type="button" (click)="setSla('due_soon')" [class]="stat + ' cursor-pointer text-start hover:bg-bg'"><dt class="text-sm font-semibold text-muted">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_red' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ st.red }}</dd></button>
-            <button type="button" (click)="setSla('breached')" class="cursor-pointer rounded-md border border-danger bg-danger-soft p-4 text-start hover:brightness-95"><dt class="text-sm font-semibold text-danger">{{ 'SlaClock.strip_title' | t }}: {{ 'SlaClock.strip_overdue' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ st.overdue }}</dd></button>
-          </dl>
-          <p class="text-xs text-muted">{{ 'SlaClock.strip_hint' | t }}</p>
-        </section>
-      }
 
       <nav [attr.aria-label]="'Console.title' | t" class="flex flex-wrap gap-2">
         @for (v of views; track v) {
@@ -194,7 +182,6 @@ export class ConsoleQueuePage {
   isView(v: string): boolean { return this.view() === v && this.status() !== 'closed'; }
   setView(v: string): void { this.view.set(v); if (this.status() === 'closed') this.status.set('active'); this.page.set(1); this.load(); }
   showClosed(): void { this.view.set('all'); this.status.set('closed'); this.page.set(1); this.load(); }
-  setSla(s: string): void { this.slaF.set(s); this.page.set(1); this.load(); }
   go(d: number): void { this.page.update((p) => p + d); this.load(); }
   clockOf(r: TicketListItem): ClockInput | null {
     if (!r.firstRespondedAt && r.firstResponseDue) return { dueAt: r.firstResponseDue, startAt: r.createdAt, pausedAt: r.pausedAt, pausedTotalSeconds: r.pausedTotalSeconds };
