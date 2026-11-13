@@ -9,6 +9,18 @@ import { BarList, Ring, TrendChart } from '../../shared/charts';
 import { Alert } from '../../shared/ui';
 
 const CARD = 'rounded-xl border border-line bg-surface p-5 shadow-card';
+/** Counter cards in the same style as the ticket queue counters: colored start border, tinted background. */
+const STAT = 'rounded-md border border-line border-s-4 p-4';
+type Tone = 'brand' | 'violet' | 'danger' | 'warn' | 'ok' | 'neutral';
+const TONE: Record<Tone, { box: string; ink: string }> = {
+  brand: { box: 'border-s-brand bg-brand-soft', ink: 'text-brand-ink' },
+  violet: { box: 'border-s-violet-500 bg-violet-50', ink: 'text-violet-800' },
+  danger: { box: 'border-s-danger bg-danger-soft', ink: 'text-danger' },
+  warn: { box: 'border-s-amber-500 bg-warn-soft', ink: 'text-warn-ink' },
+  ok: { box: 'border-s-ok bg-ok-soft', ink: 'text-ok' },
+  neutral: { box: 'border-s-muted bg-bg', ink: 'text-ink' },
+};
+interface TeamStrip { green: number; yellow: number; red: number; overdue: number }
 const STATUSES = ['new', 'open', 'in_progress', 'pending_customer', 'pending_internal', 'resolved', 'closed', 'reopened'];
 
 interface Metrics { total: number; resolved: number; open: number; avgFirst: number | null; avgRes: number | null; slaMet: number; slaTotal: number; avgRating: number | null; ratings: number }
@@ -64,10 +76,10 @@ async function download(http: HttpClient, url: string): Promise<void> {
             @if (canExport()) { <button type="button" [class]="btn2" (click)="exportCsv('summary')">{{ 'Reports.exportCsv' | t }}</button> }
           </header>
           <dl class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <div [class]="card"><dt class="text-sm text-muted">{{ 'Reports.created' | t }}</dt><dd class="mt-1 text-3xl font-bold">{{ r.created }}</dd></div>
-            <div [class]="card"><dt class="text-sm text-muted">{{ 'Reports.resolved' | t }}</dt><dd class="mt-1 text-3xl font-bold">{{ r.resolved }}</dd></div>
-            <div [class]="card"><dt class="text-sm text-muted">{{ 'Reports.avgFirst' | t }}</dt><dd class="mt-1 text-3xl font-bold">{{ h(r.avgFirstResponseMinutes) }}</dd></div>
-            <div [class]="card"><dt class="text-sm text-muted">{{ 'Reports.avgResolution' | t }}</dt><dd class="mt-1 text-3xl font-bold">{{ h(r.avgResolutionMinutes) }}</dd></div>
+            <div [class]="stat + ' ' + tone.brand.box"><dt class="text-sm font-semibold" [class]="tone.brand.ink">{{ 'Reports.created' | t }}</dt><dd class="text-3xl font-bold" [class]="tone.brand.ink">{{ r.created }}</dd></div>
+            <div [class]="stat + ' ' + tone.ok.box"><dt class="text-sm font-semibold" [class]="tone.ok.ink">{{ 'Reports.resolved' | t }}</dt><dd class="text-3xl font-bold" [class]="tone.ok.ink">{{ r.resolved }}</dd></div>
+            <div [class]="stat + ' ' + tone.violet.box"><dt class="text-sm font-semibold" [class]="tone.violet.ink">{{ 'Reports.avgFirst' | t }}</dt><dd class="text-3xl font-bold" [class]="tone.violet.ink">{{ h(r.avgFirstResponseMinutes) }}</dd></div>
+            <div [class]="stat + ' ' + tone.warn.box"><dt class="text-sm font-semibold" [class]="tone.warn.ink">{{ 'Reports.avgResolution' | t }}</dt><dd class="text-3xl font-bold" [class]="tone.warn.ink">{{ h(r.avgResolutionMinutes) }}</dd></div>
           </dl>
           <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
             <section [class]="card + ' lg:col-span-2'"><h2 class="mb-3 text-lg font-bold">{{ 'Reports.trend' | t }}</h2>
@@ -183,6 +195,8 @@ export class ReportsPage implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(Auth);
   protected readonly card = CARD;
+  protected readonly stat = STAT;
+  protected readonly tone = TONE;
   protected readonly field = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-sm font-normal';
   protected readonly btn = 'min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink';
   protected readonly btn2 = 'inline-flex min-h-10 cursor-pointer items-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:bg-bg';
@@ -294,16 +308,31 @@ interface SlaData {
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'SlaReport.title' | t }}</h1><p class="mt-1 text-muted">{{ 'SlaReport.subtitle' | t }} {{ 'SlaReport.period' | t: { days: 30 } }}</p></div>
       @if (d(); as x) {
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          @for (b of [[x.firstResponse, 'SlaReport.firstResponse'], [x.resolution, 'SlaReport.resolution']]; track $index) {
-            <div class="rounded-md border border-line bg-surface p-5"><p class="text-sm text-muted">{{ $any(b[1]) | t }}</p>
-              <p class="mt-1 text-3xl font-bold">{{ $any(b[0]).pct === null ? ('SlaReport.none' | t) : $any(b[0]).pct + '%' }}</p>
+          @for (b of [[x.firstResponse, 'SlaReport.firstResponse', 'brand'], [x.resolution, 'SlaReport.resolution', 'violet']]; track $index) {
+            <div [class]="stat + ' ' + $any(tone)[$any(b[2])].box"><p class="text-sm font-semibold" [class]="$any(tone)[$any(b[2])].ink">{{ $any(b[1]) | t }}</p>
+              <p class="text-3xl font-bold" [class]="$any(tone)[$any(b[2])].ink">{{ $any(b[0]).pct === null ? ('SlaReport.none' | t) : $any(b[0]).pct + '%' }}</p>
               @if ($any(b[0]).pct !== null) { <p class="text-sm text-muted">{{ 'SlaReport.of' | t: { met: $any(b[0]).met, total: $any(b[0]).total } }} · {{ 'SlaReport.target' | t }}</p> }</div>
           }
         </div>
+        @if (strip(); as st) {
+          <section [attr.aria-label]="'SlaClock.strip_title' | t" class="flex flex-col gap-2">
+            <h2 class="text-lg font-bold">{{ 'SlaClock.strip_title' | t }}</h2>
+            <dl class="grid grid-cols-2 gap-3 md:grid-cols-4">
+              @for (s of [['green', 'strip_onTrack', 'ok', ''], ['yellow', 'strip_close', 'warn', ''], ['red', 'strip_red', 'danger', 'due_soon'], ['overdue', 'strip_overdue', 'danger', 'breached']]; track s[0]) {
+                @if (s[3]) {
+                  <a [routerLink]="'/' + i18n.locale() + '/console'" [queryParams]="{ sla: s[3] }" [class]="stat + ' ' + $any(tone)[s[2]].box + ' cursor-pointer hover:brightness-95'"><dt class="text-sm font-semibold" [class]="$any(tone)[s[2]].ink">{{ 'SlaClock.' + s[1] | t }}</dt><dd class="text-3xl font-bold" [class]="$any(tone)[s[2]].ink">{{ $any(st)[s[0]] }}</dd></a>
+                } @else {
+                  <div [class]="stat + ' ' + $any(tone)[s[2]].box"><dt class="text-sm font-semibold" [class]="$any(tone)[s[2]].ink">{{ 'SlaClock.' + s[1] | t }}</dt><dd class="text-3xl font-bold" [class]="$any(tone)[s[2]].ink">{{ $any(st)[s[0]] }}</dd></div>
+                }
+              }
+            </dl>
+            <p class="text-xs text-muted">{{ 'SlaClock.strip_hint' | t }}</p>
+          </section>
+        }
         <section><h2 class="mb-1 text-lg font-bold">{{ 'SlaReport.cyclesTitle' | t }}</h2><p class="mb-3 max-w-prose text-sm text-muted">{{ 'SlaReport.cyclesHelp' | t }}</p>
           <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
             @for (k of ['original', 'afterReopen']; track k) {
-              <div class="rounded-md border border-line bg-surface p-5"><h3 class="font-bold">{{ 'SlaReport.' + k | t }}</h3><p class="text-sm text-muted">{{ 'SlaReport.cycleCount' | t: { count: $any(x)[k].n } }}</p>
+              <div [class]="stat + ' ' + tone[k === 'original' ? 'brand' : 'violet'].box"><h3 class="font-bold" [class]="tone[k === 'original' ? 'brand' : 'violet'].ink">{{ 'SlaReport.' + k | t }}</h3><p class="text-sm text-muted">{{ 'SlaReport.cycleCount' | t: { count: $any(x)[k].n } }}</p>
                 <dl class="mt-3 grid grid-cols-2 gap-3">
                   <div><dt class="text-sm text-muted">{{ 'SlaReport.firstResponse' | t }}</dt><dd class="text-2xl font-bold">{{ $any(x)[k].fr.pct === null ? ('SlaReport.none' | t) : $any(x)[k].fr.pct + '%' }}</dd></div>
                   <div><dt class="text-sm text-muted">{{ 'SlaReport.resolution' | t }}</dt><dd class="text-2xl font-bold">{{ $any(x)[k].rs.pct === null ? ('SlaReport.none' | t) : $any(x)[k].rs.pct + '%' }}</dd></div>
@@ -312,8 +341,8 @@ interface SlaData {
           </div></section>
         <section><h2 class="mb-3 text-lg font-bold">{{ 'SlaReport.now' | t }}</h2>
           <dl class="grid grid-cols-2 gap-3 md:grid-cols-4">
-            @for (s of [['breached', 'breached'], ['due_soon', 'dueSoon'], ['paused', 'paused'], ['on_track', 'onTrack']]; track s[0]) {
-              <div class="rounded-md border border-line bg-surface p-5"><dt class="text-sm text-muted">{{ 'SlaReport.' + s[1] | t }}</dt><dd class="text-2xl font-bold">{{ x.now[s[0]] ?? 0 }}</dd></div>
+            @for (s of [['breached', 'breached', 'danger'], ['due_soon', 'dueSoon', 'warn'], ['paused', 'paused', 'neutral'], ['on_track', 'onTrack', 'ok']]; track s[0]) {
+              <div [class]="stat + ' ' + $any(tone)[s[2]].box"><dt class="text-sm font-semibold" [class]="$any(tone)[s[2]].ink">{{ 'SlaReport.' + s[1] | t }}</dt><dd class="text-3xl font-bold" [class]="$any(tone)[s[2]].ink">{{ x.now[s[0]] ?? 0 }}</dd></div>
             }
           </dl></section>
         <section><h2 class="mb-3 text-lg font-bold">{{ 'SlaReport.atRisk' | t }}</h2>
@@ -336,7 +365,14 @@ export class SlaReportPage {
   protected readonly i18n = inject(I18n);
   private readonly http = inject(HttpClient);
   protected readonly d = signal<SlaData | null>(null);
-  constructor() { void firstValueFrom(this.http.get<SlaData>('/api/reports/sla')).then((x) => this.d.set(x)); }
+  /** "My team" counters, same as above the ticket queue: the server sends them to admins and team leaders only. */
+  protected readonly strip = signal<TeamStrip | null>(null);
+  protected readonly stat = STAT;
+  protected readonly tone = TONE;
+  constructor() {
+    void firstValueFrom(this.http.get<SlaData>('/api/reports/sla')).then((x) => this.d.set(x));
+    void firstValueFrom(this.http.get<{ strip: TeamStrip | null }>('/api/console/counts')).then((c) => this.strip.set(c.strip), () => this.strip.set(null));
+  }
 }
 
 // ================================================================== audit log
