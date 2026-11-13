@@ -19,14 +19,23 @@ interface Dash {
   queue: { mine: number; unassigned: number; breached: number };
 }
 
-const KPI_ICON: Record<string, { path: string; tone: string }> = {
-  total: { path: 'M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z', tone: 'bg-brand-soft text-brand' },
-  fresh: { path: 'M4 4h16v16H4zM4 7l8 6 8-6', tone: 'bg-danger-soft text-danger' },
-  working: { path: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2', tone: 'bg-warn-soft text-warn-ink' },
-  done: { path: 'M20 6 9 17l-5-5', tone: 'bg-ok-soft text-ok' },
-  overdue: { path: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z', tone: 'bg-warn-soft text-warn-ink' },
-  orgs: { path: 'M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h6', tone: 'bg-brand-soft text-brand' },
-  branches: { path: 'M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11zM12 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z', tone: 'bg-ok-soft text-ok' },
+/** Counter cards in the same style as the ticket queue counters: colored start border, tinted background. */
+const STAT = 'rounded-md border border-line border-s-4 p-4';
+const TONE = {
+  brand: { box: 'border-s-brand bg-brand-soft', ink: 'text-brand-ink' },
+  violet: { box: 'border-s-violet-500 bg-violet-50', ink: 'text-violet-800' },
+  danger: { box: 'border-s-danger bg-danger-soft', ink: 'text-danger' },
+  warn: { box: 'border-s-amber-500 bg-warn-soft', ink: 'text-warn-ink' },
+  ok: { box: 'border-s-ok bg-ok-soft', ink: 'text-ok' },
+};
+const KPI_ICON: Record<string, { path: string; box: string; ink: string }> = {
+  total: { path: 'M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z', ...TONE.brand },
+  fresh: { path: 'M4 4h16v16H4zM4 7l8 6 8-6', ...TONE.violet },
+  working: { path: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2', ...TONE.warn },
+  done: { path: 'M20 6 9 17l-5-5', ...TONE.ok },
+  overdue: { path: 'M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z', ...TONE.danger },
+  orgs: { path: 'M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h6', ...TONE.brand },
+  branches: { path: 'M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11zM12 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z', ...TONE.ok },
 };
 const STATUSES = ['new', 'open', 'in_progress', 'pending_customer', 'pending_internal', 'resolved', 'closed', 'reopened'];
 
@@ -44,20 +53,20 @@ const STATUSES = ['new', 'open', 'in_progress', 'pending_customer', 'pending_int
       @if (d(); as x) {
         <dl class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
           @for (k of ['total', 'fresh', 'working', 'done', 'overdue']; track k) {
-            <div [class]="card + ' flex flex-col items-center gap-2 text-center'">
-              <span aria-hidden="true" class="flex h-12 w-12 items-center justify-center rounded-full" [class]="icon[k].tone">
+            <div [class]="stat + ' ' + icon[k].box + ' flex flex-col items-center gap-2 text-center'">
+              <span aria-hidden="true" class="flex h-12 w-12 items-center justify-center rounded-full bg-surface" [class]="icon[k].ink">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="icon[k].path" /></svg></span>
-              <dd class="text-4xl font-bold leading-none">{{ $any(x.kpi)[k] }}</dd>
-              <dt class="text-sm font-medium text-muted">{{ 'Dashboard.kpi.' + k | t }}</dt>
+              <dd class="text-4xl font-bold leading-none" [class]="icon[k].ink">{{ $any(x.kpi)[k] }}</dd>
+              <dt class="text-sm font-semibold" [class]="icon[k].ink">{{ 'Dashboard.kpi.' + k | t }}</dt>
             </div>
           }
         </dl>
         <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           @for (k of ['orgs', 'branches']; track k) {
-            <div [class]="card + ' flex items-center justify-center gap-5'">
-              <span aria-hidden="true" class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full" [class]="icon[k].tone">
+            <div [class]="stat + ' ' + icon[k].box + ' flex items-center justify-center gap-5'">
+              <span aria-hidden="true" class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-surface" [class]="icon[k].ink">
                 <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="icon[k].path" /></svg></span>
-              <div><dd class="text-4xl font-bold leading-none">{{ $any(x.kpi)[k] }}</dd><dt class="mt-1 text-sm font-medium text-muted">{{ 'Dashboard.kpi.' + k | t }}</dt></div>
+              <div><dd class="text-4xl font-bold leading-none" [class]="icon[k].ink">{{ $any(x.kpi)[k] }}</dd><dt class="mt-1 text-sm font-semibold" [class]="icon[k].ink">{{ 'Dashboard.kpi.' + k | t }}</dt></div>
             </div>
           }
         </dl>
@@ -159,6 +168,7 @@ export class DashboardPage {
   private readonly http = inject(HttpClient);
   protected readonly icon = KPI_ICON;
   protected readonly card = 'rounded-xl border border-line bg-surface p-5 shadow-card';
+  protected readonly stat = STAT;
   protected readonly action = 'flex min-h-11 items-center justify-between gap-2 rounded-lg border border-line px-4 text-sm font-semibold hover:bg-bg';
   protected readonly d = signal<Dash | null>(null);
   protected readonly compliance = computed(() => { const x = this.d(); return x ? this.pct(x.slaMet, x.slaTotal) : null; });
