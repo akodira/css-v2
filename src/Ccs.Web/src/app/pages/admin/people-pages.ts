@@ -330,7 +330,7 @@ export class StaffBody implements OnInit {
     <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="opened.set([])">{{ 'AdminOrgs.collapseAll' | t }}</button>
   </div>
           @if (!filtered().length) { <p class="text-muted">{{ 'AdminUsers.noMatch' | t }}</p> }
-          <ul class="flex flex-col gap-3">
+          <ul class="flex flex-col gap-4">
             @for (u of filtered(); track u.id) {
               
   <li class="overflow-hidden rounded-xl border bg-surface shadow-card" [class.border-brand]="isOpen(u.id)" [class.border-line]="!isOpen(u.id)">
@@ -450,7 +450,7 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
     <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="opened.set([])">{{ 'AdminOrgs.collapseAll' | t }}</button>
   </div>
           @if (!filtered().length) { <p class="text-muted">{{ 'AdminTeams.noMatch' | t }}</p> }
-          <ul class="flex flex-col gap-3">
+          <ul class="flex flex-col gap-4">
             @for (t of filtered(); track t.id) {
               
   <li class="overflow-hidden rounded-xl border bg-surface shadow-card" [class.border-brand]="isOpen(t.id)" [class.border-line]="!isOpen(t.id)">
@@ -657,7 +657,7 @@ export class PlaceForm implements OnInit {
     <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="opened.set([])">{{ 'AdminOrgs.collapseAll' | t }}</button>
   </div>
           @if (!filtered().length) { <p class="text-muted">{{ 'AdminOrgs.noMatch' | t }}</p> }
-          <ul class="flex flex-col gap-3">
+          <ul class="flex flex-col gap-4">
             @for (o of filtered(); track o.id) {
               
   <li class="overflow-hidden rounded-xl border bg-surface shadow-card" [class.border-brand]="isOpen(o.id)" [class.border-line]="!isOpen(o.id)">

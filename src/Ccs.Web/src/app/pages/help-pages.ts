@@ -44,7 +44,7 @@ interface KbArticle {
         </nav>
       }
       @if (loaded() && !items().length) { <p class="text-muted">{{ (q() || cat() ? 'Kb.noResults' : 'Kb.empty') | t }}</p> }
-      <ul class="flex flex-col gap-3">
+      <ul class="flex flex-col gap-4">
         @for (a of items(); track a.id) {
           <li class="rounded-md border border-line bg-surface p-5">
             <a [routerLink]="kbBase() + '/' + a.slug" class="text-lg font-bold text-brand-ink underline" dir="auto">{{ i18n.pick(a.titleEn, a.titleAr) }}</a>

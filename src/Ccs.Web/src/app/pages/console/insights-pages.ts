@@ -307,7 +307,7 @@ interface SlaData {
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'SlaReport.title' | t }}</h1><p class="mt-1 text-muted">{{ 'SlaReport.subtitle' | t }} {{ 'SlaReport.period' | t: { days: 30 } }}</p></div>
       @if (d(); as x) {
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           @for (b of [[x.firstResponse, 'SlaReport.firstResponse', 'brand'], [x.resolution, 'SlaReport.resolution', 'violet']]; track $index) {
             <div [class]="stat + ' ' + $any(tone)[$any(b[2])].box"><p class="text-sm font-semibold" [class]="$any(tone)[$any(b[2])].ink">{{ $any(b[1]) | t }}</p>
               <p class="text-3xl font-bold" [class]="$any(tone)[$any(b[2])].ink">{{ $any(b[0]).pct === null ? ('SlaReport.none' | t) : $any(b[0]).pct + '%' }}</p>
@@ -317,7 +317,7 @@ interface SlaData {
         @if (strip(); as st) {
           <section [attr.aria-label]="'SlaClock.strip_title' | t" class="flex flex-col gap-2">
             <h2 class="text-lg font-bold">{{ 'SlaClock.strip_title' | t }}</h2>
-            <dl class="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <dl class="grid grid-cols-2 gap-4 md:grid-cols-4">
               @for (s of [['green', 'strip_onTrack', 'ok', ''], ['yellow', 'strip_close', 'warn', ''], ['red', 'strip_red', 'danger', 'due_soon'], ['overdue', 'strip_overdue', 'danger', 'breached']]; track s[0]) {
                 @if (s[3]) {
                   <a [routerLink]="'/' + i18n.locale() + '/console'" [queryParams]="{ sla: s[3] }" [class]="stat + ' ' + $any(tone)[s[2]].box + ' cursor-pointer hover:brightness-95'"><dt class="text-sm font-semibold" [class]="$any(tone)[s[2]].ink">{{ 'SlaClock.' + s[1] | t }}</dt><dd class="text-3xl font-bold" [class]="$any(tone)[s[2]].ink">{{ $any(st)[s[0]] }}</dd></a>
@@ -330,7 +330,7 @@ interface SlaData {
           </section>
         }
         <section><h2 class="mb-1 text-lg font-bold">{{ 'SlaReport.cyclesTitle' | t }}</h2><p class="mb-3 max-w-prose text-sm text-muted">{{ 'SlaReport.cyclesHelp' | t }}</p>
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             @for (k of ['original', 'afterReopen']; track k) {
               <div [class]="stat + ' ' + tone[k === 'original' ? 'brand' : 'violet'].box"><h3 class="font-bold" [class]="tone[k === 'original' ? 'brand' : 'violet'].ink">{{ 'SlaReport.' + k | t }}</h3><p class="text-sm text-muted">{{ 'SlaReport.cycleCount' | t: { count: $any(x)[k].n } }}</p>
                 <dl class="mt-3 grid grid-cols-2 gap-3">
@@ -340,7 +340,7 @@ interface SlaData {
             }
           </div></section>
         <section><h2 class="mb-3 text-lg font-bold">{{ 'SlaReport.now' | t }}</h2>
-          <dl class="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <dl class="grid grid-cols-2 gap-4 md:grid-cols-4">
             @for (s of [['breached', 'breached', 'danger'], ['due_soon', 'dueSoon', 'warn'], ['paused', 'paused', 'neutral'], ['on_track', 'onTrack', 'ok']]; track s[0]) {
               <div [class]="stat + ' ' + $any(tone)[s[2]].box"><dt class="text-sm font-semibold" [class]="$any(tone)[s[2]].ink">{{ 'SlaReport.' + s[1] | t }}</dt><dd class="text-3xl font-bold" [class]="$any(tone)[s[2]].ink">{{ x.now[s[0]] ?? 0 }}</dd></div>
             }

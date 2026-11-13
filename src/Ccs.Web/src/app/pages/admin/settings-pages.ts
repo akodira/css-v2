@@ -177,7 +177,7 @@ interface MenuFull extends Omit<MenuRow, 'audience'> { audience: string; isVisib
     @for (area of areas; track area) {
       <section class="flex flex-col gap-3">
         <div><h2 class="text-xl font-bold">{{ 'AdminGeneral.menuArea.' + area | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.menuAreaHint.' + area | t }}</p></div>
-        <ul class="flex flex-col gap-3">
+        <ul class="flex flex-col gap-4">
           @for (r of itemsOf(area); track r.id) {
             <li class="rounded-xl border border-line bg-surface shadow-card" [class.ms-6]="!!r.parentId">
               <div class="flex flex-wrap items-center gap-2 px-3 py-3">
@@ -312,6 +312,8 @@ interface EmailData {
       </section>
 
     }`,
+  // Space between the boxes, as on the other tabs.
+  host: { class: 'flex flex-col gap-6' },
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class EmailTab extends Tab implements OnInit {
@@ -943,7 +945,7 @@ export class SystemTab extends Tab implements OnInit {
     ${MSG}
     <p class="max-w-prose text-muted">{{ 'AdminSigninCodes.intro' | t }}</p>
     @if (m) {
-      <form class="flex max-w-xl flex-col gap-4" (ngSubmit)="submit()">
+      <form class="flex max-w-xl flex-col gap-6" (ngSubmit)="submit()">
         <section [class]="cls.card + ' flex flex-col gap-4 p-4'">
           <label class="flex items-start justify-between gap-3"><span><span class="font-semibold">{{ 'AdminSigninCodes.switch' | t }}</span>
             <span class="ms-2 rounded-full px-2 py-0.5 text-xs font-bold" [class]="m.enabled ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (m.enabled ? 'AdminSigninCodes.on' : 'AdminSigninCodes.off') | t }}</span>
@@ -1048,6 +1050,8 @@ interface HandoverData {
         }
       </section>
     }`,
+  // Space between the boxes, as on the other tabs.
+  host: { class: 'flex flex-col gap-6' },
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class HandoverTab extends Tab implements OnInit {

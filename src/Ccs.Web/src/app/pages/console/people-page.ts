@@ -76,7 +76,7 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
           @if (rows().length === 0) {
             <p class="text-muted">{{ (d.people.length ? 'People.noMatch' : 'People.empty') | t }}</p>
           } @else {
-            <ul class="flex flex-col gap-2">
+            <ul class="flex flex-col gap-4">
               @for (p of rows(); track p.id) {
                 <li class="rounded-xl border border-line bg-surface shadow-card">
                   <button type="button" [attr.aria-expanded]="open() === p.id" (click)="toggle(p)" class="flex w-full cursor-pointer flex-col gap-0.5 p-4 text-start">

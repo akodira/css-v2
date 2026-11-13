@@ -407,7 +407,7 @@ export class TypeEditor implements OnInit {
         <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'Permissions.addType' | t }}</span></summary>
         <div class="px-5 pb-5">@if (lk()) { <app-type-editor #te [lk]="lk()" [busy]="busy()" (save)="create($event, te, add)" /> }</div>
       </details>
-      <ul class="flex flex-col gap-3">
+      <ul class="flex flex-col gap-4">
         @for (t of rows() ?? []; track t.id) {
           <li><details [class]="cls.card">
             <summary [class]="cls.summary">

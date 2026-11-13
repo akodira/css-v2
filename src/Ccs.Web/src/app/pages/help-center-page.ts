@@ -72,7 +72,7 @@ const haystack = (a: Article | Flow, locale: string): string => {
             @if (areaBlurb(); as b) { <p class="text-sm text-muted">{{ b }}</p> }
 
             @if (show('features')) {
-              <section class="flex flex-col gap-3" [attr.aria-label]="'Help.tab.features' | t">
+              <section class="flex flex-col gap-4" [attr.aria-label]="'Help.tab.features' | t">
                 @if (q()) { <h2 class="text-lg font-bold">{{ 'Help.tab.features' | t }}</h2> }
                 @for (a of features(); track a.id) {
                   <article [id]="a.id" class="flex flex-col gap-3 rounded-xl border border-line bg-surface p-5 shadow-card">
@@ -89,7 +89,7 @@ const haystack = (a: Article | Flow, locale: string): string => {
             }
 
             @if (show('flows')) {
-              <section class="flex flex-col gap-3" [attr.aria-label]="'Help.tab.flows' | t">
+              <section class="flex flex-col gap-4" [attr.aria-label]="'Help.tab.flows' | t">
                 @if (q()) { <h2 class="text-lg font-bold">{{ 'Help.tab.flows' | t }}</h2> }
                 @for (f of flowList(); track f.id) {
                   <article [id]="f.id" class="flex flex-col gap-3 rounded-xl border border-line bg-surface p-5 shadow-card">

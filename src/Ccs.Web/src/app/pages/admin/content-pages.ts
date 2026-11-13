@@ -112,7 +112,7 @@ const blankReason = (): ReasonModel => ({ nameEn: '', nameAr: '', customerMayReo
             <label class="${CHECK}"><input type="checkbox" [name]="id + 'ac'" class="h-5 w-5" [(ngModel)]="m.isActive" [disabled]="system" /> {{ 'AdminStatus.active' | t }}</label>
           </div>
         </ng-template>
-        <ul class="flex flex-col gap-2">
+        <ul class="flex flex-col gap-4">
           @for (r of data()?.reasons ?? []; track r.code) {
             <li><details [class]="cls.card">
               <summary [class]="cls.summary"><span class="flex flex-wrap items-center gap-2"><span class="font-bold" dir="auto">{{ i18n.pick(r.nameEn, r.nameAr) }}</span>

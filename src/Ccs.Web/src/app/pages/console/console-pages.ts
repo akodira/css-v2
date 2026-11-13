@@ -47,7 +47,7 @@ const SLA_TONE: Record<string, string> = {
         <button type="button" (click)="paused.set(!paused())" class="min-h-10 cursor-pointer rounded-lg border border-line bg-surface px-3 font-semibold text-ink hover:bg-bg">{{ (paused() ? 'AutoRefresh.resume' : 'AutoRefresh.pause') | t }}</button>
       </div>
 
-      <dl class="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <dl class="grid grid-cols-2 gap-4 md:grid-cols-5">
         <div [class]="stat + ' border-s-4 border-s-brand bg-brand-soft'"><dt class="text-sm font-semibold text-brand-ink">{{ 'Console.summary.mine' | t }}</dt><dd class="text-3xl font-bold text-brand-ink">{{ counts()?.mine ?? 0 }}</dd></div>
         <div [class]="stat + ' border-s-4 border-s-violet-500 bg-violet-50'"><dt class="text-sm font-semibold text-violet-800">{{ 'Console.summary.unassigned' | t }}</dt><dd class="text-3xl font-bold text-violet-800">{{ counts()?.unassigned ?? 0 }}</dd></div>
         <div [class]="stat + ' border-s-4 border-s-danger bg-danger-soft'"><dt class="text-sm font-semibold text-danger">{{ 'Console.summary.breached' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ counts()?.breached ?? 0 }}</dd></div>

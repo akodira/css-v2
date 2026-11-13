@@ -72,7 +72,7 @@ const blankType = (): TypeModel => ({ nameEn: '', nameAr: '', descriptionEn: '',
         </form>
       </details>
 
-      <ul class="flex flex-col gap-3">
+      <ul class="flex flex-col gap-4">
         @for (t of data()?.types ?? []; track t.id) {
           <li><details [class]="cls.card">
             <summary [class]="cls.summary">
