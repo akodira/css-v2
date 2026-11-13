@@ -1,0 +1,17 @@
+{
+  "name": "ccs-e2e",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Browser tests for CCS v2 (one spec file per test sheet). Runs against a LOCAL copy only.",
+  "scripts": {
+    "test": "playwright test",
+    "test:captcha": "cross-env CCS_CAPTCHA=on playwright test",
+    "report": "playwright show-report",
+    "results": "python scripts/results_to_xlsx.py"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^22.0.0",
+    "cross-env": "^7.0.3"
+  }
+}
