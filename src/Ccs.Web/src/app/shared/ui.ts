@@ -61,7 +61,7 @@ let fieldSeq = 0;
         <input [id]="id" [name]="name()" [type]="type() === 'password' && shown() ? 'text' : type()" [attr.autocomplete]="autocomplete()" [attr.dir]="type() === 'password' ? 'ltr' : dir()"
           [attr.maxlength]="maxLength()" [attr.placeholder]="placeholder() || null" [required]="required()" [value]="value()" (input)="value.set($any($event.target).value)"
           [attr.aria-invalid]="error() ? true : null" [attr.aria-describedby]="error() ? id + '-err' : hint() ? id + '-hint' : null"
-          class="min-h-11 w-full rounded-lg border border-line bg-surface ps-3 text-base placeholder:text-muted read-only:bg-bg read-only:text-muted aria-[invalid=true]:border-danger" [class]="type() === 'password' ? 'pe-12' : 'pe-3'" />
+          class="min-h-11 w-full rounded-lg border border-line bg-surface text-base placeholder:text-muted read-only:bg-bg read-only:text-muted aria-[invalid=true]:border-danger" [class]="inputLayout()" />
         @if (type() === 'password') {
           <!-- v1 PasswordInput: eye button that shows or hides the text -->
           <button type="button" (click)="shown.set(!shown())" [attr.aria-pressed]="shown()" [attr.aria-label]="(shown() ? 'Auth.password.hide' : 'Auth.password.show') | t"
@@ -76,8 +76,21 @@ let fieldSeq = 0;
       @if (error()) { <p [id]="id + '-err'" class="text-sm font-medium text-danger">{{ 'Auth.errors.' + error() | t }}</p> }
     </div>`,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // [dir] is meant for the input only. Without this Angular also keeps dir="ltr" on the host element,
+  // which turns the label and hint left-to-right on Arabic pages.
+  host: { '[attr.dir]': 'null' },
 })
 export class TextField {
+  private readonly i18n = inject(I18n);
+  /** Padding and placeholder side. The input itself may be left-to-right (email, phone, password) while the
+   *  page is Arabic, so logical ps/pe would point at the wrong side: use the page direction instead. */
+  protected readonly inputLayout = computed(() => {
+    const rtlPage = this.i18n.dir() === 'rtl';
+    const inputLtr = this.type() === 'password' || this.dir() === 'ltr';
+    // The eye button sits at the end of the row in page direction: left on Arabic pages, right on English ones.
+    const pad = this.type() !== 'password' ? 'px-3' : rtlPage ? 'pl-12 pr-3' : 'pr-12 pl-3';
+    return rtlPage && inputLtr ? pad + ' placeholder:text-right' : pad;
+  });
   readonly id = `f${++fieldSeq}`;
   readonly name = input.required<string>();
   readonly label = input.required<string>();
