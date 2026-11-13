@@ -95,6 +95,33 @@ async function download(http: HttpClient, url: string): Promise<void> {
           </div>
         }
 
+        @if (r.all) {
+          @for (p of perf(); track p.title) {
+            <section [class]="card">
+              <div class="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 class="text-lg font-bold">{{ p.title | t }}</h2>@if (canExport()) { <button type="button" [class]="btn2" (click)="exportCsv(p.kind)">{{ 'Reports.exportCsv' | t }}</button> }</div>
+              @if (!p.rows.length) { <p class="text-muted">{{ 'Reports.noData' | t }}</p> } @else {
+                <div class="relative overflow-x-auto"><table class="w-full min-w-[40rem] text-start text-sm">
+                  <thead><tr class="border-b border-line text-muted">@for (hh of [p.col, 'Reports.colTickets', 'Reports.colResolved', 'Reports.colOpen', 'Reports.colAvgFirst', 'Reports.colAvgResolve', 'Reports.colSla', 'Reports.colRating']; track hh) { <th scope="col" class="px-2 py-2 text-start font-semibold">{{ hh | t }}</th> }</tr></thead>
+                  <tbody>@for (x of p.rows; track $index) {
+                    <tr class="border-b border-line last:border-0"><th scope="row" class="px-2 py-2 text-start font-medium" dir="auto">{{ x.label }}</th>
+                      <td class="px-2 py-2">{{ x.m.total }}</td><td class="px-2 py-2">{{ x.m.resolved }}</td><td class="px-2 py-2">{{ x.m.open }}</td><td class="px-2 py-2">{{ h(x.m.avgFirst) }}</td><td class="px-2 py-2">{{ h(x.m.avgRes) }}</td>
+                      <td class="px-2 py-2">{{ pcText(x.m.slaMet, x.m.slaTotal) }}</td><td class="px-2 py-2">{{ x.m.avgRating === null ? '-' : x.m.avgRating + ' / 5' }}{{ x.m.ratings ? ' (' + x.m.ratings + ')' : '' }}</td></tr>
+                  }</tbody></table></div>
+              }
+            </section>
+          }
+          <section [class]="card">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 class="text-lg font-bold">{{ 'Reports.csat' | t }}</h2>@if (canExport()) { <button type="button" [class]="btn2" (click)="exportCsv('satisfaction')">{{ 'Reports.exportCsv' | t }}</button> }</div>
+            @if (!r.satisfaction.count) { <p class="text-muted">{{ 'Reports.csatNone' | t }}</p> } @else {
+              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div><p class="text-4xl font-bold">{{ r.satisfaction.average }} <span class="text-lg font-medium text-muted">/ 5</span></p><p class="mt-1 text-sm text-muted">{{ 'Reports.csatCountLine' | t: { count: r.satisfaction.count, resolved: r.satisfaction.resolvedTotal } }}</p></div>
+                <app-bar-list [rows]="stars()" />
+              </div>
+            }
+          </section>
+          <p class="text-sm text-muted">{{ 'Reports.note' | t }}</p>
+        }
+
         <section id="report-builder" [class]="card + ' flex flex-col gap-4'">
           <h2 class="text-xl font-bold">{{ 'Reports.builderTitle' | t }}</h2>
           <form class="flex flex-col gap-4" (ngSubmit)="runBuilder()">
@@ -158,33 +185,6 @@ async function download(http: HttpClient, url: string): Promise<void> {
             }
           }
         </section>
-        }
-
-        @if (r.all) {
-          @for (p of perf(); track p.title) {
-            <section [class]="card">
-              <div class="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 class="text-lg font-bold">{{ p.title | t }}</h2>@if (canExport()) { <button type="button" [class]="btn2" (click)="exportCsv(p.kind)">{{ 'Reports.exportCsv' | t }}</button> }</div>
-              @if (!p.rows.length) { <p class="text-muted">{{ 'Reports.noData' | t }}</p> } @else {
-                <div class="relative overflow-x-auto"><table class="w-full min-w-[40rem] text-start text-sm">
-                  <thead><tr class="border-b border-line text-muted">@for (hh of [p.col, 'Reports.colTickets', 'Reports.colResolved', 'Reports.colOpen', 'Reports.colAvgFirst', 'Reports.colAvgResolve', 'Reports.colSla', 'Reports.colRating']; track hh) { <th scope="col" class="px-2 py-2 text-start font-semibold">{{ hh | t }}</th> }</tr></thead>
-                  <tbody>@for (x of p.rows; track $index) {
-                    <tr class="border-b border-line last:border-0"><th scope="row" class="px-2 py-2 text-start font-medium" dir="auto">{{ x.label }}</th>
-                      <td class="px-2 py-2">{{ x.m.total }}</td><td class="px-2 py-2">{{ x.m.resolved }}</td><td class="px-2 py-2">{{ x.m.open }}</td><td class="px-2 py-2">{{ h(x.m.avgFirst) }}</td><td class="px-2 py-2">{{ h(x.m.avgRes) }}</td>
-                      <td class="px-2 py-2">{{ pcText(x.m.slaMet, x.m.slaTotal) }}</td><td class="px-2 py-2">{{ x.m.avgRating === null ? '-' : x.m.avgRating + ' / 5' }}{{ x.m.ratings ? ' (' + x.m.ratings + ')' : '' }}</td></tr>
-                  }</tbody></table></div>
-              }
-            </section>
-          }
-          <section [class]="card">
-            <div class="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 class="text-lg font-bold">{{ 'Reports.csat' | t }}</h2>@if (canExport()) { <button type="button" [class]="btn2" (click)="exportCsv('satisfaction')">{{ 'Reports.exportCsv' | t }}</button> }</div>
-            @if (!r.satisfaction.count) { <p class="text-muted">{{ 'Reports.csatNone' | t }}</p> } @else {
-              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div><p class="text-4xl font-bold">{{ r.satisfaction.average }} <span class="text-lg font-medium text-muted">/ 5</span></p><p class="mt-1 text-sm text-muted">{{ 'Reports.csatCountLine' | t: { count: r.satisfaction.count, resolved: r.satisfaction.resolvedTotal } }}</p></div>
-                <app-bar-list [rows]="stars()" />
-              </div>
-            }
-          </section>
-          <p class="text-sm text-muted">{{ 'Reports.note' | t }}</p>
         }
       }
     </main>`,
