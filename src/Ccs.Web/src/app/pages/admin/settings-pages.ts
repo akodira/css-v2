@@ -890,6 +890,8 @@ export class UploadsTab extends Tab implements OnInit {
       </form>
       <p class="text-sm text-muted">{{ 'AdminSettings.note' | t }}</p>
     }`,
+  // Space between the boxes (the other tabs wrap theirs in a flex column with a gap).
+  host: { class: 'flex flex-col gap-6' },
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class SystemTab extends Tab implements OnInit {
