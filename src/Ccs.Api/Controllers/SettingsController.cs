@@ -612,29 +612,41 @@ public sealed partial class SettingsController(
 
     // ================================================================ sign-in codes
 
-    public sealed record SigninCodesBody(bool Enabled, bool ForCustomers, bool ForStaff, bool ForAdmins, bool StaffNeedTwoFactor, int CodeLength, int ValidMinutes, int MaxAttempts, int CooldownSeconds, int DailyLimit);
+    /// <summary>Per group: off | with (two-step verification needed) | without.</summary>
+    public sealed record SigninCodesBody(bool Enabled, string CustomersMode, string StaffMode, string AdminsMode, int CodeLength, int ValidMinutes, int MaxAttempts, int CooldownSeconds, int DailyLimit);
 
     [HttpGet("signin-codes")]
     public async Task<object> SigninCodes(CancellationToken ct)
     {
         await Need(ct);
-        return await db.SigninCodeSettings.AsNoTracking().FirstOrDefaultAsync(ct) ?? new SigninCodeSettings();
+        var s = await db.SigninCodeSettings.AsNoTracking().FirstOrDefaultAsync(ct) ?? new SigninCodeSettings();
+        static string Mode(bool on, bool need) => !on ? "off" : need ? "with" : "without";
+        return new
+        {
+            s.Enabled, CustomersMode = Mode(s.ForCustomers, s.CustomersNeedTwoFactor), StaffMode = Mode(s.ForStaff, s.StaffNeedTwoFactor),
+            AdminsMode = Mode(s.ForAdmins, s.AdminsNeedTwoFactor), s.CodeLength, s.ValidMinutes, s.MaxAttempts, s.CooldownSeconds, s.DailyLimit,
+        };
     }
 
     [HttpPut("signin-codes")]
     public async Task<IActionResult> SaveSigninCodes(SigninCodesBody b, CancellationToken ct)
     {
         var c = await Need(ct);
-        if (b.Enabled && !b.ForCustomers && !b.ForStaff && !b.ForAdmins) throw Err("signinCodesNobody", "audience");
+        string[] modes = ["off", "with", "without"];
+        if (!modes.Contains(b.CustomersMode) || !modes.Contains(b.StaffMode) || !modes.Contains(b.AdminsMode)) throw Err("required", "mode");
+        if (b.Enabled && b.CustomersMode == "off" && b.StaffMode == "off" && b.AdminsMode == "off") throw Err("signinCodesNobody", "mode");
         if (b.CodeLength is < 4 or > 10) throw Err("number", "codeLength");
         if (b.ValidMinutes is < 1 or > 60) throw Err("number", "validMinutes");
         if (b.MaxAttempts is < 1 or > 10) throw Err("number", "maxAttempts");
         if (b.CooldownSeconds is < 0 or > 600) throw Err("number", "cooldownSeconds");
         if (b.DailyLimit is < 1 or > 100) throw Err("number", "dailyLimit");
         var s = await db.SigninCodeSettings.FirstOrDefaultAsync(ct) ?? db.SigninCodeSettings.Add(new SigninCodeSettings { Id = 1 }).Entity;
-        var before = new { s.Enabled, s.ForCustomers, s.ForStaff, s.ForAdmins, s.StaffNeedTwoFactor, s.CodeLength, s.ValidMinutes, s.MaxAttempts, s.CooldownSeconds, s.DailyLimit };
-        s.Enabled = b.Enabled; s.ForCustomers = b.ForCustomers; s.ForStaff = b.ForStaff; s.ForAdmins = b.ForAdmins;
-        s.StaffNeedTwoFactor = b.StaffNeedTwoFactor; s.Audience = b.ForStaff || b.ForAdmins ? "all" : "customers"; s.CodeLength = b.CodeLength; s.ValidMinutes = b.ValidMinutes;
+        var before = new { s.Enabled, s.ForCustomers, s.ForStaff, s.ForAdmins, s.CustomersNeedTwoFactor, s.StaffNeedTwoFactor, s.AdminsNeedTwoFactor, s.CodeLength, s.ValidMinutes, s.MaxAttempts, s.CooldownSeconds, s.DailyLimit };
+        s.Enabled = b.Enabled;
+        (s.ForCustomers, s.CustomersNeedTwoFactor) = (b.CustomersMode != "off", b.CustomersMode == "with");
+        (s.ForStaff, s.StaffNeedTwoFactor) = (b.StaffMode != "off", b.StaffMode == "with");
+        (s.ForAdmins, s.AdminsNeedTwoFactor) = (b.AdminsMode != "off", b.AdminsMode == "with");
+        s.Audience = s.ForStaff || s.ForAdmins ? "all" : "customers"; s.CodeLength = b.CodeLength; s.ValidMinutes = b.ValidMinutes;
         s.MaxAttempts = b.MaxAttempts; s.CooldownSeconds = b.CooldownSeconds; s.DailyLimit = b.DailyLimit;
         s.UpdatedAt = clock.UtcNow; s.UpdatedBy = c.UserId;
         audit.Write("settings.signin_codes", "signin_code_settings", null, before, b);

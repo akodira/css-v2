@@ -136,8 +136,10 @@ public class SigninCodeSettings
     public bool ForCustomers { get; set; } = true;
     public bool ForStaff { get; set; }
     public bool ForAdmins { get; set; }
-    /// <summary>Staff and administrators also need two-step verification (they pass it after the code).</summary>
+    /// <summary>Per group: the code is accepted only from accounts with two-step verification on (they pass it after the code).</summary>
+    public bool CustomersNeedTwoFactor { get; set; }
     public bool StaffNeedTwoFactor { get; set; } = true;
+    public bool AdminsNeedTwoFactor { get; set; } = true;
     public int CodeLength { get; set; } = 6;
     public int ValidMinutes { get; set; } = 10;
     public int MaxAttempts { get; set; } = 5;

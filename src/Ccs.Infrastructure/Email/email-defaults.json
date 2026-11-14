@@ -293,12 +293,12 @@
     "auth_signin_code_blocked": {
       "en": {
         "subject": "Turn on two-step verification to use sign-in codes",
-        "body": "Someone asked for a one-time sign-in code for your account. Staff and administrator accounts must have two-step verification turned on before they can sign in with a code, so no code was sent.\nSign in with your password, open your account page and turn on two-step verification, then ask for a code again. After the code you will also enter the code from your authenticator app.\nIf you did not ask for this, ignore this email.",
+        "body": "Someone asked for a one-time sign-in code for your account. Your account must have two-step verification turned on before you can sign in with a code, so no code was sent.\nSign in with your password, open your account page and turn on two-step verification, then ask for a code again. After the code you will also enter the code from your authenticator app.\nIf you did not ask for this, ignore this email.",
         "button": ""
       },
       "ar": {
         "subject": "فعّل التحقق بخطوتين لاستخدام رموز الدخول",
-        "body": "طلب أحدهم رمز دخول لمرة واحدة لحسابك. يجب على حسابات الموظفين والمسؤولين تفعيل التحقق بخطوتين قبل الدخول برمز، لذلك لم يُرسَل أي رمز.\nسجّل الدخول بكلمة المرور، وافتح صفحة حسابك وفعّل التحقق بخطوتين، ثم اطلب رمزًا مرة أخرى. وبعد إدخال الرمز ستُدخل أيضًا الرمز الظاهر في تطبيق المصادقة.\nإذا لم تطلب ذلك فتجاهل هذه الرسالة.",
+        "body": "طلب أحدهم رمز دخول لمرة واحدة لحسابك. يجب تفعيل التحقق بخطوتين في حسابك قبل الدخول برمز، لذلك لم يُرسَل أي رمز.\nسجّل الدخول بكلمة المرور، وافتح صفحة حسابك وفعّل التحقق بخطوتين، ثم اطلب رمزًا مرة أخرى. وبعد إدخال الرمز ستُدخل أيضًا الرمز الظاهر في تطبيق المصادقة.\nإذا لم تطلب ذلك فتجاهل هذه الرسالة.",
         "button": ""
       }
     },

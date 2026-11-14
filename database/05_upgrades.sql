@@ -73,3 +73,14 @@ BEGIN
     EXEC (N'UPDATE ccs.signin_code_settings SET for_staff = 1, for_admins = 1 WHERE audience = N''all'';');
 END
 GO
+
+/* Sign-in codes: with or without two-step verification is chosen per group (customers, staff, administrators).
+   Administrators start with the staff choice; customers start without. */
+IF COL_LENGTH(N'ccs.signin_code_settings', N'admins_need_two_factor') IS NULL
+BEGIN
+    ALTER TABLE ccs.signin_code_settings ADD
+        customers_need_two_factor bit NOT NULL CONSTRAINT DF_signin_code_customers_2fa DEFAULT 0,
+        admins_need_two_factor bit NOT NULL CONSTRAINT DF_signin_code_admins_2fa DEFAULT 1;
+    EXEC (N'UPDATE ccs.signin_code_settings SET admins_need_two_factor = staff_need_two_factor;');
+END
+GO

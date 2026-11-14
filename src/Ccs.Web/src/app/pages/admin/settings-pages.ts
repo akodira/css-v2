@@ -1069,22 +1069,35 @@ export class SystemTab extends Tab implements OnInit {
           <fieldset class="flex flex-col gap-3">
             <legend class="mb-1 text-lg font-bold">{{ 'AdminSigninCodes.who' | t }}${REQ}</legend>
             <p class="-mt-1 text-sm text-muted">{{ 'AdminSigninCodes.whoHint' | t }}</p>
-            <div class="flex flex-wrap gap-2">
-              <button type="button" class="min-h-9 rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:bg-bg" (click)="setAll(true)">{{ 'AdminSigninCodes.everyone' | t }}</button>
-              <button type="button" class="min-h-9 rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:bg-bg" (click)="setAll(false)">{{ 'AdminSigninCodes.clear' | t }}</button>
-            </div>
-            <div class="grid gap-3 sm:grid-cols-3">
-              @for (g of groups; track g[0]) {
-                <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3" [class]="$any(m)[g[0]] ? 'border-brand bg-brand-soft' : 'border-line'">
-                  <input type="checkbox" [name]="g[0]" class="mt-1 h-5 w-5 shrink-0" [(ngModel)]="$any(m)[g[0]]" />
-                  <span><span class="font-semibold">{{ 'AdminSigninCodes.g_' + g[1] | t }}</span><span class="block text-sm text-muted">{{ 'AdminSigninCodes.g_' + g[1] + 'Hint' | t }}</span></span></label>
+            <div class="grid gap-2 text-sm md:grid-cols-3">
+              @for (k of modes; track k) {
+                <div class="rounded-lg border border-line p-3"><b class="flex items-center gap-2"><span aria-hidden="true" class="inline-block size-2.5 rounded-sm" [class]="modeDot[k]"></span>{{ 'AdminSigninCodes.mode_' + k | t }}</b>
+                  <span class="text-muted">{{ 'AdminSigninCodes.mode_' + k + 'Hint' | t }}</span></div>
               }
             </div>
-            <p role="status" class="rounded-lg px-3 py-2 text-sm" [class]="whoText() ? 'bg-bg' : 'bg-warn-soft text-warn-ink'">{{ whoText() || ('AdminSigninCodes.nobody' | t) }}</p>
-            @if (m.forStaff || m.forAdmins) {
-              <label class="flex items-start gap-3"><input type="checkbox" name="tfa" class="mt-1 h-5 w-5 shrink-0" [(ngModel)]="m.staffNeedTwoFactor" />
-                <span><span class="font-semibold">{{ 'AdminSigninCodes.tfa' | t }}</span><span class="block text-sm text-muted">{{ (m.staffNeedTwoFactor ? 'AdminSigninCodes.tfaOnHint' : 'AdminSigninCodes.tfaOffHint') | t }}</span></span></label>
+            @for (g of groups; track g[0]) {
+              <div class="grid items-center gap-x-4 gap-y-2.5 rounded-xl border border-line p-3.5 md:grid-cols-[1fr_auto]">
+                <span [class.opacity-60]="$any(m)[g[0]] === 'off'"><span class="block font-semibold">{{ 'AdminSigninCodes.g_' + g[1] | t }}</span><span class="block text-sm text-muted">{{ 'AdminSigninCodes.g_' + g[1] + 'Hint' | t }}</span></span>
+                <div role="radiogroup" [attr.aria-label]="'AdminSigninCodes.g_' + g[1] | t" class="inline-grid grid-cols-3 overflow-hidden rounded-lg border border-[#7d8aa3]">
+                  @for (k of modes; track k) {
+                    <label class="flex min-h-11 cursor-pointer items-center justify-center border-s border-line px-3 text-center text-sm font-semibold first:border-s-0 has-[:focus-visible]:outline-3 has-[:focus-visible]:-outline-offset-3 has-[:focus-visible]:outline-brand"
+                      [class]="$any(m)[g[0]] === k ? modeOn[k] : 'hover:bg-bg'">
+                      <input type="radio" class="sr-only" [name]="g[0]" [value]="k" [(ngModel)]="$any(m)[g[0]]" />{{ 'AdminSigninCodes.short_' + k | t }}</label>
+                  }
+                </div>
+                <p class="m-0 flex flex-wrap items-center gap-1.5 rounded-lg px-2.5 py-2 text-[0.82rem] md:col-span-2" [class]="modeSays[$any(m)[g[0]]]">
+                  @if ($any(m)[g[0]] === 'off') { {{ 'AdminSigninCodes.saysOff' | t }} }
+                  @else {
+                    <b>{{ 'AdminSigninCodes.signInFlow' | t }}</b>
+                    <span class="rounded border border-line bg-surface px-1.5 font-semibold text-ink">{{ 'AdminSigninCodes.fEmail' | t }}</span><span aria-hidden="true" class="rtl:-scale-x-100">→</span>
+                    @if ($any(m)[g[0]] === 'with') { <span class="rounded border border-line bg-surface px-1.5 font-semibold text-ink">{{ 'AdminSigninCodes.fApp' | t }}</span><span aria-hidden="true" class="rtl:-scale-x-100">→</span> }
+                    <span class="rounded border border-line bg-surface px-1.5 font-semibold text-ink">{{ 'AdminSigninCodes.fDone' | t }}</span>
+                    <span>{{ ($any(m)[g[0]] === 'with' ? 'AdminSigninCodes.saysWith' : 'AdminSigninCodes.saysWithout') | t }}</span>
+                  }
+                </p>
+              </div>
             }
+            <p role="status" class="rounded-lg px-3 py-2 text-sm" [class]="whoText() ? 'bg-bg' : 'bg-warn-soft text-warn-ink'">{{ whoText() || ('AdminSigninCodes.nobody' | t) }}</p>
           </fieldset>
         </section>
         <section [class]="cls.card + ' flex flex-col gap-4 p-4'"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.rules' | t }}</h2>
@@ -1118,14 +1131,19 @@ export class SigninCodesTab extends Tab implements OnInit {
     { key: 'codeLength', label: 'length' }, { key: 'validMinutes', label: 'valid' }, { key: 'maxAttempts', label: 'attempts' },
     { key: 'cooldownSeconds', label: 'cooldown' }, { key: 'dailyLimit', label: 'daily' },
   ];
-  protected readonly groups = [['forCustomers', 'customers'], ['forStaff', 'staff'], ['forAdmins', 'admins']] as const;
-  protected m: { enabled: boolean; forCustomers: boolean; forStaff: boolean; forAdmins: boolean; staffNeedTwoFactor: boolean; codeLength: number; validMinutes: number; maxAttempts: number; cooldownSeconds: number; dailyLimit: number } | null = null;
+  /** Per group: off | with (two-step verification needed) | without. */
+  protected readonly groups = [['customersMode', 'customers'], ['staffMode', 'staff'], ['adminsMode', 'admins']] as const;
+  protected readonly modes = ['off', 'with', 'without'] as const;
+  protected readonly modeDot: Record<string, string> = { off: 'bg-[#7d8aa3]', with: 'bg-brand', without: 'bg-[#d97706]' };
+  protected readonly modeOn: Record<string, string> = { off: 'bg-bg text-muted', with: 'bg-brand text-white', without: 'bg-[#b45309] text-white' };
+  protected readonly modeSays: Record<string, string> = { off: 'bg-bg text-muted', with: 'bg-brand-soft text-brand-ink', without: 'bg-warn-soft text-warn-ink' };
+  protected m: { enabled: boolean; customersMode: string; staffMode: string; adminsMode: string; codeLength: number; validMinutes: number; maxAttempts: number; cooldownSeconds: number; dailyLimit: number } | null = null;
   async ngOnInit(): Promise<void> { this.m = await this.get('signin-codes'); }
-  protected setAll(on: boolean): void { const m = this.m; if (m) { m.forCustomers = m.forStaff = m.forAdmins = on; } }
-  /** "Can use codes: customers and staff." or '' when nobody is ticked. */
+  /** "Codes on for: customers (without two-step), staff (with two-step)." or '' when every group is off. */
   protected whoText(): string {
     const m = this.m; if (!m) return '';
-    const names = this.groups.filter((g) => m[g[0]]).map((g) => this.i18n.t('AdminSigninCodes.n_' + g[1]));
+    const names = this.groups.filter((g) => m[g[0]] !== 'off')
+      .map((g) => this.i18n.t('AdminSigninCodes.n_' + g[1]) + ' (' + this.i18n.t('AdminSigninCodes.short_' + m[g[0]]) + ')');
     const and = this.i18n.t('AdminSigninCodes.and');
     // English: "a, b and c"; Arabic joins every name with "و".
     const who = this.i18n.locale() === 'ar' || names.length < 3 ? names.join(and) : names.slice(0, -1).join(', ') + and + names.at(-1);
@@ -1133,7 +1151,7 @@ export class SigninCodesTab extends Tab implements OnInit {
   }
   protected submit(): void {
     const m = this.m!;
-    void this.save(() => this.put('signin-codes', { enabled: m.enabled, forCustomers: m.forCustomers, forStaff: m.forStaff, forAdmins: m.forAdmins, staffNeedTwoFactor: m.staffNeedTwoFactor, codeLength: Number(m.codeLength), validMinutes: Number(m.validMinutes), maxAttempts: Number(m.maxAttempts), cooldownSeconds: Number(m.cooldownSeconds), dailyLimit: Number(m.dailyLimit) }));
+    void this.save(() => this.put('signin-codes', { enabled: m.enabled, customersMode: m.customersMode, staffMode: m.staffMode, adminsMode: m.adminsMode, codeLength: Number(m.codeLength), validMinutes: Number(m.validMinutes), maxAttempts: Number(m.maxAttempts), cooldownSeconds: Number(m.cooldownSeconds), dailyLimit: Number(m.dailyLimit) }));
   }
 }
 

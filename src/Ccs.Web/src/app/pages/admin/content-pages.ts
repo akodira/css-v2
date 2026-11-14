@@ -6,6 +6,7 @@ import { TPipe } from '../../core/i18n';
 import { SiteService } from '../../core/api';
 import { Alert, Req, TONE_CLASS, Tone } from '../../shared/ui';
 import { AdminBase, HEADER, SEARCH } from './admin-pages';
+import { PageAbout } from '../../shared/page-about';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
 
@@ -238,10 +239,85 @@ interface EscBranch { id: string; organizationId: string; name: string; isActive
 
 @Component({
   selector: 'app-admin-escalation',
-  imports: [TPipe, Alert],
+  imports: [TPipe, Alert, PageAbout],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'Escalation.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'Escalation.subtitle' | t }}</p></div>
+      <app-page-about key="escalation" tile="up" [points]="['users', 'building', 'swap', 'map']" />
+
+      <div class="grid gap-6 lg:grid-cols-[1.25fr_1fr]">
+        <!-- Example: who Sara can send the ticket to under each setting -->
+        <section [class]="card" aria-labelledby="ex">
+          <h2 id="ex" class="text-xl font-bold">{{ 'Escalation.ex.title' | t }}</h2>
+          <p class="mt-1 text-sm text-muted">{{ 'Escalation.ex.help' | t }}</p>
+          <div role="group" [attr.aria-label]="'Escalation.applyMode' | t" class="mt-4 flex flex-wrap gap-2">
+            @for (m of exModes; track m) {
+              <button type="button" [attr.aria-pressed]="exMode() === m" (click)="exMode.set(m)" class="min-h-10 cursor-pointer rounded-full border px-4 text-sm font-semibold"
+                [class]="exMode() === m ? 'border-ink bg-ink text-white' : 'border-line bg-surface hover:bg-bg'">{{ 'Escalation.mode_' + m | t }}</button>
+            }
+          </div>
+          <ol class="mt-4 flex flex-wrap items-stretch gap-y-3" [attr.aria-label]="'Escalation.chainTitle' | t">
+            @for (s of exSteps; track s.k; let last = $last) {
+              <li class="flex items-stretch">
+                <div class="rounded-xl border-2 p-3 w-40 transition-colors" [class]="exClass(s.k)">
+                  <span class="block text-[11px] font-bold uppercase tracking-wide text-muted">{{ 'Escalation.ex.' + s.k + 'Role' | t }}</span>
+                  <b class="block" dir="auto">{{ 'Escalation.ex.' + s.k + 'Name' | t }}</b>
+                  <span class="block text-[13px] text-muted" dir="auto">{{ 'Escalation.ex.' + s.k + 'Where' | t }}</span>
+                </div>
+                @if (!last) { <span aria-hidden="true" class="flex w-5 shrink-0 items-center justify-center text-xl text-brand rtl:rotate-180">›</span> }
+              </li>
+            }
+          </ol>
+          <div class="mt-3 flex flex-wrap gap-4 text-[13px] text-muted">
+            <span class="flex items-center gap-1.5"><i aria-hidden="true" class="inline-block size-3 rounded-sm border-2 border-brand bg-brand-soft"></i>{{ 'Escalation.ex.lgMe' | t }}</span>
+            <span class="flex items-center gap-1.5"><i aria-hidden="true" class="inline-block size-3 rounded-sm border-2 border-ok bg-ok-soft"></i>{{ 'Escalation.ex.lgCan' | t }}</span>
+            <span class="flex items-center gap-1.5"><i aria-hidden="true" class="inline-block size-3 rounded-sm border-2 border-dashed border-[#7d8aa3]"></i>{{ 'Escalation.ex.lgNo' | t }}</span>
+          </div>
+          <p role="status" class="mt-3 rounded-lg bg-bg px-3 py-2.5 text-sm">{{ 'Escalation.ex.says_' + exMode() | t }}</p>
+        </section>
+
+        <!-- What the agent sees on the ticket -->
+        <section [class]="card" aria-labelledby="exT">
+          <h2 id="exT" class="text-xl font-bold">{{ 'Escalation.ex.ticketTitle' | t }}</h2>
+          <p class="mt-1 text-sm text-muted">{{ 'Escalation.ex.ticketHelp' | t }}</p>
+          @if (exMode() === 'off') {
+            <p class="mt-4 rounded-xl border border-dashed border-[#7d8aa3] p-4 text-sm text-muted">{{ 'Escalation.ex.ticketOff' | t }}</p>
+          } @else {
+            <div aria-hidden="true" class="mt-4 flex flex-col gap-2.5 rounded-xl border border-line p-4">
+              <b>{{ 'Escalation.ticketTitle' | t }}</b>
+              <span class="text-sm font-semibold">{{ 'Escalation.route' | t }}</span>
+              <span class="flex min-h-11 items-center justify-between rounded-lg border border-[#7d8aa3] px-3 text-sm"><span dir="auto">{{ 'Escalation.ex.s1Option' | t }}@if (exMode() === 'any') { <span class="text-muted"> (+2)</span> }</span><span>▾</span></span>
+              <span class="text-sm font-semibold">{{ 'Escalation.reason' | t }} <span class="text-danger">*</span></span>
+              <span class="flex min-h-16 rounded-lg border border-[#7d8aa3] px-3 py-2 text-sm text-muted">{{ 'Escalation.ex.reasonHint' | t }}</span>
+              <span class="inline-flex min-h-11 items-center self-start rounded-lg bg-brand px-4 font-bold text-white">{{ 'Escalation.submit' | t }}</span>
+            </div>
+          }
+        </section>
+      </div>
+
+      <!-- How to apply -->
+      <section [class]="card" aria-labelledby="apply">
+        <h2 id="apply" class="text-xl font-bold">{{ 'Escalation.ap.title' | t }}</h2>
+        <ol class="mt-4 flex flex-col gap-3">
+          @for (n of [1, 2, 3]; track n) {
+            <li class="flex items-start gap-3"><span aria-hidden="true" class="grid size-8 shrink-0 place-items-center rounded-full bg-brand font-bold text-white">{{ n }}</span>
+              <span><b class="block">{{ 'Escalation.ap.s' + n + 't' | t }}</b><span class="text-sm text-muted">{{ 'Escalation.ap.s' + n | t }}</span></span></li>
+          }
+        </ol>
+        <p class="mt-4 rounded-lg bg-warn-soft px-3 py-2.5 text-sm text-warn-ink">{{ 'Escalation.ap.tip' | t }}</p>
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full min-w-[34rem] text-sm">
+            <thead><tr class="text-start text-[13px] text-muted"><th scope="col" class="px-2.5 py-2 text-start font-semibold">{{ 'Escalation.ap.thSetting' | t }}</th><th scope="col" class="px-2.5 py-2 text-start font-semibold">{{ 'Escalation.ap.thSees' | t }}</th><th scope="col" class="px-2.5 py-2 text-start font-semibold">{{ 'Escalation.ap.thWhen' | t }}</th></tr></thead>
+            <tbody>
+              @for (m of exModes; track m) {
+                <tr class="border-t border-line align-top"><td class="px-2.5 py-2.5"><span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="badge(m)">{{ 'Escalation.mode_' + m | t }}</span></td>
+                  <td class="px-2.5 py-2.5">{{ 'Escalation.ap.sees_' + m | t }}</td><td class="px-2.5 py-2.5 text-muted">{{ 'Escalation.ap.when_' + m | t }}</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section [class]="card" aria-labelledby="modes">
         <h2 id="modes" class="mb-1 text-xl font-bold">{{ 'Escalation.modesTitle' | t }}</h2>
         <p class="mb-4 text-sm text-muted">{{ 'Escalation.modesHelp' | t }}</p>
@@ -311,16 +387,22 @@ interface EscBranch { id: string; organizationId: string; name: string; isActive
           }
         </ol>
       </section>
-      <section [class]="card" aria-labelledby="how">
-        <h2 id="how" class="mb-2 text-xl font-bold">{{ 'Escalation.howTitle' | t }}</h2>
-        <ol class="list-decimal space-y-2 ps-5 text-muted">@for (n of [1, 2, 3, 4, 5, 6, 7]; track n) { <li>{{ 'Escalation.how' + n | t }}</li> }</ol>
-      </section>
     </main>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class AdminEscalationPage extends AdminBase implements OnInit {
   protected readonly card = 'rounded-xl border border-line bg-surface p-5 shadow-card';
   protected readonly modes = ['any', 'next', 'off', 'inherit'];
+  // Worked example at the top of the page (fixed names from the i18n file, not real data).
+  protected readonly exModes = ['any', 'next', 'off'] as const;
+  protected readonly exMode = signal<'any' | 'next' | 'off'>('any');
+  protected readonly exSteps = [{ k: 's0' }, { k: 's1' }, { k: 's2' }, { k: 's3' }, { k: 's4' }];
+  protected exClass(k: string): string {
+    if (k === 's0') return 'border-brand bg-brand-soft';
+    if (k === 's3') return 'border-dashed border-[#7d8aa3] opacity-60';
+    const can = this.exMode() === 'any' ? ['s1', 's2', 's4'] : this.exMode() === 'next' ? ['s1'] : [];
+    return can.includes(k) ? 'border-ok bg-ok-soft' : 'border-dashed border-[#7d8aa3] opacity-60';
+  }
   protected readonly data = signal<{ orgs: EscOrg[]; branches: EscBranch[] } | null>(null);
   protected readonly mode = signal('any');
   protected readonly selOrg = signal<string[]>([]);

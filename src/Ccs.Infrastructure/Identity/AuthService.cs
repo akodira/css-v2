@@ -139,7 +139,8 @@ public sealed class AuthService(
         // The reply on screen stays the same, so the form still cannot be used to discover accounts.
         var refusal = (group switch { "admins" => s.ForAdmins, "staff" => s.ForStaff, _ => s.ForCustomers }) ? null
             : "auth_signin_code_not_allowed";
-        if (refusal is null && group != "customers" && s.StaffNeedTwoFactor && !user.TwoFactorEnabled) refusal = "auth_signin_code_blocked";
+        var needs2fa = group switch { "admins" => s.AdminsNeedTwoFactor, "staff" => s.StaffNeedTwoFactor, _ => s.CustomersNeedTwoFactor };
+        if (refusal is null && needs2fa && !user.TwoFactorEnabled) refusal = "auth_signin_code_blocked";
         if (recent.Count >= s.DailyLimit) refusal = "auth_signin_code_limit";
 
         if (refusal is not null)
