@@ -12,6 +12,7 @@ namespace Ccs.Api.Controllers;
 
 public sealed record SignInBody([Required] string Identifier, [Required] string Password, string? CaptchaToken);
 public sealed record CodeBody([Required] string Code);
+public sealed record OptionalCodeBody(string? Code);
 public sealed record EmailBody([Required, EmailAddress] string Email, string? CaptchaToken);
 public sealed record EmailCodeBody([Required, EmailAddress] string Email, [Required] string Code);
 public sealed record ResetBody([Required, EmailAddress] string Email, [Required] string Code, [Required] string Password);
@@ -124,12 +125,15 @@ public sealed class AuthController(AuthService auth, CcsDbContext db, CaptchaVer
         return new { secret, otpauthUri = uri };
     }
 
-    /// <summary>Turning the second factor off needs a current code from it (security audit M-01).</summary>
+    /// <summary>
+    /// Turning the second factor off needs a current code from it (security audit M-01). When it is already off
+    /// there is nothing to protect, so no code (or no body) is needed; a missing code while it is on is a wrong code.
+    /// </summary>
     [HttpPost("mfa/disable")]
     [Authorize]
-    public async Task<IActionResult> DisableMfa(CodeBody body, CancellationToken ct)
+    public async Task<IActionResult> DisableMfa([FromBody(EmptyBodyBehavior = Microsoft.AspNetCore.Mvc.ModelBinding.EmptyBodyBehavior.Allow)] OptionalCodeBody? body, CancellationToken ct)
     {
-        await auth.DisableOwnMfaAsync(Me, body.Code, ct);
+        await auth.DisableOwnMfaAsync(Me, body?.Code, ct);
         return NoContent();
     }
 

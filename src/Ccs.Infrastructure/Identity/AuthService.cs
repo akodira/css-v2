@@ -348,7 +348,7 @@ public sealed class AuthService(
     /// The person turns their own second factor off (v1 disableMfaAction). Security audit M-01: it needs a current
     /// code from the authenticator, and the account lockout applies, so a stolen session alone cannot remove it.
     /// </summary>
-    public async Task DisableOwnMfaAsync(Guid userId, string code, CancellationToken ct = default)
+    public async Task DisableOwnMfaAsync(Guid userId, string? code, CancellationToken ct = default)
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthError("notSignedIn", 401);
         if (!user.TwoFactorEnabled) return;
