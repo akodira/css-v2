@@ -54,6 +54,18 @@ public sealed class AdminController(
         throw new ForbiddenException();
     }
 
+    /// <summary>
+    /// Security audit H-01: a non-admin with customers_manage / approve_customers acts only inside their own
+    /// organizations and branches (all-scope staff: everywhere), the same scope the customer screens show.
+    /// </summary>
+    private static bool Covers(AccessContext c, Guid? org, Guid? branch) => c.Admin || AccessRules.InScope(c, org, branch);
+
+    /// <summary>The placement a non-admin gives a customer must be inside their scope.</summary>
+    private static void RequirePlacementInScope(AccessContext c, Guid? org, Guid? branch)
+    {
+        if (!Covers(c, org, branch)) throw Err("outOfScope", "organizationId", 403);
+    }
+
     // ---------------------------------------------------------------- lookups
 
     [HttpGet("lookups")]
@@ -151,6 +163,7 @@ public sealed class AdminController(
         if (await users.FindByEmailAsync(email) is not null) throw Err("emailTaken", "email", 409);
         await CheckPhoneAsync(b.Phone, null, ct);
         await CheckPlacementAsync(b.OrganizationId, b.BranchId, ct);
+        RequirePlacementInScope(c, b.OrganizationId, b.BranchId);
         if (b.Role != RoleCode.Customer) await CheckTypeAsync(b.AccountTypeId, ct);
 
         var user = new AppUser { Id = Guid.NewGuid(), UserName = email, Email = email, EmailConfirmed = true };
@@ -200,6 +213,7 @@ public sealed class AdminController(
             p.Email = email;
         }
         await CheckPlacementAsync(b.OrganizationId, b.BranchId, ct);
+        RequirePlacementInScope(c, b.OrganizationId, b.BranchId);
         p.OrganizationId = b.OrganizationId;
         p.BranchId = b.BranchId;
         if (b.Role == RoleCode.Customer)
@@ -297,9 +311,10 @@ public sealed class AdminController(
     [HttpPost("users/{id:guid}/approve")]
     public async Task<IActionResult> Approve(Guid id, ApproveBody b, CancellationToken ct)
     {
-        await Need(Permission.ApproveCustomers, ct);
-        var p = await PendingAsync(id, ct);
+        var c = await Need(Permission.ApproveCustomers, ct);
+        var p = await PendingAsync(c, id, ct);
         await CheckPlacementAsync(b.OrganizationId, b.BranchId, ct);
+        RequirePlacementInScope(c, b.OrganizationId, b.BranchId);
         p.OrganizationId = b.OrganizationId;
         p.BranchId = b.BranchId;
         p.AccountStatus = AccountStatus.Active;
@@ -314,8 +329,8 @@ public sealed class AdminController(
     [HttpPost("users/{id:guid}/reject")]
     public async Task<IActionResult> Reject(Guid id, RejectBody b, CancellationToken ct)
     {
-        await Need(Permission.ApproveCustomers, ct);
-        var p = await PendingAsync(id, ct);
+        var c = await Need(Permission.ApproveCustomers, ct);
+        var p = await PendingAsync(c, id, ct);
         p.AccountStatus = AccountStatus.Suspended;
         p.UpdatedAt = clock.UtcNow;
         audit.Write("user.reject", "profile", id, new { status = AccountStatus.PendingApproval }, new { status = p.AccountStatus, reason = b.Reason?.Trim() });
@@ -795,13 +810,15 @@ public sealed class AdminController(
     [HttpGet("approved")]
     public async Task<object> Approved(CancellationToken ct)
     {
-        await Need(Permission.ApproveCustomers, ct);
+        var c = await Need(Permission.ApproveCustomers, ct);
         var custIds = from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id where r.Code == RoleCode.Customer select ur.UserId;
-        var list = await (from p in db.Profiles.AsNoTracking()
+        var rows = await (from p in db.Profiles.AsNoTracking()
                           where p.AccountStatus == AccountStatus.Active && custIds.Contains(p.Id)
                           join o in db.Organizations on p.OrganizationId equals (Guid?)o.Id into os from o in os.DefaultIfEmpty()
                           join b in db.Branches on p.BranchId equals (Guid?)b.Id into bs from b in bs.DefaultIfEmpty()
-                          select new { p.Id, p.FullName, p.Email, p.Phone, Organization = o == null ? null : o.Name, Branch = b == null ? null : b.Name, RegisteredAt = p.CreatedAt }).ToListAsync(ct);
+                          select new { p.Id, p.FullName, p.Email, p.Phone, Organization = o == null ? null : o.Name, Branch = b == null ? null : b.Name, RegisteredAt = p.CreatedAt, p.OrganizationId, p.BranchId }).ToListAsync(ct);
+        // H-01: approvers below admin see only customers placed in their own scope.
+        var list = rows.Where(x => Covers(c, x.OrganizationId, x.BranchId)).ToList();
         var ids = list.Select(x => x.Id).ToList();
         var logs = await (from l in db.AuditLogs.AsNoTracking()
                           where (l.Action == "user.approve" || l.Action == "customer.approved") && l.EntityId != null && ids.Contains(l.EntityId.Value)
@@ -836,12 +853,16 @@ public sealed class AdminController(
         var p = await db.Profiles.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
         var role = await RoleOfAsync(id, ct);
         var c = await Need(role == RoleCode.Customer ? Permission.CustomersManage : null, ct);
+        // H-01: a customer outside the caller's scope does not exist for them (same 404 as the profile screen).
+        if (!Covers(c, p.OrganizationId, p.BranchId)) throw new NotFoundException();
         return (c, p, role);
     }
 
-    private async Task<Profile> PendingAsync(Guid id, CancellationToken ct)
+    private async Task<Profile> PendingAsync(AccessContext c, Guid id, CancellationToken ct)
     {
         var p = await db.Profiles.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        // Same rule as the pending list: unplaced sign-ups are offered to every approver, placed ones only in scope.
+        if (p.OrganizationId is not null && !Covers(c, p.OrganizationId, p.BranchId)) throw new NotFoundException();
         if (p.AccountStatus != AccountStatus.PendingApproval) throw Err("not_pending_approval");
         return p;
     }
