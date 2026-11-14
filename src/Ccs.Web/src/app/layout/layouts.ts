@@ -51,7 +51,7 @@ const ITEM_ICON: Record<string, string> = {
 /** Where each menu address lives in this version. Screens not built yet are left out of the menu. */
 const ROUTE: Record<string, string> = {
   '/console/dashboard': '/console/dashboard', '/console': '/console', '/console/canned': '/console/canned', '/console/approvals': '/console/approvals',
-  '/console/customers': '/console/customers', '/kb': '/kb',
+  '/console/customers': '/console/customers', '/kb': '/console/kb', '/console/kb': '/console/kb',
   '/admin/users': '/admin/users', '/admin/customers': '/console/customers', '/admin/teams': '/admin/teams', '/admin/permissions': '/admin/permissions',
   '/admin/organizations': '/admin/organizations', '/admin/escalation': '/admin/escalation', '/admin/catalog': '/admin/catalog', '/admin/ticket-types': '/admin/ticket-types',
   '/admin/priorities': '/admin/priorities', '/admin/ticket-status': '/admin/ticket-status', '/admin/kb': '/admin/kb', '/admin/sla': '/admin/sla',

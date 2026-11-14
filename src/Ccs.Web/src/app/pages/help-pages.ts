@@ -24,14 +24,14 @@ interface KbArticle {
   selector: 'app-kb-list',
   imports: [TPipe, RouterLink],
   template: `
-    <main class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10">
+    <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div>
         <h1 class="text-3xl font-bold tracking-tight">{{ 'Kb.title' | t }}</h1>
         <p class="mt-1 text-muted">{{ 'Kb.subtitle' | t }}</p>
       </div>
-      <form role="search" class="flex gap-2" (submit)="$event.preventDefault(); load()">
+      <form role="search" class="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-4 shadow-card" (submit)="$event.preventDefault(); load()">
         <label for="kbq" class="sr-only">{{ 'Kb.search' | t }}</label>
-        <input id="kbq" type="search" dir="auto" maxlength="100" [placeholder]="'Kb.searchPlaceholder' | t" [class]="cls.input" [value]="q()" (input)="q.set($any($event.target).value)" />
+        <input id="kbq" type="search" dir="auto" maxlength="100" [placeholder]="'Kb.searchPlaceholder' | t" [class]="cls.input + ' min-w-0 flex-1'" [value]="q()" (input)="q.set($any($event.target).value)" />
         <button type="submit" [class]="cls.btn">{{ 'Kb.searchButton' | t }}</button>
       </form>
       @if (cats().length) {
@@ -46,7 +46,7 @@ interface KbArticle {
       @if (loaded() && !items().length) { <p class="text-muted">{{ (q() || cat() ? 'Kb.noResults' : 'Kb.empty') | t }}</p> }
       <ul class="flex flex-col gap-4">
         @for (a of items(); track a.id) {
-          <li class="rounded-md border border-line bg-surface p-5">
+          <li class="rounded-xl border border-line bg-surface p-5 shadow-card">
             <a [routerLink]="kbBase() + '/' + a.slug" class="text-lg font-bold text-brand-ink underline" dir="auto">{{ i18n.pick(a.titleEn, a.titleAr) }}</a>
             <p class="mt-1 text-sm text-muted">{{ meta(a) }}</p>
           </li>
@@ -88,7 +88,7 @@ export class KbListPage implements OnInit {
   selector: 'app-kb-article',
   imports: [TPipe, RouterLink, Alert],
   template: `
-    <main class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-10">
+    <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <a [routerLink]="kbBase()" class="text-sm font-semibold text-brand-ink hover:underline">← {{ 'Kb.title' | t }}</a>
       @if (missing()) { <app-alert>{{ 'Directory.errors.notFound' | t }}</app-alert> }
       @if (a(); as x) {
@@ -115,10 +115,12 @@ export class KbListPage implements OnInit {
             <ul class="mt-2 flex flex-col gap-1">@for (r of x.related; track r.slug) { <li><a [routerLink]="kbBase() + '/' + r.slug" class="text-brand-ink hover:underline" dir="auto">{{ i18n.pick(r.titleEn, r.titleAr) }}</a></li> }</ul>
           </section>
         }
+        @if (!auth.isStaff()) {
         <section [class]="cls.card + ' flex flex-wrap items-center justify-between gap-3 p-5'">
           <p class="font-semibold">{{ 'Kb.stillNeedHelp' | t }}</p>
           <a [routerLink]="'/' + i18n.locale() + (auth.signedIn() ? '/tickets/new' : '/login')" [class]="cls.btn + ' inline-flex items-center'">{{ 'Kb.openTicket' | t }}</a>
         </section>
+        }
       }
     </main>`,
 })
