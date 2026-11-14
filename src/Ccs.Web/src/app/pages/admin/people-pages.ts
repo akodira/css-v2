@@ -1,8 +1,10 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, model, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Lookups, OrgRow, BranchRow, TeamRow, TeamsResult, generatePassword } from '../../core/admin-api';
+import { Auth } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { Alert, Req, ReqNote } from '../../shared/ui';
 import { AdminBase, CLS, TurnBack } from './admin-pages';
@@ -799,7 +801,7 @@ interface ApprovedRow { id: string; fullName: string; email: string; phone: stri
 
 @Component({
   selector: 'app-admin-approvals',
-  imports: [TPipe, Alert, FormsModule],
+  imports: [TPipe, Alert, FormsModule, RouterLink, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -847,36 +849,151 @@ interface ApprovedRow { id: string; fullName: string; email: string; phone: stri
           <span class="rounded-lg bg-brand-soft px-3 py-1 text-sm font-semibold text-brand-ink">{{ 'Approvals.approvedCount' | t: { n: done().length } }}</span>
         </div>
         <p class="max-w-prose text-sm text-muted">{{ 'Approvals.approvedSubtitle' | t }}</p>
-        @if (!done().length) { <p class="rounded-md border border-line bg-surface p-6 text-muted">{{ 'Approvals.approvedEmpty' | t }}</p> } @else {
-          <div class="overflow-x-auto rounded-md border border-line bg-surface">
-            <table class="w-full min-w-[56rem] text-sm">
-              <thead class="bg-bg text-start text-muted"><tr>
-                @for (k of cols; track k) { <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Approvals.' + k | t }}</th> }
-              </tr></thead>
-              <tbody>
-                @for (u of done(); track u.id) {
-                  <tr class="border-t border-line align-top">
-                    <td class="px-4 py-3 font-semibold" dir="auto">{{ u.fullName || '-' }}</td>
-                    <td class="px-4 py-3" dir="ltr">{{ u.email }}</td>
-                    <td class="px-4 py-3" dir="ltr">{{ u.phone || '-' }}</td>
-                    <td class="px-4 py-3" dir="auto">{{ u.organization || '-' }}</td>
-                    <td class="px-4 py-3" dir="auto">{{ u.branch || '-' }}</td>
-                    <td class="whitespace-nowrap px-4 py-3">{{ i18n.date(u.registeredAt) }}</td>
-                    <td class="whitespace-nowrap px-4 py-3">{{ u.approvedAt ? i18n.date(u.approvedAt) : '-' }}</td>
-                    <td class="px-4 py-3" dir="auto">{{ u.approvedBy || '-' }}</td>
-                  </tr>
+        @if (!done().length) { <p class="rounded-xl border border-line bg-surface p-6 text-muted shadow-card">{{ 'Approvals.approvedEmpty' | t }}</p> } @else {
+          <!-- Design: docs/design/approved-accounts-sample.html -->
+          <div class="overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+            <form role="search" class="flex flex-wrap items-center gap-3 border-b border-line p-4" (submit)="$event.preventDefault()">
+              <label class="relative min-w-0 flex-[1_1_16rem]"><span class="sr-only">{{ 'Approvals.search' | t }}</span>
+                <svg aria-hidden="true" class="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-muted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+                <input type="search" maxlength="100" [placeholder]="'Approvals.searchPh' | t" [class]="cls.input + ' ps-10'" [ngModel]="aq()" (ngModelChange)="aq.set($event); page.set(1)" name="aq" /></label>
+              <label class="min-w-48 flex-1 sm:flex-none"><span class="sr-only">{{ 'Approvals.colOrg' | t }}</span>
+                <select [class]="cls.input" [ngModel]="aOrg()" (ngModelChange)="aOrg.set($event); page.set(1)" name="aorg">
+                  <option value="">{{ 'Approvals.allOrgs' | t }}</option>
+                  @for (o of doneOrgs(); track o) { <option [value]="o">{{ o }}</option> }
+                </select></label>
+              <label class="min-w-40 flex-1 sm:flex-none"><span class="sr-only">{{ 'Approvals.colApproved' | t }}</span>
+                <select [class]="cls.input" [ngModel]="aDays()" (ngModelChange)="aDays.set(+$event); page.set(1)" name="adays">
+                  <option [ngValue]="0">{{ 'Approvals.anyTime' | t }}</option>
+                  <option [ngValue]="30">{{ 'Approvals.lastDays' | t: { n: 30 } }}</option>
+                  <option [ngValue]="90">{{ 'Approvals.lastDays' | t: { n: 90 } }}</option>
+                </select></label>
+              <p role="status" class="ms-auto text-sm text-muted">{{ 'Approvals.showing' | t: { shown: filtered().length, total: done().length } }}</p>
+            </form>
+            @if (!filtered().length) { <p class="p-6 text-center text-muted">{{ 'Approvals.noMatch' | t }}</p> } @else {
+              <!-- Tablet and wider: four-column table -->
+              <table class="hidden w-full text-sm md:table">
+                <caption class="sr-only">{{ 'Approvals.approvedTitle' | t }}</caption>
+                <thead class="bg-bg/70 text-xs uppercase tracking-wide text-muted"><tr>
+                  <th scope="col" class="px-5 py-3 text-start font-bold">{{ 'Approvals.hCustomer' | t }}</th>
+                  <th scope="col" class="px-5 py-3 text-start font-bold">{{ 'Approvals.colPhone' | t }}</th>
+                  <th scope="col" class="px-5 py-3 text-start font-bold">{{ 'Approvals.hOrgBranch' | t }}</th>
+                  <th scope="col" class="px-5 py-3 text-start font-bold" [attr.aria-sort]="newestFirst() ? 'descending' : 'ascending'">
+                    <button type="button" class="inline-flex cursor-pointer items-center gap-1 uppercase tracking-wide text-brand-ink hover:underline" (click)="newestFirst.set(!newestFirst()); page.set(1)">
+                      {{ 'Approvals.colApproved' | t }}
+                      <svg aria-hidden="true" [class]="newestFirst() ? '' : 'rotate-180'" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+                      <span class="sr-only">{{ (newestFirst() ? 'Approvals.sortedNewest' : 'Approvals.sortedOldest') | t }}</span></button></th>
+                  @if (canOpen()) { <th scope="col" class="w-10"><span class="sr-only">{{ 'Approvals.open' | t }}</span></th> }
+                </tr></thead>
+                <tbody>
+                  @for (u of shown(); track u.id) {
+                    <tr class="border-t border-line align-middle transition-colors" [class]="canOpen() ? 'cursor-pointer hover:bg-bg/70' : ''" (click)="open(u)">
+                      <td class="px-5 py-3.5"><ng-container *ngTemplateOutlet="who; context: { $implicit: u }" /></td>
+                      <td class="px-5 py-3.5 text-start" dir="ltr">{{ u.phone || '—' }}</td>
+                      <td class="px-5 py-3.5"><ng-container *ngTemplateOutlet="org; context: { $implicit: u }" /></td>
+                      <td class="px-5 py-3.5"><ng-container *ngTemplateOutlet="when; context: { $implicit: u }" /></td>
+                      @if (canOpen()) { <td class="pe-4 text-end text-muted"><svg aria-hidden="true" class="inline rtl:-scale-x-100" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg></td> }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+              <!-- Phone: one small card per account -->
+              <ul class="flex flex-col md:hidden">
+                @for (u of shown(); track u.id) {
+                  <li class="flex flex-col gap-2 border-t border-line p-4 first:border-t-0" [class]="canOpen() ? 'cursor-pointer' : ''" (click)="open(u)">
+                    <ng-container *ngTemplateOutlet="who; context: { $implicit: u }" />
+                    <div class="ps-12"><ng-container *ngTemplateOutlet="org; context: { $implicit: u }" /></div>
+                    <div class="ps-12"><ng-container *ngTemplateOutlet="when; context: { $implicit: u }" /></div>
+                  </li>
                 }
-              </tbody>
-            </table>
+              </ul>
+            }
+            @if (pages() > 1) {
+              <nav [attr.aria-label]="'Approvals.pages' | t" class="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-bg/50 px-5 py-3 text-sm text-muted">
+                <span>{{ 'Approvals.pageOf' | t: { page: page(), pages: pages(), size: pageSize } }}</span>
+                <span class="flex gap-1.5">
+                  <button type="button" class="flex h-10 min-w-10 cursor-pointer items-center justify-center rounded-lg border border-line bg-surface px-2 font-semibold text-ink hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50" [disabled]="page() === 1" (click)="page.set(page() - 1)" [attr.aria-label]="'Approvals.prev' | t">
+                    <svg aria-hidden="true" class="rtl:-scale-x-100" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6" /></svg></button>
+                  @for (n of pageList(); track n) {
+                    <button type="button" class="flex h-10 min-w-10 cursor-pointer items-center justify-center rounded-lg border px-2 font-semibold" [class]="n === page() ? 'border-brand bg-brand text-white' : 'border-line bg-surface text-ink hover:bg-bg'" [attr.aria-current]="n === page() ? 'page' : null" (click)="page.set(n)">{{ n }}</button>
+                  }
+                  <button type="button" class="flex h-10 min-w-10 cursor-pointer items-center justify-center rounded-lg border border-line bg-surface px-2 font-semibold text-ink hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50" [disabled]="page() === pages()" (click)="page.set(page() + 1)" [attr.aria-label]="'Approvals.next' | t">
+                    <svg aria-hidden="true" class="rtl:-scale-x-100" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6" /></svg></button>
+                </span>
+              </nav>
+            }
           </div>
         }
       </section>
-    </main>`,
+    </main>
+
+    <ng-template #who let-u>
+      <div class="flex min-w-0 items-center gap-3">
+        <span aria-hidden="true" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold" [class]="avatarTone(u.id)">{{ initials(u.fullName) }}</span>
+        <div class="min-w-0">
+          @if (canOpen()) {
+            <a [routerLink]="profileLink(u)" (click)="$event.stopPropagation()" class="block truncate font-semibold hover:text-brand-ink hover:underline" dir="auto" [attr.aria-label]="'Approvals.openProfile' | t: { name: u.fullName || u.email }">{{ u.fullName || '-' }}</a>
+          } @else { <p class="truncate font-semibold" dir="auto">{{ u.fullName || '-' }}</p> }
+          <p class="truncate text-start text-xs text-muted" dir="ltr">{{ u.email }}</p>
+        </div>
+      </div>
+    </ng-template>
+    <ng-template #org let-u>
+      @if (u.organization) { <span class="inline-flex max-w-full truncate rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand-ink" dir="auto">{{ u.organization }}</span> }
+      @else { <span class="text-muted">—</span> }
+      <p class="mt-1 text-xs text-muted" dir="auto">{{ u.branch || ('Approvals.noBranch' | t) }}</p>
+    </ng-template>
+    <ng-template #when let-u>
+      <div class="flex flex-wrap items-center gap-1.5">
+        @if (u.approvedAt) { <span class="font-semibold">{{ i18n.date(u.approvedAt) }}</span> }
+        @else { <span class="rounded-full bg-bg px-2 py-0.5 text-xs font-semibold text-muted">{{ 'Approvals.addedDirectly' | t }}</span> }
+        @if (waitDays(u); as w) {
+          <span class="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold" [class]="w.days > 3 ? 'bg-warn-soft text-warn-ink' : 'bg-bg text-muted'">
+            {{ w.days === 0 ? ('Approvals.sameDay' | t) : ('Approvals.afterDays' | t: { n: w.days }) }}</span>
+        }
+      </div>
+      <p class="mt-1 text-xs text-muted" dir="auto">
+        @if (u.approvedBy) { {{ 'Approvals.by' | t: { name: u.approvedBy } }} · }{{ 'Approvals.registered' | t: { date: i18n.date(u.registeredAt) } }}</p>
+    </ng-template>`,
 })
 export class AdminApprovalsPage extends AdminBase implements OnInit {
   protected readonly rows = signal<PendingRow[] | null>(null);
   protected readonly done = signal<ApprovedRow[]>([]);
-  protected readonly cols = ['colName', 'colEmail', 'colPhone', 'colOrg', 'colBranch', 'colRegistered', 'colApproved', 'colApprovedBy'];
+  private readonly auth = inject(Auth);
+  private readonly router = inject(Router);
+  // Approved accounts table: search, filters, sort and pages (design docs/design/approved-accounts-sample.html).
+  protected readonly pageSize = 25;
+  protected readonly aq = signal('');
+  protected readonly aOrg = signal('');
+  protected readonly aDays = signal(0);
+  protected readonly newestFirst = signal(true);
+  protected readonly page = signal(1);
+  protected readonly doneOrgs = computed(() => [...new Set(this.done().map((u) => u.organization).filter((x): x is string => !!x))].sort((a, b) => a.localeCompare(b)));
+  protected readonly filtered = computed(() => {
+    const q = this.aq().trim().toLowerCase(), org = this.aOrg(), days = this.aDays();
+    const since = days ? Date.now() - days * 864e5 : 0;
+    const time = (u: ApprovedRow) => new Date(u.approvedAt ?? u.registeredAt).getTime();
+    return this.done()
+      .filter((u) => !q || [u.fullName, u.email, u.phone ?? ''].some((v) => (v ?? '').toLowerCase().includes(q)))
+      .filter((u) => !org || u.organization === org)
+      .filter((u) => !since || time(u) >= since)
+      .sort((a, b) => (this.newestFirst() ? time(b) - time(a) : time(a) - time(b)));
+  });
+  protected readonly pages = computed(() => Math.max(1, Math.ceil(this.filtered().length / this.pageSize)));
+  protected readonly shown = computed(() => { const p = Math.min(this.page(), this.pages()); return this.filtered().slice((p - 1) * this.pageSize, p * this.pageSize); });
+  protected readonly pageList = computed(() => Array.from({ length: this.pages() }, (_, i) => i + 1));
+  /** Rows open the customer's profile for people who may view customers (the profile needs that permission). */
+  protected readonly canOpen = computed(() => this.auth.has('customers_view') || !!this.auth.me()?.roles.includes('admin'));
+  protected profileLink(u: ApprovedRow): string { return `/${this.i18n.locale()}/console/customers/${u.id}`; }
+  protected open(u: ApprovedRow): void { if (this.canOpen()) void this.router.navigateByUrl(this.profileLink(u)); }
+  protected initials(name: string): string { return (name || '?').trim().split(/\s+/).map((w) => [...w][0] ?? '').slice(0, 2).join('').toUpperCase(); }
+  private static readonly AVATAR = ['bg-brand-soft text-brand-ink', 'bg-violet-100 text-violet-800', 'bg-ok-soft text-ok', 'bg-warn-soft text-warn-ink'];
+  protected avatarTone(id: string): string { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return AdminApprovalsPage.AVATAR[h % 4]; }
+  /** Whole days between registering and approval (null when there is no approval date). */
+  protected waitDays(u: ApprovedRow): { days: number } | null {
+    if (!u.approvedAt) return null;
+    const day = (s: string) => { const d = new Date(s); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
+    return { days: Math.max(0, Math.round((day(u.approvedAt) - day(u.registeredAt)) / 864e5)) };
+  }
   protected pick: Record<string, { org: string | null; branch: string | null; reason: string }> = {};
   protected readonly activeOrgs = computed(() => (this.lk()?.orgs ?? []).filter((o) => (o as { isActive?: boolean }).isActive !== false));
   protected activeBranches(org: string | null) { return this.branchesOf(org).filter((b) => (b as { isActive?: boolean }).isActive !== false); }
