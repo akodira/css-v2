@@ -44,8 +44,20 @@ export function problemOf(err: unknown): ApiProblem {
   return { status: 0, code: 'generic' };
 }
 
-let idleLimitMs = 5 * 60 * 1000;   // set from Settings > System rules after sign-in; 0 turns idle sign-out off
 const IDLE_KEY = 'ccs.lastActive';
+/** Last known limit, shared by every tab, so a change saved in Settings applies at once and a reopened tab uses it. */
+const IDLE_LIMIT_KEY = 'ccs.idleLimitMs';
+let idleLimitMs = 5 * 60 * 1000;   // set from Settings > System rules after sign-in; 0 turns idle sign-out off
+try { const v = localStorage.getItem(IDLE_LIMIT_KEY); if (v !== null && !Number.isNaN(Number(v))) idleLimitMs = Number(v); } catch { /* storage blocked */ }
+function setIdleLimit(minutes: number): void {
+  idleLimitMs = Math.max(0, minutes) * 60 * 1000;
+  try { localStorage.setItem(IDLE_LIMIT_KEY, String(idleLimitMs)); } catch { /* storage blocked */ }
+}
+/** The limit another tab may have just saved, else this tab's own. */
+function currentIdleLimit(): number {
+  try { const v = localStorage.getItem(IDLE_LIMIT_KEY); if (v !== null && !Number.isNaN(Number(v))) idleLimitMs = Number(v); } catch { /* storage blocked */ }
+  return idleLimitMs;
+}
 const IDLE_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'] as const;
 
 /**
@@ -94,7 +106,8 @@ export class Auth {
     this.touch(Date.now());
     for (const e of IDLE_EVENTS) window.addEventListener(e, this.onActivity, { passive: true, capture: true });
     this.idleTimer = setInterval(() => {
-      if (this.signedIn() && idleLimitMs > 0 && this.idleFor() > idleLimitMs) void this.idleSignOut();
+      const limit = currentIdleLimit();
+      if (this.signedIn() && limit > 0 && this.idleFor() > limit) void this.idleSignOut();
     }, 10000);
   }
   private stopIdleWatch(): void {
@@ -142,8 +155,14 @@ export class Auth {
 
   async loadMe(): Promise<void> {
     const me = await firstValueFrom(this.http.get<Me>('/api/me'));
-    idleLimitMs = (me.idleTimeoutMinutes ?? 5) * 60 * 1000;
+    setIdleLimit(me.idleTimeoutMinutes ?? 5);
     this.me.set(me);
+  }
+
+  /** Settings > System rules saved a new automatic sign-out time: use it in this session (and every open tab) now. */
+  applyIdleMinutes(minutes: number): void {
+    setIdleLimit(minutes);
+    this.touch(Date.now());   // the countdown starts again from the save
   }
 
   /** Where a person lands after signing in (same rule as homeFor() today). */

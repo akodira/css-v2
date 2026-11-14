@@ -931,7 +931,12 @@ export class SystemTab extends Tab implements OnInit {
     void this.save(() => this.put('system', { settings: this.pick(['password_min_length', 'password_require_upper', 'password_require_lower', 'password_require_number', 'password_require_special',
       'password_expiry_enabled', 'password_expiry_days', 'password_warn_1_days', 'password_warn_2_days', 'password_warn_3_days']) }));
   }
-  protected saveIdle(): void { void this.save(() => this.put('system', { settings: this.pick(['idle_timeout_minutes']) })); }
+  private readonly auth = inject(Auth);
+  /** Saves the automatic sign-out time and applies it to this session at once (other sessions pick it up at their next token renewal). */
+  protected async saveIdle(): Promise<void> {
+    const minutes = Number(this.n['idle_timeout_minutes']);
+    if (await this.save(() => this.put('system', { settings: this.pick(['idle_timeout_minutes']) }))) this.auth.applyIdleMinutes(minutes);
+  }
   protected saveReg(): void { void this.save(() => this.put('registration', { mode: this.reg })); }
   protected async saveCaptcha(): Promise<void> { if (await this.save(() => this.put('captcha', { enabled: this.cap.enabled, siteKey: this.cap.siteKey, secret: this.cap.secret || null }))) { if (this.cap.secret || !this.cap.enabled) this.cap.fault = null; if (this.cap.secret) this.cap.hasSecret = true; this.cap.secret = ''; } }
 }
