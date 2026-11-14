@@ -124,11 +124,12 @@ public sealed class AuthController(AuthService auth, CcsDbContext db, CaptchaVer
         return new { secret, otpauthUri = uri };
     }
 
+    /// <summary>Turning the second factor off needs a current code from it (security audit M-01).</summary>
     [HttpPost("mfa/disable")]
     [Authorize]
-    public async Task<IActionResult> DisableMfa(CancellationToken ct)
+    public async Task<IActionResult> DisableMfa(CodeBody body, CancellationToken ct)
     {
-        await auth.ResetMfaAsync(Me, ct, self: true);
+        await auth.DisableOwnMfaAsync(Me, body.Code, ct);
         return NoContent();
     }
 

@@ -26,14 +26,26 @@ public sealed record RenderedEmail(string Subject, string Html, string Text);
 /// </summary>
 public static partial class EmailRenderer
 {
+    /// <summary>Raw fill: for plain text (subject) and URLs (button link).</summary>
     public static string Fill(string template, IReadOnlyDictionary<string, string> values) =>
         Placeholder().Replace(template, m => values.TryGetValue(m.Groups[1].Value, out var v) ? v : m.Value);
+
+    /// <summary>
+    /// Fill for text that is later read as Markdown (body, greeting, footer). Values come from people (a name, a ticket
+    /// subject, a reason), so their Markdown is neutralised: they cannot become a link or bold/italic text
+    /// (security audit M-03). Only the template itself, written by administrators, can contain formatting.
+    /// </summary>
+    public static string FillText(string template, IReadOnlyDictionary<string, string> values) =>
+        Placeholder().Replace(template, m => values.TryGetValue(m.Groups[1].Value, out var v) ? Neutral(v) : m.Value);
+
+    /// <summary>"](" gets a zero-width space so no [text](url) link can form; "*" becomes the look-alike "∗".</summary>
+    public static string Neutral(string value) => value.Replace("](", "]​(").Replace('*', '∗');
 
     public static RenderedEmail Render(string subject, string body, string? buttonText, string? buttonUrl,
         IReadOnlyDictionary<string, string> values, EmailDesign design, string siteName, string locale, string? footer, string? code = null)
     {
         var s = Fill(subject, values);
-        var md = Fill(body, values);
+        var md = FillText(body, values);
         var dir = locale == "ar" ? "rtl" : "ltr";
         var align = locale == "ar" ? "right" : "left";
         var radius = design.Rounded ? "8px" : "0";

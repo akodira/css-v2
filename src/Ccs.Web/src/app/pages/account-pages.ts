@@ -222,9 +222,15 @@ export class HomePage {
           <p class="mb-4 text-sm font-semibold">{{ 'Mfa.status' | t }}: <span [class]="me.mfaEnabled ? 'text-ok' : 'text-muted'">{{ (me.mfaEnabled ? 'Mfa.on' : 'Mfa.off') | t }}</span></p>
           @if (me.mfaEnabled) {
             @if (confirmOff()) {
-              <div class="flex flex-wrap items-center gap-2"><span class="text-sm font-semibold">{{ 'Mfa.confirmOff' | t }}</span>
-                <button type="button" (click)="disableMfa()" class="min-h-11 cursor-pointer rounded-lg bg-danger px-5 font-semibold text-white">{{ 'Mfa.yesOff' | t }}</button>
-                <button type="button" (click)="confirmOff.set(false)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-5 font-semibold hover:bg-bg">{{ 'Mfa.cancel' | t }}</button></div>
+              <!-- Turning it off needs a current code (security audit M-01). -->
+              <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); disableMfa()">
+                <p class="text-sm font-semibold">{{ 'Mfa.confirmOff' | t }}</p>
+                <app-text-field name="offCode" [label]="'Mfa.codeLabel' | t" [hint]="'Mfa.offCodeHint' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="6" [required]="true" [(value)]="offCode" />
+                <div class="flex flex-wrap gap-2">
+                  <button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-danger px-5 font-semibold text-white">{{ 'Mfa.yesOff' | t }}</button>
+                  <button type="button" (click)="confirmOff.set(false); offCode.set('')" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-5 font-semibold hover:bg-bg">{{ 'Mfa.cancel' | t }}</button>
+                </div>
+              </form>
             } @else {
               <button type="button" (click)="confirmOff.set(true)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-5 font-semibold hover:bg-bg">{{ 'Mfa.turnOff' | t }}</button>
             }
@@ -283,11 +289,15 @@ export class AccountPage {
   protected readonly otp = signal('');
   protected readonly mfaErr = signal<string | null>(null);
   protected readonly confirmOff = signal(false);
+  protected readonly offCode = signal('');
   protected disableMfa(): void {
     this.mfaErr.set(null);
-    firstValueFrom(this.http.post('/api/auth/mfa/disable', {}))
-      .then(() => { this.confirmOff.set(false); return this.auth.loadMe(); })
-      .catch(() => this.mfaErr.set('disable'));
+    firstValueFrom(this.http.post('/api/auth/mfa/disable', { code: this.offCode().trim() }))
+      .then(() => { this.confirmOff.set(false); this.offCode.set(''); return this.auth.loadMe(); })
+      .catch((e) => {
+        const code = problemOf(e).code;
+        this.mfaErr.set(code === 'mfaWrong' ? 'mfaWrong' : code === 'rateLimited' ? 'locked' : 'disable');
+      });
   }
   protected readonly roles = computed(() => (this.auth.me()?.roles ?? []).map((r) => this.i18n.t('Roles.' + r)).join(', '));
 

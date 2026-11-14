@@ -35,6 +35,9 @@ public sealed class AuthService(
     Ccs.Application.Settings.SettingsService settings)
 {
     private const int ResetCodeLength = 6, ResetCodeMinutes = 60, ResetCodeAttempts = 5;
+    /// <summary>Security audit M-02: at most this many recovery codes per account per 24 hours, and password reset
+    /// stops for 24 hours after this many wrong codes, so a 6-digit code cannot be guessed over days.</summary>
+    public const int RecoveryCodesPerDay = 5, RecoveryFailuresPerDay = 10;
 
     // ------------------------------------------------------------------ password sign-in
 
@@ -55,7 +58,8 @@ public sealed class AuthService(
         {
             // Same as v1: an expired password cannot sign in; a one-time code is emailed and the renewal step opens.
             var lastMinute = clock.UtcNow.AddSeconds(-60);
-            if (!await db.AuthCodes.AnyAsync(c => c.UserId == user.Id && c.Purpose == "recovery" && c.CreatedAt > lastMinute, ct))
+            if (!await db.AuthCodes.AnyAsync(c => c.UserId == user.Id && c.Purpose == "recovery" && c.CreatedAt > lastMinute, ct)
+                && await RecoveryCodesTodayAsync(user.Id, ct) < RecoveryCodesPerDay)
                 await SendCodeAsync(user, "recovery", "auth_recovery", ct);
             throw new AuthError("passwordExpired", 403);
         }
@@ -83,8 +87,11 @@ public sealed class AuthService(
     public async Task<SignInResult> VerifyMfaAsync(Guid userId, string code, string? userAgent, string? ip, CancellationToken ct = default)
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthError("notSignedIn", 401);
+        // L-02: the lockout that wrong passwords trigger also stops code guessing at this step.
+        if (await users.IsLockedOutAsync(user)) throw new AuthError("rateLimited", 429);
         var ok = await users.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider, Clean(code));
         if (!ok) { await users.AccessFailedAsync(user); throw new AuthError("mfaWrong"); }
+        await users.ResetAccessFailedCountAsync(user);
         var profile = await db.Profiles.AsNoTracking().FirstAsync(p => p.Id == user.Id, ct);
         EnsureActive(profile);
         var roles = await RolesAsync(user.Id, ct);
@@ -274,12 +281,14 @@ public sealed class AuthService(
         var lastMinute = clock.UtcNow.AddSeconds(-60);
         if (await db.AuthCodes.AnyAsync(c => c.UserId == user.Id && c.Purpose == "recovery" && c.CreatedAt > lastMinute, ct))
             throw new AuthError("rateLimited", 429);
+        if (await RecoveryCodesTodayAsync(user.Id, ct) >= RecoveryCodesPerDay) throw new AuthError("rateLimited", 429);
         await SendCodeAsync(user, "recovery", "auth_recovery", ct);
     }
 
     public async Task ResetPasswordAsync(string email, string code, string newPassword, CancellationToken ct = default)
     {
         var user = await users.FindByEmailAsync(email.Trim().ToLowerInvariant()) ?? throw new AuthError("codeWrong");
+        if (await RecoveryFailuresTodayAsync(user.Id, ct) >= RecoveryFailuresPerDay) throw new AuthError("rateLimited", 429);
         await ConsumeCodeAsync(user.Id, "recovery", code, ct);
         if (await users.CheckPasswordAsync(user, newPassword)) throw new AuthError("passwordSame", 400, "password");
         var token = await users.GeneratePasswordResetTokenAsync(user);
@@ -316,6 +325,8 @@ public sealed class AuthService(
     public async Task<(string Secret, string OtpAuthUri)> BeginMfaEnrollmentAsync(Guid userId, string issuer)
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthError("notSignedIn", 401);
+        // M-01: never replace a working authenticator silently. Turn it off first (that needs a code).
+        if (user.TwoFactorEnabled) throw new AuthError("mfaAlreadyOn", 409);
         await users.ResetAuthenticatorKeyAsync(user);
         var key = await users.GetAuthenticatorKeyAsync(user) ?? throw new AuthError("generic");
         var uri = $"otpauth://totp/{Uri.EscapeDataString(issuer)}:{Uri.EscapeDataString(user.Email!)}?secret={key}&issuer={Uri.EscapeDataString(issuer)}&digits=6";
@@ -325,11 +336,30 @@ public sealed class AuthService(
     public async Task CompleteMfaEnrollmentAsync(Guid userId, string code, CancellationToken ct = default)
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthError("notSignedIn", 401);
+        if (user.TwoFactorEnabled) throw new AuthError("mfaAlreadyOn", 409);
         if (!await users.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider, Clean(code))) throw new AuthError("mfaWrong");
         await users.SetTwoFactorEnabledAsync(user, true);
         audit.Write("auth.mfa_enrolled", "user", userId, null, null, userId);
         await db.SaveChangesAsync(ct);
         await tokens.RevokeAllAsync(userId, ct);   // existing aal1 sessions must step up
+    }
+
+    /// <summary>
+    /// The person turns their own second factor off (v1 disableMfaAction). Security audit M-01: it needs a current
+    /// code from the authenticator, and the account lockout applies, so a stolen session alone cannot remove it.
+    /// </summary>
+    public async Task DisableOwnMfaAsync(Guid userId, string code, CancellationToken ct = default)
+    {
+        var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthError("notSignedIn", 401);
+        if (!user.TwoFactorEnabled) return;
+        if (await users.IsLockedOutAsync(user)) throw new AuthError("rateLimited", 429);
+        if (!await users.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider, Clean(code ?? "")))
+        {
+            await users.AccessFailedAsync(user);
+            throw new AuthError("mfaWrong", 400, "code");
+        }
+        await users.ResetAccessFailedCountAsync(user);
+        await ResetMfaAsync(userId, ct, self: true);
     }
 
     /// <summary>admin_reset_mfa(): an administrator removes a person's factor.</summary>
@@ -383,6 +413,21 @@ public sealed class AuthService(
         await db.SaveChangesAsync(ct);
         var profile = await db.Profiles.AsNoTracking().FirstAsync(p => p.Id == user.Id, ct);
         await SendAccountEmailAsync(template, profile, code, ResetCodeMinutes, ct);
+    }
+
+    private Task<int> RecoveryCodesTodayAsync(Guid userId, CancellationToken ct)
+    {
+        var dayAgo = clock.UtcNow.AddHours(-24);
+        return db.AuthCodes.CountAsync(c => c.UserId == userId && c.Purpose == "recovery" && c.CreatedAt > dayAgo, ct);
+    }
+
+    /// <summary>Wrong recovery codes in the last 24 hours, across all codes (every try counts; a used code had one right try).</summary>
+    private async Task<int> RecoveryFailuresTodayAsync(Guid userId, CancellationToken ct)
+    {
+        var dayAgo = clock.UtcNow.AddHours(-24);
+        var rows = await db.AuthCodes.Where(c => c.UserId == userId && c.Purpose == "recovery" && c.CreatedAt > dayAgo)
+            .Select(c => new { c.Attempts, Used = c.ConsumedAt != null }).ToListAsync(ct);
+        return rows.Sum(r => r.Attempts - (r.Used ? 1 : 0));
     }
 
     private async Task ConsumeCodeAsync(Guid userId, string purpose, string code, CancellationToken ct)

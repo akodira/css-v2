@@ -1746,12 +1746,14 @@
     "cancel": "Cancel",
     "confirmOff": "Turn off two-step verification?",
     "yesOff": "Yes, turn off",
+    "offCodeHint": "Enter the current 6-digit code from your authenticator app to turn it off.",
     "badge": "Two-step on",
     "reset": "Reset two-step verification",
     "errors": {
       "generic": "Something went wrong. Try again.",
       "mfaWrong": "The code is wrong or has expired. Try the next code.",
-      "disable": "Could not turn it off. Sign out, sign in again with your code, and retry."
+      "disable": "Could not turn it off. Sign out, sign in again with your code, and retry.",
+      "locked": "Too many wrong codes. Wait 15 minutes and try again."
     }
   },
   "Permissions": {

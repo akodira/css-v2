@@ -29,9 +29,20 @@ public sealed class HttpCurrentUser(IHttpContextAccessor http) : ICurrentUser
 /// </summary>
 public sealed class AccountGateMiddleware(RequestDelegate next)
 {
+    /// <summary>
+    /// Signed-in account actions under /api/auth: they change the password or the second factor, so they pass the
+    /// same status and MFA checks as every other API (security audit L-01). The other /api/auth endpoints
+    /// (sign-in, refresh, sign-out, codes, register) stay outside the gate.
+    /// </summary>
+    private static readonly string[] GatedAuthPaths =
+        ["/api/auth/change-password", "/api/auth/mfa/enroll", "/api/auth/mfa/enroll/verify", "/api/auth/mfa/disable"];
+
+    private static bool Gated(PathString path) =>
+        !path.StartsWithSegments("/api/auth") || GatedAuthPaths.Any(p => path.Equals(p, StringComparison.OrdinalIgnoreCase));
+
     public async Task InvokeAsync(HttpContext ctx, ICurrentUser current, CcsDbContext db)
     {
-        if (current.UserId is Guid uid && !ctx.Request.Path.StartsWithSegments("/api/auth"))
+        if (current.UserId is Guid uid && Gated(ctx.Request.Path))
         {
             var row = await db.Profiles.AsNoTracking().Where(p => p.Id == uid)
                 .Select(p => new { p.AccountStatus, Mfa = db.Users.Where(u => u.Id == uid).Select(u => u.TwoFactorEnabled).FirstOrDefault() })
