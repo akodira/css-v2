@@ -154,4 +154,35 @@ public class AccessRulesTests
         var customer = AccessRules.EffectivePermissions(true, false, false, true, [], canCreateForCustomers: true);
         Assert.Empty(customer);
     }
+
+    /// <summary>Security audit C-01: a real customer has NO account type. Before the fix this returned the
+    /// legacy "full staff" set (customers_manage, manage_settings, ...).</summary>
+    [Fact]
+    public void Customer_without_account_type_gets_no_permissions()
+    {
+        Assert.Empty(AccessRules.EffectivePermissions(true, false, false, false, [], canCreateForCustomers: false));
+        Assert.Empty(AccessRules.EffectivePermissions(true, false, false, false, [Permission.CustomersManage], canCreateForCustomers: true));
+    }
+
+    [Fact]
+    public void Staff_without_account_type_keep_the_legacy_staff_set()
+    {
+        var p = AccessRules.EffectivePermissions(true, false, true, false, [], canCreateForCustomers: false);
+        Assert.Equal(Permission.NoTypeDefault.OrderBy(x => x), p.OrderBy(x => x));
+    }
+
+    /// <summary>Defence in depth: even a wrongly filled permission set gives a customer nothing.</summary>
+    [Fact]
+    public void Has_is_false_for_customers_even_with_a_filled_set()
+    {
+        var customer = new AccessContext
+        {
+            UserId = Me, Active = true, Customer = true,
+            Permissions = new HashSet<string>(Permission.NoTypeDefault),
+        };
+        Assert.False(customer.Has(Permission.CustomersManage));
+        Assert.False(customer.Has(Permission.ManageSettings));
+        var agent = customer with { Customer = false, Staff = true };
+        Assert.True(agent.Has(Permission.CustomersManage));
+    }
 }

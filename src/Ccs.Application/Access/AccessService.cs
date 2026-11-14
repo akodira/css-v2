@@ -88,7 +88,8 @@ public sealed class AccessService(ICcsDbContext db, ICurrentUser current, IMfaSt
             Viewer = viewer && active,
             TeamLeader = roles.Contains(RoleCode.TeamLeader) && active,
             Customer = customer,
-            AllScope = admin || (!placed && !scoped && (type is null || type.AllAccess)),
+            // All-scope is a staff notion: a customer (no account type) must never count as "sees every organisation".
+            AllScope = admin || ((staff || viewer) && active && !placed && !scoped && (type is null || type.AllAccess)),
             Permissions = perms,
             Teams = teams.Select(t => t.TeamId).ToHashSet(),
             LeaderOfTeams = teams.Where(t => t.IsLeader).Select(t => t.TeamId).ToHashSet(),

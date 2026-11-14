@@ -26,7 +26,9 @@ public sealed record AccessContext
     public bool OrgSharedAccess { get; init; }        // global switch AND the caller's organization switch
 
     public bool Internal => Staff || Viewer;
-    public bool Has(string permission) => Permissions.Contains(permission);
+    /// <summary>Permissions belong to staff and viewers only. A customer never holds one, whatever the set says
+    /// (defence in depth: the permission set itself is already empty for customers).</summary>
+    public bool Has(string permission) => (Admin || Internal) && Permissions.Contains(permission);
 
     public static AccessContext Anonymous { get; } = new() { UserId = Guid.Empty };
 }
@@ -94,13 +96,15 @@ public static class AccessRules
             && c.Teams.Contains(targetTeamId);
     }
 
-    /// <summary>my_permissions(): what a person may do, from role, account type and flags.</summary>
+    /// <summary>my_permissions(): what a person may do, from role, account type and flags.
+    /// Customers (not internal) get nothing: <see cref="Permission.NoTypeDefault"/> is for staff without an account type only.</summary>
     public static IReadOnlySet<string> EffectivePermissions(
         bool active, bool admin, bool internalUser, bool hasAccountType,
         IEnumerable<string> typePermissions, bool canCreateForCustomers)
     {
         if (!active) return new HashSet<string>();
         if (admin) return new HashSet<string>(Permission.AdminAll);
+        if (!internalUser) return new HashSet<string>();
         var set = hasAccountType ? new HashSet<string>(typePermissions) : new HashSet<string>(Permission.NoTypeDefault);
         if (internalUser && canCreateForCustomers) set.Add(Permission.CreateForCustomer);
         return set;
