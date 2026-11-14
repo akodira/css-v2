@@ -131,7 +131,13 @@ public class SigninCodeSettings
 {
     public int Id { get; set; } = 1;
     public bool Enabled { get; set; }
+/// <summary>Old single choice (customers | all); kept for older releases. The three flags below decide.</summary>
     public string Audience { get; set; } = "customers";
+    public bool ForCustomers { get; set; } = true;
+    public bool ForStaff { get; set; }
+    public bool ForAdmins { get; set; }
+    /// <summary>Staff and administrators also need two-step verification (they pass it after the code).</summary>
+    public bool StaffNeedTwoFactor { get; set; } = true;
     public int CodeLength { get; set; } = 6;
     public int ValidMinutes { get; set; } = 10;
     public int MaxAttempts { get; set; } = 5;

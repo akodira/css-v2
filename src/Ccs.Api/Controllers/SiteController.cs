@@ -25,7 +25,8 @@ public sealed class SiteController(CcsDbContext db, SettingsService settings, Cc
         {
             site = s,
             captcha = new { enabled = captcha.Active, provider = "turnstile", siteKey = captcha.SiteKey },   // hidden on a configuration fault (6.7)
-            signinCodes = new { enabled = codes?.Enabled == true, audience = codes?.Audience, length = codes?.CodeLength ?? 6 },
+            signinCodes = new { enabled = codes?.Enabled == true && (codes.ForCustomers || codes.ForStaff || codes.ForAdmins), length = codes?.CodeLength ?? 6,
+                validMinutes = codes?.ValidMinutes ?? 10, cooldownSeconds = codes?.CooldownSeconds ?? 60 },
             passwordPolicy = await settings.GetPasswordPolicyAsync(ct),
             autoRefreshSeconds = await settings.GetIntAsync("auto_refresh_seconds", 30, ct),
             minReplyChars = await settings.GetIntAsync("min_reply_chars", 20, ct),

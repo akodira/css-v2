@@ -59,3 +59,17 @@ BEGIN
     CREATE UNIQUE INDEX UX_ticket_types_code ON ccs.ticket_types (code) WHERE code IS NOT NULL;
 END
 GO
+
+/* Sign-in codes (Nov 2026): who may use them is three check boxes (customers, staff, administrators) plus
+   whether staff and administrators also need two-step verification. Carries over the old single choice. */
+IF COL_LENGTH(N'ccs.signin_code_settings', N'for_customers') IS NULL
+BEGIN
+    ALTER TABLE ccs.signin_code_settings ADD
+        for_customers bit NOT NULL CONSTRAINT DF_signin_code_for_customers DEFAULT 1,
+        for_staff bit NOT NULL CONSTRAINT DF_signin_code_for_staff DEFAULT 0,
+        for_admins bit NOT NULL CONSTRAINT DF_signin_code_for_admins DEFAULT 0,
+        staff_need_two_factor bit NOT NULL CONSTRAINT DF_signin_code_staff_2fa DEFAULT 1;
+    -- Once, when the columns are added (dynamic SQL: the new columns are not visible to this batch yet).
+    EXEC (N'UPDATE ccs.signin_code_settings SET for_staff = 1, for_admins = 1 WHERE audience = N''all'';');
+END
+GO

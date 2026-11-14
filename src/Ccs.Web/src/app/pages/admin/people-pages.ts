@@ -742,7 +742,7 @@ export class PlaceForm implements OnInit {
     </button></h2>
     <div [id]="'acc-' + o.id" [hidden]="!isOpen(o.id)" class="border-t border-line">
       @let tab = orgTab[o.id] ?? 'details';
-      <div role="tablist" class="flex gap-1 overflow-x-auto border-b border-line px-5">
+      <div role="tablist" class="flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line px-5">
         @for (k of orgTabs; track k) {
           <button type="button" role="tab" [attr.aria-selected]="tab === k" (click)="orgTab[o.id] = k"
             class="-mb-px inline-flex min-h-11 cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-sm font-semibold"

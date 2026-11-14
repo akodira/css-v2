@@ -55,7 +55,7 @@ export interface SiteInfo {
     uploadMaxMb: number; uploadMaxFiles: number; uploadExtensions: string;
   } | null;
   captcha: { enabled: boolean; provider: string | null; siteKey: string | null };
-  signinCodes: { enabled: boolean; audience: string; length: number };
+  signinCodes: { enabled: boolean; length: number; validMinutes?: number; cooldownSeconds?: number };
   passwordPolicy: { minLength: number; requireUpper: boolean; requireLower: boolean; requireNumber: boolean; requireSpecial: boolean };
   autoRefreshSeconds: number;
   minReplyChars: number;

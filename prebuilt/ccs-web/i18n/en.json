@@ -276,10 +276,14 @@
       "send": "Send me a code",
       "sent": "If this email belongs to an account that can sign in with a code, we sent a code to it. Check your inbox and spam folder.",
       "codeLabel": "Code",
-      "codeHint": "Enter the code from the email. It works once and for a short time.",
+      "codeHint": "Enter the code from the email. It works once.",
       "submit": "Sign in",
       "resend": "Send a new code",
-      "back": "Sign in with a password instead"
+      "back": "Sign in with a password instead",
+      "validFor": "Code valid for {n} minutes",
+      "timeLeft": "Time left: {t}",
+      "expired": "This code has expired. Send a new code.",
+      "resendIn": "Send a new code in {n} s"
     },
     "captcha": {
       "label": "Security check"
@@ -1141,7 +1145,8 @@
       "ticketNumber_separator": "Choose a separator.",
       "ticketNumber_prefix": "The prefix must be 1 to 6 letters or digits.",
       "ticketNumber_digits": "Counter digits must be from 3 to 8.",
-      "ticketNumber_reset": "Choose when the counter starts again."
+      "ticketNumber_reset": "Choose when the counter starts again.",
+      "signinCodesNobody": "Tick at least one group who can use sign-in codes, or turn the option off."
     }
   },
   "AdminCatalog": {
@@ -2233,14 +2238,16 @@
       "account_rejected": "Account: rejected",
       "approval_requested": "Account: new account waiting for approval (to approvers)",
       "auth_signin_code": "Sign-in code",
-      "auth_signin_code_blocked": "Sign-in code not available",
+      "auth_signin_code_blocked": "Sign-in code: turn on two-step verification",
       "account_promoted": "Account: promoted to staff",
       "customer_reminder": "Reminder: waiting for customer",
       "customer_final_warning": "Final warning: waiting for customer",
       "resolved_reminder": "Reminder: confirm resolution",
       "cancellation_requested": "Cancellation requested",
       "cancellation_rejected": "Cancellation declined",
-      "password_expiring": "Account: your password expires soon (warning)"
+      "password_expiring": "Account: your password expires soon (warning)",
+      "auth_signin_code_not_allowed": "Sign-in code not available",
+      "auth_signin_code_limit": "Sign-in code: daily limit reached"
     },
     "tplWho": {
       "ticket_created": "Sent to the customer.",
@@ -2266,14 +2273,16 @@
       "account_rejected": "Sent to the customer when the account is rejected. {reason} is the reason typed by the reviewer.",
       "approval_requested": "Sent to administrators and people who can approve accounts.",
       "auth_signin_code": "Sent to the person who asked to sign in with a code.",
-      "auth_signin_code_blocked": "Sent to a staff member who asked for a sign-in code but cannot use one yet.",
+      "auth_signin_code_blocked": "Sent to a staff member or administrator who asked for a code without two-step verification turned on.",
       "account_promoted": "Sent to the person when an administrator turns their customer account into a staff account.",
       "customer_reminder": "Sent to the customer.",
       "customer_final_warning": "Sent to the customer.",
       "resolved_reminder": "Sent to the customer.",
       "cancellation_requested": "Sent to support staff.",
       "cancellation_rejected": "Sent to the customer.",
-      "password_expiring": "Sent to anyone whose password is about to expire, up to three times (see Settings, System rules, Password policy). {days} is the days left."
+      "password_expiring": "Sent to anyone whose password is about to expire, up to three times (see Settings, System rules, Password policy). {days} is the days left.",
+      "auth_signin_code_not_allowed": "Sent to someone who asked for a code when codes are not turned on for their type of account.",
+      "auth_signin_code_limit": "Sent once a day to someone who asked for more codes than the daily limit."
     },
     "menuArea": {
       "header": "Customer header menu",
@@ -2691,17 +2700,12 @@
     "switchHint": "Off until you turn it on. Passwords keep working either way.",
     "off": "Off",
     "on": "On",
-    "keyMissing": "The server is missing its Supabase service key, so the option will not appear on the sign-in page yet. Add SUPABASE_SERVICE_ROLE_KEY in Vercel and redeploy.",
     "who": "Who can use it",
-    "customers": "Customers only",
-    "customersHint": "Staff and administrators keep using their password.",
-    "all": "Customers and staff",
-    "allHint": "Staff and administrators can use it only if they have two-step verification, and still pass that check after the code.",
     "rules": "Code rules",
     "length": "Code length",
     "lengthUnit": "digits (4 to 10)",
     "valid": "Valid for",
-    "validUnit": "minutes (1 to 60)",
+    "validUnit": "minutes (1 to 60). People see this on the sign-in page and in the email.",
     "attempts": "Wrong attempts allowed",
     "attemptsUnit": "then the code is locked (1 to 10)",
     "cooldown": "Wait before a new code",
@@ -2720,7 +2724,25 @@
     "email": "Email or phone",
     "password": "Password",
     "signIn": "Sign in",
-    "alt": "Email me a one-time code"
+    "alt": "Email me a one-time code",
+    "whoHint": "Tick one or more. People who are not ticked keep using their password.",
+    "everyone": "Everyone",
+    "clear": "Clear",
+    "g_customers": "Customers",
+    "g_customersHint": "Customer accounts",
+    "g_staff": "Staff",
+    "g_staffHint": "Agents, team leaders and management viewers",
+    "g_admins": "Administrators",
+    "g_adminsHint": "Accounts with the administrator role",
+    "n_customers": "customers",
+    "n_staff": "staff",
+    "n_admins": "administrators",
+    "and": " and ",
+    "canUse": "Can use codes: {who}.",
+    "nobody": "Nobody can use codes. Tick at least one group, or turn the option off.",
+    "tfa": "Staff and administrators also need two-step verification",
+    "tfaOnHint": "Recommended. A staff member or administrator without two-step verification gets an email asking them to turn it on, and no code. With it on, they enter the email code and then the code from their authenticator app.",
+    "tfaOffHint": "Staff and administrators in the ticked groups can sign in with the email code alone. Anyone who can read their mailbox could sign in to their account."
   },
   "Promote": {
     "title": "Promote to staff",

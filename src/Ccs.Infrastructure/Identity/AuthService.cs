@@ -132,15 +132,23 @@ public sealed class AuthService(
         var user = await users.FindByEmailAsync(email);
         if (user is null || !user.EmailConfirmed) return;
         var profile = await db.Profiles.AsNoTracking().FirstAsync(p => p.Id == user.Id, ct);
-        var isStaff = (await RolesAsync(user.Id, ct)).Any(r => r != RoleCode.Customer);
-        // Staff may use codes only when two-step verification is on (spec 5).
-        if (isStaff && (s.Audience != "all" || !user.TwoFactorEnabled)) return;
+        var roles = await RolesAsync(user.Id, ct);
+        var group = roles.Contains(RoleCode.Admin) ? "admins" : roles.Any(r => r != RoleCode.Customer) ? "staff" : "customers";
 
-        if (recent.Count >= s.DailyLimit)
+        // Instead of a code, an account that may not use one gets an email saying why (Settings → Sign-in codes).
+        // The reply on screen stays the same, so the form still cannot be used to discover accounts.
+        var refusal = (group switch { "admins" => s.ForAdmins, "staff" => s.ForStaff, _ => s.ForCustomers }) ? null
+            : "auth_signin_code_not_allowed";
+        if (refusal is null && group != "customers" && s.StaffNeedTwoFactor && !user.TwoFactorEnabled) refusal = "auth_signin_code_blocked";
+        if (recent.Count >= s.DailyLimit) refusal = "auth_signin_code_limit";
+
+        if (refusal is not null)
         {
-            if (recent.Count == s.DailyLimit) await SendAccountEmailAsync("auth_signin_code_blocked", profile, null, s.ValidMinutes, ct);
+            // Recorded like a code so the wait and the daily limit also apply to these emails; one limit email a day.
             db.SigninCodes.Add(new SigninCode { Id = Guid.NewGuid(), Email = email, CodeHash = "blocked", ExpiresAt = now, ConsumedAt = now, CreatedAt = now });
             await db.SaveChangesAsync(ct);
+            if (refusal != "auth_signin_code_limit" || recent.Count == s.DailyLimit)
+                await SendAccountEmailAsync(refusal, profile, null, s.ValidMinutes, ct);
             return;
         }
         var code = NewCode(s.CodeLength);

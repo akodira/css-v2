@@ -1066,12 +1066,26 @@ export class SystemTab extends Tab implements OnInit {
             <span class="ms-2 rounded-full px-2 py-0.5 text-xs font-bold" [class]="m.enabled ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (m.enabled ? 'AdminSigninCodes.on' : 'AdminSigninCodes.off') | t }}</span>
             <span class="block text-sm text-muted">{{ 'AdminSigninCodes.switchHint' | t }}</span></span>
             <input type="checkbox" role="switch" name="on" class="mt-1 h-5 w-5 shrink-0" [(ngModel)]="m.enabled" /></label>
-          <h2 class="text-lg font-bold">{{ 'AdminSigninCodes.who' | t }}</h2>
-          <div role="radiogroup" [attr.aria-label]="'AdminSigninCodes.who' | t" class="flex flex-col gap-3">
-            @for (a of ['customers', 'all']; track a) {
-              <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3" [class]="m.audience === a ? 'border-brand bg-brand-soft' : 'border-line'"><input type="radio" name="who" class="mt-1 h-5 w-5" [value]="a" [(ngModel)]="m.audience" />
-                <span><span class="font-semibold">{{ 'AdminSigninCodes.' + a | t }}</span><span class="block text-sm text-muted">{{ 'AdminSigninCodes.' + a + 'Hint' | t }}</span></span></label>
-            }</div>
+          <fieldset class="flex flex-col gap-3">
+            <legend class="mb-1 text-lg font-bold">{{ 'AdminSigninCodes.who' | t }}${REQ}</legend>
+            <p class="-mt-1 text-sm text-muted">{{ 'AdminSigninCodes.whoHint' | t }}</p>
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="min-h-9 rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:bg-bg" (click)="setAll(true)">{{ 'AdminSigninCodes.everyone' | t }}</button>
+              <button type="button" class="min-h-9 rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:bg-bg" (click)="setAll(false)">{{ 'AdminSigninCodes.clear' | t }}</button>
+            </div>
+            <div class="grid gap-3 sm:grid-cols-3">
+              @for (g of groups; track g[0]) {
+                <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3" [class]="$any(m)[g[0]] ? 'border-brand bg-brand-soft' : 'border-line'">
+                  <input type="checkbox" [name]="g[0]" class="mt-1 h-5 w-5 shrink-0" [(ngModel)]="$any(m)[g[0]]" />
+                  <span><span class="font-semibold">{{ 'AdminSigninCodes.g_' + g[1] | t }}</span><span class="block text-sm text-muted">{{ 'AdminSigninCodes.g_' + g[1] + 'Hint' | t }}</span></span></label>
+              }
+            </div>
+            <p role="status" class="rounded-lg px-3 py-2 text-sm" [class]="whoText() ? 'bg-bg' : 'bg-warn-soft text-warn-ink'">{{ whoText() || ('AdminSigninCodes.nobody' | t) }}</p>
+            @if (m.forStaff || m.forAdmins) {
+              <label class="flex items-start gap-3"><input type="checkbox" name="tfa" class="mt-1 h-5 w-5 shrink-0" [(ngModel)]="m.staffNeedTwoFactor" />
+                <span><span class="font-semibold">{{ 'AdminSigninCodes.tfa' | t }}</span><span class="block text-sm text-muted">{{ (m.staffNeedTwoFactor ? 'AdminSigninCodes.tfaOnHint' : 'AdminSigninCodes.tfaOffHint') | t }}</span></span></label>
+            }
+          </fieldset>
         </section>
         <section [class]="cls.card + ' flex flex-col gap-4 p-4'"><h2 class="text-lg font-bold">{{ 'AdminSigninCodes.rules' | t }}</h2>
           <div class="grid gap-4 sm:grid-cols-2">
@@ -1104,11 +1118,22 @@ export class SigninCodesTab extends Tab implements OnInit {
     { key: 'codeLength', label: 'length' }, { key: 'validMinutes', label: 'valid' }, { key: 'maxAttempts', label: 'attempts' },
     { key: 'cooldownSeconds', label: 'cooldown' }, { key: 'dailyLimit', label: 'daily' },
   ];
-  protected m: { enabled: boolean; audience: string; codeLength: number; validMinutes: number; maxAttempts: number; cooldownSeconds: number; dailyLimit: number } | null = null;
+  protected readonly groups = [['forCustomers', 'customers'], ['forStaff', 'staff'], ['forAdmins', 'admins']] as const;
+  protected m: { enabled: boolean; forCustomers: boolean; forStaff: boolean; forAdmins: boolean; staffNeedTwoFactor: boolean; codeLength: number; validMinutes: number; maxAttempts: number; cooldownSeconds: number; dailyLimit: number } | null = null;
   async ngOnInit(): Promise<void> { this.m = await this.get('signin-codes'); }
+  protected setAll(on: boolean): void { const m = this.m; if (m) { m.forCustomers = m.forStaff = m.forAdmins = on; } }
+  /** "Can use codes: customers and staff." or '' when nobody is ticked. */
+  protected whoText(): string {
+    const m = this.m; if (!m) return '';
+    const names = this.groups.filter((g) => m[g[0]]).map((g) => this.i18n.t('AdminSigninCodes.n_' + g[1]));
+    const and = this.i18n.t('AdminSigninCodes.and');
+    // English: "a, b and c"; Arabic joins every name with "و".
+    const who = this.i18n.locale() === 'ar' || names.length < 3 ? names.join(and) : names.slice(0, -1).join(', ') + and + names.at(-1);
+    return names.length ? this.i18n.t('AdminSigninCodes.canUse', { who }) : '';
+  }
   protected submit(): void {
     const m = this.m!;
-    void this.save(() => this.put('signin-codes', { enabled: m.enabled, audience: m.audience, codeLength: Number(m.codeLength), validMinutes: Number(m.validMinutes), maxAttempts: Number(m.maxAttempts), cooldownSeconds: Number(m.cooldownSeconds), dailyLimit: Number(m.dailyLimit) }));
+    void this.save(() => this.put('signin-codes', { enabled: m.enabled, forCustomers: m.forCustomers, forStaff: m.forStaff, forAdmins: m.forAdmins, staffNeedTwoFactor: m.staffNeedTwoFactor, codeLength: Number(m.codeLength), validMinutes: Number(m.validMinutes), maxAttempts: Number(m.maxAttempts), cooldownSeconds: Number(m.cooldownSeconds), dailyLimit: Number(m.dailyLimit) }));
   }
 }
 

@@ -814,7 +814,7 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
                 </span>
               </span>
             </summary>
-            <div role="tablist" class="flex gap-1 overflow-x-auto border-y border-line px-5">
+            <div role="tablist" class="flex gap-1 overflow-x-auto overflow-y-hidden border-y border-line px-5">
               @for (k of calTabs; track k) {
                 <button type="button" role="tab" [attr.aria-selected]="tab === k" (click)="calTab[h.id] = k"
                   class="-mb-px inline-flex min-h-11 cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-sm font-semibold"

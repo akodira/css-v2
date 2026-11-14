@@ -1,6 +1,6 @@
 import { RichText } from '../../shared/rich-text';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Auth, problemOf } from '../../core/auth';
@@ -151,11 +151,19 @@ export class MfaPage extends FormBase {
             <app-submit [pending]="pending()">{{ 'Auth.signinCode.send' | t }}</app-submit>
           </form>
         } @else {
+          <div role="timer" class="flex items-center gap-3 rounded-xl border px-3 py-2.5" [class]="left() === 0 ? 'border-danger bg-danger-soft text-danger' : left() <= 60 ? 'border-warn bg-warn-soft text-warn-ink' : 'border-line'">
+            <svg viewBox="0 0 36 36" class="h-9 w-9 shrink-0 -rotate-90" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-opacity="0.15" stroke-width="4" />
+              <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.25" [attr.stroke-dashoffset]="94.25 * (1 - left() / (minutes() * 60))" [class]="left() > 60 ? 'text-brand' : ''" /></svg>
+            <span class="text-sm"><span class="block font-semibold">{{ 'Auth.signinCode.validFor' | t: { n: minutes() } }}</span>
+              <span class="block" [class.text-muted]="left() > 60">@if (left() > 0) { {{ 'Auth.signinCode.timeLeft' | t: { t: clock() } }} } @else { {{ 'Auth.signinCode.expired' | t }} }</span></span>
+          </div>
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); verify()">
             <app-text-field name="code" [label]="'Auth.signinCode.codeLabel' | t" [hint]="'Auth.signinCode.codeHint' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="10" [required]="true" [(value)]="code" />
             @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.signinCode.submit' | t }}</app-submit>
           </form>
+          <button type="button" class="self-start text-sm font-semibold text-brand-ink underline disabled:text-muted disabled:no-underline" [disabled]="wait() > 0 || pending()" (click)="resend()">
+            @if (wait() > 0) { {{ 'Auth.signinCode.resendIn' | t: { n: wait() } }} } @else { {{ 'Auth.signinCode.resend' | t }} }</button>
         }
         <a [routerLink]="link('/login')" class="text-sm font-semibold text-brand-ink underline">{{ 'Auth.signinCode.back' | t }}</a>
       </app-card>
@@ -166,10 +174,30 @@ export class LoginCodePage extends FormBase {
   protected readonly email = signal('');
   protected readonly code = signal('');
   protected readonly sent = signal(false);
+  // Countdown after a code is sent: how long the code works (Settings → Sign-in codes) and the wait before a new one.
+  private readonly sentAt = signal(0);
+  private readonly now = signal(Date.now());
+  protected readonly minutes = computed(() => this.site.info()?.signinCodes?.validMinutes ?? 10);
+  private readonly elapsed = computed(() => Math.floor((this.now() - this.sentAt()) / 1000));
+  protected readonly left = computed(() => Math.max(0, this.minutes() * 60 - this.elapsed()));
+  protected readonly wait = computed(() => Math.max(0, (this.site.info()?.signinCodes?.cooldownSeconds ?? 60) - this.elapsed()));
+  protected readonly clock = computed(() => Math.floor(this.left() / 60) + ':' + String(this.left() % 60).padStart(2, '0'));
+  constructor() {
+    super();
+    const t = setInterval(() => this.now.set(Date.now()), 1000);
+    inject(DestroyRef).onDestroy(() => clearInterval(t));
+  }
+  private started(): void { this.sentAt.set(Date.now()); this.now.set(Date.now()); }
+  /** A new code: with a captcha the person passes it again on the first screen; otherwise it is sent at once. */
+  resend(): void {
+    this.code.set(''); this.error.set(null);
+    if (this.captchaKey()) { this.sent.set(false); return; }
+    void this.run(async () => { await firstValueFrom(this.http.post('/api/auth/signin-code', { email: this.email().trim(), captchaToken: null })); this.started(); });
+  }
   request(): void {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email().trim())) { this.fieldErrors.set({ email: 'emailInvalid' }); return; }
     if (!this.captchaReady()) return;
-    void this.run(async () => { await firstValueFrom(this.http.post('/api/auth/signin-code', { email: this.email().trim(), captchaToken: this.captchaToken() || null })); this.sent.set(true); });
+    void this.run(async () => { await firstValueFrom(this.http.post('/api/auth/signin-code', { email: this.email().trim(), captchaToken: this.captchaToken() || null })); this.started(); this.sent.set(true); });
   }
   verify(): void {
     void this.run(async () => {
