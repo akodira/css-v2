@@ -6,10 +6,31 @@ export const ADMIN_B_ARTICLES: Article[] = [
   {
     id: "reg-modes", kind: "feature", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/system",
     title: { en: "Registration mode", ar: "وضع التسجيل" },
-    summary: {
-      en: "Who can create an account. Email confirmation is always required first. Closed: nobody can register, the Create account option is removed everywhere, and branch and organization admins create the accounts. Open, administrator approves: customers register and confirm their email, then an administrator assigns the organization and approves. Open, customer picks, admin approves: customers pick their organization and branch, and the admins of that branch or organization approve and are emailed. Open, customer picks, no approval: customers pick their organization and branch, confirm their email and can sign in at once. Changing the mode does not affect accounts already waiting for approval.",
-      ar: "من يستطيع إنشاء حساب. تأكيد البريد مطلوب دائمًا أولًا. مغلق: لا أحد يستطيع التسجيل وتُزال خيار «إنشاء حساب» من كل مكان، ويُنشئ مديرو الفروع والمؤسسات الحسابات. مفتوح والمدير يوافق: يسجل العملاء ويؤكدون بريدهم ثم يحدد المدير المؤسسة ويوافق. مفتوح والعميل يختار والمدير يوافق: يختار العميل مؤسسته وفرعه ويوافق مديرو ذلك الفرع أو المؤسسة ويصلهم بريد. مفتوح والعميل يختار دون موافقة: يختار العميل مؤسسته وفرعه ويؤكد بريده ويمكنه الدخول فورًا. تغيير الوضع لا يؤثر في الحسابات المنتظرة للموافقة.",
-    },
+    summary: { en: "Decides who can create an account and who approves it.", ar: "يحدد من يستطيع إنشاء حساب ومن يوافق عليه." },
+    rule: { en: "In every mode, the customer confirms their email first.", ar: "في جميع الأوضاع يؤكد العميل بريده الإلكتروني أولًا." },
+    optionsTitle: { en: "The four modes", ar: "الأوضاع الأربعة" },
+    options: [
+      { name: { en: "Closed", ar: "مغلق" }, tone: "neutral", tag: { en: "No sign-up", ar: "لا تسجيل" }, points: [
+        { en: "Nobody can register; **Create account** is removed everywhere.", ar: "لا أحد يستطيع التسجيل، ويُزال خيار **إنشاء حساب** من كل مكان." },
+        { en: "Branch and organization admins create the accounts.", ar: "يُنشئ مديرو الفروع والمؤسسات الحسابات." },
+      ] },
+      { name: { en: "Open, administrator approves", ar: "مفتوح والمدير يوافق" }, tone: "brand", tag: { en: "Administrator approves", ar: "موافقة المدير" }, points: [
+        { en: "Customers register and confirm their email.", ar: "يسجل العملاء ويؤكدون بريدهم." },
+        { en: "An administrator assigns the organization, then approves.", ar: "يحدد المدير المؤسسة ثم يوافق." },
+      ] },
+      { name: { en: "Open, customer picks, admin approves", ar: "مفتوح والعميل يختار والمدير يوافق" }, tone: "purple", tag: { en: "Branch or organization admin approves", ar: "موافقة مدير الفرع أو المؤسسة" }, points: [
+        { en: "Customers pick their organization and branch.", ar: "يختار العميل مؤسسته وفرعه." },
+        { en: "The admins of that branch or organization are emailed and approve.", ar: "يصل بريد إلى مديري ذلك الفرع أو المؤسسة ويوافقون." },
+      ] },
+      { name: { en: "Open, customer picks, no approval", ar: "مفتوح والعميل يختار دون موافقة" }, tone: "ok", tag: { en: "No approval", ar: "دون موافقة" }, points: [
+        { en: "Customers pick their organization and branch.", ar: "يختار العميل مؤسسته وفرعه." },
+        { en: "They confirm their email and can sign in at once.", ar: "يؤكد بريده ويمكنه الدخول فورًا." },
+      ] },
+    ],
+    notes: [
+      { en: "Changing the mode does not affect accounts already waiting for approval.", ar: "تغيير الوضع لا يؤثر في الحسابات المنتظرة للموافقة." },
+    ],
+    related: ["reg-set", "captcha-set"],
     tips: [{ en: "With no approval, turn on the sign-up captcha: it is then the only filter against bots.", ar: "مع عدم وجود موافقة فعّل كابتشا التسجيل فهي حينها الحاجز الوحيد ضد الروبوتات." }],
   },
   {
@@ -40,10 +61,14 @@ export const ADMIN_B_ARTICLES: Article[] = [
   {
     id: "sys-misc", kind: "feature", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/system",
     title: { en: "Other system rules", ar: "قواعد نظام أخرى" },
-    summary: {
-      en: "Reopen window (days): how long after a ticket is closed the customer can still reopen it. Auto-close after resolved (days): a resolved ticket closes by itself after this many days without a customer reply. Minimum reply length: the number of characters a reply needs to count as a first response. Send notification emails: turn on only after the email provider is configured, until then emails stay queued. Automatic page refresh (seconds): ticket lists and pages re-read their data every this many seconds, 0 turns it off, otherwise 10 to 3600.",
-      ar: "مدة إعادة الفتح (بالأيام): المدة التي يستطيع العميل خلالها إعادة فتح التذكرة بعد إغلاقها. الإغلاق التلقائي بعد الحل (بالأيام): تُغلق التذكرة المحلولة تلقائيًا بعد هذه المدة دون رد من العميل. أقل طول للرد: عدد الأحرف اللازم ليُحتسب الرد أول استجابة. إرسال رسائل الإشعارات: فعّله بعد ضبط مزود البريد، وإلى حينها تبقى الرسائل في الانتظار. التحديث التلقائي للصفحة (بالثواني): تعيد قوائم التذاكر وصفحاتها قراءة بياناتها كل هذه المدة، و0 تعطّله وإلا فمن 10 إلى 3600.",
-    },
+    summary: { en: "Smaller rules that shape how tickets and pages behave.", ar: "قواعد أصغر تحدد سلوك التذاكر والصفحات." },
+    options: [
+      { name: { en: "Reopen window (days)", ar: "مدة إعادة الفتح (بالأيام)" }, tone: "brand", text: { en: "How long after a ticket is closed the customer can still reopen it.", ar: "المدة التي يستطيع العميل خلالها إعادة فتح التذكرة بعد إغلاقها." } },
+      { name: { en: "Auto-close after resolved (days)", ar: "الإغلاق التلقائي بعد الحل (بالأيام)" }, tone: "ok", text: { en: "A resolved ticket closes by itself after this many days without a customer reply.", ar: "تُغلق التذكرة المحلولة تلقائيًا بعد هذه المدة دون رد من العميل." } },
+      { name: { en: "Minimum reply length", ar: "أقل طول للرد" }, tone: "purple", text: { en: "The number of characters a reply needs to count as a first response.", ar: "عدد الأحرف اللازم ليُحتسب الرد أول استجابة." } },
+      { name: { en: "Send notification emails", ar: "إرسال رسائل الإشعارات" }, tone: "warn", text: { en: "Turn on only after the email provider is configured; until then emails stay queued.", ar: "فعّله بعد ضبط مزود البريد، وإلى حينها تبقى الرسائل في الانتظار." } },
+      { name: { en: "Automatic page refresh (seconds)", ar: "التحديث التلقائي للصفحة (بالثواني)" }, tone: "neutral", text: { en: "Ticket lists and pages re-read their data this often: 0 turns it off, otherwise 10 to 3600.", ar: "تعيد قوائم التذاكر وصفحاتها قراءة بياناتها كل هذه المدة: 0 تعطّله وإلا فمن 10 إلى 3600." } },
+    ],
     tips: [{ en: "Business hours, holidays and SLA targets are on the SLA settings page.", ar: "ساعات العمل والعطلات وأهداف اتفاقية الخدمة في صفحة إعدادات اتفاقية الخدمة." }],
   },
   {
@@ -112,10 +137,27 @@ export const ADMIN_B_ARTICLES: Article[] = [
   {
     id: "notif-events", kind: "feature", area: "email", audience: ["customer", "agent"], path: "/notifications",
     title: { en: "Which updates are sent, and to whom", ar: "التحديثات المرسلة وإلى من" },
-    summary: {
-      en: "To the customer: ticket received, new reply from support, status changed, resolved, closed, plus reminders and a final warning while waiting for them, and a reminder to confirm a resolution. To staff: ticket assigned, customer replied, priority changed, SLA warning, SLA breach, ticket reopened, ticket escalated. Account emails: confirm email, password reset code, sign-in code, account waiting for approval, approved, rejected, promoted to staff and password expiring. Every update also appears under the bell.",
-      ar: "إلى العميل: استلام التذكرة، رد جديد من الدعم، تغيّر الحالة، تم الحل، الإغلاق، إضافة إلى التذكيرات والتحذير الأخير أثناء انتظاره وتذكير بتأكيد الحل. إلى الموظفين: إسناد تذكرة، رد العميل، تغيّر الأولوية، تحذير اتفاقية الخدمة، تجاوزها، إعادة فتح التذكرة، تصعيدها. رسائل الحساب: تأكيد البريد، رمز استعادة كلمة المرور، رمز الدخول، حساب بانتظار الموافقة، موافقة، رفض، ترقية إلى موظف، وقرب انتهاء كلمة المرور. وتظهر كل تحديثات أيضًا تحت الجرس.",
-    },
+    summary: { en: "Every update the system sends, by who receives it.", ar: "كل التحديثات التي يرسلها النظام، حسب من يستلمها." },
+    options: [
+      { name: { en: "To the customer", ar: "إلى العميل" }, tone: "brand", points: [
+        { en: "Ticket received, new reply from support, status changed, resolved, closed.", ar: "استلام التذكرة، رد جديد من الدعم، تغيّر الحالة، تم الحل، الإغلاق." },
+        { en: "Reminders and a final warning while waiting for them.", ar: "التذكيرات والتحذير الأخير أثناء انتظاره." },
+        { en: "A reminder to confirm a resolution.", ar: "تذكير بتأكيد الحل." },
+      ] },
+      { name: { en: "To staff", ar: "إلى الموظفين" }, tone: "purple", points: [
+        { en: "Ticket assigned, customer replied, priority changed.", ar: "إسناد تذكرة، رد العميل، تغيّر الأولوية." },
+        { en: "SLA warning and SLA breach.", ar: "تحذير اتفاقية الخدمة وتجاوزها." },
+        { en: "Ticket reopened, ticket escalated.", ar: "إعادة فتح التذكرة وتصعيدها." },
+      ] },
+      { name: { en: "Account emails", ar: "رسائل الحساب" }, tone: "ok", points: [
+        { en: "Confirm email, password reset code, sign-in code.", ar: "تأكيد البريد، رمز استعادة كلمة المرور، رمز الدخول." },
+        { en: "Account waiting for approval, approved, rejected.", ar: "حساب بانتظار الموافقة، موافقة، رفض." },
+        { en: "Promoted to staff, password expiring.", ar: "ترقية إلى موظف، قرب انتهاء كلمة المرور." },
+      ] },
+    ],
+    notes: [
+      { en: "Every update also appears under the bell.", ar: "وتظهر كل التحديثات أيضًا تحت الجرس." },
+    ],
   },
   {
     id: "smtp-set", kind: "howto", area: "email", audience: [], perm: "manage_settings", path: "/admin/general/settings/email",

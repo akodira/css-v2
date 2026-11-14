@@ -74,10 +74,14 @@ export const GENERAL_ARTICLES: Article[] = [
   {
     id: "a-notifications", kind: "feature", area: "account", audience: [...both], path: "/notifications",
     title: { en: "Notifications", ar: "الإشعارات" },
-    summary: {
-      en: "The bell in the header shows how many updates are unread. The Notifications page lists every update on your tickets, such as new replies, status changes, assignments and SLA warnings. Select one to open the ticket, or use **Mark all as read**. The same updates reach you by email.",
-      ar: "يعرض الجرس في الترويسة عدد التحديثات غير المقروءة. تسرد صفحة الإشعارات كل تحديثات تذاكرك مثل الردود الجديدة وتغيّر الحالة والإسناد وتحذيرات اتفاقية الخدمة. اختر إشعارًا لفتح التذكرة أو استخدم **تعليم الكل كمقروء**. وتصلك التحديثات نفسها بالبريد.",
-    },
+    summary: { en: "The bell in the header shows how many updates are unread.", ar: "يعرض الجرس في الترويسة عدد التحديثات غير المقروءة." },
+    points: [
+      { en: "The Notifications page lists every update on your tickets: new replies, status changes, assignments and SLA warnings.", ar: "تسرد صفحة الإشعارات كل تحديثات تذاكرك: الردود الجديدة وتغيّر الحالة والإسناد وتحذيرات اتفاقية الخدمة." },
+      { en: "Select one to open the ticket, or use **Mark all as read**.", ar: "اختر إشعارًا لفتح التذكرة أو استخدم **تعليم الكل كمقروء**." },
+    ],
+    notes: [
+      { en: "The same updates reach you by email.", ar: "وتصلك التحديثات نفسها بالبريد." },
+    ],
   },
   {
     id: "a-register", kind: "howto", area: "account", audience: [...c], path: "/register",
@@ -109,28 +113,41 @@ export const GENERAL_ARTICLES: Article[] = [
   {
     id: "c-home", kind: "feature", area: "tickets", audience: [...c], path: "/",
     title: { en: "Your home page", ar: "صفحتك الرئيسية" },
-    summary: {
-      en: "A welcome with shortcuts to create a ticket and view your tickets, a snapshot of your tickets (total, open, waiting for you, resolved), your most recent tickets, and popular help articles. Search the knowledge base before opening a ticket, because most questions already have an answer.",
-      ar: "ترحيب مع اختصارات لإنشاء تذكرة وعرض تذاكرك، ولمحة عن تذاكرك (الإجمالي والمفتوحة وبانتظار ردك والمحلولة)، وأحدث تذاكرك، والمقالات الشائعة. ابحث في قاعدة المعرفة قبل فتح تذكرة فكثير من الأسئلة لها إجابة جاهزة.",
-    },
+    summary: { en: "Your starting point after signing in.", ar: "نقطة البداية بعد تسجيل الدخول." },
+    points: [
+      { en: "A welcome with shortcuts to create a ticket and view your tickets.", ar: "ترحيب مع اختصارات لإنشاء تذكرة وعرض تذاكرك." },
+      { en: "A snapshot of your tickets: total, open, waiting for you and resolved.", ar: "لمحة عن تذاكرك: الإجمالي والمفتوحة وبانتظار ردك والمحلولة." },
+      { en: "Your most recent tickets and popular help articles.", ar: "أحدث تذاكرك والمقالات الشائعة." },
+    ],
+    notes: [
+      { en: "Search the knowledge base before opening a ticket: most questions already have an answer.", ar: "ابحث في قاعدة المعرفة قبل فتح تذكرة، فكثير من الأسئلة لها إجابة جاهزة." },
+    ],
   },
   {
     id: "s-notifications", kind: "feature", area: "account", audience: [...s], path: "/console/notifications",
     title: { en: "Notifications (staff)", ar: "الإشعارات (الموظفون)" },
-    summary: {
-      en: "The bell in the top bar shows unread updates: tickets assigned to you, customer replies, priority changes, SLA warnings and breaches, reopened and escalated tickets. Select one to open the ticket, or use **Mark all as read**. The same updates reach you by email.",
-      ar: "يعرض الجرس في الشريط العلوي التحديثات غير المقروءة: التذاكر المسندة إليك وردود العملاء وتغيّر الأولوية وتحذيرات اتفاقية الخدمة وتجاوزاتها والتذاكر المعاد فتحها والمصعّدة. اختر تحديثًا لفتح التذكرة أو استخدم **تعليم الكل كمقروء**. وتصلك التحديثات نفسها بالبريد.",
-    },
+    summary: { en: "The bell in the top bar shows unread updates.", ar: "يعرض الجرس في الشريط العلوي التحديثات غير المقروءة." },
+    points: [
+      { en: "Tickets assigned to you and customer replies.", ar: "التذاكر المسندة إليك وردود العملاء." },
+      { en: "Priority changes, SLA warnings and breaches.", ar: "تغيّر الأولوية وتحذيرات اتفاقية الخدمة وتجاوزاتها." },
+      { en: "Reopened and escalated tickets.", ar: "التذاكر المعاد فتحها والمصعّدة." },
+      { en: "Select one to open the ticket, or use **Mark all as read**.", ar: "اختر تحديثًا لفتح التذكرة أو استخدم **تعليم الكل كمقروء**." },
+    ],
+    notes: [
+      { en: "The same updates reach you by email.", ar: "وتصلك التحديثات نفسها بالبريد." },
+    ],
   },
 
   // ---- Customers (staff) ----
   {
     id: "s-customers", kind: "feature", area: "customers", audience: [...s], path: "/console/customers",
     title: { en: "Customers", ar: "العملاء" },
-    summary: {
-      en: "Everyone who registered as a customer inside your access, with organization, branch, status and ticket counts. Search by name, email, phone or organization. Open a customer to see the full ticket history and to edit their details.",
-      ar: "كل من سجّل كعميل ضمن نطاق صلاحيتك مع المؤسسة والفرع والحالة وعدد التذاكر. ابحث بالاسم أو البريد أو الهاتف أو المؤسسة. افتح العميل لترى سجل تذاكره الكامل ولتعدّل بياناته.",
-    },
+    summary: { en: "Everyone who registered as a customer inside your access.", ar: "كل من سجّل كعميل ضمن نطاق صلاحيتك." },
+    points: [
+      { en: "See organization, branch, status and ticket counts.", ar: "اطّلع على المؤسسة والفرع والحالة وعدد التذاكر." },
+      { en: "Search by name, email, phone or organization.", ar: "ابحث بالاسم أو البريد أو الهاتف أو المؤسسة." },
+      { en: "Open a customer to see the full ticket history and edit their details.", ar: "افتح العميل لترى سجل تذاكره الكامل ولتعدّل بياناته." },
+    ],
     tips: [{ en: "A customer with tickets cannot be deleted. Suspend the account instead.", ar: "لا يمكن حذف عميل لديه تذاكر. أوقف حسابه بدلًا من ذلك." }],
   },
   {
@@ -147,10 +164,12 @@ export const GENERAL_ARTICLES: Article[] = [
   {
     id: "s-people", kind: "feature", area: "customers", audience: [...s], path: "/console/people",
     title: { en: "People in your branch or organization", ar: "الأشخاص في فرعك أو مؤسستك" },
-    summary: {
-      en: "For branch and organization administrators. Add, edit, suspend or reactivate the customers, agents and team leaders inside the branches and organizations you manage. The page appears only when the main Administrator has given you a scope (when adding you, they tick Organization admin or Branch admin and choose your organizations or branches). Its menu item is People.",
-      ar: "لمديري الفروع والمؤسسات. أضف العملاء والموظفين وقادة الفرق داخل الفروع والمؤسسات التي تديرها، وعدّلهم أو أوقفهم أو أعد تفعيلهم. تظهر الصفحة فقط عندما يمنحك المدير الرئيسي نطاقًا (عند إضافتك يحدد «مدير المؤسسة» أو «مدير الفرع» ويختار مؤسساتك أو فروعك). وبند القائمة هو «الأشخاص».",
-    },
+    summary: { en: "For branch and organization administrators: manage the people you are responsible for.", ar: "لمديري الفروع والمؤسسات: إدارة الأشخاص الذين تتولى مسؤوليتهم." },
+    rule: { en: "The page appears only when the main Administrator gives you a scope: Organization admin or Branch admin, with your organizations or branches.", ar: "تظهر الصفحة فقط عندما يمنحك المدير الرئيسي نطاقًا: «مدير المؤسسة» أو «مدير الفرع» مع مؤسساتك أو فروعك." },
+    points: [
+      { en: "Add, edit, suspend or reactivate the customers, agents and team leaders inside the branches and organizations you manage.", ar: "أضف العملاء والموظفين وقادة الفرق داخل الفروع والمؤسسات التي تديرها، وعدّلهم أو أوقفهم أو أعد تفعيلهم." },
+      { en: "Its menu item is **People**.", ar: "بند القائمة هو **الأشخاص**." },
+    ],
   },
 
   // ---- Knowledge base ----
@@ -168,20 +187,25 @@ export const GENERAL_ARTICLES: Article[] = [
   {
     id: "kb-manage", kind: "feature", area: "kb", audience: [], perm: "manage_kb", path: "/admin/kb",
     title: { en: "Manage knowledge base articles", ar: "إدارة مقالات قاعدة المعرفة" },
-    summary: {
-      en: "Create, edit, publish and unpublish articles and their categories, in English and Arabic. Only published articles are visible to customers. Votes on helpfulness show which articles need work.",
-      ar: "أنشئ المقالات والتصنيفات وعدّلها وانشرها وأوقف نشرها بالعربية والإنجليزية. تظهر للعملاء المقالات المنشورة فقط. وتبيّن أصوات الفائدة المقالات التي تحتاج تحسينًا.",
-    },
+    summary: { en: "Write and maintain the help articles, in English and Arabic.", ar: "اكتب مقالات المساعدة وحدّثها بالعربية والإنجليزية." },
+    rule: { en: "Only published articles are visible to customers, and only after they sign in.", ar: "تظهر للعملاء المقالات المنشورة فقط، وبعد تسجيل الدخول." },
+    points: [
+      { en: "Create, edit, publish and unpublish articles and their categories.", ar: "أنشئ المقالات والتصنيفات وعدّلها وانشرها وأوقف نشرها." },
+      { en: "Helpfulness votes show which articles need work.", ar: "تبيّن أصوات الفائدة المقالات التي تحتاج تحسينًا." },
+    ],
   },
 
   // ---- Dashboard and reports ----
   {
     id: "r-dashboard", kind: "feature", area: "reports", audience: [...s], path: "/console/dashboard",
     title: { en: "Dashboard", ar: "لوحة المتابعة" },
-    summary: {
-      en: "A summary of the last 30 days: total, new, in progress, resolved and overdue tickets, a trend chart of created against resolved, SLA compliance, recent tickets, agent workload, average resolution time and tickets per organization and branch. Quick actions jump to unassigned, assigned to me and SLA breached tickets.",
-      ar: "ملخص لآخر 30 يومًا: إجمالي التذاكر والجديدة وقيد المعالجة والمحلولة والمتأخرة، ومخطط اتجاه للمنشأة مقابل المحلولة، والالتزام باتفاقية الخدمة، وأحدث التذاكر، وحمل العمل على الموظفين، ومتوسط زمن الحل، والتذاكر لكل مؤسسة وفرع. تنقلك الإجراءات السريعة إلى غير المسندة والمسندة إليّ والمتجاوزة.",
-    },
+    summary: { en: "A summary of the last 30 days.", ar: "ملخص لآخر 30 يومًا." },
+    options: [
+      { name: { en: "Tickets", ar: "التذاكر" }, tone: "brand", text: { en: "Total, new, in progress, resolved and overdue, with a trend of created against resolved.", ar: "الإجمالي والجديدة وقيد المعالجة والمحلولة والمتأخرة، مع مخطط المنشأة مقابل المحلولة." } },
+      { name: { en: "Service", ar: "الخدمة" }, tone: "ok", text: { en: "SLA compliance and average resolution time.", ar: "الالتزام باتفاقية الخدمة ومتوسط زمن الحل." } },
+      { name: { en: "Work", ar: "العمل" }, tone: "purple", text: { en: "Recent tickets, agent workload, and tickets per organization and branch.", ar: "أحدث التذاكر وحمل العمل على الموظفين والتذاكر لكل مؤسسة وفرع." } },
+      { name: { en: "Quick actions", ar: "إجراءات سريعة" }, tone: "warn", text: { en: "Jump to unassigned, assigned to me and SLA breached tickets.", ar: "انتقل إلى غير المسندة والمسندة إليّ والمتجاوزة." } },
+    ],
   },
   {
     id: "r-reports", kind: "howto", area: "reports", audience: [], perm: ["reports_own", "reports_all"], path: "/console/reports",
@@ -198,10 +222,15 @@ export const GENERAL_ARTICLES: Article[] = [
   {
     id: "r-sla-report", kind: "feature", area: "reports", audience: [...s], path: "/console/sla",
     title: { en: "SLA report", ar: "تقرير اتفاقية الخدمة" },
-    summary: {
-      en: "How well deadlines are being met: first response met, resolution met (target 90%), and a list of tickets at risk that are breached or due soon. Reopened tickets are counted in separate SLA cycles so a missed first deadline is never hidden.",
-      ar: "مدى الالتزام بالمواعيد: أول استجابة تحققت، والحل تحقق (الهدف 90%)، وقائمة بالتذاكر المعرضة للخطر المتجاوزة أو التي تستحق قريبًا. تُحتسب التذاكر المعاد فتحها في دورات منفصلة لئلا يُخفى موعد أول فائت.",
-    },
+    summary: { en: "How well deadlines are being met.", ar: "مدى الالتزام بالمواعيد." },
+    points: [
+      { en: "First response met.", ar: "أول استجابة تحققت." },
+      { en: "Resolution met (target 90%).", ar: "الحل تحقق (الهدف 90%)." },
+      { en: "Tickets at risk: breached or due soon.", ar: "التذاكر المعرضة للخطر: المتجاوزة أو التي تستحق قريبًا." },
+    ],
+    notes: [
+      { en: "Reopened tickets are counted in separate SLA cycles, so a missed first deadline is never hidden.", ar: "تُحتسب التذاكر المعاد فتحها في دورات منفصلة لئلا يُخفى موعد أول فائت." },
+    ],
   },
 ];
 

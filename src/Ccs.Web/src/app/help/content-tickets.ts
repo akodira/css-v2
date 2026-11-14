@@ -9,18 +9,23 @@ export const TICKET_ARTICLES: Article[] = [
   {
     id: "c-my-tickets", kind: "feature", area: "tickets", audience: [...c], path: "/tickets",
     title: { en: "My tickets", ar: "تذاكري" },
-    summary: {
-      en: "Every request you opened, with its reference, status and last update. Four coloured cards count your tickets: In progress, Waiting for you, Resolved and Closed. Select a card or a filter to narrow the list, or search by reference or subject.",
-      ar: "كل الطلبات التي فتحتها مع رقمها المرجعي وحالتها وآخر تحديث. أربع بطاقات ملونة تعدّ تذاكرك: قيد المعالجة، بانتظار ردك، تم الحل، مغلقة. اختر بطاقة أو مرشحًا لتضييق القائمة، أو ابحث بالرقم المرجعي أو الموضوع.",
-    },
+    summary: { en: "Every request you opened, with its reference, status and last update.", ar: "كل الطلبات التي فتحتها مع رقمها المرجعي وحالتها وآخر تحديث." },
+    points: [
+      { en: "Four coloured cards count your tickets: In progress, Waiting for you, Resolved and Closed.", ar: "أربع بطاقات ملونة تعدّ تذاكرك: قيد المعالجة، بانتظار ردك، تم الحل، مغلقة." },
+      { en: "Select a card or a filter to narrow the list.", ar: "اختر بطاقة أو مرشحًا لتضييق القائمة." },
+      { en: "Search by reference or subject.", ar: "ابحث بالرقم المرجعي أو الموضوع." },
+    ],
   },
   {
     id: "c-ticket-page", kind: "feature", area: "tickets", audience: [...c],
     title: { en: "Your ticket page", ar: "صفحة التذكرة" },
-    summary: {
-      en: "Shows your request, its progress, the conversation with the support team, your attachments and, once solved, the resolution. A status badge always tells you whose turn it is.",
-      ar: "تعرض طلبك وتقدّمه والمحادثة مع فريق الدعم ومرفقاتك، وبعد الحل تعرض ملخص الحل. شارة الحالة توضح دائمًا من عليه الدور.",
-    },
+    summary: { en: "Everything about your request on one page.", ar: "كل ما يخص طلبك في صفحة واحدة." },
+    rule: { en: "A status badge always tells you whose turn it is.", ar: "شارة الحالة توضح دائمًا من عليه الدور." },
+    points: [
+      { en: "Your request and its progress.", ar: "طلبك وتقدّمه." },
+      { en: "The conversation with the support team, and your attachments.", ar: "المحادثة مع فريق الدعم ومرفقاتك." },
+      { en: "Once solved, the resolution.", ar: "وبعد الحل، ملخص الحل." },
+    ],
     tips: [{ en: "\"Waiting for you\" means the team needs your answer before it can continue.", ar: "حالة «بانتظار ردك» تعني أن الفريق يحتاج إجابتك ليواصل العمل." }],
   },
   {
@@ -97,10 +102,13 @@ export const TICKET_ARTICLES: Article[] = [
   {
     id: "s-queue", kind: "feature", area: "tickets", audience: [...s], path: "/console",
     title: { en: "Ticket queue", ar: "قائمة التذاكر" },
-    summary: {
-      en: "The working list of the tickets your teams are responsible for. Coloured cards count Assigned to me, Unassigned, SLA breached, Due soon and Closed tickets, and each card opens that list. Views: Assigned to me, Unassigned, All visible, Escalated and Closed. Filter by status, priority or SLA, search by reference, subject or customer, and sort any column.",
-      ar: "قائمة العمل للتذاكر التي تتولاها فرقك. بطاقات ملونة تعدّ: المسندة إليّ، غير المسندة، تجاوز اتفاقية الخدمة، تستحق قريبًا، والمغلقة، وكل بطاقة تفتح قائمتها. العروض: المسندة إليّ، غير المسندة، كل المرئي، المصعّدة، المغلقة. رشّح بالحالة أو الأولوية أو اتفاقية الخدمة، وابحث بالرقم أو الموضوع أو العميل، ورتّب أي عمود.",
-    },
+    summary: { en: "The working list of the tickets your teams are responsible for.", ar: "قائمة العمل للتذاكر التي تتولاها فرقك." },
+    optionsTitle: { en: "On the page", ar: "محتوى الصفحة" },
+    options: [
+      { name: { en: "Cards", ar: "البطاقات" }, tone: "brand", text: { en: "Assigned to me, Unassigned, SLA breached, Due soon and Closed. Each card opens that list.", ar: "المسندة إليّ، غير المسندة، تجاوز اتفاقية الخدمة، تستحق قريبًا، والمغلقة. وكل بطاقة تفتح قائمتها." } },
+      { name: { en: "Views", ar: "العروض" }, tone: "purple", text: { en: "Assigned to me, Unassigned, All visible, Escalated and Closed.", ar: "المسندة إليّ، غير المسندة، كل المرئي، المصعّدة، المغلقة." } },
+      { name: { en: "Filter, search and sort", ar: "الترشيح والبحث والترتيب" }, tone: "ok", text: { en: "Filter by status, priority or SLA, search by reference, subject or customer, and sort any column.", ar: "رشّح بالحالة أو الأولوية أو اتفاقية الخدمة، وابحث بالرقم أو الموضوع أو العميل، ورتّب أي عمود." } },
+    ],
     tips: [
       { en: "The default Status filter is Active, so closed tickets are hidden. Use the green Closed button or card to see them.", ar: "مرشح الحالة الافتراضي هو «نشطة» فتُخفى التذاكر المغلقة. استخدم زر أو بطاقة «مغلقة» الخضراء لعرضها." },
       { en: "The list refreshes by itself. The interval is set by the administrator.", ar: "تتحدث القائمة تلقائيًا، ويحدد المدير الفاصل الزمني." },
@@ -109,10 +117,19 @@ export const TICKET_ARTICLES: Article[] = [
   {
     id: "s-ticket-page", kind: "feature", area: "tickets", audience: [...s],
     title: { en: "Ticket page", ar: "صفحة التذكرة" },
-    summary: {
-      en: "One page for the whole ticket: customer details, team and assigned agent, SLA clocks, the request, public replies and internal notes, attachments, linked tickets and an activity log. Action panels let you change status, priority, assignment and category, or escalate.",
-      ar: "صفحة واحدة للتذكرة كلها: بيانات العميل والفريق والموظف المسؤول، ساعات اتفاقية الخدمة، الطلب، الردود العامة والملاحظات الداخلية، المرفقات، التذاكر المرتبطة وسجل النشاط. لوحات الإجراءات تتيح تغيير الحالة والأولوية والإسناد والتصنيف أو التصعيد.",
-    },
+    summary: { en: "One page for the whole ticket.", ar: "صفحة واحدة للتذكرة كلها." },
+    options: [
+      { name: { en: "What you see", ar: "ما تراه" }, tone: "brand", points: [
+        { en: "Customer details, team and assigned agent.", ar: "بيانات العميل والفريق والموظف المسؤول." },
+        { en: "SLA clocks.", ar: "ساعات اتفاقية الخدمة." },
+        { en: "The request, public replies and internal notes.", ar: "الطلب والردود العامة والملاحظات الداخلية." },
+        { en: "Attachments, linked tickets and an activity log.", ar: "المرفقات والتذاكر المرتبطة وسجل النشاط." },
+      ] },
+      { name: { en: "What you can do", ar: "ما يمكنك فعله" }, tone: "purple", points: [
+        { en: "Change status, priority, assignment or category.", ar: "تغيير الحالة أو الأولوية أو الإسناد أو التصنيف." },
+        { en: "Escalate the ticket.", ar: "تصعيد التذكرة." },
+      ] },
+    ],
   },
   {
     id: "s-reply", kind: "howto", area: "tickets", audience: [...s],
@@ -206,33 +223,58 @@ export const TICKET_ARTICLES: Article[] = [
   {
     id: "s-saved", kind: "feature", area: "tickets", audience: [...s], path: "/console/canned",
     title: { en: "Saved replies", ar: "الردود المحفوظة" },
-    summary: {
-      en: "Write an answer once and insert it into any ticket. Personal replies are visible only to you. Shared replies are visible to all staff. Replies can be set to English, Arabic or any language, and can use placeholders that fill in when inserted.",
-      ar: "اكتب إجابة مرة واحدة وأدرجها في أي تذكرة. الردود الشخصية لا يراها غيرك، والمشتركة يراها كل الموظفين. يمكن تحديد اللغة (العربية أو الإنجليزية أو أي لغة) واستخدام متغيرات تُملأ عند الإدراج.",
-    },
+    summary: { en: "Write an answer once and insert it into any ticket.", ar: "اكتب إجابة مرة واحدة وأدرجها في أي تذكرة." },
+    options: [
+      { name: { en: "Personal", ar: "شخصية" }, tone: "neutral", text: { en: "Visible only to you.", ar: "لا يراها غيرك." } },
+      { name: { en: "Shared", ar: "مشتركة" }, tone: "brand", text: { en: "Visible to all staff.", ar: "يراها كل الموظفين." } },
+    ],
+    points: [
+      { en: "Set the language: English, Arabic or any language.", ar: "حدّد اللغة: العربية أو الإنجليزية أو أي لغة." },
+      { en: "Placeholders fill in when the reply is inserted.", ar: "تُملأ المتغيرات عند إدراج الرد." },
+    ],
   },
   {
     id: "s-team", kind: "feature", area: "tickets", audience: [...s], path: "/console/team",
     title: { en: "My team: automatic assignment", ar: "فريقي: الإسناد التلقائي" },
-    summary: {
-      en: "For team leaders. Switch on the people who should receive new tickets automatically. A new ticket goes to the person with the switch on who has the fewest open tickets and can access that customer's organization. If nobody qualifies it stays in the team queue. A second switch lets a person create tickets for customers.",
-      ar: "لقادة الفرق. فعّل المفتاح للأشخاص الذين يستلمون التذاكر الجديدة تلقائيًا. تذهب التذكرة الجديدة إلى صاحب المفتاح المفعّل الأقل تذاكر مفتوحة ممن يمكنه الوصول إلى مؤسسة العميل. وإن لم يتوفر أحد تبقى في قائمة الفريق. ومفتاح ثانٍ يتيح للشخص إنشاء تذاكر للعملاء.",
-    },
+    summary: { en: "For team leaders: choose who receives new tickets automatically.", ar: "لقادة الفرق: اختر من يستلم التذاكر الجديدة تلقائيًا." },
+    rule: { en: "A new ticket goes to the person with the switch on who has the fewest open tickets and can access that customer's organization.", ar: "تذهب التذكرة الجديدة إلى صاحب المفتاح المفعّل الأقل تذاكر مفتوحة ممن يمكنه الوصول إلى مؤسسة العميل." },
+    optionsTitle: { en: "Two switches per person", ar: "مفتاحان لكل شخص" },
+    options: [
+      { name: { en: "Automatic assignment", ar: "الإسناد التلقائي" }, tone: "brand", text: { en: "Turn on for the people who should receive new tickets.", ar: "فعّله للأشخاص الذين يستلمون التذاكر الجديدة." } },
+      { name: { en: "Create tickets for customers", ar: "إنشاء تذاكر للعملاء" }, tone: "purple", text: { en: "Lets the person open tickets on a customer's behalf.", ar: "يتيح للشخص فتح تذاكر نيابة عن العملاء." } },
+    ],
+    notes: [
+      { en: "If nobody qualifies, the ticket stays in the team queue.", ar: "إن لم يتوفر أحد تبقى التذكرة في قائمة الفريق." },
+    ],
   },
   {
     id: "s-sla-clock", kind: "feature", area: "tickets", audience: [...s],
     title: { en: "SLA clock on a ticket", ar: "ساعة اتفاقية الخدمة في التذكرة" },
-    summary: {
-      en: "Each ticket carries two deadlines: first response and resolution. The clock shows On track, Due soon, Breached or Paused. It pauses while the ticket waits for the customer. Every reopen starts a new SLA cycle.",
-      ar: "لكل تذكرة موعدان نهائيان: أول رد والحل. تعرض الساعة: في الموعد، يستحق قريبًا، متجاوز، أو متوقف. تتوقف أثناء انتظار العميل، وكل إعادة فتح تبدأ دورة جديدة لاتفاقية الخدمة.",
-    },
+    summary: { en: "Each ticket carries two deadlines: first response and resolution.", ar: "لكل تذكرة موعدان نهائيان: أول رد والحل." },
+    optionsTitle: { en: "What the clock shows", ar: "ما تعرضه الساعة" },
+    options: [
+      { name: { en: "On track", ar: "في الموعد" }, tone: "ok", text: { en: "Within the deadline.", ar: "ضمن الموعد." } },
+      { name: { en: "Due soon", ar: "يستحق قريبًا" }, tone: "warn", text: { en: "The deadline is close.", ar: "الموعد يقترب." } },
+      { name: { en: "Breached", ar: "متجاوز" }, tone: "danger", text: { en: "The deadline has passed.", ar: "انتهى الموعد." } },
+      { name: { en: "Paused", ar: "متوقف" }, tone: "neutral", text: { en: "Stopped while the ticket waits for the customer.", ar: "متوقفة أثناء انتظار العميل." } },
+    ],
+    notes: [
+      { en: "Every reopen starts a new SLA cycle.", ar: "كل إعادة فتح تبدأ دورة جديدة لاتفاقية الخدمة." },
+    ],
   },
   {
     id: "s-statuses", kind: "feature", area: "tickets", audience: [...s],
     title: { en: "Ticket statuses", ar: "حالات التذكرة" },
-    summary: {
-      en: "New: just received. Open: ready or assigned. In progress: an agent is working. Pending customer: waiting for the customer, clock paused. Pending internal: waiting for another team. Resolved: fixed, closes by itself if the customer does not respond. Closed: finished. Reopened: opened again and needs work.",
-      ar: "جديدة: وصلت للتو. مفتوحة: جاهزة أو مسندة. قيد المعالجة: موظف يعمل عليها. بانتظار العميل: ننتظر رده والساعة متوقفة. بانتظار جهة داخلية: ننتظر فريقًا آخر. تم الحل: أُصلحت وتُغلق تلقائيًا إن لم يرد العميل. مغلقة: انتهت. معاد فتحها: فُتحت مجددًا وتحتاج عملًا.",
-    },
+    summary: { en: "The eight statuses a ticket moves through.", ar: "الحالات الثماني التي تمر بها التذكرة." },
+    options: [
+      { name: { en: "New", ar: "جديدة" }, tone: "brand", text: { en: "Just received.", ar: "وصلت للتو." } },
+      { name: { en: "Open", ar: "مفتوحة" }, tone: "brand", text: { en: "Ready or assigned.", ar: "جاهزة أو مسندة." } },
+      { name: { en: "In progress", ar: "قيد المعالجة" }, tone: "purple", text: { en: "An agent is working on it.", ar: "موظف يعمل عليها." } },
+      { name: { en: "Pending customer", ar: "بانتظار العميل" }, tone: "warn", text: { en: "Waiting for the customer; the clock is paused.", ar: "ننتظر رده والساعة متوقفة." } },
+      { name: { en: "Pending internal", ar: "بانتظار جهة داخلية" }, tone: "warn", text: { en: "Waiting for another team.", ar: "ننتظر فريقًا آخر." } },
+      { name: { en: "Resolved", ar: "تم الحل" }, tone: "ok", text: { en: "Fixed; closes by itself if the customer does not respond.", ar: "أُصلحت وتُغلق تلقائيًا إن لم يرد العميل." } },
+      { name: { en: "Closed", ar: "مغلقة" }, tone: "neutral", text: { en: "Finished.", ar: "انتهت." } },
+      { name: { en: "Reopened", ar: "معاد فتحها" }, tone: "danger", text: { en: "Opened again and needs work.", ar: "فُتحت مجددًا وتحتاج عملًا." } },
+    ],
   },
 ];

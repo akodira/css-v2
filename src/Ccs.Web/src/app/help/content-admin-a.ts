@@ -9,10 +9,16 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "sla-overview", kind: "feature", area: "sla", audience: [], perm: "manage_settings", path: "/admin/sla",
     title: { en: "SLA settings", ar: "إعدادات اتفاقية الخدمة" },
-    summary: {
-      en: "Response and resolution targets for each priority, working hours, holidays and who is told when a deadline is close or missed. Targets count working minutes only, inside the business calendar that applies to the ticket. Changes apply to new tickets and to tickets whose priority changes. Tickets already open keep their deadlines until you recalculate them.",
-      ar: "أهداف الاستجابة والحل لكل أولوية، وساعات العمل والعطلات، ومن يُبلَّغ عند اقتراب الموعد أو تجاوزه. تُحتسب الأهداف بدقائق العمل فقط داخل تقويم العمل المنطبق على التذكرة. تسري التغييرات على التذاكر الجديدة وعلى التذاكر التي تتغير أولويتها، أما المفتوحة فتحتفظ بمواعيدها حتى تعيد حسابها.",
-    },
+    summary: { en: "Deadlines for each priority, and when they count.", ar: "المواعيد النهائية لكل أولوية ومتى تُحتسب." },
+    rule: { en: "Targets count working minutes only, inside the business calendar that applies to the ticket.", ar: "تُحتسب الأهداف بدقائق العمل فقط داخل تقويم العمل المنطبق على التذكرة." },
+    points: [
+      { en: "Response and resolution targets for each priority.", ar: "أهداف الاستجابة والحل لكل أولوية." },
+      { en: "Working hours and holidays.", ar: "ساعات العمل والعطلات." },
+      { en: "Who is told when a deadline is close or missed.", ar: "من يُبلَّغ عند اقتراب الموعد أو تجاوزه." },
+    ],
+    notes: [
+      { en: "Changes apply to new tickets and to tickets whose priority changes. Tickets already open keep their deadlines until you recalculate them.", ar: "تسري التغييرات على التذاكر الجديدة وعلى التذاكر التي تتغير أولويتها، أما المفتوحة فتحتفظ بمواعيدها حتى تعيد حسابها." },
+    ],
     tips: [{ en: "The default targets are test values. Have the business approve them before relying on them.", ar: "الأهداف الافتراضية قيم تجريبية. اعتمدها مع الجهة المعنية قبل الاعتماد عليها." }],
   },
   {
@@ -46,10 +52,17 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "esc-overview", kind: "feature", area: "sla", audience: [], path: "/admin/escalation",
     title: { en: "Escalation rules", ar: "قواعد التصعيد" },
-    summary: {
-      en: "Decide, for each organization and branch, which leaders an agent can send a ticket to. Leaders come from the organization tree: the branch leader first, then each organization leader up to the top. Three settings: Any leader above (a dropdown of all of them, nearest first), Next leader only, and Escalation off. A branch setting overrides its organization.",
-      ar: "حدد لكل مؤسسة وفرع القادة الذين يمكن للموظف إحالة التذكرة إليهم. يأتي القادة من شجرة المؤسسات: قائد الفرع أولًا ثم قائد كل مؤسسة صعودًا. ثلاثة إعدادات: أي قائد أعلى (قائمة بكلهم الأقرب أولًا)، القائد التالي فقط، وإيقاف التصعيد. وإعداد الفرع يتقدم على إعداد مؤسسته.",
-    },
+    summary: { en: "Decide, for each organization and branch, which leaders an agent can send a ticket to.", ar: "حدد لكل مؤسسة وفرع القادة الذين يمكن للموظف إحالة التذكرة إليهم." },
+    rule: { en: "Leaders come from the organization tree: the branch leader first, then each organization leader up to the top.", ar: "يأتي القادة من شجرة المؤسسات: قائد الفرع أولًا ثم قائد كل مؤسسة صعودًا." },
+    optionsTitle: { en: "Three settings", ar: "ثلاثة إعدادات" },
+    options: [
+      { name: { en: "Any leader above", ar: "أي قائد أعلى" }, tone: "brand", text: { en: "A dropdown of all of them, nearest first.", ar: "قائمة بكلهم، الأقرب أولًا." } },
+      { name: { en: "Next leader only", ar: "القائد التالي فقط" }, tone: "purple", text: { en: "Only the nearest leader above.", ar: "القائد الأقرب فقط." } },
+      { name: { en: "Escalation off", ar: "إيقاف التصعيد" }, tone: "neutral", text: { en: "Agents cannot escalate.", ar: "لا يستطيع الموظف التصعيد." } },
+    ],
+    notes: [
+      { en: "A branch setting overrides its organization.", ar: "إعداد الفرع يتقدم على إعداد مؤسسته." },
+    ],
   },
   {
     id: "esc-set", kind: "howto", area: "sla", audience: [], path: "/admin/escalation",
@@ -70,10 +83,16 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "cat-overview", kind: "feature", area: "catalog", audience: [], perm: "manage_catalog", path: "/admin/catalog",
     title: { en: "Categories, ticket types and custom fields", ar: "التصنيفات وأنواع التذاكر والحقول المخصصة" },
-    summary: {
-      en: "Categories and subcategories are what customers choose when they open a ticket. Each can have a default team, automatic assignment, a fixed priority, or be private (staff only). Ticket types are picked first and decide which categories the customer sees. Custom fields add extra questions to the ticket form.",
-      ar: "التصنيفات والتصنيفات الفرعية هي ما يختاره العميل عند فتح تذكرة. ولكل منها فريق افتراضي وإسناد تلقائي وأولوية ثابتة، أو يمكن جعله خاصًا (للموظفين فقط). يُختار نوع التذكرة أولًا ويحدد التصنيفات التي يراها العميل. وتضيف الحقول المخصصة أسئلة إضافية إلى نموذج التذكرة.",
-    },
+    summary: { en: "How customers describe their request when they open a ticket.", ar: "كيف يصف العميل طلبه عند فتح تذكرة." },
+    options: [
+      { name: { en: "Ticket types", ar: "أنواع التذاكر" }, tone: "brand", text: { en: "Picked first; they decide which categories the customer sees.", ar: "تُختار أولًا وتحدد التصنيفات التي يراها العميل." } },
+      { name: { en: "Categories and subcategories", ar: "التصنيفات والتصنيفات الفرعية" }, tone: "purple", points: [
+        { en: "What customers choose when they open a ticket.", ar: "ما يختاره العميل عند فتح تذكرة." },
+        { en: "Each can have a default team, automatic assignment and a fixed priority.", ar: "لكل منها فريق افتراضي وإسناد تلقائي وأولوية ثابتة." },
+        { en: "Or be private (staff only).", ar: "أو يمكن جعله خاصًا (للموظفين فقط)." },
+      ] },
+      { name: { en: "Custom fields", ar: "الحقول المخصصة" }, tone: "ok", text: { en: "Add extra questions to the ticket form.", ar: "تضيف أسئلة إضافية إلى نموذج التذكرة." } },
+    ],
   },
   {
     id: "cat-add", kind: "howto", area: "catalog", audience: [], perm: "manage_catalog", path: "/admin/catalog",
@@ -115,10 +134,16 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "pri-overview", kind: "feature", area: "catalog", audience: [], perm: "manage_catalog", path: "/admin/priorities",
     title: { en: "Priorities", ar: "الأولويات" },
-    summary: {
-      en: "The priorities used on tickets. Each has a name in both languages, a colour, an order and its own SLA targets. Normal is the default and can be renamed but not deleted or deactivated. Choose how a new ticket gets its priority: from the system (the category sets it, otherwise Normal) or chosen by the customer (and by staff when they create a ticket for a customer).",
-      ar: "الأولويات المستخدمة في التذاكر. لكل أولوية اسم بالعربية والإنجليزية ولون وترتيب وأهداف خدمة خاصة بها. «عادية» هي الافتراضية ويمكن إعادة تسميتها لكن لا يمكن حذفها أو إيقافها. اختر كيف تحصل التذكرة الجديدة على أولويتها: من النظام (يحددها التصنيف وإلا عادية) أو يختارها العميل (ويختارها الموظف عند إنشاء تذكرة لعميل).",
-    },
+    summary: { en: "The priorities used on tickets.", ar: "الأولويات المستخدمة في التذاكر." },
+    rule: { en: "Normal is the default: it can be renamed but not deleted or deactivated.", ar: "«عادية» هي الافتراضية: يمكن إعادة تسميتها لكن لا يمكن حذفها أو إيقافها." },
+    optionsTitle: { en: "How a new ticket gets its priority", ar: "كيف تحصل التذكرة الجديدة على أولويتها" },
+    options: [
+      { name: { en: "From the system", ar: "من النظام" }, tone: "brand", text: { en: "The category sets it, otherwise Normal.", ar: "يحددها التصنيف وإلا «عادية»." } },
+      { name: { en: "Chosen by the customer", ar: "يختارها العميل" }, tone: "purple", text: { en: "And by staff when they create a ticket for a customer.", ar: "ويختارها الموظف عند إنشاء تذكرة لعميل." } },
+    ],
+    points: [
+      { en: "Each has a name in both languages, a colour, an order and its own SLA targets.", ar: "لكل أولوية اسم بالعربية والإنجليزية ولون وترتيب وأهداف خدمة خاصة بها." },
+    ],
   },
   {
     id: "pri-edit", kind: "howto", area: "catalog", audience: [], perm: "manage_catalog", path: "/admin/priorities",
@@ -135,18 +160,29 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "status-overview", kind: "feature", area: "catalog", audience: [], perm: "manage_settings", path: "/admin/ticket-status",
     title: { en: "Ticket status and the lifecycle guide", ar: "حالة التذكرة ودليل دورة الحياة" },
-    summary: {
-      en: "Every ticket is always in one of eight statuses. You can rename them, change their colour and description, choose what customers see, and decide who may move a ticket from one status to another. What a status does cannot be removed: Pending customer always pauses the service clock and Resolved always needs a resolution summary. A separate guide explains every status, timer, reason and SLA rule in plain language.",
-      ar: "تكون كل تذكرة دائمًا في إحدى ثماني حالات. يمكنك إعادة تسميتها وتغيير لونها ووصفها، وتحديد ما يراه العميل، وتحديد من يستطيع نقل التذكرة من حالة إلى أخرى. أما وظيفة الحالة نفسها فلا تُزال: «بانتظار العميل» توقف دائمًا ساعة الخدمة، و«تم الحل» تتطلب دائمًا ملخص حل. ويشرح دليل مستقل كل حالة ومؤقت وسبب وقاعدة لاتفاقية الخدمة بلغة مبسطة.",
-    },
+    summary: { en: "Every ticket is always in one of eight statuses.", ar: "تكون كل تذكرة دائمًا في إحدى ثماني حالات." },
+    rule: { en: "What a status does cannot be removed: Pending customer always pauses the service clock, and Resolved always needs a resolution summary.", ar: "وظيفة الحالة لا تُزال: «بانتظار العميل» توقف دائمًا ساعة الخدمة، و«تم الحل» تتطلب دائمًا ملخص حل." },
+    points: [
+      { en: "Rename them and change their colour and description.", ar: "أعد تسميتها وغيّر لونها ووصفها." },
+      { en: "Choose what customers see.", ar: "حدد ما يراه العميل." },
+      { en: "Decide who may move a ticket from one status to another.", ar: "حدد من يستطيع نقل التذكرة من حالة إلى أخرى." },
+    ],
+    notes: [
+      { en: "A separate guide explains every status, timer, reason and SLA rule in plain language.", ar: "ويشرح دليل مستقل كل حالة ومؤقت وسبب وقاعدة لاتفاقية الخدمة بلغة مبسطة." },
+    ],
   },
   {
     id: "status-guide", kind: "feature", area: "catalog", audience: [], perm: "manage_settings", path: "/admin/ticket-status/guide",
     title: { en: "Ticket lifecycle guide", ar: "دليل دورة حياة التذكرة" },
-    summary: {
-      en: "A plain-language guide for administrators and team leaders: every status, timer, closure reason and SLA rule, how a ticket moves from New to Closed, how to change that, and how the service clocks and calendars work. Open it from the Ticket status page when you are not sure what a setting does.",
-      ar: "دليل مبسط للمديرين وقادة الفرق: كل حالة ومؤقت وسبب إغلاق وقاعدة لاتفاقية الخدمة، وكيف تنتقل التذكرة من جديدة إلى مغلقة، وكيف تغيّر ذلك، وكيف تعمل ساعات الخدمة والتقاويم. افتحه من صفحة حالة التذكرة عندما لا تعرف ما يفعله إعداد ما.",
-    },
+    summary: { en: "A plain-language guide for administrators and team leaders.", ar: "دليل مبسط للمديرين وقادة الفرق." },
+    points: [
+      { en: "Every status, timer, closure reason and SLA rule.", ar: "كل حالة ومؤقت وسبب إغلاق وقاعدة لاتفاقية الخدمة." },
+      { en: "How a ticket moves from New to Closed, and how to change that.", ar: "كيف تنتقل التذكرة من جديدة إلى مغلقة وكيف تغيّر ذلك." },
+      { en: "How the service clocks and calendars work.", ar: "كيف تعمل ساعات الخدمة والتقاويم." },
+    ],
+    notes: [
+      { en: "Open it from the Ticket status page when you are not sure what a setting does.", ar: "افتحه من صفحة حالة التذكرة عندما لا تعرف ما يفعله إعداد ما." },
+    ],
   },
   {
     id: "status-edit", kind: "howto", area: "catalog", audience: [], perm: "manage_settings", path: "/admin/ticket-status",
@@ -180,18 +216,31 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "roles-guide", kind: "feature", area: "people", audience: [], path: "/admin/users",
     title: { en: "Roles at a glance", ar: "الأدوار باختصار" },
-    summary: {
-      en: "Customer: asks for help and follows their own requests. Agent: works tickets and answers customers. Team leader: an agent who also directs the team and assigns tickets. Administrator: runs the whole system. Management viewer: watches dashboards, reports and tickets without changing anything. Organization admin and Branch admin: an agent who also manages the people, approvals and tickets of only the organizations or branches chosen for them. A customer role cannot be combined with staff roles. What a person can finally do is decided by their account type under Permissions.",
-      ar: "العميل: يطلب المساعدة ويتابع طلباته. الموظف: يعالج التذاكر ويجيب العملاء. قائد الفريق: موظف يوجّه الفريق ويسند التذاكر أيضًا. المدير: يدير النظام كله. المشاهد الإداري: يطّلع على اللوحات والتقارير والتذاكر دون تغيير شيء. مدير المؤسسة ومدير الفرع: موظف يدير أيضًا الأشخاص والموافقات والتذاكر في المؤسسات أو الفروع المختارة له فقط. ولا يمكن الجمع بين دور العميل وأدوار الموظفين. وما يستطيع الشخص فعله فعليًا تحدده نوع حسابه ضمن الصلاحيات.",
-    },
+    summary: { en: "Who does what in the system.", ar: "من يفعل ماذا في النظام." },
+    rule: { en: "What a person can finally do is decided by their account type under Permissions.", ar: "ما يستطيع الشخص فعله فعليًا يحدده نوع حسابه ضمن الصلاحيات." },
+    options: [
+      { name: { en: "Customer", ar: "العميل" }, tone: "neutral", text: { en: "Asks for help and follows their own requests.", ar: "يطلب المساعدة ويتابع طلباته." } },
+      { name: { en: "Agent", ar: "الموظف" }, tone: "brand", text: { en: "Works tickets and answers customers.", ar: "يعالج التذاكر ويجيب العملاء." } },
+      { name: { en: "Team leader", ar: "قائد الفريق" }, tone: "purple", text: { en: "An agent who also directs the team and assigns tickets.", ar: "موظف يوجّه الفريق ويسند التذاكر أيضًا." } },
+      { name: { en: "Administrator", ar: "المدير" }, tone: "danger", text: { en: "Runs the whole system.", ar: "يدير النظام كله." } },
+      { name: { en: "Management viewer", ar: "المشاهد الإداري" }, tone: "ok", text: { en: "Watches dashboards, reports and tickets without changing anything.", ar: "يطّلع على اللوحات والتقارير والتذاكر دون تغيير شيء." } },
+      { name: { en: "Organization admin and Branch admin", ar: "مدير المؤسسة ومدير الفرع" }, tone: "warn", text: { en: "An agent who also manages the people, approvals and tickets of only the organizations or branches chosen for them.", ar: "موظف يدير أيضًا الأشخاص والموافقات والتذاكر في المؤسسات أو الفروع المختارة له فقط." } },
+    ],
+    notes: [
+      { en: "A customer role cannot be combined with staff roles.", ar: "لا يمكن الجمع بين دور العميل وأدوار الموظفين." },
+    ],
   },
   {
     id: "users-overview", kind: "feature", area: "people", audience: [], path: "/admin/users",
     title: { en: "Staff", ar: "الموظفون" },
-    summary: {
-      en: "Agents, team leaders, administrators and management viewers. Search, add, edit, suspend and reactivate them. A person with tickets, messages or other history cannot be deleted: suspend the account instead. Customers are managed under Customers.",
-      ar: "الموظفون وقادة الفرق والمديرون والمشاهدون الإداريون. ابحث وأضف وعدّل وأوقف وأعد التفعيل. لا يمكن حذف شخص لديه تذاكر أو رسائل أو سجل آخر، أوقف حسابه بدلًا من ذلك. وتُدار حسابات العملاء ضمن «العملاء».",
-    },
+    summary: { en: "Agents, team leaders, administrators and management viewers.", ar: "الموظفون وقادة الفرق والمديرون والمشاهدون الإداريون." },
+    points: [
+      { en: "Search, add, edit, suspend and reactivate them.", ar: "ابحث وأضف وعدّل وأوقف وأعد التفعيل." },
+    ],
+    notes: [
+      { en: "A person with tickets, messages or other history cannot be deleted: suspend the account instead.", ar: "لا يمكن حذف شخص لديه تذاكر أو رسائل أو سجل آخر، أوقف حسابه بدلًا من ذلك." },
+      { en: "Customers are managed under Customers.", ar: "تُدار حسابات العملاء ضمن «العملاء»." },
+    ],
   },
   {
     id: "users-add", kind: "howto", area: "people", audience: [], path: "/admin/users",
@@ -236,10 +285,23 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "customers-admin", kind: "feature", area: "customers", audience: [], path: "/admin/customers",
     title: { en: "Customers (administration)", ar: "العملاء (الإدارة)" },
-    summary: {
-      en: "All customers with organization, branch, status and ticket counts. Add a customer, edit details, change organization and branch, approve or reject new sign-ups, suspend or reactivate. A customer with tickets cannot be deleted: suspend the account. Statuses: Active, Suspended, Waiting for email verification and Waiting for administrator approval.",
-      ar: "كل العملاء مع المؤسسة والفرع والحالة وعدد التذاكر. أضف عميلًا وعدّل بياناته وغيّر مؤسسته وفرعه ووافق على التسجيلات الجديدة أو ارفضها وأوقف الحساب أو أعد تفعيله. لا يمكن حذف عميل لديه تذاكر، أوقف حسابه. الحالات: نشط، موقوف، بانتظار تأكيد البريد، بانتظار موافقة المدير.",
-    },
+    summary: { en: "All customers, with organization, branch, status and ticket counts.", ar: "كل العملاء مع المؤسسة والفرع والحالة وعدد التذاكر." },
+    optionsTitle: { en: "Account statuses", ar: "حالات الحساب" },
+    options: [
+      { name: { en: "Active", ar: "نشط" }, tone: "ok" },
+      { name: { en: "Suspended", ar: "موقوف" }, tone: "danger" },
+      { name: { en: "Waiting for email verification", ar: "بانتظار تأكيد البريد" }, tone: "warn" },
+      { name: { en: "Waiting for administrator approval", ar: "بانتظار موافقة المدير" }, tone: "brand" },
+    ],
+    points: [
+      { en: "Add a customer and edit their details.", ar: "أضف عميلًا وعدّل بياناته." },
+      { en: "Change their organization and branch.", ar: "غيّر مؤسسته وفرعه." },
+      { en: "Approve or reject new sign-ups.", ar: "وافق على التسجيلات الجديدة أو ارفضها." },
+      { en: "Suspend or reactivate the account.", ar: "أوقف الحساب أو أعد تفعيله." },
+    ],
+    notes: [
+      { en: "A customer with tickets cannot be deleted: suspend the account instead.", ar: "لا يمكن حذف عميل لديه تذاكر، أوقف حسابه بدلًا من ذلك." },
+    ],
   },
   {
     id: "customers-add", kind: "howto", area: "customers", audience: [], path: "/admin/customers",
@@ -254,10 +316,14 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "teams-overview", kind: "feature", area: "people", audience: [], path: "/admin/teams",
     title: { en: "Teams", ar: "الفرق" },
-    summary: {
-      en: "A team is a group of agents who share a queue. Categories send tickets to a default team. Members must already have the Agent or Team leader role. A team with tickets, or used as a category default, cannot be deleted: deactivate it.",
-      ar: "الفريق مجموعة موظفين يتشاركون قائمة واحدة. ترسل التصنيفات التذاكر إلى فريق افتراضي. يجب أن يكون الأعضاء حاصلين مسبقًا على دور موظف أو قائد فريق. ولا يمكن حذف فريق لديه تذاكر أو مستخدم كافتراضي لتصنيف، أوقفه بدلًا من ذلك.",
-    },
+    summary: { en: "A team is a group of agents who share a queue.", ar: "الفريق مجموعة موظفين يتشاركون قائمة واحدة." },
+    points: [
+      { en: "Categories send tickets to a default team.", ar: "ترسل التصنيفات التذاكر إلى فريق افتراضي." },
+      { en: "Members must already have the Agent or Team leader role.", ar: "يجب أن يكون الأعضاء حاصلين مسبقًا على دور موظف أو قائد فريق." },
+    ],
+    notes: [
+      { en: "A team with tickets, or used as a category default, cannot be deleted: deactivate it.", ar: "لا يمكن حذف فريق لديه تذاكر أو مستخدم كافتراضي لتصنيف، أوقفه بدلًا من ذلك." },
+    ],
   },
   {
     id: "teams-members", kind: "howto", area: "people", audience: [], path: "/admin/teams",
@@ -274,10 +340,16 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "orgs-overview", kind: "feature", area: "people", audience: [], path: "/admin/organizations",
     title: { en: "Organizations and branches", ar: "المؤسسات والفروع" },
-    summary: {
-      en: "Each organization has a location, a telephone and an assigned team leader, and can have branches with the same details. Organizations form a tree, so an organization includes the organizations below it. Customers belong to an organization and a branch. An organization with customers or branches cannot be deleted: deactivate it.",
-      ar: "لكل مؤسسة موقع وهاتف وقائد فريق معيّن، ويمكن أن تضم فروعًا بالبيانات نفسها. تشكل المؤسسات شجرة فتشمل المؤسسة ما تحتها. ينتمي العملاء إلى مؤسسة وفرع. ولا يمكن حذف مؤسسة لديها عملاء أو فروع، أوقفها بدلًا من ذلك.",
-    },
+    summary: { en: "Where customers belong: organizations and their branches.", ar: "إلى أين ينتمي العملاء: المؤسسات وفروعها." },
+    rule: { en: "Organizations form a tree: an organization includes the organizations below it.", ar: "تشكل المؤسسات شجرة: تشمل المؤسسة ما تحتها." },
+    points: [
+      { en: "Each organization has a location, a telephone and an assigned team leader.", ar: "لكل مؤسسة موقع وهاتف وقائد فريق معيّن." },
+      { en: "It can have branches with the same details.", ar: "ويمكن أن تضم فروعًا بالبيانات نفسها." },
+      { en: "Customers belong to an organization and a branch.", ar: "ينتمي العملاء إلى مؤسسة وفرع." },
+    ],
+    notes: [
+      { en: "An organization with customers or branches cannot be deleted: deactivate it.", ar: "لا يمكن حذف مؤسسة لديها عملاء أو فروع، أوقفها بدلًا من ذلك." },
+    ],
   },
   {
     id: "orgs-add", kind: "howto", area: "people", audience: [], path: "/admin/organizations",
@@ -294,18 +366,45 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "perm-overview", kind: "feature", area: "people", audience: [], path: "/admin/permissions",
     title: { en: "Permissions and account types", ar: "الصلاحيات وأنواع الحسابات" },
-    summary: {
-      en: "An account type is a named set of permissions plus the organizations and branches it can access. Each staff member gets one type. Changing a type changes everyone who has it. Administrator is built in: it has every permission everywhere, now and in the future, and cannot be changed or deleted. You cannot change your own type, and the last administrator cannot be changed.",
-      ar: "نوع الحساب مجموعة مسماة من الصلاحيات مع المؤسسات والفروع التي يمكنه الوصول إليها. يحصل كل موظف على نوع واحد، وتغيير النوع يغيّر كل من يحمله. المدير نوع مدمج له كل الصلاحيات في كل مكان الآن ومستقبلًا ولا يمكن تغييره أو حذفه. ولا يمكنك تغيير نوع حسابك، ولا يمكن تغيير آخر مدير.",
-    },
+    summary: { en: "An account type is a named set of permissions plus the organizations and branches it can access.", ar: "نوع الحساب مجموعة مسماة من الصلاحيات مع المؤسسات والفروع التي يمكنه الوصول إليها." },
+    rule: { en: "Administrator is built in: it has every permission everywhere, now and in the future, and cannot be changed or deleted.", ar: "المدير نوع مدمج له كل الصلاحيات في كل مكان الآن ومستقبلًا، ولا يمكن تغييره أو حذفه." },
+    points: [
+      { en: "Each staff member gets one type.", ar: "يحصل كل موظف على نوع واحد." },
+      { en: "Changing a type changes everyone who has it.", ar: "تغيير النوع يغيّر كل من يحمله." },
+    ],
+    notes: [
+      { en: "You cannot change your own type, and the last administrator cannot be changed.", ar: "لا يمكنك تغيير نوع حسابك، ولا يمكن تغيير آخر مدير." },
+    ],
   },
   {
     id: "perm-list", kind: "feature", area: "people", audience: [], path: "/admin/permissions",
     title: { en: "What each permission allows", ar: "ما تتيحه كل صلاحية" },
-    summary: {
-      en: "Tickets: reply, resolve, close (with a reason), change category, assign to self, assign to others (acts as team leader), view unassigned tickets (team queue), view tickets assigned to others, view tickets of all teams. Reports: run reports for own tickets, run reports for everything inside the access, export tickets and reports (CSV). Customers: view customers, manage customers (create and edit), approve or reject new accounts. Administration: manage the knowledge base, categories and custom fields, settings (SLA, priorities), and saved replies shared with everyone. Viewing tickets inside the access is always on.",
-      ar: "التذاكر: الرد، الحل، الإغلاق (مع سبب)، تغيير التصنيف، الإسناد للنفس، الإسناد للآخرين (بصفة قائد فريق)، عرض التذاكر غير المسندة (قائمة الفريق)، عرض التذاكر المسندة لآخرين، عرض تذاكر كل الفرق. التقارير: تقارير للتذاكر الخاصة، تقارير لكل ما ضمن النطاق، تصدير التذاكر والتقارير (CSV). العملاء: عرض العملاء، إدارة العملاء (إنشاء وتعديل)، الموافقة على الحسابات الجديدة أو رفضها. الإدارة: إدارة قاعدة المعرفة، والتصنيفات والحقول المخصصة، والإعدادات (اتفاقية الخدمة والأولويات)، والردود المحفوظة المشتركة. وعرض التذاكر ضمن النطاق مفعّل دائمًا.",
-    },
+    summary: { en: "The permissions an account type can include, by area.", ar: "الصلاحيات التي يمكن أن يتضمنها نوع الحساب، حسب المجال." },
+    rule: { en: "Viewing tickets inside the access is always on.", ar: "عرض التذاكر ضمن النطاق مفعّل دائمًا." },
+    options: [
+      { name: { en: "Tickets", ar: "التذاكر" }, tone: "brand", points: [
+        { en: "Reply, resolve, close (with a reason).", ar: "الرد والحل والإغلاق (مع سبب)." },
+        { en: "Change category.", ar: "تغيير التصنيف." },
+        { en: "Assign to self; assign to others (acts as team leader).", ar: "الإسناد للنفس، والإسناد للآخرين (بصفة قائد فريق)." },
+        { en: "View unassigned tickets (team queue), tickets assigned to others, and tickets of all teams.", ar: "عرض التذاكر غير المسندة (قائمة الفريق)، والمسندة لآخرين، وتذاكر كل الفرق." },
+      ] },
+      { name: { en: "Reports", ar: "التقارير" }, tone: "purple", points: [
+        { en: "Run reports for own tickets.", ar: "تقارير للتذاكر الخاصة." },
+        { en: "Run reports for everything inside the access.", ar: "تقارير لكل ما ضمن النطاق." },
+        { en: "Export tickets and reports (CSV).", ar: "تصدير التذاكر والتقارير (CSV)." },
+      ] },
+      { name: { en: "Customers", ar: "العملاء" }, tone: "ok", points: [
+        { en: "View customers.", ar: "عرض العملاء." },
+        { en: "Manage customers (create and edit).", ar: "إدارة العملاء (إنشاء وتعديل)." },
+        { en: "Approve or reject new accounts.", ar: "الموافقة على الحسابات الجديدة أو رفضها." },
+      ] },
+      { name: { en: "Administration", ar: "الإدارة" }, tone: "warn", points: [
+        { en: "Manage the knowledge base.", ar: "إدارة قاعدة المعرفة." },
+        { en: "Categories and custom fields.", ar: "التصنيفات والحقول المخصصة." },
+        { en: "Settings (SLA, priorities).", ar: "الإعدادات (اتفاقية الخدمة والأولويات)." },
+        { en: "Saved replies shared with everyone.", ar: "الردود المحفوظة المشتركة." },
+      ] },
+    ],
   },
   {
     id: "perm-type", kind: "howto", area: "people", audience: [], path: "/admin/permissions",
@@ -326,10 +425,15 @@ export const ADMIN_A_ARTICLES: Article[] = [
   {
     id: "audit-log", kind: "feature", area: "people", audience: [], path: "/admin/audit",
     title: { en: "Audit log", ar: "سجل التدقيق" },
-    summary: {
-      en: "Who changed what, newest first. It records status flow edits, escalations, sign-in code use, recalculated SLA deadlines and other administrative changes. Administrators and management viewers can open it.",
-      ar: "من غيّر ماذا، الأحدث أولًا. يسجل تعديلات مسار الحالات والتصعيدات واستخدام رموز الدخول وإعادة حساب مواعيد اتفاقية الخدمة وغيرها من التغييرات الإدارية. يمكن للمديرين والمشاهدين الإداريين فتحه.",
-    },
+    summary: { en: "Who changed what, newest first.", ar: "من غيّر ماذا، الأحدث أولًا." },
+    points: [
+      { en: "Status flow edits and escalations.", ar: "تعديلات مسار الحالات والتصعيدات." },
+      { en: "Sign-in code use and recalculated SLA deadlines.", ar: "استخدام رموز الدخول وإعادة حساب مواعيد اتفاقية الخدمة." },
+      { en: "Other administrative changes.", ar: "وغيرها من التغييرات الإدارية." },
+    ],
+    notes: [
+      { en: "Administrators and management viewers can open it. Management viewers see which fields changed, not the old and new values.", ar: "يمكن للمديرين والمشاهدين الإداريين فتحه، ويرى المشاهدون الإداريون الحقول التي تغيّرت دون القيم القديمة والجديدة." },
+    ],
   },
 ];
 

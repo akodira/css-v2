@@ -3560,6 +3560,13 @@
       "customer": "Customers",
       "agent": "Staff",
       "admin": "Administrators"
-    }
+    },
+    "kind": {
+      "feature": "Feature",
+      "howto": "How-to",
+      "flow": "Flow"
+    },
+    "guides": "How-to guides",
+    "stepCount": "{count, plural, one {1 step} other {# steps}}"
   }
 }

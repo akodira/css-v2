@@ -1558,7 +1558,7 @@
     "system": "النظام",
     "previous": "السابق",
     "next": "التالي",
-    "page": "صفحة {page} من {pages}",
+    "page": "صفحة {page} من {pages}",
     "fieldChanged": "تم تغيير {field}"
   },
   "Directory": {
@@ -3560,6 +3560,13 @@
       "customer": "العملاء",
       "agent": "الموظفون",
       "admin": "المديرون"
-    }
+    },
+    "kind": {
+      "feature": "ميزة",
+      "howto": "دليل خطوات",
+      "flow": "مسار"
+    },
+    "guides": "أدلة الخطوات",
+    "stepCount": "{count, plural, one {خطوة واحدة} two {خطوتان} few {# خطوات} many {# خطوة} other {# خطوة}}"
   }
 }
