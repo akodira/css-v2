@@ -27,4 +27,6 @@ GRANT CREATE TABLE TO ccs_api;
 IF SCHEMA_ID('HangFire') IS NULL EXEC('CREATE SCHEMA HangFire AUTHORIZATION ccs_api');
 DENY ALTER ON SCHEMA::ccs TO ccs_api;
 DENY ALTER ON SCHEMA::dbo TO ccs_api;
+/* Audit trail is append-only for the application (security audit M-07): it can add entries, never change or erase them. */
+DENY UPDATE, DELETE ON ccs.audit_logs TO ccs_api;
 GO

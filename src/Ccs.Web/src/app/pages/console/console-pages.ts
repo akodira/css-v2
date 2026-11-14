@@ -378,6 +378,7 @@ export class ConsoleQueuePage {
 
               <app-staff-lifecycle part="dupspam" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
 
+              @if (auth.has('change_category')) {
               <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="pr">
                 <h2 id="pr" class="mb-3 text-lg font-bold">{{ 'Console.priorityForm.title' | t }}</h2>
                 @if (x()!.fixedPriority) { <p class="mb-3 text-sm text-muted">{{ 'Console.priorityForm.fixedNote' | t: { name: prioName(x()!.fixedPriority!) } }}</p> }
@@ -394,6 +395,7 @@ export class ConsoleQueuePage {
                   </form>
                 }
               </section>
+              }
 
               <app-staff-lifecycle part="category" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
               <app-staff-lifecycle part="escalate" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />

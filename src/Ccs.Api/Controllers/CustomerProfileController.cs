@@ -33,7 +33,8 @@ public sealed class CustomerProfileController(CcsDbContext db, AccessService acc
         if (!isCustomer) throw new NotFoundException();
         if (!c.Admin && !c.AllScope && !AccessRules.InScope(c, p.OrganizationId, p.BranchId)) throw new NotFoundException();
 
-        var tickets = await db.Tickets.AsNoTracking().Where(t => t.RequesterId == id).OrderByDescending(t => t.CreatedAt).Take(50)
+        // Security audit L-06: list only tickets this staff member may open (team and permission rules); counts stay totals.
+        var tickets = await access.VisibleTickets(db.Tickets.AsNoTracking(), c).Where(t => t.RequesterId == id).OrderByDescending(t => t.CreatedAt).Take(50)
             .Select(t => new { t.Id, t.Reference, t.Subject, t.Status, t.Priority, t.CreatedAt }).ToListAsync(ct);
         var all = await db.Tickets.AsNoTracking().Where(t => t.RequesterId == id).Select(t => t.Status).ToListAsync(ct);
         return new

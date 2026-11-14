@@ -325,7 +325,7 @@ time on the server. Add an absolute session lifetime (for example 12 hours for s
 | | |
 |---|---|
 | **Severity** | Medium |
-| **Status** | Confirmed (code); Defender availability on the server **needs verification** |
+| **Status** | **FIXED (this batch; not yet deployed).** Content must match the extension (programs renamed to .pdf/.txt are refused); when the scanner is set up but missing, slow (120 s timeout) or returns an unexpected code, the file is deleted and refused (503 `fileScanFailed`, error in the log); limits of 100 files / 500 MB per ticket and 500 MB per person per 24 hours. **Re-test:** fake PDF/TXT → 400; quotas → 400 `fileQuota`; broken scanner path → 503 and no file left on disk; real Defender → 200, `clean`. **Before deploying, confirm Defender runs on the server**, or every upload will be refused. |
 | **OWASP** | A04 Insecure Design · A08 · ASVS V12.1–V12.4 |
 | **Location** | `AttachmentsController.cs` L73–90; `LocalFileStore.cs` L57–74 (`DefenderFileScanner`) |
 
@@ -379,7 +379,7 @@ bucket, because `UseForwardedHeaders` trusts only loopback proxies.
 | | |
 |---|---|
 | **Severity** | Medium |
-| **Status** | **Confirmed dynamically** (T-24: management viewer → 200 with all entries and before/after data) |
+| **Status** | **FIXED (this batch; not yet deployed).** Management viewers still see the list (who, what, when) and the names of changed fields, but no before/after values; administrators see everything. `04_logins.sql` now denies UPDATE and DELETE on `ccs.audit_logs` to the API login (applied by the installer). **Re-test:** viewer → 25 rows, 0 with values, no email addresses; admin → values shown; as a login with the same rights, INSERT works and UPDATE/DELETE are denied. |
 | **OWASP** | A01 / A09 · ASVS V7.3.x |
 | **Location** | `ReportsController.Audit` L309–330; `database/04_logins.sql` (`db_datawriter` on `ccs.audit_logs`) |
 
@@ -424,19 +424,19 @@ locked accounts, and returns faster for unknown identifiers (no password hash is
 - `SetPriorityAsync` (`TicketService.cs` L381–384) lets any staff member who can see a ticket change its priority. No permission is required, and priority drives the SLA targets.
 - `AttachmentsController.Upload` (L57) lets anyone who can *see* a ticket add files. That includes management viewers (read-only) and organisation colleagues with shared access.
 
-**Fix:** require a write permission (for example `reply`) for both, and decide whether shared-access colleagues may upload. *Status: **Confirmed dynamically**: the management viewer uploaded a file (200), and an agent changed priority (204).*
+**Fix:** require a write permission (for example `reply`) for both, and decide whether shared-access colleagues may upload. *Status: **Confirmed dynamically**: the management viewer uploaded a file (200), and an agent changed priority (204).* **FIXED (this batch):** priority needs `change_category` (the form is hidden without it); uploads need to be the requester, staff with `reply`, or the staff member who opened the ticket. Re-test: both → 403.
 
 ### L-05 — Assignment does not check the target agent's status or scope
 
 `TicketService.AssignAsync` L299–307 checks only that the agent is in the team with an agent or leader
 role. It does not check that the agent is active, or allowed to serve the requester's organisation
 (`UserInScopeAsync`, which auto-assignment does use). Assigning a ticket grants the agent full access to it
-(`AssignedAgentId == uid` in `CanAccessTicket`). **Fix:** apply the same checks as auto-assign. *Status: Confirmed (code).*
+(`AssignedAgentId == uid` in `CanAccessTicket`). **Fix:** apply the same checks as auto-assign. *Status: Confirmed (code).* **FIXED (this batch):** the agent must be active and in the customer’s scope. Re-test: out-of-scope agent → 400, suspended agent → 400, in-scope agent → 204.
 
 ### L-06 — Customer profile shows subjects of tickets the staff member cannot open
 
 `CustomerProfileController.Get` L35–37 returns the latest 50 ticket subjects of an in-scope customer
-without applying `VisibleTickets` (team and permission rules). **Fix:** filter with `access.VisibleTickets`. *Status: Confirmed (code).*
+without applying `VisibleTickets` (team and permission rules). **Fix:** filter with `access.VisibleTickets`. *Status: Confirmed (code).* **FIXED (this batch):** the list is filtered with `VisibleTickets` (counts stay totals). Re-test: other-team ticket no longer listed for the agent; admin still sees it.
 
 ### L-07 — Public endpoints return more than they need
 

@@ -17,7 +17,7 @@ namespace Ccs.Api.Controllers;
 
 /// <summary>
 /// Ticket attachments, same rules as v1 (attachments_insert / attachments_read policies and lib/uploads/rules):
-/// anyone who can see the ticket may add files; a file linked to an internal note is only shown to those who see notes.
+/// the requester or staff who may reply can add files; a file linked to an internal note is only shown to those who see notes.
 /// Type and size follow Settings → Uploads. Files are stored as "{ticketId}/{fileId}-{safe name}" (the Supabase layout),
 /// virus-scanned with Microsoft Defender when available, and always downloaded as attachments (never shown inline).
 /// </summary>
@@ -37,6 +37,8 @@ public sealed class AttachmentsController(CcsDbContext db, AccessService access,
         ["zip"] = "application/zip",
     };
     private static readonly string[] DefaultExts = ["pdf", "png", "jpg", "jpeg", "docx", "xlsx", "txt"];
+    private const int MaxFilesPerTicket = 100;
+    private const long MaxBytesPerTicket = 500L * 1024 * 1024, MaxBytesPerUserPerDay = 500L * 1024 * 1024;
     private static AuthError Err(string code, int status = 400) => new(code, status, "file");
 
     private static string SafeName(string name)
@@ -55,6 +57,11 @@ public sealed class AttachmentsController(CcsDbContext db, AccessService access,
     public async Task<object> Upload(Guid ticketId, [FromForm] IFormFile? file, [FromForm] Guid? messageId, CancellationToken ct)
     {
         var (c, facts) = await access.RequireTicketAsync(ticketId, ct);
+        // Security audit L-04: seeing a ticket is not enough. Same rule as posting a reply: the requester, or staff
+        // with the reply permission, or the staff member who opened it for the customer (read-only viewers and
+        // organisation colleagues cannot add files).
+        var mayAdd = facts.RequesterId == c.UserId || (c.Staff && (c.Has(Permission.Reply) || facts.CreatedBy == c.UserId));
+        if (!mayAdd) throw new ForbiddenException();
         if (file is null || file.Length == 0) throw Err("fileMissing");
         if (messageId is Guid mid)
         {
@@ -77,11 +84,30 @@ public sealed class AttachmentsController(CcsDbContext db, AccessService access,
         var already = await db.TicketAttachments.CountAsync(a => a.TicketId == ticketId && a.MessageId == messageId && a.UploadedBy == c.UserId, ct);
         if (already >= maxFiles) throw Err("fileCount");
 
+        // Security audit M-05: storage limits per ticket and per person, so one account cannot fill the disk.
+        var onTicket = await db.TicketAttachments.Where(a => a.TicketId == ticketId)
+            .GroupBy(_ => 1).Select(g => new { Files = g.Count(), Bytes = g.Sum(a => a.SizeBytes) }).FirstOrDefaultAsync(ct);
+        if (onTicket is not null && (onTicket.Files >= MaxFilesPerTicket || onTicket.Bytes + file.Length > MaxBytesPerTicket)) throw Err("fileQuota");
+        var dayAgo = clock.UtcNow.AddHours(-24);
+        var mine = await db.TicketAttachments.Where(a => a.UploadedBy == c.UserId && a.CreatedAt > dayAgo).SumAsync(a => (long?)a.SizeBytes, ct) ?? 0;
+        if (mine + file.Length > MaxBytesPerUserPerDay) throw Err("fileQuota");
+
+        // Security audit M-05: the content must match the extension (a program renamed to .pdf is refused).
+        var head = new byte[FileSignature.HeadLength];
+        int read;
+        await using (var s = file.OpenReadStream()) read = await s.ReadAtLeastAsync(head, head.Length, throwOnEndOfStream: false, ct);
+        if (!FileSignature.Matches(ext, head.AsSpan(0, read))) throw Err("fileType");
+
         var id = Guid.NewGuid();
         var path = $"{ticketId}/{id}-{SafeName(name)}";
         await using (var s = file.OpenReadStream()) await files.SaveAsync(path, s, ct);
         var scan = await scanner.ScanAsync(path, ct);
         if (scan == "infected") throw Err("fileInfected");
+        if (scan == "failed")   // M-05: the scanner is set up but did not give an answer: never offer an unscanned file to staff
+        {
+            await files.DeleteAsync(path, ct);
+            throw Err("fileScanFailed", 503);
+        }
 
         var row = new TicketAttachment
         {

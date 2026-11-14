@@ -324,7 +324,14 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
                           orderby a.CreatedAt descending, a.Id descending
                           select new { a.Id, a.Action, a.EntityType, a.EntityId, a.Before, a.After, a.CreatedAt, Actor = p == null ? null : p.FullName })
             .Skip((page - 1) * 25).Take(25).ToListAsync(ct);
-        return new { types, total, page, pageSize = 25, rows };
+        // M-07: management viewers see which fields changed, never the values; only administrators see before/after.
+        var shown = rows.Select(r => new
+        {
+            r.Id, r.Action, r.EntityType, r.EntityId, r.CreatedAt, r.Actor,
+            Before = c.Admin ? r.Before : null, After = c.Admin ? r.After : null,
+            Changed = c.Admin ? null : AuditFields.Changed(r.Before, r.After),
+        }).ToList();
+        return new { types, total, page, pageSize = 25, rows = shown };
     }
 
     // ================================================================ My team (team leaders and admins)

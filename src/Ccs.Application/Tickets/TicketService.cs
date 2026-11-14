@@ -304,6 +304,11 @@ public sealed class TicketService(
                             where m.TeamId == cmd.TeamId && m.UserId == agent && (r.Code == RoleCode.Agent || r.Code == RoleCode.TeamLeader)
                             select 1).AnyAsync(ct);
             if (!ok) throw new ValidationFailedException("agent does not belong to the selected team", "agentId");
+            // Security audit L-05: same checks as auto-assign, since assigning gives the agent full access to the ticket.
+            if (!await db.Profiles.AnyAsync(p => p.Id == agent && p.AccountStatus == AccountStatus.Active, ct))
+                throw new ValidationFailedException("agent is not active", "agentId");
+            if (!await access.UserInScopeAsync(agent, facts.RequesterId, ct))
+                throw new ValidationFailedException("agent cannot serve this customer", "agentId");
         }
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -382,6 +387,8 @@ public sealed class TicketService(
     {
         var (c, _) = await access.RequireTicketAsync(ticketId, ct);
         if (!c.Staff) throw new ForbiddenException("only staff can set priority");
+        // Security audit L-04: priority drives the SLA targets, so it needs the same right as changing the category.
+        if (!c.Has(Permission.ChangeCategory)) throw new ForbiddenException("not allowed to change priority");
         if (!await db.Priorities.AnyAsync(p => p.Code == priority && p.IsActive, ct)) throw new ValidationFailedException("invalid priority", "priority");
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);

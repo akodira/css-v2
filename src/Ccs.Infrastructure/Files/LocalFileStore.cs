@@ -12,6 +12,8 @@ public sealed class FileStoreOptions
     public string Root { get; set; } = "";
     /// <summary>Path to MpCmdRun.exe; empty disables scanning (scan_status = skipped).</summary>
     public string? DefenderPath { get; set; } = @"C:\Program Files\Windows Defender\MpCmdRun.exe";
+    /// <summary>A scan that takes longer is stopped and the file refused.</summary>
+    public int ScanTimeoutSeconds { get; set; } = 120;
 }
 
 /// <summary>Attachments on the server's disk. Keeps the Supabase storage_path layout so migrated rows still resolve.</summary>
@@ -57,15 +59,32 @@ public sealed class DefenderFileScanner(IOptions<FileStoreOptions> options, Loca
     public async Task<string> ScanAsync(string storagePath, CancellationToken ct = default)
     {
         var exe = options.Value.DefenderPath;
-        if (string.IsNullOrWhiteSpace(exe) || !File.Exists(exe)) return "skipped";
+        if (string.IsNullOrWhiteSpace(exe)) return "skipped";   // scanning switched off on purpose (development)
+        // Security audit M-05: from here on the scanner is expected to work, so any problem refuses the file ("failed").
+        if (!File.Exists(exe))
+        {
+            log.LogError("Virus scanner not found at {Path}: uploads are refused until it is installed or FileStore:DefenderPath is fixed", exe);
+            return "failed";
+        }
         var psi = new ProcessStartInfo(exe)
         {
             ArgumentList = { "-Scan", "-ScanType", "3", "-File", store.FullPath(storagePath), "-DisableRemediation" },
             RedirectStandardOutput = true, UseShellExecute = false, CreateNoWindow = true,
         };
-        using var p = Process.Start(psi)!;
-        await p.WaitForExitAsync(ct);
-        var result = p.ExitCode switch { 0 => "clean", 2 => "infected", _ => "skipped" };
+        using var p = Process.Start(psi);
+        if (p is null) { log.LogError("Virus scanner could not start"); return "failed"; }
+        _ = p.StandardOutput.ReadToEndAsync(ct);   // drain the output so the scanner never blocks on a full pipe
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(options.Value.ScanTimeoutSeconds, 5, 600)));
+        try { await p.WaitForExitAsync(timeout.Token); }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            try { p.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+            log.LogError("Virus scan timed out for {Path}", storagePath);
+            return "failed";
+        }
+        var result = p.ExitCode switch { 0 => "clean", 2 => "infected", _ => "failed" };
+        if (result == "failed") log.LogError("Virus scanner returned exit code {Code} for {Path}", p.ExitCode, storagePath);
         if (result == "infected")
         {
             log.LogWarning("Infected upload removed: {Path}", storagePath);

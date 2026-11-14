@@ -377,7 +377,7 @@ export class SlaReportPage {
 
 // ================================================================== audit log
 
-interface AuditRow { id: number; action: string; entityType: string; entityId: string | null; before: string | null; after: string | null; createdAt: string; actor: string | null }
+interface AuditRow { id: number; action: string; entityType: string; entityId: string | null; before: string | null; after: string | null; createdAt: string; actor: string | null; changed?: string[] | null }
 
 @Component({
   selector: 'app-audit',
@@ -402,7 +402,7 @@ interface AuditRow { id: number; action: string; entityType: string; entityId: s
                   <td class="whitespace-nowrap px-4 py-3 text-muted">{{ i18n.date(r.createdAt) }}</td>
                   <td class="px-4 py-3" dir="auto">{{ r.actor ?? ('AuditLog.system' | t) }}</td>
                   <td class="px-4 py-3"><span class="font-semibold" dir="ltr">{{ r.action }}</span><p class="text-muted" dir="ltr">{{ r.entityId ?? '' }}</p></td>
-                  <td class="px-4 py-3">@for (c of changes(r); track c) { <p dir="ltr" class="break-words">{{ c }}</p> }</td>
+                  <td class="px-4 py-3">@if (r.changed) { @for (f of r.changed.slice(0, 4); track f) { <p class="break-words">{{ 'AuditLog.fieldChanged' | t: { field: f } }}</p> } } @else { @for (c of changes(r); track c) { <p dir="ltr" class="break-words">{{ c }}</p> } }</td>
                 </tr>
               }
             </tbody>

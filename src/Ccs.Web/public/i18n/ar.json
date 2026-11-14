@@ -1558,7 +1558,8 @@
     "system": "النظام",
     "previous": "السابق",
     "next": "التالي",
-    "page": "صفحة {page} من {pages}"
+    "page": "صفحة {page} من {pages}",
+    "fieldChanged": "تم تغيير {field}"
   },
   "Directory": {
     "name": "الاسم الكامل",

@@ -102,7 +102,7 @@ public interface IFileStore
 /// <summary>Optional virus scan (spec 5: v2 should add scanning). Default implementation uses Windows Defender.</summary>
 public interface IFileScanner
 {
-    /// <returns>"clean", "infected" or "skipped".</returns>
+    /// <returns>"clean", "infected", "skipped" (scanning switched off) or "failed" (scanner set up but gave no answer: refuse the file).</returns>
     Task<string> ScanAsync(string storagePath, CancellationToken ct = default);
 }
 
