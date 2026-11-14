@@ -131,6 +131,14 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
         b.Entity<AppSetting>().HasKey(x => x.Key);
         b.Entity<RateCounter>().HasKey(x => new { x.Bucket, x.WindowStart });
 
+        // Rows that belong to a person (FK to ccs.profiles, ON DELETE CASCADE in 01_schema.sql). EF must know the link,
+        // otherwise a save that adds a new profile and these rows together may insert them first and break the foreign key
+        // (creating an Organization or Branch admin failed with FK_admin_scopes_user). No navigation, no new columns.
+        b.Entity<UserRole>().HasOne<Profile>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<AdminScope>().HasOne<Profile>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<StaffPlacement>().HasOne<Profile>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<TeamMember>().HasOne<Profile>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+
         // Database-generated columns
         b.Entity<Role>().Property(x => x.Id).ValueGeneratedNever();
         b.Entity<Ticket>().Property(x => x.Seq).ValueGeneratedOnAdd().Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
