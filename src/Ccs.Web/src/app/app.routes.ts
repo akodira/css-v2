@@ -30,10 +30,10 @@ const guestOnly: CanActivateFn = () => {
 /** Home for a signed-in customer renders inside the customer frame. */
 const customerSignedIn: CanMatchFn = () => { const a = inject(Auth); return a.signedIn() && !a.isStaff(); };
 
-/** Visitors only: signed-in people read the knowledge base inside their own frame (menu, header), not the public page. */
-const visitorMatch: CanMatchFn = () => !inject(Auth).signedIn();
-
-/** Staff read it in the console frame: /kb/x becomes /console/kb/x. */
+/**
+ * The knowledge base needs a sign-in: /kb lives only in the signed-in frame, so a visitor is sent to the sign-in page
+ * and comes back to the article afterwards (?next=). Staff read it in the console frame: /kb/x becomes /console/kb/x.
+ */
 const staffKb: CanActivateFn = (route) => {
   const a = inject(Auth);
   if (!a.isStaff()) return true;
@@ -75,8 +75,6 @@ export const routes: Routes = [
           { path: 'register', canActivate: [guestOnly], component: RegisterPage },
           { path: 'forgot-password', component: ForgotPage },
           { path: 'reset-password', component: ResetPage },
-          { path: 'kb', canMatch: [visitorMatch], component: KbListPage },
-          { path: 'kb/:slug', canMatch: [visitorMatch], component: KbArticlePage },
         ],
       },
       {

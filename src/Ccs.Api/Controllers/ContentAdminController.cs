@@ -421,8 +421,12 @@ public sealed class CannedController(CcsDbContext db, AccessService access, Audi
     }
 }
 
-/// <summary>Help center: published articles the caller may read (public, signed-in, or staff-only), and the helpful vote.</summary>
+/// <summary>
+/// Knowledge base: published articles the caller may read, and the helpful vote. Signed-in people only (owner decision
+/// 14 Nov 2026): visitors get 401. "public" and "signed_in" articles are read by every signed-in person, "internal" by staff.
+/// </summary>
 [ApiController]
+[Authorize]
 [Route("api/kb")]
 public sealed class KbController(CcsDbContext db, AccessService access, IClock clock) : ControllerBase
 {
@@ -431,9 +435,9 @@ public sealed class KbController(CcsDbContext db, AccessService access, IClock c
     private async Task<IQueryable<KbArticle>> VisibleAsync(CancellationToken ct)
     {
         var c = await access.GetContextAsync(ct);
-        var signedIn = c.UserId != Guid.Empty && c.Active;
         var q = db.KbArticles.AsNoTracking().Where(a => a.Status == "published");
-        return c.Internal && signedIn ? q : signedIn ? q.Where(a => a.Visibility != "internal") : q.Where(a => a.Visibility == "public");
+        if (c.UserId == Guid.Empty || !c.Active) return q.Where(_ => false);
+        return c.Internal ? q : q.Where(a => a.Visibility != "internal");
     }
 
     [HttpGet]

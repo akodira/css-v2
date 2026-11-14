@@ -184,9 +184,11 @@ jobs:
             Check 'escalation mode saved' (@((Api Get escalation $null).orgs | Where-Object { $_.id -eq $org.id -and $_.mode -eq 'next' }).Count -eq 1)
             $kc = Api Post kb-categories @{ nameEn = 'CI Help'; nameAr = 'مساعدة'; slug = ''; sortOrder = 1; isActive = $true }
             $ka = Api Post kb-articles @{ categoryId = $kc.id; slug = 'ci-reset-password'; titleEn = 'How to reset a password'; bodyEn = 'Open the sign-in page and choose Forgot password.'; status = 'published'; visibility = 'public' }
-            $pub = Invoke-RestMethod https://ccs.test/api/kb/ci-reset-password
-            Check 'public help article readable without sign-in' ($pub.titleEn -eq 'How to reset a password')
-            $pop = @(Invoke-RestMethod https://ccs.test/api/kb/popular)
+            try { Invoke-RestMethod https://ccs.test/api/kb/ci-reset-password | Out-Null; $code = 200 } catch { $code = [int]$_.Exception.Response.StatusCode }
+            Check "help article refused without sign-in (got $code)" ($code -eq 401)
+            $pub = Invoke-RestMethod https://ccs.test/api/kb/ci-reset-password -Headers $h
+            Check 'help article readable when signed in' ($pub.titleEn -eq 'How to reset a password')
+            $pop = @(Invoke-RestMethod https://ccs.test/api/kb/popular -Headers $h)
             Check 'popular help articles listed' ($pop.slug -contains 'ci-reset-password')
             $cn = Invoke-RestMethod https://ccs.test/api/canned -Method Post -Headers $h -ContentType 'application/json' -Body (@{ title = 'CI hello'; body = 'Hello, thanks for contacting us.'; language = 'any'; isShared = $true } | ConvertTo-Json)
             Check 'saved reply created and listed' (@((Invoke-RestMethod https://ccs.test/api/canned -Headers $h).items | Where-Object id -eq $cn.id).Count -eq 1)
