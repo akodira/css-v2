@@ -42,8 +42,57 @@ public class RulesTests
         Assert.Equal(0, new PasswordPolicy().Stage(changed, changed.AddDays(200)));   // off by default
     }
 
+    private static readonly DateTimeOffset Nov14 = new(2026, 11, 14, 10, 0, 0, TimeSpan.Zero);
+
     [Fact]
-    public void Ticket_reference_format() => Assert.Equal("CTS-2026-000073", TicketReference.Format(2026, 73));
+    public void Ticket_number_default_is_type_year_counter_with_dashes()
+    {
+        var f = TicketNumberFormat.Default;
+        Assert.Null(f.Validate());
+        Assert.Equal("INC-26-0073", f.Render("INC", Nov14, 73));
+        Assert.Equal("CTS-26-0074", f.Render(null, Nov14, 74));          // a type without a code uses the prefix
+        Assert.Equal("REQ-26-12345", f.Render("REQ", Nov14, 12345));     // the counter grows past the digits
+    }
+
+    [Fact]
+    public void Ticket_number_parts_and_separator_are_editable()
+    {
+        var f = new TicketNumberFormat(["type", "yyyy", "mm", "seq"], "/", "CTS", 3, "monthly");
+        Assert.Null(f.Validate());
+        Assert.Equal("INC/2026/11/073", f.Render("INC", Nov14, 73));
+        Assert.Equal("AZ.26.0001", new TicketNumberFormat(["prefix", "yy", "seq"], ".", "AZ", 4, "yearly").Render("INC", Nov14, 1));
+    }
+
+    [Theory]
+    [InlineData(new[] { "type", "yy" }, "-", "yearly", "seq")]
+    [InlineData(new[] { "seq", "yy", "seq" }, "-", "yearly", "seq")]
+    [InlineData(new[] { "type", "type", "yy", "seq" }, "-", "yearly", "dup")]
+    [InlineData(new[] { "yy", "yyyy", "seq" }, "-", "yearly", "dup")]
+    [InlineData(new[] { "type", "seq" }, "-", "yearly", "year")]
+    [InlineData(new[] { "type", "yy", "seq" }, "-", "monthly", "month")]
+    [InlineData(new[] { "type", "day", "seq" }, "-", "never", "part")]
+    [InlineData(new[] { "type", "yy", "seq" }, "+", "yearly", "separator")]
+    [InlineData(new[] { "type", "yy", "seq" }, "-", "weekly", "reset")]
+    public void Ticket_number_rules_reject_formats_that_could_repeat(string[] parts, string sep, string reset, string error)
+        => Assert.Equal(error, new TicketNumberFormat(parts, sep, "CTS", 4, reset).Validate());
+
+    [Fact]
+    public void Ticket_number_settings_are_trimmed_and_upper_cased()
+    {
+        var f = TicketNumberFormat.Normalize([" Type ", "YY", "seq"], " - ", " az1 ", 4, " Yearly ");
+        Assert.Equal(["type", "yy", "seq"], f.Parts);
+        Assert.Equal(("-", "AZ1", "yearly"), (f.Separator, f.Prefix, f.Reset));
+        Assert.Equal("prefix", new TicketNumberFormat(["prefix", "yy", "seq"], "-", "AB CD", 4, "yearly").Validate());
+        Assert.Equal("digits", new TicketNumberFormat(["type", "yy", "seq"], "-", "CTS", 9, "yearly").Validate());
+    }
+
+    [Fact]
+    public void Ticket_number_counter_period()
+    {
+        Assert.Equal(2026, TicketNumberFormat.Default.PeriodKey(Nov14));
+        Assert.Equal(202611, (TicketNumberFormat.Default with { Parts = ["type", "yy", "mm", "seq"], Reset = "monthly" }).PeriodKey(Nov14));
+        Assert.Equal(0, (TicketNumberFormat.Default with { Reset = "never" }).PeriodKey(Nov14));
+    }
 
     [Theory]
     [InlineData("https://example.com/a", true)]

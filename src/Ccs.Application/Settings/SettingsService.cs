@@ -37,6 +37,29 @@ public sealed class SettingsService(ICcsDbContext db)
         return raw.Trim() switch { "true" => true, "false" => false, _ => fallback };
     }
 
+    /// <summary>A JSON string value, or the fallback.</summary>
+    public async Task<string> GetStringAsync(string key, string fallback, CancellationToken ct = default) =>
+        await GetJsonAsync(key, ct) is { ValueKind: JsonValueKind.String } e ? e.GetString() ?? fallback : fallback;
+
+    private async Task<JsonElement?> GetJsonAsync(string key, CancellationToken ct)
+    {
+        var all = await AllAsync(ct);
+        if (!all.TryGetValue(key, out var raw)) return null;
+        try { return JsonDocument.Parse(raw).RootElement.Clone(); } catch (JsonException) { return null; }
+    }
+
+    /// <summary>The ticket number format from Settings → System; the default when a value is missing or invalid.</summary>
+    public async Task<TicketNumberFormat> GetTicketNumberFormatAsync(CancellationToken ct = default)
+    {
+        var d = TicketNumberFormat.Default;
+        var parts = await GetJsonAsync("ticket_number_parts", ct) is { ValueKind: JsonValueKind.Array } a
+            ? a.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() ?? "" : "").ToArray() : d.Parts;
+        var f = TicketNumberFormat.Normalize(parts, await GetStringAsync("ticket_number_separator", d.Separator, ct),
+            await GetStringAsync("ticket_number_prefix", d.Prefix, ct), await GetIntAsync("ticket_number_digits", d.Digits, ct),
+            await GetStringAsync("ticket_number_reset", d.Reset, ct));
+        return f.Validate() is null ? f : d;
+    }
+
     public async Task SetAsync(string key, object value, CancellationToken ct = default)
     {
         var json = JsonSerializer.Serialize(value);

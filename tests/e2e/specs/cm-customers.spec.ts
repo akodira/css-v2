@@ -55,7 +55,7 @@ test.describe('CM Customers', () => {
     await expect(page.locator('main h1')).toContainText(ACCOUNTS.customer.name);
     await expect(page.locator('main').getByText(ACCOUNTS.customer.email).first()).toBeVisible();
     await expect(page.locator('main').getByText(t('Customers.status.active')).first()).toBeVisible();
-    await expect(page.locator('main').getByText(/CTS-\d{4}-\d{6}/).first(), 'tickets listed').toBeVisible();
+    await expect(page.locator('main').getByText(/[A-Z]{2,6}-(\d{4}-\d{6}|\d{2}-\d{4,})/).first(), 'tickets listed').toBeVisible();
   });
 
   test('TC-CM-004 Add a customer', async ({ apiAs }) => {

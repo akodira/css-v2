@@ -30,3 +30,32 @@ IF OBJECT_ID(N'ccs.data_protection_keys', N'U') IS NULL
         created_at    datetime2(3) NOT NULL CONSTRAINT DF_data_protection_keys_created DEFAULT SYSUTCDATETIME()
     );
 GO
+
+/* Ticket number (Nov 2026): a short code per ticket type, used in numbers like INC-26-0073. Known types get their
+   codes; any other type gets its first 3 letters when they are free. Admins can change them on the Ticket types page. */
+IF COL_LENGTH(N'ccs.ticket_types', N'code') IS NULL
+    ALTER TABLE ccs.ticket_types ADD code nvarchar(4) NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_ticket_types_code' AND object_id = OBJECT_ID(N'ccs.ticket_types'))
+BEGIN
+    UPDATE t SET code = s.code
+    FROM ccs.ticket_types t
+    JOIN (VALUES (N'Complaint', N'CMP'), (N'Report a Problem', N'PRB'), (N'Request a Service', N'REQ'),
+                 (N'Suggestion / Feedback', N'SUG'), (N'Inquiry', N'INQ')) s(name_en, code) ON t.name_en = s.name_en
+    WHERE t.code IS NULL AND NOT EXISTS (SELECT 1 FROM ccs.ticket_types x WHERE x.code = s.code);
+
+    DECLARE @id uniqueidentifier, @c nvarchar(4);
+    DECLARE cur CURSOR LOCAL FAST_FORWARD FOR
+        SELECT id, UPPER(LEFT(name_en, 3)) FROM ccs.ticket_types WHERE code IS NULL ORDER BY sort_order, name_en;
+    OPEN cur; FETCH NEXT FROM cur INTO @id, @c;
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        IF LEN(@c) = 3 AND @c NOT LIKE N'%[^A-Z]%' AND NOT EXISTS (SELECT 1 FROM ccs.ticket_types WHERE code = @c)
+            UPDATE ccs.ticket_types SET code = @c WHERE id = @id;
+        FETCH NEXT FROM cur INTO @id, @c;
+    END
+    CLOSE cur; DEALLOCATE cur;
+
+    CREATE UNIQUE INDEX UX_ticket_types_code ON ccs.ticket_types (code) WHERE code IS NOT NULL;
+END
+GO

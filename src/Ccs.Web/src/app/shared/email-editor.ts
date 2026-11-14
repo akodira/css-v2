@@ -7,7 +7,7 @@ export interface PlaceholderInfo { token: string; en: string; ar: string }
 
 export const EMAIL_ALL_PLACEHOLDERS: PlaceholderInfo[] = [
   { token: 'name', en: 'Name of the person who receives the email.', ar: 'اسم الشخص الذي يستلم الرسالة.' },
-  { token: 'reference', en: 'Ticket number, for example CTS-2026-000123.', ar: 'رقم التذكرة، مثل CTS-2026-000123.' },
+  { token: 'reference', en: 'Ticket number, for example REQ-26-0123.', ar: 'رقم التذكرة، مثل REQ-26-0123.' },
   { token: 'subject', en: 'Subject line of the ticket.', ar: 'عنوان التذكرة.' },
   { token: 'reason', en: 'Why the alert was sent, for example an SLA warning or an escalation reason, or the rejection reason on a rejected account.', ar: 'سبب التنبيه، مثل تحذير اتفاقية الخدمة أو سبب التصعيد، أو سبب رفض الحساب.' },
   { token: 'code', en: 'The one-time verification or password reset code.', ar: 'رمز التحقق أو استعادة كلمة المرور لمرة واحدة.' },
@@ -26,7 +26,7 @@ export const GLOBAL_TOKENS = ['siteName', 'supportEmail', 'supportPhone', 'suppo
 
 /** What the values the system fills into its own messages mean; unknown names get a generic line (v1 describeVar). */
 const VAR_DESC: Record<string, [string, string]> = {
-  name: ['A name, filled in by the system.', 'اسم تملؤه المنظومة.'], reference: ['Ticket number, for example CTS-2026-000123.', 'رقم التذكرة، مثل CTS-2026-000123.'],
+  name: ['A name, filled in by the system.', 'اسم تملؤه المنظومة.'], reference: ['Ticket number, for example REQ-26-0123.', 'رقم التذكرة، مثل REQ-26-0123.'],
   subject: ['Subject line of the ticket.', 'عنوان التذكرة.'], reason: ['The reason given, for example for an alert or a rejection.', 'السبب المذكور، مثل سبب تنبيه أو رفض.'],
   n: ['A number, such as how many items match.', 'عدد، مثل عدد العناصر المطابقة.'], count: ['A number of items.', 'عدد العناصر.'], total: ['A total number.', 'إجمالي العدد.'],
   met: ['How many rules are met.', 'عدد القواعد المستوفاة.'], level: ['The strength level of a password.', 'مستوى قوة كلمة المرور.'], when: ['A date and time.', 'تاريخ ووقت.'],

@@ -259,7 +259,7 @@ export class CannedPage implements OnInit {
     { token: 'customer_name', en: 'Full name of the customer on this ticket.', ar: 'الاسم الكامل للعميل في هذه التذكرة.' },
     { token: 'customer_email', en: 'Email address of the customer.', ar: 'البريد الإلكتروني للعميل.' },
     { token: 'agent_name', en: 'Your own name, as the person replying.', ar: 'اسمك أنت بصفتك من يرد.' },
-    { token: 'reference', en: 'Ticket number, for example CTS-2026-000123.', ar: 'رقم التذكرة، مثل CTS-2026-000123.' },
+    { token: 'reference', en: 'Ticket number, for example REQ-26-0123.', ar: 'رقم التذكرة، مثل REQ-26-0123.' },
     { token: 'subject', en: 'Subject line of the ticket.', ar: 'عنوان التذكرة.' },
     { token: 'category', en: 'Category of the ticket.', ar: 'تصنيف التذكرة.' },
     { token: 'team', en: 'Team handling the ticket.', ar: 'الفريق المسؤول عن التذكرة.' },

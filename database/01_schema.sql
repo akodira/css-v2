@@ -348,6 +348,7 @@ CREATE TABLE ccs.closure_reasons (
 
 CREATE TABLE ccs.ticket_types (
     id             uniqueidentifier NOT NULL CONSTRAINT PK_ticket_types PRIMARY KEY DEFAULT NEWID(),
+    code           nvarchar(4) NULL,
     name_en        nvarchar(80) NOT NULL,
     name_ar        nvarchar(80) NOT NULL,
     description_en nvarchar(300) NOT NULL DEFAULT N'',
@@ -360,6 +361,7 @@ CREATE TABLE ccs.ticket_types (
 );
 CREATE UNIQUE INDEX UX_ticket_types_name_en ON ccs.ticket_types (name_en);
 CREATE UNIQUE INDEX UX_ticket_types_name_ar ON ccs.ticket_types (name_ar);
+CREATE UNIQUE INDEX UX_ticket_types_code ON ccs.ticket_types (code) WHERE code IS NOT NULL;
 
 CREATE TABLE ccs.ticket_categories (
     id              uniqueidentifier NOT NULL CONSTRAINT PK_ticket_categories PRIMARY KEY DEFAULT NEWID(),
@@ -451,6 +453,7 @@ GO
 /* ---------------------------------------------------------------------
    6. Tickets
    --------------------------------------------------------------------- */
+/* Counter key: the year (yearly reset), year*100+month (monthly) or 0 (never); see Settings → System → Ticket number. */
 CREATE TABLE ccs.ticket_counters (
     [year]     int NOT NULL CONSTRAINT PK_ticket_counters PRIMARY KEY,
     last_value int NOT NULL DEFAULT 0

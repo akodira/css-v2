@@ -24,6 +24,9 @@ const TAB_LABEL: Record<string, string> = {
 };
 
 /** Shared helpers for every settings tab: the API, the message line and a save wrapper. */
+interface TicketNumberModel { parts: string[]; separator: string; prefix: string; digits: number; reset: string }
+interface TicketNumberData extends TicketNumberModel { next: number; now: string; types: { nameEn: string; nameAr: string; code: string | null }[] }
+
 abstract class Tab {
   protected readonly i18n = inject(I18n);
   protected readonly http = inject(HttpClient);
@@ -842,6 +845,72 @@ export class UploadsTab extends Tab implements OnInit {
         ${SAVE_REQ}
       </form>
 
+      @if (tn) {
+      <form [class]="cls.card + ' flex flex-col gap-4 p-5'" (ngSubmit)="saveNumber()">
+        <div><h3 class="text-lg font-bold">{{ 'AdminSettings.tnTitle' | t }}</h3><p class="text-sm text-muted">{{ 'AdminSettings.tnHelp' | t }}</p></div>
+        <div class="rounded-xl border border-line bg-bg px-4 py-3">
+          <p class="text-xs font-semibold uppercase tracking-wide text-muted">{{ 'AdminSettings.tnPreview' | t }}</p>
+          <p class="mt-1 font-mono text-2xl font-bold tracking-wide" dir="ltr">{{ sample(tnTypes[0]?.code) }}</p>
+          @if (tnTypes.length) {
+            <ul class="mt-2 flex flex-wrap gap-2 text-sm">
+              @for (y of tnTypes; track y.nameEn) {
+                <li class="flex items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 py-1"><span dir="auto">{{ i18n.pick(y.nameEn, y.nameAr) }}</span><span class="font-mono font-semibold" dir="ltr">{{ sample(y.code) }}</span></li>
+              }
+            </ul>
+          }
+          <p class="mt-2 text-xs text-muted">{{ 'AdminSettings.tnOld' | t }}</p>
+        </div>
+
+        <fieldset class="flex flex-col gap-2"><legend [class]="cls.label">{{ 'AdminSettings.tnParts' | t }}${REQ}</legend>
+          <p class="text-sm text-muted">{{ 'AdminSettings.tnPartsHint' | t }}</p>
+          <ol class="flex flex-wrap items-center gap-2" dir="ltr">
+            @for (p of tn.parts; track p; let i = $index, last = $last) {
+              <li class="flex items-center gap-1 rounded-lg border border-line bg-surface ps-3 pe-1 py-1">
+                <span class="text-sm font-semibold" dir="auto">{{ 'AdminSettings.tnPart_' + p | t }}</span>
+                <button type="button" class="grid h-8 w-8 place-items-center rounded-md text-muted hover:bg-bg disabled:opacity-30" [disabled]="i === 0" (click)="movePart(i, -1)" [attr.aria-label]="'AdminSettings.tnMoveLeft' | t">‹</button>
+                <button type="button" class="grid h-8 w-8 place-items-center rounded-md text-muted hover:bg-bg disabled:opacity-30" [disabled]="last" (click)="movePart(i, 1)" [attr.aria-label]="'AdminSettings.tnMoveRight' | t">›</button>
+                <button type="button" class="grid h-8 w-8 place-items-center rounded-md text-danger hover:bg-danger-soft" (click)="removePart(i)" [attr.aria-label]="'AdminSettings.tnRemove' | t">×</button>
+              </li>
+              @if (!last) { <li aria-hidden="true" class="font-mono text-lg font-bold text-muted">{{ tn.separator }}</li> }
+            }
+          </ol>
+          @if (freeParts().length) {
+            <div class="flex max-w-sm flex-col gap-1.5"><label for="tn-add" [class]="cls.label">{{ 'AdminSettings.tnAddPart' | t }}</label>
+              <select id="tn-add" name="tnAdd" [class]="cls.input" [ngModel]="''" (ngModelChange)="addPart($event)">
+                <option value="">{{ 'AdminSettings.tnChoose' | t }}</option>
+                @for (p of freeParts(); track p) { <option [value]="p">{{ 'AdminSettings.tnPart_' + p | t }}</option> }
+              </select></div>
+          }
+        </fieldset>
+
+        <fieldset><legend [class]="cls.label">{{ 'AdminSettings.tnSep' | t }}${REQ}</legend>
+          <div class="mt-1 flex flex-wrap gap-2">
+            @for (s of separators; track s[0]) {
+              <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-line px-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+                <input type="radio" name="tnSep" class="h-4 w-4" [value]="s[0]" [(ngModel)]="tn.separator" />
+                <span class="font-mono text-lg font-bold" dir="ltr">{{ s[0] }}</span><span class="text-sm">{{ 'AdminSettings.tnSep_' + s[1] | t }}</span></label>
+            }
+          </div></fieldset>
+
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="flex flex-col gap-1.5"><label for="tn-prefix" [class]="cls.label">{{ 'AdminSettings.tnPrefix' | t }}${REQ}</label>
+            <input id="tn-prefix" name="tnPrefix" dir="ltr" maxlength="6" autocomplete="off" [class]="cls.input + ' uppercase'" [(ngModel)]="tn.prefix" />
+            <p class="text-xs text-muted">{{ 'AdminSettings.tnPrefixHint' | t }}</p></div>
+          <div class="flex flex-col gap-1.5"><label for="tn-digits" [class]="cls.label">{{ 'AdminSettings.tnDigits' | t }}${REQ}</label>
+            <input id="tn-digits" name="tnDigits" type="number" min="3" max="8" dir="ltr" [class]="cls.input" [(ngModel)]="tn.digits" />
+            <p class="text-xs text-muted">{{ 'AdminSettings.tnDigitsHint' | t }}</p></div>
+        </div>
+
+        <fieldset class="flex flex-col gap-1"><legend [class]="cls.label">{{ 'AdminSettings.tnReset' | t }}${REQ}</legend>
+          @for (r of resets; track r) {
+            <label class="flex items-start gap-2"><input type="radio" name="tnReset" class="mt-1 h-5 w-5" [value]="r" [(ngModel)]="tn.reset" />
+              <span><span class="font-semibold">{{ 'AdminSettings.tnReset_' + r | t }}</span><span class="block text-sm text-muted">{{ 'AdminSettings.tnReset_' + r + '_help' | t }}</span></span></label>
+          }</fieldset>
+        <p class="text-sm text-muted">{{ 'AdminSettings.tnCodesHint' | t }}</p>
+        ${SAVE_REQ}
+      </form>
+      }
+
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="saveIdle()">
         <h3 class="text-lg font-bold">{{ 'AdminSettings.idleTitle' | t }}</h3>
         <div class="flex max-w-sm flex-col gap-1.5"><label for="idle_timeout_minutes" [class]="cls.label">{{ 'AdminSettings.idleTimeout' | t }}${REQ}</label>
@@ -926,6 +995,45 @@ export class SystemTab extends Tab implements OnInit {
     this.reg = d.registrationMode;
     this.cap = { ...d.captcha, secret: '' };
     this.loaded.set(true);
+    const t = await this.get<TicketNumberData>('ticket-number');
+    this.tn = { parts: [...t.parts], separator: t.separator, prefix: t.prefix, digits: t.digits, reset: t.reset };
+    this.tnNext = t.next; this.tnNow = new Date(t.now); this.tnTypes = t.types;
+  }
+
+  // Ticket number: parts joined by the separator, e.g. INC-26-0073. The server checks the same rules on save.
+  protected readonly parts = ['type', 'prefix', 'yy', 'yyyy', 'mm', 'seq'];
+  protected readonly separators = [['-', 'dash'], ['/', 'slash'], ['.', 'dot'], ['_', 'underscore']];
+  protected readonly resets = ['yearly', 'monthly', 'never'];
+  protected tn: TicketNumberModel | null = null;
+  protected tnNext = 1;
+  protected tnNow = new Date();
+  protected tnTypes: TicketNumberData['types'] = [];
+  protected freeParts(): string[] {
+    const used = this.tn?.parts ?? [];
+    return this.parts.filter((p) => !used.includes(p) && !(p === 'yy' && used.includes('yyyy')) && !(p === 'yyyy' && used.includes('yy')));
+  }
+  protected addPart(p: string): void { if (p && this.tn) this.tn.parts = [...this.tn.parts, p]; }
+  protected removePart(i: number): void { if (this.tn) this.tn.parts = this.tn.parts.filter((_, j) => j !== i); }
+  protected movePart(i: number, by: number): void {
+    if (!this.tn) return;
+    const a = [...this.tn.parts]; [a[i], a[i + by]] = [a[i + by], a[i]]; this.tn.parts = a;
+  }
+  /** The next number as it would look for a type with this code (same rules as TicketNumberFormat.Render). */
+  protected sample(code: string | null | undefined): string {
+    const m = this.tn; if (!m) return '';
+    const d = this.tnNow, prefix = (m.prefix || '').trim().toUpperCase(), digits = Math.min(8, Math.max(3, Number(m.digits) || 4));
+    const seq = this.tnNext;
+    const v: Record<string, string> = {
+      type: code || prefix, prefix, yy: String(d.getUTCFullYear() % 100).padStart(2, '0'), yyyy: String(d.getUTCFullYear()),
+      mm: String(d.getUTCMonth() + 1).padStart(2, '0'), seq: String(seq).padStart(digits, '0'),
+    };
+    return m.parts.map((p) => v[p] ?? '').join(m.separator);
+  }
+  protected async saveNumber(): Promise<void> {
+    const m = this.tn; if (!m) return;
+    if (await this.save(() => this.put('ticket-number', { ...m, prefix: (m.prefix || '').trim().toUpperCase(), digits: Number(m.digits) }))) {
+      const t = await this.get<TicketNumberData>('ticket-number'); this.tnNext = t.next;
+    }
   }
   private pick(keys: string[]): Record<string, unknown> { return Object.fromEntries(keys.map((k) => [k, k in this.b ? this.b[k] : Number(this.n[k])])); }
   protected saveRules(): void { void this.save(() => this.put('system', { settings: this.pick([...this.basic.map((x) => x.key), ...this.timers.map((x) => x.key), 'email_enabled']) })); }

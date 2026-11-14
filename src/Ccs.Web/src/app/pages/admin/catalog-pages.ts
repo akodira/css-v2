@@ -11,7 +11,7 @@ import { AdminBase, HEADER, SEARCH } from './admin-pages';
 
 interface TeamOpt { id: string; nameEn: string; nameAr: string; isActive: boolean }
 interface PrioOpt { code: string; nameEn: string; nameAr: string; color: string; icon?: string; isActive: boolean }
-interface TypeRow { id: string; nameEn: string; nameAr: string; descriptionEn: string; descriptionAr: string; examplesEn: string; examplesAr: string; sortOrder: number; isActive: boolean; categoryIds: string[]; tickets: number }
+interface TypeRow { id: string; code: string | null; nameEn: string; nameAr: string; descriptionEn: string; descriptionAr: string; examplesEn: string; examplesAr: string; sortOrder: number; isActive: boolean; categoryIds: string[]; tickets: number }
 interface SubRow { id: string; categoryId: string; nameEn: string; nameAr: string; isActive: boolean; sortOrder: number; priorityCode: string | null; tickets: number }
 interface CatRow { id: string; nameEn: string; nameAr: string; defaultTeamId: string | null; isActive: boolean; sortOrder: number; priorityCode: string | null; isPrivate: boolean; autoAssign: boolean; typeIds: string[]; tickets: number; subcategories: SubRow[] }
 interface FieldRow { id: string; key: string; labelEn: string; labelAr: string; type: string; options: string; isRequired: boolean; validation: string; visibleToCustomer: boolean; categoryId: string | null; isActive: boolean; sortOrder: number; hasValues: boolean }
@@ -27,7 +27,7 @@ const CHECK = 'flex min-h-11 items-center gap-2';
 // ================================================================== ticket types
 
 type TypeModel = Omit<TypeRow, 'id' | 'tickets'>;
-const blankType = (): TypeModel => ({ nameEn: '', nameAr: '', descriptionEn: '', descriptionAr: '', examplesEn: '', examplesAr: '', sortOrder: 0, isActive: true, categoryIds: [] });
+const blankType = (): TypeModel => ({ code: '', nameEn: '', nameAr: '', descriptionEn: '', descriptionAr: '', examplesEn: '', examplesAr: '', sortOrder: 0, isActive: true, categoryIds: [] });
 
 @Component({
   selector: 'app-admin-ticket-types',
@@ -50,6 +50,9 @@ const blankType = (): TypeModel => ({ nameEn: '', nameAr: '', descriptionEn: '',
             <input [id]="id + 'xe'" [name]="id + 'xe'" dir="ltr" maxlength="1000" [class]="cls.input" [(ngModel)]="m.examplesEn" /></div>
           <div class="flex flex-col gap-1.5"><label [for]="id + 'xa'" [class]="cls.label">{{ 'AdminTicketTypes.examplesAr' | t }}</label>
             <input [id]="id + 'xa'" [name]="id + 'xa'" dir="rtl" maxlength="1000" [class]="cls.input" [(ngModel)]="m.examplesAr" /></div>
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'cd'" [class]="cls.label">{{ 'AdminTicketTypes.code' | t }}</label>
+            <input [id]="id + 'cd'" [name]="id + 'cd'" dir="ltr" maxlength="4" autocomplete="off" pattern="[A-Za-z]{2,4}" [class]="cls.input + ' font-mono uppercase'" [(ngModel)]="m.code" />
+            <p class="text-xs text-muted">{{ 'AdminTicketTypes.codeHint' | t }}</p></div>
           <div class="flex flex-col gap-1.5"><label [for]="id + 'so'" [class]="cls.label">{{ 'AdminTicketTypes.colOrder' | t }}</label>
             <input [id]="id + 'so'" [name]="id + 'so'" type="number" min="0" max="1000" [class]="cls.input" [(ngModel)]="m.sortOrder" /></div>
           <label [class]="'${CHECK} self-end'"><input type="checkbox" [name]="id + 'ac'" class="h-5 w-5" [(ngModel)]="m.isActive" /> {{ 'AdminTicketTypes.showToCustomers' | t }}</label>
@@ -79,6 +82,7 @@ const blankType = (): TypeModel => ({ nameEn: '', nameAr: '', descriptionEn: '',
             <summary [class]="cls.summary">
               <span class="flex flex-wrap items-center gap-2">
                 <span class="text-lg font-bold" dir="auto">{{ i18n.pick(t.nameEn, t.nameAr) }}</span>
+                @if (t.code) { <span class="rounded-md bg-brand-soft px-2 py-0.5 font-mono text-sm font-bold text-brand-ink" dir="ltr">{{ t.code }}</span> }
                 <span [class]="t.isActive ? cls.badgeOn : cls.badgeOff">{{ (t.isActive ? 'AdminTicketTypes.visible' : 'AdminTicketTypes.hidden') | t }}</span>
               </span>
               <span class="mt-0.5 block text-sm text-muted">{{ 'AdminTicketTypes.linked' | t: { n: t.categoryIds.length } }} · {{ 'AdminTicketTypes.colTickets' | t }}: {{ t.tickets }}</span>
@@ -240,6 +244,8 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminTicketTypes.descAr' | t }}<textarea [name]="id + 'da'" rows="3" dir="rtl" maxlength="300" class="rounded-lg border border-line bg-surface p-3 text-base font-normal" [(ngModel)]="m.descriptionAr"></textarea></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminTicketTypes.examplesEn' | t }}<input [name]="id + 'xe'" dir="ltr" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="m.examplesEn" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminTicketTypes.examplesAr' | t }}<input [name]="id + 'xa'" dir="rtl" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="m.examplesAr" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminTicketTypes.code' | t }}<input [name]="id + 'cd'" dir="ltr" maxlength="4" autocomplete="off" [class]="cls.input + ' font-mono font-normal uppercase'" [(ngModel)]="m.code" />
+              <span class="text-xs font-normal text-muted">{{ 'AdminTicketTypes.codeHint' | t }}</span></label>
           </div>
           <fieldset class="flex flex-col gap-2">
             <legend class="text-sm font-semibold">{{ 'AdminTicketTypes.availableCategories' | t }}</legend>
@@ -288,7 +294,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
                 <tr class="border-t border-line" [class.bg-brand-soft]="typeEdit() === r.id" [class.opacity-70]="!r.isActive">
                   <td class="px-2 py-3"><div class="flex items-center gap-2"><span class="w-5 text-muted" dir="ltr">{{ i + 1 }}</span>
                     <ng-container *ngTemplateOutlet="moveBtns; context: { first, last, up: moveType(r, -1), down: moveType(r, 1) }" /></div></td>
-                  <td class="px-2 py-3 font-semibold" dir="auto">{{ i18n.pick(r.nameEn, r.nameAr) }}<span class="block text-xs font-normal text-muted" [attr.dir]="i18n.locale() === 'ar' ? 'ltr' : 'rtl'">{{ i18n.locale() === 'ar' ? r.nameEn : r.nameAr }}</span></td>
+                  <td class="px-2 py-3 font-semibold" dir="auto">{{ i18n.pick(r.nameEn, r.nameAr) }}@if (r.code) { <span class="ms-2 rounded-md bg-brand-soft px-1.5 py-0.5 font-mono text-xs font-bold text-brand-ink" dir="ltr">{{ r.code }}</span> }<span class="block text-xs font-normal text-muted" [attr.dir]="i18n.locale() === 'ar' ? 'ltr' : 'rtl'">{{ i18n.locale() === 'ar' ? r.nameEn : r.nameAr }}</span></td>
                   <td class="px-2 py-3">{{ 'AdminTicketTypes.linked' | t: { n: r.categoryIds.length } }}</td>
                   <td class="px-2 py-3">{{ r.tickets }}</td>
                   <td class="px-2 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-semibold" [class]="r.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (r.isActive ? 'AdminTicketTypes.visible' : 'AdminTicketTypes.hidden') | t }}</span></td>
@@ -503,7 +509,7 @@ export class AdminCatalogPage extends AdminBase implements OnInit {
   protected async reload(): Promise<void> {
     try {
       const d = await this.api.get<CatalogData>('catalog');
-      for (const t of d.types) this.editTypeM[t.id] = { nameEn: t.nameEn, nameAr: t.nameAr, descriptionEn: t.descriptionEn, descriptionAr: t.descriptionAr, examplesEn: t.examplesEn, examplesAr: t.examplesAr, sortOrder: t.sortOrder, isActive: t.isActive, categoryIds: [...t.categoryIds] };
+      for (const t of d.types) this.editTypeM[t.id] = { code: t.code, nameEn: t.nameEn, nameAr: t.nameAr, descriptionEn: t.descriptionEn, descriptionAr: t.descriptionAr, examplesEn: t.examplesEn, examplesAr: t.examplesAr, sortOrder: t.sortOrder, isActive: t.isActive, categoryIds: [...t.categoryIds] };
       for (const c of d.categories) {
         this.editCat[c.id] = { nameEn: c.nameEn, nameAr: c.nameAr, defaultTeamId: c.defaultTeamId, isActive: c.isActive, sortOrder: c.sortOrder, priorityCode: c.priorityCode, isPrivate: c.isPrivate, autoAssign: c.autoAssign, typeIds: [...c.typeIds] };
         for (const s of c.subcategories) this.editSub[s.id] = { categoryId: s.categoryId, nameEn: s.nameEn, nameAr: s.nameAr, isActive: s.isActive, sortOrder: s.sortOrder, priorityCode: s.priorityCode };

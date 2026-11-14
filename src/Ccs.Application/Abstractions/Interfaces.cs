@@ -69,7 +69,7 @@ public interface ICcsDbContext
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 
     /// <summary>Atomically increments ccs.ticket_counters for the year and returns the new value.</summary>
-    Task<int> NextTicketNumberAsync(int year, CancellationToken ct = default);
+    Task<int> NextTicketNumberAsync(int periodKey, CancellationToken ct = default);
 }
 
 /// <summary>The signed-in caller of the current request (null user = anonymous or background job).</summary>

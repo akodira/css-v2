@@ -38,7 +38,7 @@ export const TICKET_ARTICLES: Article[] = [
       { en: "Choose the **Priority** that matches how urgent this is for you. The team may adjust it after review.", ar: "اختر **الأولوية** بحسب مدى استعجال الأمر. قد يعدّلها الفريق بعد المراجعة." },
       { en: "Write a short **Subject** (3 to 200 characters) and a **Description** of at least 10 characters: what happened, what you expected, and how to reproduce it.", ar: "اكتب **موضوعًا** قصيرًا (من 3 إلى 200 حرف) و**وصفًا** لا يقل عن 10 أحرف: ماذا حدث، وماذا كنت تتوقع، وكيف يمكن إعادة المشكلة." },
       { en: "Attach files if they help: up to 5 files, 10 MB each (PDF, PNG, JPG, DOCX, XLSX or TXT).", ar: "أرفق ملفات إن كانت مفيدة: حتى 5 ملفات، بحجم 10 ميجابايت لكل ملف (PDF أو PNG أو JPG أو DOCX أو XLSX أو TXT)." },
-      { en: "Select **Submit ticket**. You get a reference such as CTS-2026-000012 and a confirmation email.", ar: "اختر **إرسال التذكرة**. ستحصل على رقم مرجعي مثل CTS-2026-000012 ورسالة تأكيد بالبريد." },
+      { en: "Select **Submit ticket**. You get a reference such as REQ-26-0012 and a confirmation email.", ar: "اختر **إرسال التذكرة**. ستحصل على رقم مرجعي مثل REQ-26-0012 ورسالة تأكيد بالبريد." },
     ],
     tips: [{ en: "If the ticket is created but a file fails to upload, open the ticket and add the file in a comment.", ar: "إذا أُنشئت التذكرة وتعذّر رفع ملف، افتح التذكرة وأضف الملف في تعليق." }],
     related: ["c-follow", "c-cancel"],

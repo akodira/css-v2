@@ -84,7 +84,9 @@ MERGE ccs.app_settings AS t USING (VALUES
   (N'resolved_reminder_day', N'3'), (N'password_min_length', N'10'), (N'password_require_upper', N'true'),
   (N'password_require_lower', N'true'), (N'password_require_number', N'true'), (N'password_require_special', N'true'),
   (N'password_expiry_enabled', N'false'), (N'password_expiry_days', N'90'), (N'password_warn_1_days', N'7'),
-  (N'password_warn_2_days', N'4'), (N'password_warn_3_days', N'1'), (N'auto_refresh_seconds', N'30')
+  (N'password_warn_2_days', N'4'), (N'password_warn_3_days', N'1'), (N'auto_refresh_seconds', N'30'),
+  (N'ticket_number_parts', N'["type","yy","seq"]'), (N'ticket_number_separator', N'"-"'), (N'ticket_number_prefix', N'"CTS"'),
+  (N'ticket_number_digits', N'4'), (N'ticket_number_reset', N'"yearly"')
 ) AS s([key], value) ON t.[key] = s.[key]
 WHEN NOT MATCHED THEN INSERT ([key], value) VALUES (s.[key], s.value);
 

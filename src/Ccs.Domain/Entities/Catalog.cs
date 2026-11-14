@@ -27,6 +27,8 @@ public class ClosureReason
 public class TicketType
 {
     public Guid Id { get; set; }
+    /// <summary>2–4 letters used in the ticket number (INC-26-0073); null = the prefix is used.</summary>
+    public string? Code { get; set; }
     public string NameEn { get; set; } = "";
     public string NameAr { get; set; } = "";
     public string DescriptionEn { get; set; } = "";

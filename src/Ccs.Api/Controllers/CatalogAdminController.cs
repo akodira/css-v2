@@ -5,6 +5,7 @@ using Ccs.Application.Abstractions;
 using Ccs.Application.Common;
 using Ccs.Domain;
 using Ccs.Domain.Entities;
+using Ccs.Domain.Rules;
 using Ccs.Infrastructure.Identity;
 using Ccs.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
@@ -23,7 +24,7 @@ namespace Ccs.Api.Controllers;
 public sealed partial class CatalogAdminController(CcsDbContext db, AccessService access, AuditService audit, IClock clock) : ControllerBase
 {
     public sealed record TypeBody(string NameEn, string NameAr, string? DescriptionEn, string? DescriptionAr, string? ExamplesEn, string? ExamplesAr,
-        int SortOrder, bool IsActive, Guid[] CategoryIds);
+        int SortOrder, bool IsActive, Guid[] CategoryIds, string? Code = null);
     public sealed record CategoryBody(string NameEn, string NameAr, Guid? DefaultTeamId, bool IsActive, int SortOrder, string? PriorityCode,
         bool IsPrivate, bool AutoAssign, Guid[]? TypeIds);
     public sealed record SubcategoryBody(Guid CategoryId, string NameEn, string NameAr, bool IsActive, int SortOrder, string? PriorityCode);
@@ -75,7 +76,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
         {
             types = types.Select(t => new
             {
-                t.Id, t.NameEn, t.NameAr, t.DescriptionEn, t.DescriptionAr, t.ExamplesEn, t.ExamplesAr, t.SortOrder, t.IsActive,
+                t.Id, t.Code, t.NameEn, t.NameAr, t.DescriptionEn, t.DescriptionAr, t.ExamplesEn, t.ExamplesAr, t.SortOrder, t.IsActive,
                 CategoryIds = links.Where(l => l.TypeId == t.Id).Select(l => l.CategoryId),
                 Tickets = N(byType, x => x.Id == t.Id, x => x.N),
             }),
@@ -122,7 +123,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
         await Need(Permission.ManageCatalog, ct);
         var t = await db.TicketTypes.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
         if (t.IsActive && !b.IsActive && !await db.TicketTypes.AnyAsync(x => x.Id != id && x.IsActive, ct)) throw Err("lastTicketType");
-        var before = new { t.NameEn, t.NameAr, t.IsActive, t.SortOrder };
+        var before = new { t.Code, t.NameEn, t.NameAr, t.IsActive, t.SortOrder };
         await ApplyTypeAsync(t, b, ct);
         await LinkTypeAsync(id, b.CategoryIds, ct);
         audit.Write("ticket_type.update", "ticket_type", id, before, b);
@@ -148,6 +149,10 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     {
         var (en, ar) = (Name(b.NameEn, "nameEn"), Name(b.NameAr, "nameAr"));
         if (await db.TicketTypes.AnyAsync(x => x.Id != t.Id && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
+        var code = TicketTypeCode.Normalize(b.Code);
+        if (!TicketTypeCode.IsValid(code)) throw Err("typeCode", "code");
+        if (code is not null && await db.TicketTypes.AnyAsync(x => x.Id != t.Id && x.Code == code, ct)) throw Err("typeCodeTaken", "code", 409);
+        t.Code = code;
         t.NameEn = en; t.NameAr = ar;
         t.DescriptionEn = Text(b.DescriptionEn, 1000); t.DescriptionAr = Text(b.DescriptionAr, 1000);
         t.ExamplesEn = Text(b.ExamplesEn, 1000); t.ExamplesAr = Text(b.ExamplesAr, 1000);

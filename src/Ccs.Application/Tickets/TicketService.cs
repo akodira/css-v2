@@ -125,12 +125,20 @@ public sealed class TicketService(
         }
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        var year = now.UtcDateTime.Year;
-        var number = await db.NextTicketNumberAsync(year, ct);
+        // Ticket number (Settings → System), e.g. INC-26-0073. One counter shared by all types; a value whose number
+        // already exists (possible after the format was changed) is skipped.
+        var format = await settings.GetTicketNumberFormatAsync(ct);
+        var typeCode = await db.TicketTypes.AsNoTracking().Where(y => y.Id == cmd.TypeId).Select(y => y.Code).FirstOrDefaultAsync(ct);
+        var reference = "";
+        for (var tries = 0; tries < 50; tries++)
+        {
+            reference = format.Render(typeCode, now, await db.NextTicketNumberAsync(format.PeriodKey(now), ct));
+            if (!await db.Tickets.AnyAsync(x => x.Reference == reference, ct)) break;
+        }
         var ticket = new Ticket
         {
             Id = Guid.NewGuid(),
-            Reference = TicketReference.Format(year, number),
+            Reference = reference,
             RequesterId = requester,
             Subject = subject,
             Description = description,

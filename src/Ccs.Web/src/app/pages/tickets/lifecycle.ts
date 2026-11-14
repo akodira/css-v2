@@ -201,7 +201,7 @@ export class CommentActions {
         <section [class]="cls.card" aria-labelledby="dsp"><h2 id="dsp" class="mb-3 text-lg font-bold">{{ 'Lifecycle.staff.panelTitle' | t }}</h2>
           <form class="flex flex-col gap-2" (submit)="$event.preventDefault(); duplicate()">
             <label for="dup-ref" class="text-sm font-semibold">{{ 'Lifecycle.staff.duplicateOf' | t }}<app-req /></label>
-            <input id="dup-ref" dir="ltr" placeholder="CTS-2026-000123" [class]="cls.field" [value]="ref()" (input)="ref.set($any($event.target).value)" />
+            <input id="dup-ref" dir="ltr" placeholder="REQ-26-0123" [class]="cls.field" [value]="ref()" (input)="ref.set($any($event.target).value)" />
             <p class="text-sm text-muted">{{ 'Lifecycle.staff.duplicateHint' | t }}</p>
             <div><button type="submit" [class]="cls.btn2" [disabled]="busy() || !ref().trim()">{{ 'Lifecycle.staff.markDuplicate' | t }}</button></div>
           </form>

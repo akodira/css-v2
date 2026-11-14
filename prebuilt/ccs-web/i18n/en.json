@@ -393,7 +393,7 @@
       "closed": "Closed"
     },
     "searchLabel": "Search by reference or subject",
-    "searchPlaceholder": "For example CTS-2026-000012",
+    "searchPlaceholder": "For example REQ-26-0012",
     "searchButton": "Search",
     "columns": {
       "reference": "Reference",
@@ -1130,7 +1130,18 @@
       "badButtonLink": "Enter a page like /kb, or an address starting with https://, mailto: or tel:.",
       "flowNewStuck": "Staff must be able to move a ticket out of New.",
       "flowNoResolve": "Staff must be able to reach Resolved.",
-      "scopeRequired": "Choose at least one."
+      "scopeRequired": "Choose at least one.",
+      "typeCode": "The code must be 2 to 4 English letters.",
+      "typeCodeTaken": "Another ticket type already uses this code.",
+      "ticketNumber_part": "One of the parts is not recognised.",
+      "ticketNumber_seq": "The number must include the counter exactly once.",
+      "ticketNumber_dup": "A part is used twice. Use only one year part.",
+      "ticketNumber_year": "When the counter starts again every year, the number must include the year.",
+      "ticketNumber_month": "When the counter starts again every month, the number must include the year and the month.",
+      "ticketNumber_separator": "Choose a separator.",
+      "ticketNumber_prefix": "The prefix must be 1 to 6 letters or digits.",
+      "ticketNumber_digits": "Counter digits must be from 3 to 8.",
+      "ticketNumber_reset": "Choose when the counter starts again."
     }
   },
   "AdminCatalog": {
@@ -1298,7 +1309,41 @@
     "autoRefreshHint": "Ticket lists and ticket pages re-read their data every this many seconds while the page is open. Use 0 to turn it off, otherwise 10 to 3600.",
     "idleTitle": "Automatic sign-out",
     "idleTimeout": "Sign out after inactivity (minutes)",
-    "idleTimeoutHint": "People are signed out after this many minutes without using the page. Use 0 to turn it off, otherwise 1 to 1440."
+    "idleTimeoutHint": "People are signed out after this many minutes without using the page. Use 0 to turn it off, otherwise 1 to 1440.",
+    "tnTitle": "Ticket number",
+    "tnHelp": "How new ticket numbers are built. The parts are always joined by the separator, for example INC-26-0073.",
+    "tnPreview": "Next ticket number",
+    "tnOld": "Existing tickets keep their numbers. Changes apply to new tickets only.",
+    "tnParts": "Parts, in order",
+    "tnPartsHint": "Use the arrows to change the order. The counter must be included once.",
+    "tnAddPart": "Add a part",
+    "tnChoose": "Choose a part",
+    "tnMoveLeft": "Move earlier",
+    "tnMoveRight": "Move later",
+    "tnRemove": "Remove part",
+    "tnPart_type": "Ticket type code",
+    "tnPart_prefix": "Prefix",
+    "tnPart_yy": "Year (26)",
+    "tnPart_yyyy": "Year (2026)",
+    "tnPart_mm": "Month (11)",
+    "tnPart_seq": "Counter",
+    "tnSep": "Separator",
+    "tnSep_dash": "Dash",
+    "tnSep_slash": "Slash",
+    "tnSep_dot": "Dot",
+    "tnSep_underscore": "Underscore",
+    "tnPrefix": "Prefix",
+    "tnPrefixHint": "1 to 6 letters or digits. Also used for ticket types that have no code.",
+    "tnDigits": "Counter digits",
+    "tnDigitsHint": "3 to 8. The counter grows past this when needed.",
+    "tnReset": "Counter starts again",
+    "tnReset_yearly": "Every year",
+    "tnReset_yearly_help": "Back to 1 on 1 January. The number must include the year.",
+    "tnReset_monthly": "Every month",
+    "tnReset_monthly_help": "Back to 1 on the first of each month. The number must include the year and the month.",
+    "tnReset_never": "Never",
+    "tnReset_never_help": "One counter that keeps growing.",
+    "tnCodesHint": "Ticket type codes (for example CMP, REQ) are set on the Ticket types page. One counter is shared by all types."
   },
   "Customers": {
     "title": "Customers",
@@ -3333,7 +3378,7 @@
         "title": "10. Cancellations, duplicates and spam (staff)",
         "steps": [
           "Cancellation request: a card appears on the ticket. Write a note and press Approve and close, or Reject request (a note is required when rejecting and the customer is told).",
-          "Duplicate: on the second ticket, enter the reference of the original (for example CTS-2026-000123) and press Close as duplicate. The two tickets are linked, and the customer sees which ticket replaced theirs.",
+          "Duplicate: on the second ticket, enter the reference of the original (for example REQ-26-0123) and press Close as duplicate. The two tickets are linked, and the customer sees which ticket replaced theirs.",
           "Spam: press Mark as spam and confirm. The ticket closes and the customer cannot reopen it."
         ],
         "note": "These actions need the Close permission. They also finish the SLA so the ticket never counts as a missed deadline."
@@ -3554,7 +3599,9 @@
     "colCategory": "Category",
     "colTypes": "Types",
     "matrixWarn": "A category linked to no type (shown in red) cannot be chosen by customers.",
-    "saveLinks": "Save links"
+    "saveLinks": "Save links",
+    "code": "Code in the ticket number",
+    "codeHint": "2 to 4 English letters, for example REQ. Leave empty to use the prefix."
   },
   "Required": {
     "mark": "required",

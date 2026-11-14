@@ -344,8 +344,8 @@ public sealed partial class SettingsController(
 
     /// <summary>v1 SAMPLE values for previews and tests.</summary>
     private static Dictionary<string, string> SampleValues(string locale) => locale == "ar"
-        ? new() { ["name"] = "كمال", ["reference"] = "CTS-2026-000123", ["subject"] = "مشكلة في تسجيل الدخول", ["reason"] = "لا يوجد رد منذ 24 ساعة", ["code"] = "482913", ["minutes"] = "10", ["days"] = "3", ["customer"] = "نور حسن", ["customerEmail"] = "nour@example.com" }
-        : new() { ["name"] = "Kamal", ["reference"] = "CTS-2026-000123", ["subject"] = "Login issue on the portal", ["reason"] = "No reply for 24 hours", ["code"] = "482913", ["minutes"] = "10", ["days"] = "3", ["customer"] = "Nour Hassan", ["customerEmail"] = "nour@example.com" };
+        ? new() { ["name"] = "كمال", ["reference"] = "REQ-26-0123", ["subject"] = "مشكلة في تسجيل الدخول", ["reason"] = "لا يوجد رد منذ 24 ساعة", ["code"] = "482913", ["minutes"] = "10", ["days"] = "3", ["customer"] = "نور حسن", ["customerEmail"] = "nour@example.com" }
+        : new() { ["name"] = "Kamal", ["reference"] = "REQ-26-0123", ["subject"] = "Login issue on the portal", ["reason"] = "No reply for 24 hours", ["code"] = "482913", ["minutes"] = "10", ["days"] = "3", ["customer"] = "Nour Hassan", ["customerEmail"] = "nour@example.com" };
 
     [HttpGet("templates")]
     public async Task<object> Templates(CancellationToken ct)
@@ -531,6 +531,50 @@ public sealed partial class SettingsController(
             row.Value = json;
         }
         audit.Write("settings.system", "app_settings", null, before, b.Settings);
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    // ================================================================ ticket number (e.g. INC-26-0073)
+
+    private static readonly string[] NumberKeys = ["ticket_number_parts", "ticket_number_separator", "ticket_number_prefix", "ticket_number_digits", "ticket_number_reset"];
+
+    [HttpGet("ticket-number")]
+    public async Task<object> GetTicketNumber([FromServices] Ccs.Application.Settings.SettingsService settings, CancellationToken ct)
+    {
+        await Need(ct);
+        var f = await settings.GetTicketNumberFormatAsync(ct);
+        var now = clock.UtcNow;
+        var key = f.PeriodKey(now);
+        var last = await db.Database.SqlQuery<int>($"SELECT last_value AS [Value] FROM ccs.ticket_counters WHERE [year] = {key}").ToListAsync(ct);
+        var types = await db.TicketTypes.AsNoTracking().Where(t => t.IsActive).OrderBy(t => t.SortOrder).ThenBy(t => t.NameEn)
+            .Select(t => new { t.NameEn, t.NameAr, t.Code }).ToListAsync(ct);
+        return new { f.Parts, f.Separator, f.Prefix, f.Digits, f.Reset, Next = last.FirstOrDefault() + 1, Now = now, types };
+    }
+
+    public sealed record TicketNumberBody(string[] Parts, string Separator, string Prefix, int Digits, string Reset);
+
+    [HttpPut("ticket-number")]
+    public async Task<IActionResult> SaveTicketNumber(TicketNumberBody b, CancellationToken ct)
+    {
+        await Need(ct);
+        var f = TicketNumberFormat.Normalize(b.Parts, b.Separator, b.Prefix, b.Digits, b.Reset);
+        if (f.Validate() is string error) throw Err("ticketNumber_" + error, error is "prefix" or "digits" or "separator" or "reset" ? error : "parts");
+        var values = new Dictionary<string, string>
+        {
+            ["ticket_number_parts"] = JsonSerializer.Serialize(f.Parts), ["ticket_number_separator"] = JsonSerializer.Serialize(f.Separator),
+            ["ticket_number_prefix"] = JsonSerializer.Serialize(f.Prefix), ["ticket_number_digits"] = f.Digits.ToString(),
+            ["ticket_number_reset"] = JsonSerializer.Serialize(f.Reset),
+        };
+        var rows = await db.AppSettings.Where(s => NumberKeys.Contains(s.Key)).ToListAsync(ct);
+        var before = rows.ToDictionary(r => r.Key, r => r.Value);
+        foreach (var (key, json) in values)
+        {
+            var row = rows.FirstOrDefault(r => r.Key == key);
+            if (row is null) db.AppSettings.Add(new AppSetting { Key = key, Value = json });
+            else row.Value = json;
+        }
+        audit.Write("settings.ticket_number", "app_settings", null, before, values);
         await db.SaveChangesAsync(ct);
         return NoContent();
     }

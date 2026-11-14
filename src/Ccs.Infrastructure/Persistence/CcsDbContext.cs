@@ -151,12 +151,12 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
         b.Entity<Holiday>().Property(x => x.HolidayDate).HasColumnType("date");
     }
 
-    public async Task<int> NextTicketNumberAsync(int year, CancellationToken ct = default)
+    public async Task<int> NextTicketNumberAsync(int periodKey, CancellationToken ct = default)
     {
         // MERGE with HOLDLOCK = one atomic upsert, like INSERT .. ON CONFLICT .. RETURNING.
         var rows = await Database.SqlQuery<int>($"""
             MERGE ccs.ticket_counters WITH (HOLDLOCK) AS t
-            USING (SELECT {year} AS [year]) AS s ON t.[year] = s.[year]
+            USING (SELECT {periodKey} AS [year]) AS s ON t.[year] = s.[year]
             WHEN MATCHED THEN UPDATE SET last_value = t.last_value + 1
             WHEN NOT MATCHED THEN INSERT ([year], last_value) VALUES (s.[year], 1)
             OUTPUT inserted.last_value AS [Value];

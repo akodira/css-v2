@@ -111,7 +111,7 @@ test.describe('CT Customer tickets', () => {
     await main().getByRole('button', { name: t('NewTicket.submit') }).click();
     await expect(page).toHaveURL(/\/en\/tickets\/[0-9a-f-]{36}$/, { timeout: 15_000 });
     await expect(main().getByRole('heading', { level: 1, name: subject })).toBeVisible();
-    await expect(main().getByText(/^[A-Z]+-\d{4}-\d{6}$/)).toBeVisible();          // reference like CTS-2026-000123
+    await expect(main().getByText(/^[A-Z]+-(\d{4}-\d{6}|\d{2}-\d{4,})$/)).toBeVisible();          // reference like REQ-26-0123 (older: CTS-2026-000123)
     await expect(main().getByRole('button', { name: /e2e-proof\.png/ })).toBeVisible();
   });
 
