@@ -83,7 +83,7 @@ const REQ = `<app-req />`;
                 <span [class]="cls.label">{{ 'AdminGeneral.' + sec.image | t }}</span>
                 <div class="flex flex-wrap items-center gap-3">
                   @if (img(sec.image); as src) { <img [src]="src" alt="" class="h-16 w-16 rounded-lg border border-line object-contain" /> } @else { <span class="flex h-16 w-16 items-center justify-center rounded-lg border border-line bg-brand-soft text-xs text-muted">{{ 'AdminGeneral.defaultIcon' | t }}</span> }
-                  <input type="file" class="text-sm" [attr.aria-label]="'AdminGeneral.' + sec.image | t" accept=".png,.jpg,.jpeg,.webp,.svg,.ico" (change)="upload(sec.image, $any($event.target))" />
+                  <input type="file" class="cursor-pointer text-sm file:me-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:font-semibold file:text-brand-ink file:transition-colors hover:file:bg-brand hover:file:text-white"[attr.aria-label]="'AdminGeneral.' + sec.image | t" accept=".png,.jpg,.jpeg,.webp,.svg,.ico" (change)="upload(sec.image, $any($event.target))" />
                   @if (img(sec.image)) { <button type="button" [class]="cls.btn2" (click)="remove(sec.image)">{{ 'AdminGeneral.removeImage' | t }}</button> }
                 </div>
                 <p class="text-sm text-muted">{{ 'AdminGeneral.' + sec.image + 'Hint' | t }}</p>

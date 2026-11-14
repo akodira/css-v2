@@ -62,7 +62,7 @@ export class Uploads {
     <div class="flex flex-col gap-1.5">
       <label [for]="id" class="text-sm font-semibold">{{ label() }}</label>
       <input #inp [id]="id" type="file" multiple [disabled]="disabled()" [accept]="accept()" (change)="add(inp)"
-        class="min-h-11 w-full rounded-lg border border-dashed border-line bg-surface p-2 text-sm file:me-3 file:min-h-9 file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:font-semibold file:text-brand-ink" />
+        class="min-h-11 w-full cursor-pointer rounded-lg border border-dashed border-line bg-surface p-2 text-sm transition-colors file:me-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:font-semibold file:text-brand-ink file:underline-offset-2 file:transition-colors hover:border-brand hover:file:bg-brand hover:file:text-white hover:file:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:file:cursor-not-allowed" />
       <p class="text-sm text-muted">{{ 'Files.hint' | t: { max: rules().maxFiles, mb: rules().maxMb, types: types() } }}</p>
       @if (files().length) {
         <ul class="flex flex-col gap-1">
