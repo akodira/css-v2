@@ -7,11 +7,12 @@
     "test": "playwright test",
     "test:captcha": "cross-env CCS_CAPTCHA=on playwright test",
     "report": "playwright show-report",
-    "results": "python scripts/results_to_xlsx.py"
+    "results": "node scripts/results_to_xlsx.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@types/node": "^22.0.0",
-    "cross-env": "^7.0.3"
+    "cross-env": "^7.0.3",
+    "exceljs": "^4.4.0"
   }
 }

@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from '../support/fixtures';
 import { ACCOUNTS, CUSTOMER_PHONE } from '../support/accounts';
 import { captchaMode, testPassword } from '../support/env';
 import { fillLogin, LOGIN, openLogin, signInAs, signOut, submit } from '../support/helpers';
@@ -84,7 +84,8 @@ test.describe('AU Sign in and session', () => {
     await expect(page).toHaveURL(/\/forgot-password/);
     await page.locator('input[name="email"]').fill('nobody.here.e2e@demo.cts.test');   // unknown address: nothing is sent
     await page.getByRole('button', { name: 'Send code' }).click();
-    await expect(page.getByText('If an account exists for this address')).toBeVisible();   // neutral message either way
+    // v2: the next step (code + new password) opens either way, so nothing tells whether the address exists
+    await expect(page.getByText('If an account exists for this address').or(page.getByRole('heading', { name: 'Choose a new password' })).first()).toBeVisible();
   });
 
   manual('TC-AU-016', 'Reset password link', 'needs a mailbox');
@@ -124,7 +125,7 @@ test.describe('AU Sign in and session', () => {
     await expect(page).toHaveURL(/\/ar\/login/);
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await fillLogin(page, ACCOUNTS.customer.email, testPassword());
-    await submit(page);
+    await page.locator('form button[type="submit"]').click();        // the button label is Arabic now
     await expect(page).toHaveURL(/\/ar(\/|$)/);          // the choice is kept after sign-in
   });
 });

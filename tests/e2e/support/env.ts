@@ -34,5 +34,13 @@ export function testPassword(): string {
   return p;
 }
 
+/**
+ * The local copy has two passwords: the admin and management-viewer accounts use CCS_ADMIN_PASSWORD,
+ * every other demo account uses CCS_TEST_PASSWORD (the "Test users" sheet). Unset admin password = the test password.
+ */
+export function adminPassword(): string {
+  return process.env.CCS_ADMIN_PASSWORD || testPassword();
+}
+
 /** CCS_CAPTCHA=on runs the captcha check only; the default run needs the captcha switched off in the local copy. */
 export const captchaMode = (process.env.CCS_CAPTCHA || 'off').toLowerCase() === 'on' ? 'on' : 'off';

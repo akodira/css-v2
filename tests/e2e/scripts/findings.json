@@ -1,0 +1,18 @@
+{
+  "TC-CT-007": "Not a v2 fault: the test customer reached the limit of 15 new tickets per hour during the test runs. Minor UI point: the form then says only 'Something went wrong' instead of the rate-limit message.",
+  "TC-CT-018": "Not a v2 fault: the test customer reached the limit of 15 new tickets per hour during the test runs (the follow-up is a new ticket). Same 'Something went wrong' message as TC-CT-007.",
+  "TC-RG-001": "Local copy cannot send email: /api/auth/register answers 503 emailFailed, and the form shows only 'Something went wrong'. Re-test where email works; the generic message is a small UI point.",
+  "TC-RG-006": "Local copy cannot send email (503 emailFailed), so the duplicate check could not be seen; the form shows only 'Something went wrong'. Re-test where email works.",
+  "TC-SE-007": "Signed-in API answers (for example /api/tickets/summary) have no 'Cache-Control: no-store'; only /api/site sends it. nosniff, frame DENY and referrer policy are present. Page CSP comes from IIS (check on the server).",
+  "TC-PS-001": "v2 bug: creating an Organization admin fails with 'Could not save. Please try again.' (POST /api/admin/staff with a scope returns 500). Creating plain staff works. Cause (API log): SqlException FK_admin_scopes_user in AdminController.CreateStaff: the admin_scopes / staff_placements rows are inserted before the new profile in the same save.",
+  "TC-PS-002": "v2 bug: creating a Branch admin fails with 'Could not save. Please try again.' (POST /api/admin/staff with a scope returns 500). Creating plain staff works. Cause (API log): SqlException FK_admin_scopes_user in AdminController.CreateStaff: the admin_scopes / staff_placements rows are inserted before the new profile in the same save.",
+  "TC-PS-012": "Could not be checked: creating the scoped admin to edit fails with 500 (same bug as TC-PS-001).",
+  "TC-US-009": "After the admin sets a new temporary password the person signs in without being asked to change it (v2 has no 'must change password' step).",
+  "TC-CM-009": "No Export button on the Customers page, although the team leader's account type has 'Export data'.",
+  "TC-OR-006": "There is no parent-organization field when adding or editing an organization; the hierarchy exists in the data but cannot be set on the page.",
+  "TC-AC-005": "My account has no email notification choices (v1 had them).",
+  "TC-AC-006": "Switching the language in the header does not save it as the preferred language (only the My account form does), so emails keep the old language.",
+  "TC-TM-006": "The team leader account (Tamer Leader) leads no team in this copy: /api/console/my-team answers 403 and the My team page stays empty instead of showing 'You do not lead any team yet'.",
+  "TC-RP-004": "The CSV export has no rating (satisfaction) columns; the workbook expects ratings in the file.",
+  "TC-UX-002": "Test could not finish the language round trip (sign-out in Arabic); check by hand."
+}

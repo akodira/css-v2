@@ -1,10 +1,11 @@
 import { expect, type Page } from '@playwright/test';
-import { ACCOUNTS, type Role } from './accounts';
-import { testPassword } from './env';
+import { ACCOUNTS, passwordFor, type Role } from './accounts';
+import { authBudget } from './fixtures';
 
 export const LOGIN = '/en/login';
 
 export async function openLogin(page: Page): Promise<void> {
+  await authBudget(2);                       // page load (refresh) + sign-in
   await page.goto(LOGIN);
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
 }
@@ -20,7 +21,7 @@ export async function submit(page: Page): Promise<void> {
 
 export async function signInAs(page: Page, role: Role): Promise<void> {
   await openLogin(page);
-  await fillLogin(page, ACCOUNTS[role].email, testPassword());
+  await fillLogin(page, ACCOUNTS[role].email, passwordFor(role));
   await submit(page);
   await expect(page).toHaveURL(ACCOUNTS[role].home);
 }
