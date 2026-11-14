@@ -1,3 +1,4 @@
+import { PageAbout } from '../../shared/page-about';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -28,11 +29,12 @@ const TAB = 'px-5 py-3 font-semibold';
 
 @Component({
   selector: 'app-admin-permissions',
-  imports: [TPipe, Alert, FormsModule, RouterLink],
+  imports: [TPipe, Alert, FormsModule, RouterLink, PageAbout],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'Permissions.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'Permissions.subtitle' | t }}</p></div>
+      <h1 class="text-3xl font-bold tracking-tight">{{ 'Permissions.title' | t }}</h1>
+      <app-page-about key="permissions" tile="key" [points]="['list', 'map', 'check', 'users']" />
       <nav [attr.aria-label]="'Permissions.title' | t" class="flex gap-2 border-b-2 border-line">
         <a [routerLink]="base" [attr.aria-current]="tab() === 'types' ? 'page' : null" [class]="tabCls(tab() === 'types')">{{ 'Permissions.tabTypes' | t }}</a>
         <a [routerLink]="base" [queryParams]="{ tab: 'staff' }" [attr.aria-current]="tab() === 'staff' ? 'page' : null" [class]="tabCls(tab() === 'staff')">{{ 'Permissions.tabStaff' | t }}</a>

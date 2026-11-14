@@ -1,3 +1,4 @@
+import { PageAbout } from '../../shared/page-about';
 import { RouterLink } from '@angular/router';
 import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -746,10 +747,11 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
 
 @Component({
   selector: 'app-admin-sla',
-  imports: [TPipe, Alert, FormsModule, Req, PrioIcon, ReqNote],
+  imports: [TPipe, Alert, FormsModule, Req, PrioIcon, ReqNote, PageAbout],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminSla.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminSla.subtitle' | t }}</p></div>
+      <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminSla.title' | t }}</h1>
+      <app-page-about key="sla" tile="clock" [points]="['ticket', 'check', 'calendar', 'pause', 'bell', 'chart']" />
       <p role="status" class="rounded-lg bg-warn-soft px-4 py-3 text-sm font-medium text-warn-ink">{{ 'AdminSla.testNotice' | t }}</p>
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
 
@@ -790,57 +792,113 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
         </form>
         @for (h of hours(); track h.id) {
           @let c = cal[h.id];
-          <details class="rounded-xl border border-line bg-surface shadow-card">
-            <summary class="min-h-11 cursor-pointer px-5 py-3 font-semibold">{{ 'AdminSla.calendars.summary' | t: { name: h.name, zone: h.timezone, count: h.holidays.length } }}</summary>
-            <div class="border-t border-line">
-              <div class="flex flex-col gap-4 border-b border-line p-5">
-                <form class="flex flex-wrap items-end gap-3" novalidate (ngSubmit)="saveHours(h)">
-                  <label class="flex min-w-64 flex-1 flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.name' | t }}<app-req /></span><input name="nm" maxlength="80" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="c.name" /></label>
-                  <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.calendars.rename' | t }}</button>
-                </form>
-                <div class="flex flex-col gap-2">
-                  <p class="text-sm text-muted">{{ 'AdminSla.calendars.recalcHelp' | t }}</p>
-                  <div><button type="button" [class]="cls.btn" [disabled]="busy()" (click)="recalc(h)">{{ 'AdminSla.calendars.recalc' | t }}</button></div>
+          @let tab = calTab[h.id] ?? 'week';
+          <details class="overflow-hidden rounded-xl border border-line bg-surface shadow-card">
+            <summary class="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-3.5 bg-[#f7f9fd] px-5 py-3.5">
+              <span aria-hidden="true" class="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand-ink">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+              <span class="min-w-48 flex-1">
+                <span class="flex flex-wrap items-center gap-2 text-lg font-bold"><span dir="auto">{{ h.name }}</span>@if (h.isDefault) { <span [class]="cls.badgeOn">{{ 'AdminSla.calendars.isDefault' | t }}</span> }</span>
+                <span class="mt-1 flex flex-wrap gap-1.5 text-xs font-semibold text-muted">
+                  <span class="rounded-md border border-line bg-surface px-2 py-0.5" dir="ltr">{{ h.timezone }}</span>
+                  <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ workDays(h) }}</b> {{ 'AdminSla.calendars.statDays' | t }}</span>
+                  <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ weekHours(h) }}</b> {{ 'AdminSla.calendars.statHours' | t }}</span>
+                  <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ h.holidays.length }}</b> {{ 'AdminSla.calendars.statHol' | t }}</span>
+                  <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ usedBy(h.id) }}</b> {{ 'AdminSla.calendars.statUsed' | t }}</span>
+                </span>
+              </span>
+            </summary>
+            <div role="tablist" class="flex gap-1 overflow-x-auto border-y border-line px-5">
+              @for (k of calTabs; track k) {
+                <button type="button" role="tab" [attr.aria-selected]="tab === k" (click)="calTab[h.id] = k"
+                  class="-mb-px inline-flex min-h-11 cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-sm font-semibold"
+                  [class]="tab === k ? 'border-brand text-brand-ink' : 'border-transparent text-muted hover:text-ink'">
+                  {{ 'AdminSla.calendars.t_' + k | t }}@if (k === 'hol') { <span class="rounded-full bg-bg px-2 text-xs">{{ h.holidays.length }}</span> }</button>
+              }
+            </div>
+
+            @if (tab === 'week') {
+              <form class="flex flex-col gap-4 p-5" novalidate (ngSubmit)="saveHours(h)">
+                <p class="text-sm font-bold">{{ 'AdminSla.calendars.weekStep1' | t }}</p>
+                <div class="grid grid-cols-7 gap-1.5">
+                  @for (d of days; track d) {
+                    <button type="button" (click)="c.days[d].open = !c.days[d].open" [attr.aria-pressed]="c.days[d].open"
+                      [attr.aria-label]="('AdminSla.days.' + d | t) + ': ' + ((c.days[d].open ? 'AdminSla.calendars.work' : 'AdminSla.calendars.weekend') | t)"
+                      class="cursor-pointer rounded-lg border px-1 py-2 text-center"
+                      [class]="c.days[d].open ? 'border-[#b9cff7] bg-brand-soft text-brand-ink' : 'border-line bg-[repeating-linear-gradient(135deg,#f4f6fa_0_6px,#eceff5_6px_12px)] text-muted'">
+                      <b class="block text-sm">{{ dayShort(d) }}</b>
+                      <span class="hidden text-[0.7rem] font-semibold sm:block">{{ (c.days[d].open ? 'AdminSla.calendars.work' : 'AdminSla.calendars.weekend') | t }}</span>
+                    </button>
+                  }
                 </div>
+                <p class="text-sm font-bold">{{ 'AdminSla.calendars.weekStep2' | t }}</p>
                 <div class="flex flex-col gap-2">
-                  <p class="text-sm text-muted">{{ 'AdminSla.calendars.deleteHelp' | t }}</p>
-                  <div><button type="button" [disabled]="busy()" (click)="remove('business-hours/' + h.id)" class="min-h-11 cursor-pointer rounded-lg border border-danger px-4 font-semibold text-danger hover:bg-danger-soft disabled:opacity-60">{{ 'AdminSla.calendars.delete' | t }}</button></div>
-                </div>
-              </div>
-              <div class="p-1">
-                <form class="flex flex-col gap-4 rounded-md border border-line bg-surface p-5" novalidate (ngSubmit)="saveHours(h)">
-                  <label class="flex max-w-sm flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.timezone' | t }}<app-req /></span><input name="tz" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="c.timezone" /></label>
-                  <div class="flex flex-col gap-3">
-                    @for (d of days; track d) {
-                      <div class="flex flex-wrap items-center gap-3">
-                        <label class="flex min-h-11 w-40 items-center gap-2 font-semibold"><input type="checkbox" [name]="d + 'o'" class="h-5 w-5" [(ngModel)]="c.days[d].open" />{{ 'AdminSla.days.' + d | t }}</label>
-                        <label class="flex items-center gap-2 text-sm">{{ 'AdminSla.from' | t }}<input type="time" [name]="d + 'f'" [class]="cls.input + ' w-32'" [(ngModel)]="c.days[d].from" /></label>
-                        <label class="flex items-center gap-2 text-sm">{{ 'AdminSla.to' | t }}<input type="time" [name]="d + 't'" [class]="cls.input + ' w-32'" [(ngModel)]="c.days[d].to" /></label>
+                  @for (d of days; track d) {
+                    @if (c.days[d].open) {
+                      <div class="flex flex-wrap items-center gap-3 rounded-lg border border-line px-3 py-2">
+                        <b class="w-28">{{ 'AdminSla.days.' + d | t }}</b>
+                        <label class="flex items-center gap-2 text-sm">{{ 'AdminSla.from' | t }}<input type="time" [name]="d + 'f'" [class]="cls.input + ' w-32'" [ngModel]="c.days[d].from" (ngModelChange)="setTime(h.id, d, 'from', $event)" /></label>
+                        <label class="flex items-center gap-2 text-sm">{{ 'AdminSla.to' | t }}<input type="time" [name]="d + 't'" [class]="cls.input + ' w-32'" [ngModel]="c.days[d].to" (ngModelChange)="setTime(h.id, d, 'to', $event)" /></label>
+                      </div>
+                    } @else {
+                      <div class="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-[#f7f9fd] px-3 py-2.5 text-muted">
+                        <b class="w-28">{{ 'AdminSla.days.' + d | t }}</b><span class="text-sm">{{ 'AdminSla.calendars.wkNote' | t }}</span>
                       </div>
                     }
-                  </div>
-                  <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.save' | t }}</button></div>
-                </form>
-              </div>
-              <div class="flex flex-col gap-4 border-t border-line p-5">
-                <h3 class="font-bold">{{ 'AdminSla.holidays' | t }}</h3>
-                @if (!h.holidays.length) { <p class="text-muted">{{ 'AdminSla.noHolidays' | t }}</p> } @else {
-                  <ul class="flex flex-col gap-2">
-                    @for (x of h.holidays; track x.id) {
-                      <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
-                        <span><span class="font-semibold" dir="ltr">{{ x.date }}</span>{{ ' ' }}<span dir="auto">{{ x.name }}</span></span>
-                        <button type="button" [disabled]="busy()" (click)="remove('holidays/' + x.id)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg disabled:opacity-60">{{ 'AdminSla.remove' | t }}<span class="sr-only"> {{ x.name }}</span></button>
-                      </li>
-                    }
-                  </ul>
-                }
-                <form class="flex flex-wrap items-end gap-3" novalidate (ngSubmit)="addHoliday(h)">
-                  <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.date' | t }}<app-req /></span><input type="date" name="hd" [class]="cls.input + ' w-44 font-normal'" [(ngModel)]="hol[h.id].date" /></label>
-                  <label class="flex flex-1 flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.holidayName' | t }}<app-req /></span><input name="hn" maxlength="100" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="hol[h.id].name" /></label>
+                  }
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <label class="${CHECK} text-sm"><input type="checkbox" name="same" class="h-5 w-5" [(ngModel)]="same[h.id]" />{{ 'AdminSla.calendars.sameHours' | t }}</label>
+                  <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.calendars.saveWeek' | t }}</button>
+                </div>
+              </form>
+            }
+
+            @if (tab === 'hol') {
+              <div class="flex flex-col gap-4 p-5">
+                <form class="grid grid-cols-1 items-end gap-3 rounded-xl border border-dashed border-line bg-[#fafcff] p-3.5 md:grid-cols-[auto_auto_1fr_auto]" novalidate (ngSubmit)="addHoliday(h)">
+                  <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.hFrom' | t }}<app-req /></span><input type="date" name="hd" [class]="cls.input + ' w-full font-normal md:w-44'" [(ngModel)]="hol[h.id].date" /></label>
+                  <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.hTo' | t }}</span><input type="date" name="ht" [min]="hol[h.id].date" [class]="cls.input + ' w-full font-normal md:w-44'" [(ngModel)]="hol[h.id].to" /></label>
+                  <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.holidayName' | t }}<app-req /></span><input name="hn" maxlength="100" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="hol[h.id].name" /></label>
                   <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.addHoliday' | t }}</button>
                 </form>
+                <p class="flex flex-wrap items-center gap-3 text-sm text-muted">{{ 'AdminSla.calendars.rangeHint' | t }} <app-req-note /></p>
+                @if (!h.holidays.length) { <p class="text-muted">{{ 'AdminSla.noHolidays' | t }}</p> } @else {
+                  @for (g of holidayMonths(h); track g.month) {
+                    <h3 class="mt-1 text-xs font-bold uppercase tracking-wider text-muted">{{ g.month }}</h3>
+                    <ul class="flex flex-col gap-2">
+                      @for (x of g.items; track x.id) {
+                        <li class="flex items-center gap-3 rounded-lg border border-line px-3 py-2">
+                          <span class="w-12 shrink-0 rounded-lg bg-warn-soft py-1 text-center leading-tight text-warn-ink"><b class="block text-lg">{{ x.day }}</b><span class="text-[0.68rem] font-bold uppercase">{{ x.mon }}</span></span>
+                          <span class="min-w-0 flex-1"><b class="block" dir="auto">{{ x.name }}</b><span class="text-xs text-muted">{{ x.weekday }} · <span dir="ltr">{{ x.date }}</span></span></span>
+                          <button type="button" [disabled]="busy()" (click)="remove('holidays/' + x.id)" class="min-h-11 cursor-pointer rounded-lg px-3 text-sm font-semibold text-danger hover:bg-danger-soft disabled:opacity-60">{{ 'AdminSla.remove' | t }}<span class="sr-only"> {{ x.name }}</span></button>
+                        </li>
+                      }
+                    </ul>
+                  }
+                }
               </div>
-            </div>
+            }
+
+            @if (tab === 'set') {
+              <div class="flex flex-col gap-4 p-5">
+                <form class="flex flex-col gap-4" novalidate (ngSubmit)="saveHours(h)">
+                  <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.name' | t }}<app-req /></span><input name="nm" maxlength="80" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="c.name" /></label>
+                    <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.timezone' | t }}<app-req /></span><input name="tz" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="c.timezone" /></label>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.save' | t }}</button><app-req-note /></div>
+                </form>
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line p-4">
+                  <div class="max-w-prose"><b>{{ 'AdminSla.calendars.recalc' | t }}</b><p class="text-sm text-muted">{{ 'AdminSla.calendars.recalcHelp' | t }}</p></div>
+                  <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="recalc(h)">{{ 'AdminSla.calendars.recalcShort' | t }}</button>
+                </div>
+                <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f1c7c3] bg-[#fffafa] p-4">
+                  <div class="max-w-prose"><b>{{ 'AdminSla.calendars.delete' | t }}</b><p class="text-sm text-muted">{{ 'AdminSla.calendars.deleteHelp' | t }}</p></div>
+                  <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="remove('business-hours/' + h.id)">{{ 'AdminSla.calendars.delete' | t }}</button>
+                </div>
+              </div>
+            }
           </details>
         }
         <form class="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-5 shadow-card" novalidate (ngSubmit)="createHours()">
@@ -854,34 +912,61 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
       @if (asg(); as a) {
         <section aria-labelledby="asg" class="flex flex-col gap-3">
           <h2 id="asg" class="text-xl font-bold">{{ 'AdminSla.calendars.assignTitle' | t }}</h2>
-          <p class="max-w-prose text-muted">{{ 'AdminSla.calendars.assignHelp' | t }}</p>
-          <div class="flex flex-col gap-2">
-            @for (o of a.organizations; track o.id) {
-              <div class="flex flex-col gap-2">
-                <form class="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3" (ngSubmit)="assign('organization', o.id, pick['o' + o.id])">
-                  <span class="min-w-48 flex-1 font-semibold" dir="auto">{{ o.name }}</span>
-                  <select [name]="'o' + o.id" [attr.aria-label]="o.name" [class]="cls.input + ' w-56'" [(ngModel)]="pick['o' + o.id]"><option value="">{{ 'AdminSla.calendars.followDefault' | t }}</option>@for (h of hours(); track h.id) { <option [value]="h.id">{{ h.name }}</option> }</select>
-                  <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.calendars.apply' | t }}</button>
-                  @if (applied() === 'o' + o.id) { <span role="status" class="text-sm font-medium text-ok">{{ 'AdminSla.calendars.applied' | t }}</span> }
-                </form>
-                @for (b of branchesIn(o.id); track b.id) {
-                  <form class="ms-6 flex flex-wrap items-center gap-3 rounded-lg border border-line p-3" (ngSubmit)="assign('branch', b.id, pick['b' + b.id])">
-                    <span class="min-w-48 flex-1 font-semibold" dir="auto">{{ b.name }}</span>
-                    <select [name]="'b' + b.id" [attr.aria-label]="b.name" [class]="cls.input + ' w-56'" [(ngModel)]="pick['b' + b.id]"><option value="">{{ 'AdminSla.calendars.followDefault' | t }}</option>@for (h of hours(); track h.id) { <option [value]="h.id">{{ h.name }}</option> }</select>
-                    <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.calendars.apply' | t }}</button>
-                    @if (applied() === 'b' + b.id) { <span role="status" class="text-sm font-medium text-ok">{{ 'AdminSla.calendars.applied' | t }}</span> }
-                  </form>
-                }
-              </div>
-            }
-            @for (tm of a.teams; track tm.id) {
-              <form class="flex flex-wrap items-center gap-3 rounded-lg border border-line p-3" (ngSubmit)="assign('team', tm.id, pick['t' + tm.id])">
-                <span class="min-w-48 flex-1 font-semibold" dir="auto">{{ i18n.pick(tm.nameEn, tm.nameAr) }}</span>
-                <select [name]="'t' + tm.id" [attr.aria-label]="i18n.pick(tm.nameEn, tm.nameAr)" [class]="cls.input + ' w-56'" [(ngModel)]="pick['t' + tm.id]"><option value="">{{ 'AdminSla.calendars.followDefault' | t }}</option>@for (h of hours(); track h.id) { <option [value]="h.id">{{ h.name }}</option> }</select>
-                <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.calendars.apply' | t }}</button>
-                @if (applied() === 't' + tm.id) { <span role="status" class="text-sm font-medium text-ok">{{ 'AdminSla.calendars.applied' | t }}</span> }
-              </form>
-            }
+          <div class="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-card">
+            <p class="flex flex-wrap items-center gap-1.5 text-sm text-muted">{{ 'AdminSla.calendars.orderLbl' | t }}
+              <span class="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-semibold text-brand-ink">{{ 'AdminSla.calendars.oBranch' | t }}</span><span aria-hidden="true" class="rtl:rotate-180">→</span>
+              <span class="rounded-full bg-[#efe8fd] px-2.5 py-0.5 text-xs font-semibold text-[#5b3aa8]">{{ 'AdminSla.calendars.oOrg' | t }}</span><span aria-hidden="true" class="rtl:rotate-180">→</span>
+              <span class="rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-semibold text-warn-ink">{{ 'AdminSla.calendars.oTeam' | t }}</span><span aria-hidden="true" class="rtl:rotate-180">→</span>
+              <span class="rounded-full bg-bg px-2.5 py-0.5 text-xs font-semibold text-muted">{{ 'AdminSla.calendars.oDefault' | t }}</span>
+            </p>
+            <form class="grid grid-cols-1 items-end gap-3 rounded-xl border border-dashed border-line bg-[#fafcff] p-3.5 md:grid-cols-[1.4fr_1fr_auto]" novalidate (ngSubmit)="applyPick()">
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.where' | t }}<app-req /></span>
+                <select name="where" [class]="cls.input + ' font-normal'" [ngModel]="where" (ngModelChange)="pickWhere($event)">
+                  <option value="" disabled>{{ 'AdminSla.calendars.chooseWhere' | t }}</option>
+                  <optgroup [label]="'AdminSla.calendars.grpOrgs' | t">
+                    @for (o of a.organizations; track o.id) {
+                      <option [value]="'organization:' + o.id">{{ o.name }} {{ 'AdminSla.calendars.allBranches' | t }}</option>
+                      @for (b of branchesIn(o.id); track b.id) { <option [value]="'branch:' + b.id">&#x2003;↳ {{ b.name }}</option> }
+                    }
+                  </optgroup>
+                  @if (a.teams.length) {
+                    <optgroup [label]="'AdminSla.calendars.grpTeams' | t">
+                      @for (tm of a.teams; track tm.id) { <option [value]="'team:' + tm.id">{{ i18n.pick(tm.nameEn, tm.nameAr) }}</option> }
+                    </optgroup>
+                  }
+                </select></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.calendars.calendar' | t }}
+                <select name="calPick" [class]="cls.input + ' font-normal'" [(ngModel)]="calPick"><option value="">{{ 'AdminSla.calendars.followDefault' | t }}</option>@for (h of hours(); track h.id) { <option [value]="h.id">{{ h.name }}</option> }</select></label>
+              <button type="submit" [class]="cls.btn" [disabled]="busy() || !where">{{ 'AdminSla.calendars.apply' | t }}</button>
+            </form>
+            <div>
+              <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2"><b>{{ 'AdminSla.calendars.excTitle' | t }}</b><span class="text-sm text-muted">{{ 'AdminSla.calendars.excHint' | t: { name: calName(null) } }}</span></div>
+              @if (!exceptions().length) { <p class="rounded-lg border border-dashed border-line p-4 text-sm text-muted">{{ 'AdminSla.calendars.noExceptions' | t }}</p> } @else {
+                <div class="overflow-x-auto rounded-xl border border-line">
+                  <table class="w-full text-sm">
+                    <caption class="sr-only">{{ 'AdminSla.calendars.excTitle' | t }}</caption>
+                    <thead class="bg-[#f7f9fd] text-start text-xs uppercase tracking-wider text-muted">
+                      <tr><th scope="col" class="px-3 py-2.5 text-start font-bold">{{ 'AdminSla.calendars.thWhere' | t }}</th><th scope="col" class="px-3 py-2.5 text-start font-bold">{{ 'AdminSla.calendars.calendar' | t }}</th><th scope="col" class="hidden px-3 py-2.5 text-start font-bold sm:table-cell">{{ 'AdminSla.calendars.thTz' | t }}</th><th scope="col" class="px-3 py-2.5"><span class="sr-only">{{ 'AdminSla.calendars.backDefault' | t }}</span></th></tr>
+                    </thead>
+                    <tbody>
+                      @for (x of exceptions(); track x.kind + x.id) {
+                        <tr class="border-t border-line hover:bg-[#f9fbfe]">
+                          <td class="px-3 py-2.5">
+                            <span class="mb-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-semibold" [class]="x.kind === 'branch' ? 'bg-brand-soft text-brand-ink' : x.kind === 'organization' ? 'bg-[#efe8fd] text-[#5b3aa8]' : 'bg-warn-soft text-warn-ink'">{{ 'AdminSla.calendars.k_' + x.kind | t }}</span>
+                            <b class="block" dir="auto">{{ x.name }}</b>
+                            @if (x.kind === 'branch') { <span class="block text-xs text-muted">{{ 'AdminSla.calendars.inOrg' | t: { org: x.org } }}</span> }
+                            @if (x.kind === 'organization') { <span class="block text-xs text-muted">{{ 'AdminSla.calendars.orgNote' | t }}</span> }
+                          </td>
+                          <td class="px-3 py-2.5 font-semibold" dir="auto">{{ calName(x.cal) }}</td>
+                          <td class="hidden px-3 py-2.5 text-muted sm:table-cell" dir="ltr">{{ calZone(x.cal) }}</td>
+                          <td class="px-3 py-2.5 text-end"><button type="button" [disabled]="busy()" (click)="assign(x.kind, x.id, '')" class="min-h-11 cursor-pointer rounded-lg px-3 font-semibold text-muted hover:bg-bg disabled:opacity-60">{{ 'AdminSla.calendars.backDefault' | t }}<span class="sr-only"> {{ x.name }}</span></button></td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </div>
           </div>
         </section>
       }
@@ -889,8 +974,12 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class AdminSlaPage extends AdminBase implements OnInit {
-  protected readonly applied = signal<string | null>(null);
-  protected pick: Record<string, string> = {};
+  protected readonly calTabs = ['week', 'hol', 'set'] as const;
+  protected calTab: Record<string, 'week' | 'hol' | 'set'> = {};
+  /** "Use the same hours for every working day", per calendar. */
+  protected same: Record<string, boolean> = {};
+  protected where = '';
+  protected calPick = '';
   protected defIn = '';
   protected readonly days = DAYS;
   protected readonly roles = ['agent', 'team_leader', 'admin'];
@@ -898,7 +987,7 @@ export class AdminSlaPage extends AdminBase implements OnInit {
   protected readonly hours = signal<HoursRow[]>([]);
   protected pol: Record<string, SlaRow> = {};
   protected cal: Record<string, HoursModel> = {};
-  protected hol: Record<string, { date: string; name: string }> = {};
+  protected hol: Record<string, { date: string; to: string; name: string }> = {};
   protected nwCal: HoursModel = blankHours();
   protected readonly asg = signal<{ organizations: { id: string; name: string; businessHoursId: string | null }[];
     branches: { id: string; organizationId: string; name: string; businessHoursId: string | null }[];
@@ -913,10 +1002,8 @@ export class AdminSlaPage extends AdminBase implements OnInit {
       a.organizations.sort((x, y) => x.name.localeCompare(y.name));
       a.branches.sort((x, y) => x.name.localeCompare(y.name));
       a.teams.sort((x, y) => x.nameEn.localeCompare(y.nameEn));
-      for (const o of a.organizations) this.pick['o' + o.id] = o.businessHoursId ?? '';
-      for (const b of a.branches) this.pick['b' + b.id] = b.businessHoursId ?? '';
-      for (const t of a.teams) this.pick['t' + t.id] = t.businessHoursId ?? '';
       this.asg.set(a);
+      if (this.where) this.calPick = this.currentOf(this.where);
     } catch { /* optional */ }
   }
   /** v1 DefaultCalendar: the chosen calendar becomes the default and every priority target follows it. */
@@ -929,8 +1016,62 @@ export class AdminSlaPage extends AdminBase implements OnInit {
   }
   protected branchesIn(org: string) { return (this.asg()?.branches ?? []).filter((b) => b.organizationId === org); }
   protected async assign(kind: string, id: string, cal: string): Promise<void> {
-    this.applied.set(null);
-    if (await this.run(() => this.api.put('calendar-assignments', { kind, id, calendarId: cal || null }))) { this.msg.set(null); this.applied.set(kind[0] + id); }
+    await this.run(() => this.api.put('calendar-assignments', { kind, id, calendarId: cal || null }));
+  }
+  /** The place picked in "Organization, branch or team": "organization:<id>", "branch:<id>" or "team:<id>". */
+  protected pickWhere(v: string): void { this.where = v; this.calPick = this.currentOf(v); }
+  protected applyPick(): void {
+    const [kind, id] = this.where.split(':');
+    if (kind && id) void this.assign(kind, id, this.calPick);
+  }
+  private currentOf(v: string): string {
+    const [kind, id] = v.split(':'); const a = this.asg();
+    const list: { id: string; businessHoursId: string | null }[] = !a ? [] : kind === 'organization' ? a.organizations : kind === 'branch' ? a.branches : a.teams;
+    return list.find((x) => x.id === id)?.businessHoursId ?? '';
+  }
+  /** Places that do not follow the default calendar. */
+  protected readonly exceptions = computed(() => {
+    const a = this.asg(); if (!a) return [];
+    const orgName = (id: string) => a.organizations.find((o) => o.id === id)?.name ?? '';
+    return [
+      ...a.organizations.filter((o) => o.businessHoursId).map((o) => ({ kind: 'organization', id: o.id, name: o.name, org: '', cal: o.businessHoursId })),
+      ...a.branches.filter((b) => b.businessHoursId).map((b) => ({ kind: 'branch', id: b.id, name: b.name, org: orgName(b.organizationId), cal: b.businessHoursId })),
+      ...a.teams.filter((t) => t.businessHoursId).map((t) => ({ kind: 'team', id: t.id, name: this.i18n.pick(t.nameEn, t.nameAr), org: '', cal: t.businessHoursId })),
+    ];
+  });
+  protected calZone(id: string | null): string { return this.hours().find((h) => h.id === id)?.timezone ?? ''; }
+  protected usedBy(id: string): number { return this.exceptions().filter((x) => x.cal === id).length; }
+  protected workDays(h: HoursRow): number { return DAYS.filter((d) => h.schedule[d]?.length).length; }
+  protected weekHours(h: HoursRow): number {
+    const mins = (t: string) => { const [a, b] = t.split(':').map(Number); return a * 60 + (b || 0); };
+    let total = 0;
+    for (const d of DAYS) for (const w of h.schedule[d] ?? []) total += Math.max(0, mins(w[1]) - mins(w[0]));
+    return Math.round(total / 6) / 10;
+  }
+  protected dayShort(d: string): string {
+    const i = DAYS.indexOf(d);   // 1 January 2023 was a Sunday
+    return new Intl.DateTimeFormat(this.i18n.locale() === 'ar' ? 'ar-EG' : 'en-GB', { weekday: 'short' }).format(new Date(2023, 0, 1 + i));
+  }
+  /** Changing one day's hours copies them to every working day while "same hours" is ticked. */
+  protected setTime(id: string, d: string, which: 'from' | 'to', v: string): void {
+    const c = this.cal[id];
+    c.days[d][which] = v;
+    if (this.same[id]) for (const x of DAYS) if (c.days[x].open) c.days[x][which] = v;
+  }
+  protected holidayMonths(h: HoursRow) {
+    const loc = this.i18n.locale() === 'ar' ? 'ar-EG' : 'en-GB';
+    const fm = new Intl.DateTimeFormat(loc, { month: 'long', year: 'numeric' });
+    const fs = new Intl.DateTimeFormat(loc, { month: 'short' });
+    const fw = new Intl.DateTimeFormat(loc, { weekday: 'long' });
+    const groups: { month: string; items: { id: string; date: string; name: string; day: number; mon: string; weekday: string }[] }[] = [];
+    for (const x of [...h.holidays].sort((a, b) => a.date.localeCompare(b.date))) {
+      const dt = new Date(x.date.slice(0, 10) + 'T12:00:00');
+      const month = fm.format(dt);
+      let g = groups.at(-1);
+      if (!g || g.month !== month) { g = { month, items: [] }; groups.push(g); }
+      g.items.push({ id: x.id, date: x.date.slice(0, 10), name: x.name, day: dt.getDate(), mon: fs.format(dt), weekday: fw.format(dt) });
+    }
+    return groups;
   }
   protected async recalc(h: HoursRow): Promise<void> {
     let n = 0;
@@ -947,7 +1088,9 @@ export class AdminSlaPage extends AdminBase implements OnInit {
           name: h.name, timezone: h.timezone, isDefault: h.isDefault,
           days: Object.fromEntries(DAYS.map((day) => { const w = h.schedule[day]?.[0]; return [day, { open: !!w, from: w?.[0] ?? '09:00', to: w?.[1] ?? '17:00' }]; })),
         };
-        this.hol[h.id] ??= { date: '', name: '' };
+        this.hol[h.id] ??= { date: '', to: '', name: '' };
+        const open = DAYS.map((x) => h.schedule[x]?.[0]).filter((w) => !!w);
+        this.same[h.id] ??= open.length > 0 && open.every((w) => w[0] === open[0][0] && w[1] === open[0][1]);
       }
       this.policies.set(d.policies.filter((p) => p.hasPolicy));
       this.hours.set(d.hours);
@@ -974,8 +1117,22 @@ export class AdminSlaPage extends AdminBase implements OnInit {
   protected async createHours(): Promise<void> {
     if (await this.run(() => this.api.post('business-hours', this.hoursBody(this.nwCal)))) this.nwCal = blankHours();
   }
+  /** One holiday per day from From to To (To is optional); days already listed are skipped. At most 31 days at once. */
   protected async addHoliday(h: HoursRow): Promise<void> {
-    if (await this.run(() => this.api.post(`business-hours/${h.id}/holidays`, this.hol[h.id]))) this.hol[h.id] = { date: '', name: '' };
+    const f = this.hol[h.id];
+    const dates: string[] = [];
+    if (f.to && f.date && f.to > f.date) {
+      const end = new Date(f.to + 'T12:00:00');
+      for (let d = new Date(f.date + 'T12:00:00'); d <= end; d.setDate(d.getDate() + 1)) {
+        const s = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (!h.holidays.some((x) => x.date.slice(0, 10) === s)) dates.push(s);
+        if (dates.length > 31) { this.msg.set({ tone: 'error', text: this.i18n.t('AdminSla.calendars.rangeTooLong') }); return; }
+      }
+      if (!dates.length) { this.msg.set({ tone: 'error', text: this.i18n.t('AdminSla.errors.duplicate') }); return; }
+    } else dates.push(f.date);
+    const done = await this.run(async () => { for (const date of dates) await this.api.post(`business-hours/${h.id}/holidays`, { date, name: f.name }); },
+      dates.length > 1 ? 'AdminSla.calendars.addedRange' : 'AdminCommon.saved', { count: dates.length });
+    if (done) this.hol[h.id] = { date: '', to: '', name: '' };
   }
   protected remove(path: string): void { void this.run(() => this.api.del(path), 'AdminV2.deleted'); }
 }

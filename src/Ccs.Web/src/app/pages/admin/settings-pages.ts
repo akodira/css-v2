@@ -14,6 +14,7 @@ import { Alert, Req, ReqNote } from '../../shared/ui';
 import { EMAIL_ALL_PLACEHOLDERS, FormatBar, GLOBAL_TOKENS, PlaceholderInfo, PlaceholderPicker, describeVar } from '../../shared/email-editor';
 import { RichText, varsOf } from '../../shared/rich-text';
 import { CLS, Msg } from './admin-pages';
+import { feedbackFor } from '../../shared/feedback';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
 const TABS = ['', 'home', 'menus', 'email', 'templates', 'messages', 'uploads', 'system', 'signin-codes', 'handover'];
@@ -29,6 +30,7 @@ abstract class Tab {
   protected readonly site = inject(SiteService);
   protected readonly cls = CLS;
   protected readonly msg = signal<Msg>(null);
+  protected readonly msgNearButton = feedbackFor(this.msg);
   protected readonly busy = signal(false);
   private readonly cdr = inject(ChangeDetectorRef);
   /** Loads data and schedules a re-render: tabs keep plain fields, which zoneless Angular does not track on its own. */

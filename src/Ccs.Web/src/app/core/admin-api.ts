@@ -36,8 +36,8 @@ export interface TypeBody { nameEn: string; nameAr: string; allAccess: boolean; 
 export interface BranchRow { id: string; name: string; location: string | null; phone: string | null; teamLeaderId: string | null; isActive: boolean; customers: number }
 export interface OrgRow extends Omit<BranchRow, 'customers'> { sharedAccessEnabled: boolean; customers: number; branches: BranchRow[] }
 
-export interface TeamMemberRow { userId: string; fullName: string; email: string; isLeader: boolean }
-export interface TeamRow { id: string; nameEn: string; nameAr: string; isActive: boolean; members: TeamMemberRow[] }
+export interface TeamMemberRow { userId: string; fullName: string; email: string; isLeader: boolean; autoAssign?: boolean; openTickets?: number }
+export interface TeamRow { id: string; nameEn: string; nameAr: string; isActive: boolean; openTickets?: number; members: TeamMemberRow[] }
 export interface TeamsResult { teams: TeamRow[]; candidates: (PersonLite & { role: string })[] }
 
 @Injectable({ providedIn: 'root' })

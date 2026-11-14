@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Lookups, adminError } from '../../core/admin-api';
 import { I18n, TPipe } from '../../core/i18n';
 import { Alert } from '../../shared/ui';
+import { feedbackFor } from '../../shared/feedback';
 
 type Msg = { tone: 'success' | 'error'; text: string } | null;
 interface Where { scopeLevel: string | null; placements: { organizationId: string; branchId: string | null }[]; scopes: { organizationId: string; branchId: string | null }[] }
@@ -76,6 +77,7 @@ export class WhereEditor implements OnInit {
   protected readonly q = signal('');
   protected readonly busy = signal(false);
   protected readonly msg = signal<Msg>(null);
+  protected readonly msgNearButton = feedbackFor(this.msg);
 
   protected readonly shownOrgs = computed(() => [...(this.lk()?.orgs ?? [])].sort((a, b) => a.name.localeCompare(b.name)).filter((o) => o.name.toLowerCase().includes(this.q().trim().toLowerCase())));
   protected readonly scopeRows = computed(() => {

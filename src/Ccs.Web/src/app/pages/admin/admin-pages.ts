@@ -1,3 +1,4 @@
+import { PageAbout } from '../../shared/page-about';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, computed, forwardRef, inject, input, output, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -12,6 +13,7 @@ import {
 } from '../../core/admin-api';
 import { Alert, PRIORITY_TONE, PrioIcon, Req, StatusBadge } from '../../shared/ui';
 import { WhereEditor } from './where-editor';
+import { feedbackFor } from '../../shared/feedback';
 
 // Same look as the v1 admin screens: cards with a header that opens, forms inside.
 export const CLS = {
@@ -36,6 +38,7 @@ export abstract class AdminBase {
   protected readonly cls = CLS;
   protected readonly lk = signal<Lookups | null>(null);
   protected readonly msg = signal<Msg>(null);
+  protected readonly msgNearButton = feedbackFor(this.msg);
   protected readonly busy = signal(false);
   protected readonly q = signal('');
 
@@ -206,10 +209,12 @@ interface CustomerRow { id: string; fullName: string; email: string; phone: stri
 /** Customers screen, same as v1 /console/customers: add form (admins), search, and a table of the customers this person may see. */
 @Component({
   selector: 'app-admin-customers',
-  imports: [TPipe, Alert, PersonForm, RouterLink, FormsModule],
+  imports: [TPipe, Alert, PersonForm, RouterLink, FormsModule, PageAbout],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      ${HEADER}
+      <h1 class="text-3xl font-bold tracking-tight">{{ title | t }}</h1>
+      <app-page-about key="customers" tile="person" [points]="['person', 'building', 'check', 'history']" />
+      @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       @if (isAdmin()) {
         <details [class]="cls.card" #add>
           <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'Customers.addCustomer' | t }}</span></summary>

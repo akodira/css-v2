@@ -1,3 +1,4 @@
+import { PageAbout } from '../../shared/page-about';
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, model, output, signal } from '@angular/core';
@@ -285,11 +286,12 @@ export class StaffBody implements OnInit {
 
 @Component({
   selector: 'app-admin-staff',
-  imports: [TPipe, Alert, FormsModule, RoleCards, ScopePicker, StaffBody, Req],
+  imports: [TPipe, Alert, FormsModule, RoleCards, ScopePicker, StaffBody, Req, PageAbout],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminUsers.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminUsers.subtitle' | t }}</p></div>
+      <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminUsers.title' | t }}</h1>
+      <app-page-about key="staff" tile="badge" [points]="['shield', 'key', 'team', 'lock']" />
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       <details class="rounded-xl border border-line bg-surface shadow-card" #add>
         <summary class="cursor-pointer px-5 py-4 text-lg font-bold">{{ 'Directory.addStaff' | t }}</summary>
@@ -407,11 +409,12 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
 
 @Component({
   selector: 'app-admin-teams',
-  imports: [TPipe, Alert, FormsModule, Req],
+  imports: [TPipe, Alert, FormsModule, Req, ReqNote, PageAbout],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminTeams.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminTeams.subtitle' | t }}</p></div>
+      <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminTeams.title' | t }}</h1>
+      <app-page-about key="teams" tile="users" [points]="['ticket', 'eye', 'swap', 'crown']" />
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       <details class="rounded-xl border border-line bg-surface shadow-card" #add>
         <summary class="cursor-pointer px-5 py-4 text-lg font-bold">{{ 'Directory.addTeam' | t }}</summary>
@@ -457,63 +460,101 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
               
   <li class="overflow-hidden rounded-xl border bg-surface shadow-card" [class.border-brand]="isOpen(t.id)" [class.border-line]="!isOpen(t.id)">
     <h2><button type="button" [attr.aria-expanded]="isOpen(t.id)" [attr.aria-controls]="'acc-' + t.id" (click)="toggle(t.id)"
-      class="flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-start" [class]="isOpen(t.id) ? 'bg-brand-soft' : 'hover:bg-bg'">
+      class="flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-start" [class]="isOpen(t.id) ? 'bg-[#f7f9fd]' : 'hover:bg-bg'">
       <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        class="shrink-0 transition-transform" [class]="isOpen(t.id) ? 'rotate-90' : 'rtl:rotate-180'"><path d="M7 4l6 6-6 6" /></svg>
+        class="shrink-0 text-muted transition-transform" [class]="isOpen(t.id) ? 'rotate-90' : 'rtl:rotate-180'"><path d="M7 4l6 6-6 6" /></svg>
+      <span aria-hidden="true" class="hidden size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand-ink sm:grid">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
       <span class="min-w-0 flex-1">
-                <span class="flex flex-wrap items-center gap-2">
-                  <span class="text-lg font-bold" dir="auto">{{ i18n.pick(t.nameEn, t.nameAr) }}</span>
-                  <span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="t.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (t.isActive ? 'Directory.active' : 'Directory.inactive') | t }}</span>
-                </span>
-                <span class="mt-0.5 block text-sm text-muted">{{ 'AdminTeams.memberCount' | t: { count: t.members.length } }} · {{ 'Directory.teamLeader' | t }}: <span dir="auto">{{ leaders(t) || '-' }}</span></span>
-              </span></button></h2>
-    <div [id]="'acc-' + t.id" [hidden]="!isOpen(t.id)" class="border-t border-line px-5 pb-5 pt-4">
-                <div class="flex flex-col gap-4">
-                  <div class="flex justify-end"><button type="button" class="min-h-10 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg disabled:opacity-60" [disabled]="busy()" (click)="setActive(t, !t.isActive)">{{ (t.isActive ? 'Directory.deactivate' : 'Directory.activate') | t }}</button></div>
-                  @if (!t.members.length) { <p class="text-muted">{{ 'AdminTeams.none' | t }}</p> } @else {
-                    <ul class="flex flex-col gap-2">
-                      @for (mb of t.members; track mb.userId) {
-                        <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
-                          <span><span class="font-semibold" dir="auto">{{ mb.fullName }}</span>{{ ' ' }}<span class="text-sm text-muted" dir="ltr">{{ mb.email }}</span>
-                            @if (mb.isLeader) { <span class="ms-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-ink">{{ 'AdminTeams.leader' | t }}</span> }</span>
-                          <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg disabled:opacity-60" [disabled]="busy()" (click)="removeMember(t, mb.userId)">{{ 'AdminTeams.remove' | t }}<span class="sr-only"> {{ mb.fullName }}</span></button>
-                        </li>
-                      }
-                    </ul>
-                  }
-                  <form class="flex flex-col gap-3 border-t border-line pt-4" novalidate (ngSubmit)="addMember(t)">
-                    <h3 class="font-bold">{{ 'AdminTeams.add' | t }}</h3>
-                    <select [name]="'am' + t.id" [attr.aria-label]="'AdminTeams.selectUser' | t" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base" [(ngModel)]="adding[t.id]">
-                      <option [ngValue]="undefined" disabled>{{ 'AdminTeams.selectUser' | t }}</option>
-                      @for (c of free(t); track c.id) { <option [ngValue]="c.id">{{ c.fullName }} ({{ c.email }})</option> }
-                    </select>
-                    <label class="flex min-h-11 items-center gap-2"><input type="checkbox" [name]="'al' + t.id" class="h-5 w-5" [(ngModel)]="asLeader[t.id]" />{{ 'AdminTeams.asLeader' | t }}</label>
-                    <div><button type="submit" [class]="cls.btn" [disabled]="busy() || !adding[t.id]">{{ 'AdminTeams.save' | t }}</button></div>
-                  </form>
-                  <details class="border-t border-line pt-3">
-                    <summary class="cursor-pointer text-sm font-semibold text-brand-ink">{{ 'Directory.editDetails' | t }}</summary>
-                    <form class="mt-3 flex flex-col gap-4 border-t border-line pt-4" novalidate (ngSubmit)="update(t)">
-                      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                        <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameEn' | t }}<app-req /></span><input name="en" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameEn" /></label>
-                        <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameAr' | t }}<app-req /></span><input name="ar" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameAr" /></label>
-                      </div>
-                      <label class="flex min-h-11 items-center gap-2"><input type="checkbox" name="act" class="h-5 w-5" [(ngModel)]="edit[t.id].isActive" /> {{ 'Directory.active' | t }}</label>
-                      <div class="flex flex-wrap items-center gap-3">
-                        <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.saveChanges' | t }}</button>
-                        
-    @if (confirmDel() === t.id) {
-      <span class="flex flex-wrap items-center gap-2">
-        <span class="text-sm font-semibold text-danger">{{ 'Directory.deleteConfirm' | t }}</span>
-        <button type="button" class="min-h-11 cursor-pointer rounded-lg bg-danger px-4 text-sm font-semibold text-white disabled:opacity-60" [disabled]="busy()" (click)="remove(t)">{{ 'Directory.deleteYes' | t }}</button>
-        <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="confirmDel.set(null)">{{ 'Directory.cancel' | t }}</button>
+        <span class="flex flex-wrap items-center gap-2">
+          <span class="text-lg font-bold" dir="auto">{{ i18n.pick(t.nameEn, t.nameAr) }}</span>
+          <span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="t.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (t.isActive ? 'Directory.active' : 'Directory.inactive') | t }}</span>
+        </span>
+        <span class="mt-1 flex flex-wrap gap-1.5 text-xs font-semibold text-muted">
+          <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ t.members.length }}</b> {{ 'AdminTeams.statMembers' | t }}</span>
+          <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ leaderCount(t) }}</b> {{ 'AdminTeams.statLeaders' | t }}</span>
+          <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ autoCount(t) }}</b> {{ 'AdminTeams.statAuto' | t }}</span>
+          <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ t.openTickets ?? 0 }}</b> {{ 'AdminTeams.statOpen' | t }}</span>
+        </span>
       </span>
-    } @else { <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-danger/40 bg-surface px-4 text-sm font-semibold text-danger hover:bg-danger-soft" (click)="confirmDel.set(t.id)">{{ 'Directory.delete' | t }}</button> }
-                        <p class="basis-full text-xs text-muted">{{ 'Directory.deleteHintTeam' | t }}</p>
-                      </div>
-                    </form>
-                  </details>
-                </div>
-              </div></li>
+      <span aria-hidden="true" class="hidden shrink-0 md:flex">
+        @for (mb of t.members.slice(0, 5); track mb.userId) {
+          <span class="-ms-2 grid size-9 place-items-center rounded-full border-2 border-surface text-xs font-bold first:ms-0" [class]="avatarTone(mb.userId)">{{ initials(mb.fullName) }}</span>
+        }
+        @if (t.members.length > 5) { <span class="-ms-2 grid size-9 place-items-center rounded-full border-2 border-surface bg-bg text-xs font-bold text-muted">+{{ t.members.length - 5 }}</span> }
+      </span>
+    </button></h2>
+    <div [id]="'acc-' + t.id" [hidden]="!isOpen(t.id)" class="border-t border-line">
+      @let tab = teamTab[t.id] ?? 'members';
+      <div role="tablist" class="flex gap-1 border-b border-line px-5">
+        @for (k of teamTabs; track k) {
+          <button type="button" role="tab" [attr.aria-selected]="tab === k" (click)="teamTab[t.id] = k"
+            class="-mb-px inline-flex min-h-11 cursor-pointer items-center gap-1.5 border-b-2 px-3 text-sm font-semibold"
+            [class]="tab === k ? 'border-brand text-brand-ink' : 'border-transparent text-muted hover:text-ink'">
+            {{ 'AdminTeams.tab_' + k | t }}@if (k === 'members') { <span class="rounded-full bg-bg px-2 text-xs">{{ t.members.length }}</span> }</button>
+        }
+      </div>
+
+      @if (tab === 'members') {
+        <div class="flex flex-col gap-4 p-5">
+          <form class="flex flex-wrap items-center gap-3 rounded-xl border border-dashed border-line bg-[#fafcff] p-3" novalidate (ngSubmit)="addMember(t)">
+            <select [name]="'am' + t.id" [attr.aria-label]="'AdminTeams.selectUser' | t" class="min-h-11 min-w-60 flex-1 rounded-lg border border-line bg-surface px-3 text-base" [(ngModel)]="adding[t.id]">
+              <option [ngValue]="undefined" disabled>{{ 'AdminTeams.selectUser' | t }}</option>
+              @for (c of free(t); track c.id) { <option [ngValue]="c.id">{{ c.fullName }} ({{ c.email }})</option> }
+            </select>
+            <label class="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-semibold">
+              <input type="checkbox" role="switch" [name]="'al' + t.id" class="peer sr-only" [(ngModel)]="asLeader[t.id]" />
+              <span aria-hidden="true" class="relative inline-block h-6 w-10 rounded-full bg-[#cfd8e8] transition peer-checked:bg-brand peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand after:absolute after:start-0.5 after:top-0.5 after:size-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:start-[1.1rem]"></span>
+              {{ 'AdminTeams.leaderSwitch' | t }}</label>
+            <button type="submit" [class]="cls.btn" [disabled]="busy() || !adding[t.id]">{{ 'AdminTeams.save' | t }}</button>
+          </form>
+          @if (!t.members.length) { <p class="text-muted">{{ 'AdminTeams.none' | t }}</p> } @else {
+            <ul class="overflow-hidden rounded-xl border border-line">
+              @for (mb of t.members; track mb.userId) {
+                <li class="flex flex-wrap items-center gap-3 border-t border-line px-3.5 py-2.5 first:border-t-0 hover:bg-[#f7f9fd]">
+                  <span aria-hidden="true" class="grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold" [class]="avatarTone(mb.userId)">{{ initials(mb.fullName) }}</span>
+                  <span class="min-w-40 flex-1"><b class="block" dir="auto">{{ mb.fullName }}</b><span class="block text-xs text-muted" dir="ltr">{{ mb.email }}</span></span>
+                  <span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="mb.isLeader ? 'bg-brand-soft text-brand-ink' : 'bg-bg text-muted'">{{ (mb.isLeader ? 'AdminTeams.leader' : 'AdminTeams.agent') | t }}</span>
+                  <span class="hidden min-w-20 text-xs text-muted sm:inline">{{ 'AdminTeams.openCount' | t: { count: mb.openTickets ?? 0 } }}</span>
+                  <span class="hidden rounded-full px-2 py-0.5 text-xs font-semibold sm:inline" [class]="mb.autoAssign ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (mb.autoAssign ? 'AdminTeams.autoOn' : 'AdminTeams.autoOff') | t }}</span>
+                  <span class="flex gap-1">
+                    @if (mb.isLeader || canLead(mb.userId)) {
+                      <button type="button" class="min-h-10 cursor-pointer rounded-lg px-2.5 text-sm font-semibold text-muted hover:bg-bg hover:text-ink disabled:opacity-60" [disabled]="busy()" (click)="setLeader(t, mb.userId, !mb.isLeader)">{{ (mb.isLeader ? 'AdminTeams.unLeader' : 'AdminTeams.makeLeader') | t }}<span class="sr-only"> {{ mb.fullName }}</span></button>
+                    }
+                    <button type="button" class="min-h-10 cursor-pointer rounded-lg px-2.5 text-sm font-semibold text-danger hover:bg-danger-soft disabled:opacity-60" [disabled]="busy()" (click)="removeMember(t, mb.userId)">{{ 'AdminTeams.remove' | t }}<span class="sr-only"> {{ mb.fullName }}</span></button>
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+
+      @if (tab === 'settings') {
+        <div class="flex flex-col gap-4 p-5">
+          <form class="flex flex-col gap-4" novalidate (ngSubmit)="update(t)">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameEn' | t }}<app-req /></span><input name="en" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameEn" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameAr' | t }}<app-req /></span><input name="ar" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameAr" /></label>
+            </div>
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <label class="flex min-h-11 items-center gap-2"><input type="checkbox" name="act" class="h-5 w-5" [(ngModel)]="edit[t.id].isActive" /> {{ 'AdminTeams.activeLong' | t }}</label>
+              <span class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.saveChanges' | t }}</button><app-req-note /></span>
+            </div>
+          </form>
+          <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#f1c7c3] bg-[#fffafa] p-4">
+            <div class="max-w-prose"><b>{{ 'AdminTeams.delTitle' | t }}</b><p class="text-sm text-muted">{{ 'Directory.deleteHintTeam' | t }}</p></div>
+            @if (confirmDel() === t.id) {
+              <span class="flex flex-wrap items-center gap-2">
+                <span class="text-sm font-semibold text-danger">{{ 'Directory.deleteConfirm' | t }}</span>
+                <button type="button" class="min-h-11 cursor-pointer rounded-lg bg-danger px-4 text-sm font-semibold text-white disabled:opacity-60" [disabled]="busy()" (click)="remove(t)">{{ 'Directory.deleteYes' | t }}</button>
+                <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="confirmDel.set(null)">{{ 'Directory.cancel' | t }}</button>
+              </span>
+            } @else { <button type="button" [class]="cls.danger" (click)="confirmDel.set(t.id)">{{ 'Directory.delete' | t }}</button> }
+          </div>
+        </div>
+      }
+    </div></li>
             }
           </ul>
         </div>
@@ -550,7 +591,19 @@ export class AdminTeamsPage extends AccordionPage implements OnInit {
   private list(t: TeamRow) { return t.members.map((m) => ({ userId: m.userId, isLeader: m.isLeader })); }
   protected addMember(t: TeamRow): void { const id = this.adding[t.id]; if (id) void this.members(t, [...this.list(t), { userId: id, isLeader: !!this.asLeader[t.id] }]); }
   protected removeMember(t: TeamRow, id: string): void { void this.members(t, this.list(t).filter((m) => m.userId !== id)); }
-  protected setActive(t: TeamRow, on: boolean): void { void this.run(() => this.api.put('teams/' + t.id, { nameEn: t.nameEn, nameAr: t.nameAr, isActive: on })); }
+  protected readonly teamTabs = ['members', 'settings'] as const;
+  protected teamTab: Record<string, 'members' | 'settings'> = {};
+  protected leaderCount(t: TeamRow): number { return t.members.filter((m) => m.isLeader).length; }
+  protected autoCount(t: TeamRow): number { return t.members.filter((m) => m.autoAssign).length; }
+  /** Only people holding the Team leader role can lead (the API checks it too). */
+  protected canLead(id: string): boolean { return (this.data()?.candidates ?? []).some((c) => c.id === id && c.role === 'team_leader'); }
+  protected setLeader(t: TeamRow, id: string, on: boolean): void { void this.members(t, this.list(t).map((m) => (m.userId === id ? { ...m, isLeader: on } : m))); }
+  protected initials(name: string): string { return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase(); }
+  protected avatarTone(id: string): string {
+    const tones = ['bg-brand-soft text-brand-ink', 'bg-ok-soft text-ok', 'bg-warn-soft text-warn-ink', 'bg-[#efe8fd] text-[#5b3aa8]', 'bg-danger-soft text-danger'];
+    let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return tones[h % tones.length];
+  }
   protected async create(box: HTMLDetailsElement): Promise<void> {
     const members = [...new Set([...this.nwMembers, ...this.nwLeaders])].map((id) => ({ userId: id, isLeader: this.nwLeaders.has(id) }));
     const ok = await this.run(async () => {
@@ -664,77 +717,165 @@ export class PlaceForm implements OnInit {
               
   <li class="overflow-hidden rounded-xl border bg-surface shadow-card" [class.border-brand]="isOpen(o.id)" [class.border-line]="!isOpen(o.id)">
     <h2><button type="button" [attr.aria-expanded]="isOpen(o.id)" [attr.aria-controls]="'acc-' + o.id" (click)="toggle(o.id)"
-      class="flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-start" [class]="isOpen(o.id) ? 'bg-brand-soft' : 'hover:bg-bg'">
+      class="flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-start" [class]="isOpen(o.id) ? 'bg-[#f7f9fd]' : 'hover:bg-bg'">
       <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        class="shrink-0 transition-transform" [class]="isOpen(o.id) ? 'rotate-90' : 'rtl:rotate-180'"><path d="M7 4l6 6-6 6" /></svg>
+        class="shrink-0 text-muted transition-transform" [class]="isOpen(o.id) ? 'rotate-90' : 'rtl:rotate-180'"><path d="M7 4l6 6-6 6" /></svg>
+      <span aria-hidden="true" class="hidden size-11 shrink-0 place-items-center rounded-xl bg-[#efe8fd] text-[#5b3aa8] sm:grid">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M16 9h3a2 2 0 0 1 2 2v10M9 7h3M9 11h3M9 15h3"/></svg></span>
       <span class="min-w-0 flex-1">
-                <span class="flex flex-wrap items-center gap-2">
-                  <span class="text-lg font-bold" dir="auto">{{ o.name }}</span>
-                  <span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="o.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (o.isActive ? 'Directory.active' : 'Directory.inactive') | t }}</span>
-                </span>
-                <span class="mt-0.5 block text-sm text-muted">{{ 'AdminOrgs.counts' | t: { customers: peopleOf(o.id).length, branches: o.branches.length } }} · {{ 'Directory.teamLeader' | t }}: <span dir="auto">{{ leaderLabel(o.teamLeaderId) || '-' }}</span></span>
-              </span></button></h2>
-    <div [id]="'acc-' + o.id" [hidden]="!isOpen(o.id)" class="border-t border-line px-5 pb-5 pt-4">
-                <div class="flex flex-col gap-4">
-                  <div class="flex justify-end"><button type="button" [class]="toggleBtn" [disabled]="busy()" (click)="setOrgActive(o, !o.isActive)">{{ (o.isActive ? 'Directory.deactivate' : 'Directory.activate') | t }}</button></div>
-                  <dl class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div><dt class="text-sm text-muted">{{ 'Directory.location' | t }}</dt><dd class="font-semibold" dir="auto">{{ o.location || '-' }}</dd></div>
-                    <div><dt class="text-sm text-muted">{{ 'Directory.telephone' | t }}</dt><dd class="font-semibold" dir="ltr">{{ o.phone || '-' }}</dd></div>
-                    <div><dt class="text-sm text-muted">{{ 'Directory.teamLeader' | t }}</dt><dd class="font-semibold" dir="auto">{{ leaderLabel(o.teamLeaderId) || '-' }}</dd></div>
-                  </dl>
-                  <details class="border-t border-line pt-3">
-                    <summary class="cursor-pointer text-sm font-semibold text-brand-ink">{{ 'Directory.editDetails' | t }}</summary>
-                    <div class="mt-3 flex flex-col gap-4"><app-place-form [row]="o" [leaders]="leaderList()" [busy]="busy()" (save)="updateOrg(o, $event)" (remove)="deleteOrg(o)" /></div>
-                  </details>
-                  <div class="flex flex-col gap-3 border-t border-line pt-4">
-                    <h3 class="text-lg font-bold">{{ 'AdminOrgs.branches' | t }}</h3>
-                    @if (!o.branches.length) { <p class="text-muted">{{ 'AdminOrgs.noBranches' | t }}</p> } @else {
-                      <ul class="flex flex-col gap-3">
-                        @for (b of o.branches; track b.id) {
-                          <li class="rounded-lg border border-line p-4">
-                            <div class="flex flex-wrap items-start justify-between gap-3">
-                              <div>
-                                <p class="font-bold" dir="auto">{{ b.name }}@if (!b.isActive) { <span class="ms-2 rounded-full bg-bg px-2 py-0.5 text-xs font-semibold text-muted">{{ 'Directory.inactive' | t }}</span> }</p>
-                                <p class="text-sm text-muted">{{ 'AdminOrgs.branchCustomers' | t: { count: branchPeople(b.id) } }}</p>
-                              </div>
-                              <button type="button" [class]="toggleBtn" [disabled]="busy()" (click)="setBranchActive(o, b, !b.isActive)">{{ (b.isActive ? 'Directory.deactivate' : 'Directory.activate') | t }}</button>
-                            </div>
-                            <dl class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                              <div><dt class="text-sm text-muted">{{ 'Directory.location' | t }}</dt><dd class="font-semibold" dir="auto">{{ b.location || '-' }}</dd></div>
-                              <div><dt class="text-sm text-muted">{{ 'Directory.telephone' | t }}</dt><dd class="font-semibold" dir="ltr">{{ b.phone || '-' }}</dd></div>
-                              <div><dt class="text-sm text-muted">{{ 'Directory.teamLeader' | t }}</dt><dd class="font-semibold" dir="auto">{{ leaderLabel(b.teamLeaderId) || '-' }}</dd></div>
-                            </dl>
-                            <details class="mt-3 border-t border-line pt-3">
-                              <summary class="cursor-pointer text-sm font-semibold text-brand-ink">{{ 'Directory.editDetails' | t }}</summary>
-                              <div class="mt-3 flex flex-col gap-4"><app-place-form [row]="b" [branch]="true" [leaders]="leaderList()" [busy]="busy()" (save)="updateBranch(o, b, $event)" (remove)="deleteBranch(b)" /></div>
-                            </details>
-                          </li>
-                        }
-                      </ul>
-                    }
-                    <details class="rounded-lg border border-dashed border-line" #addb>
-                      <summary class="cursor-pointer px-4 py-3 font-semibold">{{ 'Directory.addBranch' | t }}</summary>
-                      <div class="px-4 pb-4"><app-place-form [branch]="true" [leaders]="leaderList()" [busy]="busy()" (save)="createBranch(o.id, $event, addb)" /></div>
-                    </details>
-                  </div>
-                  <div class="flex flex-col gap-3 border-t border-line pt-4">
-                    <h3 class="text-lg font-bold">{{ 'AdminOrgs.customers' | t }}</h3>
-                    @if (!peopleOf(o.id).length) { <p class="text-muted">{{ 'AdminOrgs.noCustomers' | t }}</p> } @else {
-                      <ul class="flex max-h-96 flex-col divide-y divide-line overflow-y-auto rounded-lg border border-line">
-                        @for (m of peopleOf(o.id); track m.id) {
-                          <li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3">
-                            <div class="min-w-0">
-                              <a [routerLink]="'/' + i18n.locale() + '/console/customers/' + m.id" class="font-semibold text-brand-ink underline" dir="auto">{{ m.fullName || m.email }}</a>
-                              <p class="break-all text-sm text-muted" dir="ltr">{{ m.email }}@if (m.phone) { · {{ m.phone }} }</p>
-                            </div>
-                            <p class="text-sm text-muted">@if (m.branchId) { <span dir="auto">{{ branchName(m.branchId) }}</span> } @else { {{ 'AdminOrgs.noBranch' | t }} } · {{ 'Status.' + m.status | t }}</p>
-                          </li>
-                        }
-                      </ul>
-                    }
-                  </div>
+        <span class="flex flex-wrap items-center gap-2">
+          <span class="text-lg font-bold" dir="auto">{{ o.name }}</span>
+          <span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="o.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (o.isActive ? 'Directory.active' : 'Directory.inactive') | t }}</span>
+        </span>
+        <span class="mt-1 flex flex-wrap gap-1.5 text-xs font-semibold text-muted">
+          <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ peopleOf(o.id).length }}</b> {{ 'AdminOrgs.statCustomers' | t }}</span>
+          <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ o.branches.length }}</b> {{ 'AdminOrgs.statBranches' | t }}</span>
+          @if (waitingOf(o.id); as w) { <span class="rounded-md bg-warn-soft px-2 py-0.5 text-warn-ink"><b>{{ w }}</b> {{ 'AdminOrgs.statWaiting' | t }}</span> }
+        </span>
+      </span>
+      @if (leaderOf(o.teamLeaderId); as l) {
+        <span class="hidden shrink-0 items-center gap-2 md:flex">
+          <span aria-hidden="true" class="grid size-9 place-items-center rounded-full bg-brand-soft text-xs font-bold text-brand-ink">{{ initials(l.fullName) }}</span>
+          <span class="text-sm leading-tight"><span class="block text-xs text-muted">{{ 'Directory.teamLeader' | t }}</span><b dir="auto">{{ l.fullName }}</b></span>
+        </span>
+      }
+    </button></h2>
+    <div [id]="'acc-' + o.id" [hidden]="!isOpen(o.id)" class="border-t border-line">
+      @let tab = orgTab[o.id] ?? 'details';
+      <div role="tablist" class="flex gap-1 overflow-x-auto border-b border-line px-5">
+        @for (k of orgTabs; track k) {
+          <button type="button" role="tab" [attr.aria-selected]="tab === k" (click)="orgTab[o.id] = k"
+            class="-mb-px inline-flex min-h-11 cursor-pointer items-center gap-1.5 whitespace-nowrap border-b-2 px-3 text-sm font-semibold"
+            [class]="tab === k ? 'border-brand text-brand-ink' : 'border-transparent text-muted hover:text-ink'">
+            {{ 'AdminOrgs.tab_' + k | t }}
+            @if (k === 'branches') { <span class="rounded-full bg-bg px-2 text-xs">{{ o.branches.length }}</span> }
+            @if (k === 'customers') { <span class="rounded-full bg-bg px-2 text-xs">{{ peopleOf(o.id).length }}</span> }
+          </button>
+        }
+      </div>
+
+      @if (tab === 'details') {
+        <div class="flex flex-col gap-4 p-5">
+          <dl class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div class="rounded-xl border border-line p-3"><dt class="text-xs font-semibold text-muted">{{ 'Directory.location' | t }}</dt><dd class="font-semibold" dir="auto">{{ o.location || '-' }}</dd></div>
+            <div class="rounded-xl border border-line p-3"><dt class="text-xs font-semibold text-muted">{{ 'Directory.telephone' | t }}</dt><dd class="font-semibold" dir="ltr">{{ o.phone || '-' }}</dd></div>
+            <div class="rounded-xl border border-line p-3"><dt class="text-xs font-semibold text-muted">{{ 'Directory.teamLeader' | t }}</dt><dd class="font-semibold" dir="auto">{{ leaderOf(o.teamLeaderId)?.fullName || '-' }}</dd></div>
+          </dl>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" [class]="toggleBtn" [disabled]="busy()" (click)="setOrgActive(o, !o.isActive)">{{ (o.isActive ? 'Directory.deactivate' : 'Directory.activate') | t }}</button>
+            <button type="button" [class]="toggleBtn" [attr.aria-expanded]="editOrg === o.id" (click)="editOrg = editOrg === o.id ? null : o.id">{{ 'Directory.editDetails' | t }}</button>
+          </div>
+          @if (editOrg === o.id) {
+            <div class="rounded-xl border border-line bg-[#fafcff] p-4"><app-place-form [row]="o" [leaders]="leaderList()" [busy]="busy()" (save)="updateOrg(o, $event)" (remove)="deleteOrg(o)" /></div>
+          }
+        </div>
+      }
+
+      @if (tab === 'branches') {
+        <div class="flex flex-col gap-4 p-5">
+          <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            @for (b of o.branches; track b.id) {
+              <li class="flex flex-col gap-2 rounded-xl border p-4" [class]="editBranch === b.id ? 'border-brand bg-brand-soft/40' : 'border-line'">
+                <div class="flex flex-wrap items-center gap-2">
+                  <b class="flex-1" dir="auto">{{ b.name }}</b>
+                  <span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="b.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (b.isActive ? 'Directory.active' : 'Directory.inactive') | t }}</span>
                 </div>
-              </div></li>
+                <p class="text-sm text-muted">{{ 'AdminOrgs.branchCustomers' | t: { count: branchPeople(b.id) } }}</p>
+                <dl class="flex flex-col gap-0.5 text-sm">
+                  <div class="flex gap-1.5"><dt class="text-muted">{{ 'Directory.location' | t }}:</dt><dd dir="auto">{{ b.location || '-' }}</dd></div>
+                  <div class="flex gap-1.5"><dt class="text-muted">{{ 'Directory.telephone' | t }}:</dt><dd dir="ltr">{{ b.phone || '-' }}</dd></div>
+                  <div class="flex gap-1.5"><dt class="text-muted">{{ 'Directory.teamLeader' | t }}:</dt><dd dir="auto">{{ leaderOf(b.teamLeaderId)?.fullName || '-' }}</dd></div>
+                </dl>
+                <div class="mt-auto flex flex-wrap gap-2 pt-1">
+                  <button type="button" [class]="toggleBtn" [attr.aria-expanded]="editBranch === b.id" (click)="editBranch = editBranch === b.id ? null : b.id; addBranchFor = null">{{ 'AdminOrgs.edit' | t }}<span class="sr-only"> {{ b.name }}</span></button>
+                  <button type="button" [class]="toggleBtn" [disabled]="busy()" (click)="setBranchActive(o, b, !b.isActive)">{{ (b.isActive ? 'Directory.deactivate' : 'Directory.activate') | t }}<span class="sr-only"> {{ b.name }}</span></button>
+                </div>
+              </li>
+            }
+            <li>
+              <button type="button" [attr.aria-expanded]="addBranchFor === o.id" (click)="addBranchFor = addBranchFor === o.id ? null : o.id; editBranch = null"
+                class="flex h-full min-h-32 w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-line font-semibold text-brand-ink hover:border-brand hover:bg-brand-soft/40">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                {{ 'Directory.addBranch' | t }}</button>
+            </li>
+          </ul>
+          @for (b of o.branches; track b.id) {
+            @if (editBranch === b.id) {
+              <div class="rounded-xl border border-brand bg-[#fafcff] p-4">
+                <h3 class="mb-3 font-bold">{{ 'AdminOrgs.editBranchTitle' | t: { name: b.name } }}</h3>
+                <app-place-form [row]="b" [branch]="true" [leaders]="leaderList()" [busy]="busy()" (save)="updateBranch(o, b, $event)" (remove)="deleteBranch(b)" />
+              </div>
+            }
+          }
+          @if (addBranchFor === o.id) {
+            <div class="rounded-xl border border-brand bg-[#fafcff] p-4">
+              <h3 class="mb-3 font-bold">{{ 'Directory.addBranch' | t }}</h3>
+              <app-place-form [branch]="true" [leaders]="leaderList()" [busy]="busy()" (save)="createBranch(o.id, $event)" />
+            </div>
+          }
+        </div>
+      }
+
+      @if (tab === 'customers') {
+        <div class="flex flex-col gap-3 p-5">
+          @if (!peopleOf(o.id).length) { <p class="text-muted">{{ 'AdminOrgs.noCustomers' | t }}</p> } @else {
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="sr-only" [for]="'cq-' + o.id">{{ 'AdminOrgs.searchCustomers' | t }}</label>
+              <input [id]="'cq-' + o.id" type="search" dir="auto" [placeholder]="'AdminOrgs.searchCustomers' | t" [value]="cq[o.id] ?? ''" (input)="cq[o.id] = $any($event.target).value; cPage[o.id] = 0"
+                class="min-h-11 min-w-56 flex-1 rounded-lg border border-line bg-surface px-3 text-sm" />
+            </div>
+            <div class="flex flex-wrap gap-1.5" role="group" [attr.aria-label]="'AdminOrgs.filterBranch' | t">
+              @for (f of branchChips(o); track f.id) {
+                <button type="button" [attr.aria-pressed]="(cBranch[o.id] ?? '') === f.id" (click)="cBranch[o.id] = f.id; cPage[o.id] = 0"
+                  class="min-h-9 cursor-pointer rounded-full border px-3 text-xs font-semibold"
+                  [class]="(cBranch[o.id] ?? '') === f.id ? 'border-brand bg-brand text-white' : 'border-line bg-surface text-muted hover:border-brand'">
+                  <span dir="auto">{{ f.label }}</span><span class="ms-1.5 opacity-80">{{ f.count }}</span></button>
+              }
+            </div>
+            @let list = customersOf(o);
+            @if (!list.length) { <p class="text-muted">{{ 'AdminOrgs.noMatch' | t }}</p> } @else {
+              <div class="overflow-hidden rounded-xl border border-line">
+                <table class="w-full text-sm">
+                  <caption class="sr-only">{{ 'AdminOrgs.customers' | t }}</caption>
+                  <thead class="bg-[#f7f9fd] text-xs uppercase tracking-wider text-muted">
+                    <tr>
+                      <th scope="col" class="px-3 py-2.5 text-start font-bold">{{ 'AdminOrgs.thCustomer' | t }}</th>
+                      <th scope="col" class="hidden px-3 py-2.5 text-start font-bold sm:table-cell">{{ 'AdminOrgs.thBranch' | t }}</th>
+                      <th scope="col" class="hidden px-3 py-2.5 text-start font-bold md:table-cell">{{ 'Directory.telephone' | t }}</th>
+                      <th scope="col" class="px-3 py-2.5 text-start font-bold">{{ 'AdminOrgs.thStatus' | t }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (m of pageOf(o.id, list); track m.id) {
+                      <tr class="border-t border-line hover:bg-[#f9fbfe]">
+                        <td class="px-3 py-2.5">
+                          <a [routerLink]="'/' + i18n.locale() + '/console/customers/' + m.id" class="font-semibold text-brand-ink hover:underline" dir="auto">{{ m.fullName || m.email }}</a>
+                          <span class="block break-all text-xs text-muted" dir="ltr">{{ m.email }}</span>
+                          <span class="block text-xs text-muted sm:hidden" dir="auto">{{ m.branchId ? branchName(m.branchId) : ('AdminOrgs.noBranch' | t) }}</span>
+                        </td>
+                        <td class="hidden px-3 py-2.5 sm:table-cell">@if (m.branchId) { <span class="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-ink" dir="auto">{{ branchName(m.branchId) }}</span> } @else { <span class="text-xs text-muted">{{ 'AdminOrgs.noBranch' | t }}</span> }</td>
+                        <td class="hidden px-3 py-2.5 text-muted md:table-cell" dir="ltr">{{ m.phone || '-' }}</td>
+                        <td class="px-3 py-2.5"><span class="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold" [class]="statusTone(m.status)">{{ 'Status.' + m.status | t }}</span></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              @if (list.length > pageSize) {
+                @let p = cPage[o.id] ?? 0;
+                <div class="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
+                  <span>{{ 'AdminOrgs.pageOf' | t: { from: p * pageSize + 1, to: Math.min((p + 1) * pageSize, list.length), total: list.length } }}</span>
+                  <span class="flex gap-2">
+                    <button type="button" [class]="toggleBtn" [disabled]="p === 0" (click)="cPage[o.id] = p - 1">{{ 'AdminOrgs.prev' | t }}</button>
+                    <button type="button" [class]="toggleBtn" [disabled]="(p + 1) * pageSize >= list.length" (click)="cPage[o.id] = p + 1">{{ 'AdminOrgs.next' | t }}</button>
+                  </span>
+                </div>
+              }
+            }
+          }
+        </div>
+      }
+    </div></li>
             }
           </ul>
         </div>
@@ -779,12 +920,47 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
   protected branchPeople(b: string): number { return this.people().filter((p) => p.branchId === b).length; }
   protected override branchName(id: string): string { return this.rows()?.flatMap((o) => o.branches).find((b) => b.id === id)?.name ?? ''; }
   protected leaderLabel(id: string | null): string { const l = this.leaderList().find((p) => p.id === id); return l ? `${l.fullName} (${l.email})` : ''; }
+  protected leaderOf(id: string | null) { return this.leaderList().find((p) => p.id === id) ?? null; }
+  protected readonly Math = Math;
+  protected readonly pageSize = 25;
+  protected readonly orgTabs = ['details', 'branches', 'customers'] as const;
+  protected orgTab: Record<string, 'details' | 'branches' | 'customers'> = {};
+  protected editOrg: string | null = null;
+  protected editBranch: string | null = null;
+  protected addBranchFor: string | null = null;
+  /** Per organization: search text, branch filter ('' all, '-' no branch, else a branch id) and page. */
+  protected cq: Record<string, string> = {};
+  protected cBranch: Record<string, string> = {};
+  protected cPage: Record<string, number> = {};
+  protected waitingOf(org: string): number { return this.peopleOf(org).filter((p) => p.status === 'pending_approval').length; }
+  protected initials(name: string): string { return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase(); }
+  protected statusTone(s: string): string {
+    return s === 'active' ? 'bg-ok-soft text-ok' : s === 'suspended' ? 'bg-danger-soft text-danger' : s === 'pending_approval' ? 'bg-warn-soft text-warn-ink' : 'bg-bg text-muted';
+  }
+  protected branchChips(o: OrgRow): { id: string; label: string; count: number }[] {
+    const all = this.peopleOf(o.id);
+    const chips = [{ id: '', label: this.i18n.t('AdminOrgs.allBranches'), count: all.length },
+      ...o.branches.map((b) => ({ id: b.id, label: b.name, count: all.filter((p) => p.branchId === b.id).length }))];
+    const none = all.filter((p) => !p.branchId).length;
+    if (none) chips.push({ id: '-', label: this.i18n.t('AdminOrgs.noBranch'), count: none });
+    return chips;
+  }
+  protected customersOf(o: OrgRow): OrgPerson[] {
+    const s = (this.cq[o.id] ?? '').trim().toLowerCase();
+    const b = this.cBranch[o.id] ?? '';
+    return this.peopleOf(o.id).filter((p) => (!b || (b === '-' ? !p.branchId : p.branchId === b))
+      && (!s || [p.fullName, p.email, p.phone ?? ''].join(' ').toLowerCase().includes(s)));
+  }
+  protected pageOf(org: string, list: OrgPerson[]): OrgPerson[] {
+    const p = Math.min(this.cPage[org] ?? 0, Math.max(0, Math.ceil(list.length / this.pageSize) - 1));
+    return list.slice(p * this.pageSize, (p + 1) * this.pageSize);
+  }
   private body(r: OrgRow | BranchRow): PlaceModel {
     return { name: r.name, location: r.location ?? '', phone: r.phone ?? '', teamLeaderId: r.teamLeaderId, isActive: r.isActive, sharedAccessEnabled: (r as OrgRow).sharedAccessEnabled ?? false };
   }
   protected async createOrg(m: PlaceModel): Promise<void> { if (await this.run(() => this.api.post('organizations', { ...m, isActive: true }))) { this.mode.set(null); await this.loadLookups(); } }
   protected async createBranch(org: string, m: PlaceModel, box?: HTMLDetailsElement): Promise<void> {
-    if (await this.run(() => this.api.post('branches', { ...m, isActive: true, organizationId: org }))) { this.mode.set(null); if (box) box.open = false; await this.loadLookups(); }
+    if (await this.run(() => this.api.post('branches', { ...m, isActive: true, organizationId: org }))) { this.mode.set(null); this.addBranchFor = null; if (box) box.open = false; await this.loadLookups(); }
   }
   protected updateOrg(o: OrgRow, m: PlaceModel): void { void this.run(() => this.api.put('organizations/' + o.id, m)); }
   protected setOrgActive(o: OrgRow, on: boolean): void { void this.run(() => this.api.put('organizations/' + o.id, { ...this.body(o), isActive: on })); }
