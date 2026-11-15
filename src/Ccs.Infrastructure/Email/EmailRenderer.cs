@@ -30,7 +30,7 @@ public sealed record RenderedEmail(string Subject, string Html, string Text);
 /// <summary>
 /// One HTML frame built with tables and inline styles (spec 6, email design), and the small safe Markdown written by
 /// administrators in Email templates: **bold**, *italic*, [links](https://..), "- " bullets, "## " headings,
-/// [center] / [end] paragraphs, [line], [tip]Title | text, [size=small|large|xl]..[/size], [color=#hex]..[/color],
+/// [center] / [end] / [justify] paragraphs, [line], [tip]Title | text, [size=small|large|xl]..[/size], [color=#hex]..[/color],
 /// [mark]..[/mark], ![alt](uploaded picture), | tables | and ``` code blocks. Text is always HTML-encoded first.
 /// </summary>
 public static partial class EmailRenderer
@@ -199,7 +199,7 @@ public static partial class EmailRenderer
 
             var a = start;
             var am = AlignMark().Match(line);
-            if (am.Success) { a = am.Groups[1].Value switch { "center" => "center", "end" => end, _ => start }; line = line[am.Length..]; }
+            if (am.Success) { a = am.Groups[1].Value switch { "center" => "center", "justify" => "justify", "end" => end, _ => start }; line = line[am.Length..]; }
 
             if (line == "[line]") { sb.Append("<hr style=\"border:0;border-top:1px solid #e2e8f3;margin:16px 0;\">"); continue; }
             if (line.StartsWith("[tip]"))
@@ -273,7 +273,7 @@ public static partial class EmailRenderer
     [GeneratedRegex(@"\*\*(.+?)\*\*")] private static partial Regex Bold();
     [GeneratedRegex(@"(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)")] private static partial Regex Italic();
     [GeneratedRegex(@"^#[0-9a-fA-F]{6}$")] private static partial Regex CssColor();
-    [GeneratedRegex(@"^\[(center|end|start)\]")] private static partial Regex AlignMark();
+    [GeneratedRegex(@"^\[(center|end|start|justify)]")] private static partial Regex AlignMark();
     [GeneratedRegex(@"^!\[([^\]]*)\]\(([^)\s]+)\)$")] private static partial Regex Picture();
     [GeneratedRegex(@"^/api/site/email-images/[0-9a-f]{32}\.(png|jpg|jpeg|gif|webp)$")] private static partial Regex EmailImagePath();
     [GeneratedRegex(@"\[size=(small|large|xl)\](.+?)\[/size\]")] private static partial Regex SizeMark();

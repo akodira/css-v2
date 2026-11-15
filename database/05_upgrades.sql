@@ -98,3 +98,8 @@ GO
 IF COL_LENGTH(N'ccs.site_settings', N'footer_logo_path') IS NULL
     ALTER TABLE ccs.site_settings ADD footer_logo_path nvarchar(200) NULL;
 GO
+
+-- The customer "header" menu is the customers' side menu; staff never see it. Remove the staff-only Console link
+-- (copied from v1) that nobody could see.
+DELETE FROM ccs.menu_items WHERE area = N'header' AND system_key IS NULL AND audience = N'staff' AND href = N'/console/dashboard';
+GO

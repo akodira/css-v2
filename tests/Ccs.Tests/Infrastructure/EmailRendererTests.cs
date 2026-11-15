@@ -59,8 +59,9 @@ public sealed class EmailRendererTests
     [Fact]
     public void Alignment_heading_line_and_tip_box_render()
     {
-        var html = Md("[center]Hello\n[end]Bye\n## Your code\n[line]\n[tip]Security tip | Keep it secret");
+        var html = Md("[center]Hello\n[end]Bye\n[justify]Spread\n## Your code\n[line]\n[tip]Security tip | Keep it secret");
         Assert.Contains("text-align:center;\">Hello", html);
+        Assert.Contains("text-align:justify;\">Spread", html);
         Assert.Contains("text-align:right;\">Bye", html);
         Assert.Contains("font-size:20px", html);
         Assert.Contains("<hr", html);

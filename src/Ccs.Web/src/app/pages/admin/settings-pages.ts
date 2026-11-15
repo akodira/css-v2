@@ -488,7 +488,8 @@ interface MenuFull extends Omit<MenuRow, 'audience'> { audience: string; isVisib
                 <button type="button" [class]="cls.btn2 + ' !min-h-10 !px-3'" (click)="move(r, -1)" [disabled]="edge(r, -1)" [attr.aria-label]="'AdminGeneral.moveUp' | t">▲</button>
                 <button type="button" [class]="cls.btn2 + ' !min-h-10 !px-3'" (click)="move(r, 1)" [disabled]="edge(r, 1)" [attr.aria-label]="'AdminGeneral.moveDown' | t">▼</button>
                 <div class="min-w-0 flex-1 ps-1" dir="auto"><p class="font-semibold">{{ i18n.pick(r.labelEn, r.labelAr) }}@if (!r.isVisible) { <span [class]="cls.badgeWarn + ' ms-2'">{{ 'AdminGeneral.hidden' | t }}</span> }</p>
-                  <p class="text-sm text-muted"><span dir="ltr">{{ r.kind === 'group' ? ('AdminGeneral.groupLabel' | t) : r.href }}</span>@if (r.systemKey) { · {{ 'AdminGeneral.builtIn' | t }} } @else if (area === 'header' || area === 'footer') { · {{ 'AdminGeneral.aud_' + r.audience | t }} }</p></div>
+                  <p class="text-sm text-muted"><span dir="ltr">{{ r.kind === 'group' ? ('AdminGeneral.groupLabel' | t) : r.href }}</span>@if (r.systemKey) { · {{ 'AdminGeneral.builtIn' | t }} } @else if (area === 'footer') { · {{ 'AdminGeneral.aud_' + r.audience | t }} }</p>
+                  @if (area === 'header' && (r.audience === 'guest' || r.audience === 'staff')) { <p class="text-sm font-semibold text-danger">{{ 'AdminGeneral.sideNotShown' | t }}</p> }</div>
                 <button type="button" [class]="cls.btn2 + ' !min-h-10'" (click)="open.set(open() === r.id ? null : r.id)">{{ (open() === r.id ? 'AdminGeneral.close' : 'AdminGeneral.edit') | t }}</button>
                 @if (!r.systemKey) { <button type="button" [class]="cls.danger + ' !min-h-10'" (click)="remove(r)">{{ 'AdminGeneral.delete' | t }}</button> }
               </div>
@@ -511,9 +512,11 @@ interface MenuFull extends Omit<MenuRow, 'audience'> { audience: string; isVisib
           <div class="flex flex-col gap-1"><label [for]="id + 'h'" [class]="cls.label">{{ 'AdminGeneral.link' | t }}</label><input [id]="id + 'h'" name="h" dir="ltr" maxlength="500" [readonly]="sys" [class]="cls.input" [(ngModel)]="m.href" />
             <p class="text-xs text-muted">{{ (sys ? 'AdminGeneral.builtInLink' : 'AdminGeneral.linkHint') | t }}</p></div>
         }
-        @if (m.area === 'header' || m.area === 'footer') {
+        @if (m.area === 'footer') {
           <div class="flex flex-col gap-1"><label [for]="id + 'a'" [class]="cls.label">{{ 'AdminGeneral.audience' | t }}</label>
             <select [id]="id + 'a'" name="a" [class]="cls.input" [(ngModel)]="m.audience">@for (a of audiences; track a) { <option [value]="a">{{ 'AdminGeneral.aud_' + a | t }}</option> }</select></div>
+        }
+        @if (m.area === 'header') {
           @if (m.kind === 'link') {
             <div class="flex flex-col gap-1"><label [for]="id + 'p'" [class]="cls.label">{{ 'AdminGeneral.parent' | t }}</label>
               <select [id]="id + 'p'" name="p" [class]="cls.input" [(ngModel)]="m.parentId"><option [ngValue]="null">{{ 'AdminGeneral.noParent' | t }}</option>

@@ -2131,8 +2131,8 @@
     "imageType": "Use a PNG, JPG, SVG, WebP or ICO image.",
     "imageSize": "The image must be 1 MB or smaller.",
     "imageFailed": "Upload failed. Please try again.",
-    "headerMenu": "Header menu",
-    "headerMenuHint": "Links at the top of customer pages. A group shows a drop-down list of its sub-items.",
+    "headerMenu": "Customer side menu",
+    "headerMenuHint": "The menu on the left of every page a signed-in customer sees. A group adds its sub-items to the menu. Staff use their own menu (“Staff sidebar: main”).",
     "footerMenu": "Footer menu",
     "footerMenuHint": "Links at the bottom of customer pages.",
     "emptyMenu": "No items yet.",
@@ -2294,14 +2294,14 @@
       "auth_signin_code_limit": "Sent once a day to someone who asked for more codes than the daily limit."
     },
     "menuArea": {
-      "header": "Customer header menu",
+      "header": "Customer side menu",
       "footer": "Customer footer menu",
       "console": "Staff sidebar: main",
       "admin": "Admin sidebar: Administration",
       "general": "Admin sidebar: General"
     },
     "menuAreaHint": {
-      "header": "Links at the top of customer pages. A group shows a drop-down list of its sub-items.",
+      "header": "The menu on the left of every page a signed-in customer sees. A group adds its sub-items to the menu. Staff use their own menu (“Staff sidebar: main”).",
       "footer": "Links at the bottom of customer pages.",
       "console": "The main menu on the left of the support console, shown to all staff. Items follow each person's permissions.",
       "admin": "The Administration section of the sidebar. Each item still shows only to people with the matching permission.",
@@ -2443,7 +2443,8 @@
     "fNothing": "Every part is off or empty, so no footer is shown.",
     "fPreviewHint": "This is exactly how the footer will look, in your current language.",
     "wordmarkNoAlpha": "No white version was made: this logo has a solid background. Upload a PNG with a clear background, or upload a white version yourself.",
-    "fLinkIncomplete": "Link {n} is not complete: write its text in English and Arabic (at least 2 letters each) and its address."
+    "fLinkIncomplete": "Link {n} is not complete: write its text in English and Arabic (at least 2 letters each) and its address.",
+    "sideNotShown": "Not shown: only customers see this menu. Edit it to fix, or delete it."
   },
   "Approvals": {
     "title": "Account approvals",
@@ -3991,6 +3992,7 @@
     "cancel": "Cancel",
     "linkBad": "Enter a page like /kb, a web address (https://), mailto: or tel:.",
     "imageTooBig": "The picture must be 1 MB or smaller.",
-    "imageType": "Choose a PNG, JPG, GIF or WebP picture."
+    "imageType": "Choose a PNG, JPG, GIF or WebP picture.",
+    "align_justify": "Justify (both edges)"
   }
 }

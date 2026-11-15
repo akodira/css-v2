@@ -6,7 +6,7 @@ import { I18n, TPipe } from '../core/i18n';
 /*
  * Visual editor for email templates (Settings → Email templates). What you see is what the email shows; underneath it
  * keeps the small, safe text format the server turns into email HTML (EmailRenderer.MarkdownToHtml):
- *   **bold**  *italic*  [text](https://..)  "- " bullets  "## " heading  [center] / [end] paragraph
+ *   **bold**  *italic*  [text](https://..)  "- " bullets  "## " heading  [center] / [end] / [justify] paragraph
  *   [line]  [tip]Title | text  [size=small|large|xl]..[/size]  [color=#hex]..[/color]  [mark]..[/mark]
  *   ![alt](/api/site/email-images/..)  | table | rows  and ``` code blocks.
  * Every paragraph is one line of that text, so existing templates open and save unchanged.
@@ -50,8 +50,8 @@ export function toHtml(md: string, dir: 'ltr' | 'rtl'): string {
     }
     if (!line) continue;
     let align = '';
-    const am = line.match(/^\[(center|end|start)\]/);
-    if (am) { line = line.slice(am[0].length); align = am[1] === 'center' ? 'center' : am[1] === 'end' ? (dir === 'rtl' ? 'left' : 'right') : ''; }
+    const am = line.match(/^\[(center|end|start|justify)]/);
+    if (am) { line = line.slice(am[0].length); align = am[1] === 'center' || am[1] === 'justify' ? am[1] : am[1] === 'end' ? (dir === 'rtl' ? 'left' : 'right') : ''; }
     const style = align ? ` style="text-align:${align}"` : '';
     if (line === '[line]') { out.push('<hr>'); continue; }
     if (line.startsWith('[tip]')) {
@@ -83,6 +83,7 @@ export function fromHtml(root: HTMLElement, dir: 'ltr' | 'rtl'): string {
   const alignOf = (el: HTMLElement): string => {
     const a = (el.style.textAlign || el.getAttribute('align') || '').toLowerCase();
     if (a === 'center') return '[center]';
+    if (a === 'justify') return '[justify]';
     if (a === 'end' || (a === 'right' && dir === 'ltr') || (a === 'left' && dir === 'rtl')) return '[end]';
     return '';
   };
@@ -255,7 +256,7 @@ export class RichEditor {
   protected readonly linkBad = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly aligns = [
-    { k: 'start', d: 'M4 6h16M4 10h10M4 14h16M4 18h10' }, { k: 'center', d: 'M4 6h16M7 10h10M4 14h16M7 18h10' }, { k: 'end', d: 'M4 6h16M10 10h10M4 14h16M10 18h10' },
+    { k: 'start', d: 'M4 6h16M4 10h10M4 14h16M4 18h10' }, { k: 'center', d: 'M4 6h16M7 10h10M4 14h16M7 18h10' }, { k: 'end', d: 'M4 6h16M10 10h10M4 14h16M10 18h10' }, { k: 'justify', d: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
   ];
   private last = '\u0000';
   private range: Range | null = null;
@@ -297,7 +298,7 @@ export class RichEditor {
   }
   protected align(k: string): void {
     const rtl = this.dir() === 'rtl';
-    this.cmd(k === 'center' ? 'justifyCenter' : (k === 'end') !== rtl ? 'justifyRight' : 'justifyLeft');
+    this.cmd(k === 'center' ? 'justifyCenter' : k === 'justify' ? 'justifyFull' : (k === 'end') !== rtl ? 'justifyRight' : 'justifyLeft');
   }
   protected heading(): void {
     this.restore();
