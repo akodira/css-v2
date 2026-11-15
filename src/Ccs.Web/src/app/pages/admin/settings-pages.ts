@@ -8,6 +8,7 @@ import { firstValueFrom } from 'rxjs';
 import { Auth } from '../../core/auth';
 import { FOOTER_DEFAULTS, FooterConfig, MenuRow, SiteService, SOCIAL_KINDS } from '../../core/api';
 import { SocialIcon } from '../../shared/social-icons';
+import { FooterModel, FooterView, footerModel } from '../../shared/footer-view';
 import { adminError } from '../../core/admin-api';
 import { apiUrl } from '../../core/api-base';
 import { I18n, TPipe } from '../../core/i18n';
@@ -103,12 +104,13 @@ const REQ = `<app-req />`;
                       @if (img('wordmarkdark'); as src) { <img [src]="src" alt="" class="h-10 w-auto max-w-[14rem] object-contain" /> } @else { <span class="text-xs text-white/70">{{ 'AdminGeneral.noImage' | t }}</span> }</span>
                     <input type="file" class="cursor-pointer text-sm file:me-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:font-semibold file:text-brand-ink" [attr.aria-label]="'AdminGeneral.wordmarkdark' | t" accept=".png,.webp,.svg" (change)="upload('wordmarkdark', $any($event.target))" />
                   </div>
+                  @if (noWhite() || (img('wordmark') && !img('wordmarkdark'))) { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminGeneral.wordmarkNoAlpha' | t }}</p> }
                   <p class="text-sm text-muted">{{ 'AdminGeneral.wordmarkdarkHint' | t }}</p>
                 </div>
               }
             }
           </fieldset>
-          @if (sec.title === 'secFooter') {
+          @if (sec.title === 'secWordmark') {
           <fieldset [class]="cls.card + ' flex flex-col gap-3 p-5'">
             <legend class="sr-only">{{ 'AdminGeneral.secColor' | t }}</legend>
             <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.secColor' | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.secColorHint' | t }}</p></div>
@@ -131,11 +133,12 @@ export class BrandingTab extends Tab implements OnInit {
     { title: 'secSite', image: 'favicon', fields: ['siteNameEn', 'siteNameAr'] },
     { title: 'secHeader', image: 'logo', fields: ['headerNameEn', 'headerNameAr', 'headerSubEn', 'headerSubAr'] },
     { title: 'secWordmark', image: 'wordmark', fields: [] as string[] },
-    { title: 'secFooter', image: '', fields: ['footerTextEn', 'footerTextAr', 'contactEmail', 'contactPhone', 'contactHoursEn', 'contactHoursAr'] },
     { title: 'secTexts', image: '', fields: ['homeTitleEn', 'homeTitleAr', 'homeIntroEn', 'homeIntroAr', 'loginNoticeEn', 'loginNoticeAr'] },
   ];
   protected m: Record<string, string> | null = null;
   private paths = signal<Record<string, string | null>>({});
+  /** True after a wide logo without a clear background was uploaded: no white copy could be made. */
+  protected readonly noWhite = signal(false);
 
   async ngOnInit(): Promise<void> {
     const s = await this.get<Record<string, string | null>>('branding');
@@ -154,6 +157,7 @@ export class BrandingTab extends Tab implements OnInit {
       if (kind === 'wordmark') {
         const white = await whiteVersion(f);
         if (white) { const w = new FormData(); w.append('file', white, 'white.png'); const d = await this.post<{ path: string }>('branding/wordmarkdark', w); this.paths.update((p) => ({ ...p, wordmarkdark: d.path })); }
+        this.noWhite.set(!white);
       }
     });
     if (ok) el.value = '';
@@ -175,92 +179,260 @@ async function whiteVersion(file: File): Promise<Blob | null> {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const g = c.getContext('2d'); if (!g) return null;
     g.drawImage(img, 0, 0, w, h);
+    // Only a logo with a clear background can be turned white; a solid background would become a white block.
+    const px = g.getImageData(0, 0, w, h).data;
+    let clear = 0; for (let i = 3; i < px.length; i += 4 * 16) if (px[i] < 200) clear++;
+    if (clear < (px.length / (4 * 16)) * 0.05) { URL.revokeObjectURL(url); return null; }
     g.globalCompositeOperation = 'source-in'; g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
     URL.revokeObjectURL(url);
     return await new Promise<Blob | null>((ok) => c.toBlob(ok, 'image/png'));
   } catch { return null; }
 }
 
-// ================================================================== footer layout and social links (Branding tab)
+// ================================================================== footer (Branding tab): every part, its links, its logo and a live preview
+
+interface FootLink { key: number; id: string | null; labelEn: string; labelAr: string; href: string; audience: string; newTab: boolean; isVisible: boolean; systemKey: string | null; sortOrder: number }
+/** Pages offered as one-click links in the footer. */
+const QUICK_LINKS = [
+  { href: '/kb', en: 'Help Center', ar: 'مركز المساعدة', audience: 'all' },
+  { href: '/tickets/new', en: 'Submit a ticket', ar: 'تقديم تذكرة', audience: 'all' },
+  { href: '/tickets', en: 'My tickets', ar: 'تذاكري', audience: 'signed_in' },
+  { href: '/help', en: 'How to use the system', ar: 'طريقة استخدام المنظومة', audience: 'all' },
+  { href: '/login', en: 'Sign in', ar: 'تسجيل الدخول', audience: 'guest' },
+  { href: '/register', en: 'Create account', ar: 'إنشاء حساب', audience: 'guest' },
+];
 
 @Component({
   selector: 'app-footer-settings',
-  imports: [TPipe, FormsModule, Alert, SocialIcon],
+  imports: [TPipe, FormsModule, Alert, SocialIcon, FooterView],
   template: `
     @if (f) {
-    <form [class]="cls.card + ' mt-6 flex flex-col gap-4 p-5'" (ngSubmit)="saveFooter()">
+    <section [class]="cls.card + ' mt-6 p-5'" aria-labelledby="foot-h">
+      <div><h2 id="foot-h" class="text-lg font-bold">{{ 'AdminGeneral.fTitle' | t }}</h2><p class="mt-1 max-w-prose text-sm text-muted">{{ 'AdminGeneral.fHint' | t }}</p></div>
       ${MSG}
-      <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.fTitle' | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.fHint' | t }}</p></div>
-
-
-      @for (p of parts; track p.key) {
-        <fieldset class="flex flex-col gap-2.5 rounded-xl border border-line p-3.5" [class.opacity-60]="!$any(f)[p.key]">
-          <legend class="px-1"><label class="flex items-center gap-2 font-bold"><input type="checkbox" class="h-5 w-5" [name]="'sw-' + p.key" [(ngModel)]="$any(f)[p.key]" />{{ 'AdminGeneral.fp_' + p.key | t }}</label></legend>
-          @if (p.texts) {
-            <div class="grid gap-3 md:grid-cols-2">
-              <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.' + p.texts + 'En' | t }}<input [name]="p.texts + 'En'" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="$any(f)[p.texts + 'En']" /></label>
-              <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.' + p.texts + 'Ar' | t }}<input [name]="p.texts + 'Ar'" dir="rtl" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="$any(f)[p.texts + 'Ar']" /></label>
-            </div>
+      <div class="mt-4 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)]">
+        <form class="flex flex-col gap-3" (ngSubmit)="saveFooter()" (input)="dirty.set(true)" (change)="dirty.set(true)">
+          @for (p of parts; track p.key; let i = $index) {
+            <fieldset class="overflow-hidden rounded-xl border border-line">
+              <legend class="sr-only">{{ 'AdminGeneral.fp_' + p.key | t }}</legend>
+              <div class="flex items-start gap-3 border-b border-line bg-[#f8fafd] px-3.5 py-3">
+                <span aria-hidden="true" class="grid size-7 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand-ink">{{ i + 1 }}</span>
+                <span class="min-w-0 flex-1"><b class="block">{{ 'AdminGeneral.fp_' + p.key | t }}</b><span class="block text-[0.82rem] text-muted">{{ 'AdminGeneral.fw_' + p.key | t }}</span></span>
+                <label class="flex shrink-0 items-center gap-2 text-sm font-semibold"><input type="checkbox" role="switch" class="h-5 w-5" [name]="'sw-' + p.key" [(ngModel)]="$any(f)[p.key]" />{{ ($any(f)[p.key] ? 'AdminGeneral.fShown' : 'AdminGeneral.fHidden') | t }}</label>
+              </div>
+              <div class="flex flex-col gap-3 p-3.5" [class.opacity-55]="!$any(f)[p.key]">
+                @switch (p.key) {
+                  @case ('logo') {
+                    <div class="flex flex-wrap items-center gap-3">
+                      <span class="grid h-16 min-w-36 place-items-center rounded-lg border border-line bg-white px-3">
+                        @if (logoSrc(); as src) { <img [src]="src" alt="" class="h-10 w-auto max-w-[14rem] object-contain" /> } @else { <span class="text-xs text-muted">{{ 'AdminGeneral.noImage' | t }}</span> }</span>
+                      <label class="inline-flex min-h-10 cursor-pointer items-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:bg-bg">{{ 'AdminGeneral.fLogoUpload' | t }}
+                        <input type="file" class="sr-only" accept=".png,.jpg,.jpeg,.webp,.svg" (change)="uploadLogo($any($event.target))" /></label>
+                      @if (logos().own) { <button type="button" [class]="cls.btn2" (click)="removeLogo()">{{ 'AdminGeneral.fLogoUseWide' | t }}</button> }
+                    </div>
+                    <p class="self-start rounded-full bg-brand-soft px-3 py-1 text-xs font-semibold text-brand-ink">{{ logoSource() | t }}</p>
+                  }
+                  @case ('about') {
+                    <div class="grid gap-3 md:grid-cols-2">
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.fEn' | t }}<input name="aboutEn" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="f.aboutEn" /></label>
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.fAr' | t }}<input name="aboutAr" dir="rtl" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="f.aboutAr" /></label>
+                    </div>
+                  }
+                  @case ('social') {
+                    @for (k of kinds; track k) {
+                      <div class="grid grid-cols-[auto_7.5rem_1fr] items-center gap-2.5">
+                        <input type="checkbox" role="switch" class="h-5 w-5" [name]="'so-' + k" [(ngModel)]="social[k].on" [attr.aria-label]="'Footer.s_' + k | t" />
+                        <span class="flex items-center gap-2 text-sm font-semibold"><app-social-icon [kind]="k" />{{ 'Footer.s_' + k | t }}</span>
+                        <input [name]="'su-' + k" [attr.aria-label]="('Footer.s_' + k | t) + ' https://'" dir="ltr" type="url" placeholder="https://" maxlength="300" [class]="cls.input" [(ngModel)]="social[k].url" />
+                      </div>
+                    }
+                    <p class="text-sm text-muted">{{ 'AdminGeneral.fpHint_social' | t }}</p>
+                  }
+                  @case ('links') {
+                    <div class="grid gap-3 md:grid-cols-2">
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.fTitleEn' | t }}<input name="linksTitleEn" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="f.linksTitleEn" /></label>
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.fTitleAr' | t }}<input name="linksTitleAr" dir="rtl" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="f.linksTitleAr" /></label>
+                    </div>
+                    <ol class="flex flex-col gap-2">
+                      @for (l of links; track l.key; let li = $index, first = $first, last = $last) {
+                        <li class="flex flex-col gap-2 rounded-lg border border-line p-2.5" [class.opacity-60]="!l.isVisible">
+                          <div class="grid gap-2 md:grid-cols-2">
+                            <input [name]="'le' + l.key" maxlength="60" [attr.aria-label]="'AdminGeneral.fLinkEn' | t" [placeholder]="'AdminGeneral.fLinkEn' | t" [class]="cls.input" [(ngModel)]="l.labelEn" />
+                            <input [name]="'la' + l.key" dir="rtl" maxlength="60" [attr.aria-label]="'AdminGeneral.fLinkAr' | t" [placeholder]="'AdminGeneral.fLinkAr' | t" [class]="cls.input" [(ngModel)]="l.labelAr" />
+                          </div>
+                          <div class="grid gap-2 md:grid-cols-[1fr_11rem]">
+                            <input [name]="'lh' + l.key" dir="ltr" maxlength="300" [attr.aria-label]="'AdminGeneral.fLinkHref' | t" placeholder="/kb, https://…" [class]="cls.input" [(ngModel)]="l.href" [disabled]="!!l.systemKey" />
+                            <select [name]="'lw' + l.key" [attr.aria-label]="'AdminGeneral.audience' | t" [class]="cls.input" [(ngModel)]="l.audience">
+                              @for (a of audiences; track a) { <option [value]="a">{{ 'AdminGeneral.aud_' + a | t }}</option> }
+                            </select>
+                          </div>
+                          <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm">
+                            <label class="flex min-h-9 items-center gap-2 font-semibold"><input type="checkbox" class="h-4 w-4" [name]="'lv' + l.key" [(ngModel)]="l.isVisible" />{{ 'AdminGeneral.fLinkVisible' | t }}</label>
+                            <label class="flex min-h-9 items-center gap-2 font-semibold"><input type="checkbox" class="h-4 w-4" [name]="'ln' + l.key" [(ngModel)]="l.newTab" />{{ 'AdminGeneral.fLinkNewTab' | t }}</label>
+                            <span class="ms-auto flex gap-1">
+                              <button type="button" class="grid size-9 place-items-center rounded-md border border-line hover:bg-bg disabled:opacity-30" [disabled]="first" (click)="move(li, -1)" [attr.aria-label]="'AdminGeneral.fUp' | t">↑</button>
+                              <button type="button" class="grid size-9 place-items-center rounded-md border border-line hover:bg-bg disabled:opacity-30" [disabled]="last" (click)="move(li, 1)" [attr.aria-label]="'AdminGeneral.fDown' | t">↓</button>
+                              @if (l.systemKey) { <span class="self-center rounded-full bg-bg px-2 py-0.5 text-xs text-muted">{{ 'AdminGeneral.builtIn' | t }}</span> }
+                              @else { <button type="button" class="min-h-9 rounded-md border border-line px-2.5 text-sm font-semibold text-danger hover:bg-danger-soft" (click)="removeLink(li)">{{ 'AdminGeneral.fRemove' | t }}</button> }
+                            </span>
+                          </div>
+                        </li>
+                      } @empty { <li class="rounded-lg border border-dashed border-line p-3 text-sm text-muted">{{ 'AdminGeneral.fNoLinks' | t }}</li> }
+                    </ol>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-sm font-semibold">{{ 'AdminGeneral.fAddQuick' | t }}</span>
+                      @for (q of quick(); track q.href) { <button type="button" class="min-h-9 rounded-full border border-line bg-surface px-3 text-sm font-semibold hover:bg-brand-soft" (click)="addLink(q)">+ {{ i18n.pick(q.en, q.ar) }}</button> }
+                      <button type="button" class="min-h-9 rounded-full border border-brand px-3 text-sm font-semibold text-brand-ink hover:bg-brand-soft" (click)="addLink(null)">+ {{ 'AdminGeneral.fAddOwn' | t }}</button>
+                    </div>
+                    <p class="text-sm text-muted">{{ 'AdminGeneral.fpHint_links' | t }}</p>
+                  }
+                  @case ('contact') {
+                    <div class="grid gap-3 md:grid-cols-2">
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.fTitleEn' | t }}<input name="contactTitleEn" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="f.contactTitleEn" /></label>
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.fTitleAr' | t }}<input name="contactTitleAr" dir="rtl" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="f.contactTitleAr" /></label>
+                      <div class="flex flex-col gap-1"><label class="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" class="h-4 w-4" name="sw-email" [(ngModel)]="f.email" />{{ 'AdminGeneral.fc_email' | t }}</label>
+                        <input name="email" type="email" dir="ltr" maxlength="254" [attr.aria-label]="'AdminGeneral.fc_email' | t" [class]="cls.input" [(ngModel)]="t.contactEmail" /></div>
+                      <div class="flex flex-col gap-1"><label class="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" class="h-4 w-4" name="sw-phone" [(ngModel)]="f.phone" />{{ 'AdminGeneral.fc_phone' | t }}</label>
+                        <input name="phone" dir="ltr" maxlength="30" [attr.aria-label]="'AdminGeneral.fc_phone' | t" [class]="cls.input" [(ngModel)]="t.contactPhone" /></div>
+                      <div class="flex flex-col gap-1"><label class="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" class="h-4 w-4" name="sw-hours" [(ngModel)]="f.hours" />{{ 'AdminGeneral.fc_hoursEn' | t }}</label>
+                        <input name="hoursEn" maxlength="120" [attr.aria-label]="'AdminGeneral.fc_hoursEn' | t" [class]="cls.input" [(ngModel)]="t.contactHoursEn" /></div>
+                      <label class="flex flex-col gap-1 text-sm font-semibold"><span class="md:mt-0.5">{{ 'AdminGeneral.fc_hoursAr' | t }}</span><input name="hoursAr" dir="rtl" maxlength="120" [class]="cls.input + ' font-normal'" [(ngModel)]="t.contactHoursAr" /></label>
+                    </div>
+                  }
+                  @case ('copyright') {
+                    <div class="grid gap-3 md:grid-cols-2">
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.fEn' | t }}<input name="copyEn" maxlength="200" [class]="cls.input + ' font-normal'" [placeholder]="'Footer.copyright' | t: { name: '{name}' }" [(ngModel)]="f.copyrightEn" /></label>
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.fAr' | t }}<input name="copyAr" dir="rtl" maxlength="200" [class]="cls.input + ' font-normal'" [(ngModel)]="f.copyrightAr" /></label>
+                    </div>
+                    <p class="text-sm text-muted">{{ 'AdminGeneral.fpHint_copyright' | t }}</p>
+                  }
+                  @case ('extra') {
+                    <div class="grid gap-3 md:grid-cols-2">
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.fEn' | t }}<input name="extraEn" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="t.extraEn" /></label>
+                      <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.fAr' | t }}<input name="extraAr" dir="rtl" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="t.extraAr" /></label>
+                    </div>
+                  }
+                }
+              </div>
+            </fieldset>
           }
-          @if (p.key === 'social') {
-            <div class="flex flex-col gap-2">
-              @for (k of kinds; track k) {
-                <div class="grid grid-cols-[auto_8rem_1fr] items-center gap-2.5">
-                  <input type="checkbox" class="h-5 w-5" [name]="'so-' + k" [(ngModel)]="social[k].on" [attr.aria-label]="'Footer.s_' + k | t" />
-                  <span class="flex items-center gap-2 text-sm font-semibold"><app-social-icon [kind]="k" />{{ 'Footer.s_' + k | t }}</span>
-                  <input [name]="'su-' + k" [attr.aria-label]="('Footer.s_' + k | t) + ' https://'" dir="ltr" type="url" placeholder="https://" maxlength="300" [class]="cls.input" [(ngModel)]="social[k].url" />
-                </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminGeneral.fSave' | t }}</button>
+            @if (dirty()) { <span class="rounded-full bg-warn-soft px-3 py-1 text-sm font-semibold text-warn-ink">{{ 'AdminGeneral.fUnsaved' | t }}</span> }
+          </div>
+        </form>
+
+        <div class="flex flex-col gap-3 xl:sticky xl:top-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="font-bold">{{ 'AdminGeneral.fPreview' | t }}</h3>
+            <div class="flex gap-1.5" role="group" [attr.aria-label]="'AdminGeneral.fPreview' | t">
+              @for (w of ['desk', 'phone']; track w) {
+                <button type="button" class="min-h-9 rounded-lg border px-3 text-sm font-semibold" [class]="(w === 'phone') === phone() ? 'border-brand bg-brand text-white' : 'border-line bg-surface'"
+                  [attr.aria-pressed]="(w === 'phone') === phone()" (click)="phone.set(w === 'phone')">{{ 'AdminGeneral.fView_' + w | t }}</button>
               }
             </div>
-          }
-          @if (p.key === 'contact') {
-            <div class="flex flex-wrap gap-x-6 gap-y-2">
-              @for (c of ['email', 'phone', 'hours']; track c) {
-                <label class="flex min-h-10 items-center gap-2 text-sm font-semibold"><input type="checkbox" class="h-5 w-5" [name]="'sw-' + c" [(ngModel)]="$any(f)[c]" />{{ 'AdminGeneral.fc_' + c | t }}</label>
-              }
+          </div>
+          <div class="mx-auto w-full overflow-hidden rounded-xl border border-line bg-bg" [style.max-width]="phone() ? '390px' : null">
+            <div class="grid h-20 place-items-center text-sm text-muted">{{ 'AdminGeneral.fPageContent' | t }}</div>
+            <div class="pointer-events-none">
+              @if (preview(); as m) { <app-footer-view [model]="m" [phone]="phone()" /> }
+              @if (!anyShown()) { <p class="border-t border-line bg-surface p-5 text-center text-sm text-muted">{{ 'AdminGeneral.fNothing' | t }}</p> }
             </div>
-          }
-          @if (p.hint) { <p class="text-sm text-muted">{{ 'AdminGeneral.' + p.hint | t }}</p> }
-        </fieldset>
-      }
-      <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCommon.save' | t }}</button></div>
-    </form>
+          </div>
+          <p class="text-xs text-muted">{{ 'AdminGeneral.fPreviewHint' | t }}</p>
+        </div>
+      </div>
+    </section>
     }`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class FooterSettings extends Tab implements OnInit {
   protected readonly kinds = SOCIAL_KINDS;
-  /** The parts in the order they appear; "texts" names the English/Arabic pair of boxes. */
-  protected readonly parts = [
-    { key: 'logo', texts: '', hint: 'fpHint_logo' },
-    { key: 'about', texts: 'fAbout', hint: '' },
-    { key: 'social', texts: '', hint: 'fpHint_social' },
-    { key: 'links', texts: 'fLinksTitle', hint: 'fpHint_links' },
-    { key: 'contact', texts: 'fContactTitle', hint: 'fpHint_contact' },
-    { key: 'copyright', texts: 'fCopyright', hint: 'fpHint_copyright' },
-    { key: 'extra', texts: '', hint: 'fpHint_extra' },
-  ];
-  protected f: (FooterConfig & Record<string, unknown>) | null = null;
+  protected readonly audiences = ['all', 'guest', 'signed_in', 'customer', 'staff'];
+  protected readonly parts = ['logo', 'about', 'social', 'links', 'contact', 'copyright', 'extra'].map((key) => ({ key }));
+  protected f: FooterConfig | null = null;
+  /** Contact details and the extra line (stored with the rest of the branding). */
+  protected t = { contactEmail: '', contactPhone: '', contactHoursEn: '', contactHoursAr: '', extraEn: '', extraAr: '' };
   protected social: Record<string, { on: boolean; url: string }> = {};
+  protected links: FootLink[] = [];
+  private original: FootLink[] = [];
+  /** Stable key per link row, so moving rows never mixes up their boxes. */
+  private seq = 0;
+  protected readonly dirty = signal(false);
+  protected readonly phone = signal(false);
+  private readonly logos = signal<{ own: string | null; wide: string | null; icon: string | null }>({ own: null, wide: null, icon: null });
+  protected readonly logoSrc = computed(() => { const l = this.logos(); const p = l.own ?? l.wide ?? l.icon; return p ? apiUrl('/api/site/branding/' + p) : null; });
+  protected readonly logoSource = computed(() => { const l = this.logos(); return l.own ? 'AdminGeneral.fLogoFromOwn' : l.wide ? 'AdminGeneral.fLogoFromWide' : l.icon ? 'AdminGeneral.fLogoFromIcon' : 'AdminGeneral.fLogoNone'; });
+
   async ngOnInit(): Promise<void> {
-    const s = await this.get<{ footerConfig?: string; socialLinks?: string }>('branding');
-    const read = <T,>(j: string | undefined, d: T): T => { try { return j ? { ...d, ...JSON.parse(j) } : d; } catch { return d; } };
-    const cfg = read<FooterConfig>(s.footerConfig, FOOTER_DEFAULTS);
-    // The box names use the "f" prefix; the stored names do not.
-    this.f = { ...cfg, fAboutEn: cfg.aboutEn, fAboutAr: cfg.aboutAr, fLinksTitleEn: cfg.linksTitleEn, fLinksTitleAr: cfg.linksTitleAr,
-      fContactTitleEn: cfg.contactTitleEn, fContactTitleAr: cfg.contactTitleAr, fCopyrightEn: cfg.copyrightEn, fCopyrightAr: cfg.copyrightAr };
-    const so = read<Record<string, { on: boolean; url: string }>>(s.socialLinks, {});
+    const [s, menus] = await Promise.all([
+      this.get<Record<string, string | null>>('branding'),
+      this.get<(MenuRow & { isVisible: boolean })[]>('menus'),
+    ]);
+    const read = <T,>(j: string | null | undefined, d: T): T => { try { return j ? { ...d, ...JSON.parse(j) } : d; } catch { return d; } };
+    this.f = read<FooterConfig>(s['footerConfig'], FOOTER_DEFAULTS);
+    const so = read<Record<string, { on: boolean; url: string }>>(s['socialLinks'], {});
     for (const k of SOCIAL_KINDS) this.social[k] = { on: !!so[k]?.on, url: so[k]?.url ?? '' };
+    this.t = { contactEmail: s['contactEmail'] ?? '', contactPhone: s['contactPhone'] ?? '', contactHoursEn: s['contactHoursEn'] ?? '', contactHoursAr: s['contactHoursAr'] ?? '',
+      extraEn: s['footerTextEn'] ?? '', extraAr: s['footerTextAr'] ?? '' };
+    this.logos.set({ own: s['footerLogoPath'] ?? null, wide: s['wordmarkPath'] ?? null, icon: s['logoPath'] ?? null });
+    this.links = menus.filter((m) => m.area === 'footer' && m.kind === 'link' && !m.parentId).sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((m) => ({ key: ++this.seq, id: m.id, labelEn: m.labelEn, labelAr: m.labelAr, href: m.href ?? '', audience: m.audience, newTab: m.newTab, isVisible: m.isVisible !== false, systemKey: m.systemKey ?? null, sortOrder: m.sortOrder }));
+    this.original = this.links.map((l) => ({ ...l }));
   }
-  protected saveFooter(): void {
-    const f = this.f!; const t = (k: string) => String(f[k] ?? '');
-    const footer: FooterConfig = {
-      logo: f.logo, about: f.about, aboutEn: t('fAboutEn'), aboutAr: t('fAboutAr'), social: f.social,
-      links: f.links, linksTitleEn: t('fLinksTitleEn'), linksTitleAr: t('fLinksTitleAr'),
-      contact: f.contact, contactTitleEn: t('fContactTitleEn'), contactTitleAr: t('fContactTitleAr'), email: f.email, phone: f.phone, hours: f.hours,
-      copyright: f.copyright, copyrightEn: t('fCopyrightEn'), copyrightAr: t('fCopyrightAr'), extra: f.extra,
-    };
-    void this.save(() => this.put('branding/footer', { footer, social: this.social }));
+
+  /** The footer as it would look with the settings on screen, in the admin's language. */
+  protected preview(): FooterModel | null {
+    if (!this.f) return null;
+    const ar = this.i18n.locale() === 'ar', site = this.site.info()?.site;
+    return footerModel({
+      cfg: this.f, social: this.social, logo: this.logoSrc(), ar, siteName: this.i18n.pick(site?.siteNameEn ?? '', site?.siteNameAr ?? '') || this.i18n.t('Brand.name'),
+      standardCopyright: (name) => this.i18n.t('Footer.copyright', { name }),
+      email: this.t.contactEmail, phone: this.t.contactPhone, hoursEn: this.t.contactHoursEn, hoursAr: this.t.contactHoursAr, extraEn: this.t.extraEn, extraAr: this.t.extraAr,
+      links: this.links.map((l, i) => ({ id: String(i), labelEn: l.labelEn, labelAr: l.labelAr, href: l.href, newTab: l.newTab, sortOrder: i, isVisible: l.isVisible })),
+    });
+  }
+  protected anyShown(): boolean {
+    const m = this.preview(); if (!m) return false;
+    return !!(m.logo || m.about || m.socials.length || m.links.length || m.email || m.phone || m.hours || m.copyright || m.extra);
+  }
+
+  protected quick(): typeof QUICK_LINKS { return QUICK_LINKS.filter((q) => !this.links.some((l) => l.href === q.href)); }
+  protected addLink(q: (typeof QUICK_LINKS)[number] | null): void {
+    this.links = [...this.links, { key: ++this.seq, id: null, labelEn: q?.en ?? '', labelAr: q?.ar ?? '', href: q?.href ?? '', audience: q?.audience ?? 'all', newTab: false, isVisible: true, systemKey: null, sortOrder: 0 }];
+    if (this.f) this.f.links = true;
+    this.dirty.set(true);
+  }
+  protected move(i: number, by: number): void { const a = [...this.links]; [a[i], a[i + by]] = [a[i + by], a[i]]; this.links = a; this.dirty.set(true); }
+  protected removeLink(i: number): void { this.links = this.links.filter((_, j) => j !== i); this.dirty.set(true); }
+
+  protected async uploadLogo(el: HTMLInputElement): Promise<void> {
+    const file = el.files?.[0]; if (!file) return;
+    const fd = new FormData(); fd.append('file', file);
+    if (await this.save(async () => { const r = await this.post<{ path: string }>('branding/footerlogo', fd); this.logos.update((l) => ({ ...l, own: r.path })); })) el.value = '';
+  }
+  protected removeLogo(): void { void this.save(async () => { await this.del('branding/footerlogo'); this.logos.update((l) => ({ ...l, own: null })); }); }
+
+  /** Saves the parts, texts and social links, then the links (added, changed, re-ordered, removed) in the footer menu. */
+  protected async saveFooter(): Promise<void> {
+    const f = this.f!;
+    const bad = this.links.findIndex((l) => l.labelEn.trim().length < 2 || l.labelAr.trim().length < 2 || !l.href.trim());
+    if (bad >= 0) { this.msg.set({ tone: 'error', text: this.i18n.t('AdminGeneral.fLinkIncomplete', { n: bad + 1 }) }); return; }
+    const ok = await this.save(async () => {
+      await this.put('branding/footer', { footer: f, social: this.social, texts: this.t });
+      const keep = new Set(this.links.map((l) => l.id).filter(Boolean));
+      for (const o of this.original) if (o.id && !keep.has(o.id) && !o.systemKey) await this.del('menus/' + o.id);
+      for (const [i, l] of this.links.entries()) {
+        const body = { area: 'footer', parentId: null, kind: 'link', labelEn: l.labelEn.trim(), labelAr: l.labelAr.trim(), href: l.href.trim(), audience: l.audience, newTab: l.newTab, isVisible: l.isVisible, sortOrder: (i + 1) * 10 };
+        const o = this.original.find((x) => x.id === l.id);
+        if (!l.id) { const r = await this.post<{ id: string }>('menus', body); l.id = r.id; }
+        else if (!o || o.labelEn !== body.labelEn || o.labelAr !== body.labelAr || o.href !== body.href || o.audience !== l.audience || o.newTab !== l.newTab || o.isVisible !== l.isVisible || o.sortOrder !== body.sortOrder)
+          await this.put('menus/' + l.id, body);
+        l.sortOrder = body.sortOrder;
+      }
+      this.original = this.links.map((l) => ({ ...l }));
+    }, 'AdminGeneral.fSaved');
+    if (ok) this.dirty.set(false);
   }
 }
 

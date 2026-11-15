@@ -44,8 +44,8 @@ public sealed partial class SettingsController(
 
     // ================================================================ branding and home page
 
-    public sealed record BrandingBody(string SiteNameEn, string SiteNameAr, string HeaderNameEn, string HeaderNameAr, string HeaderSubEn, string HeaderSubAr,
-        string FooterTextEn, string FooterTextAr, string? ContactEmail, string? ContactPhone, string ContactHoursEn, string ContactHoursAr, string? BrandColor,
+    /// <summary>Site name, header, colour and home texts. The footer texts and contact details are saved by the Footer box (PUT branding/footer).</summary>
+    public sealed record BrandingBody(string SiteNameEn, string SiteNameAr, string HeaderNameEn, string HeaderNameAr, string HeaderSubEn, string HeaderSubAr, string? BrandColor,
         string HomeTitleEn, string HomeTitleAr, string HomeIntroEn, string HomeIntroAr, string LoginNoticeEn, string LoginNoticeAr);
 
     [HttpGet("branding")]
@@ -71,13 +71,6 @@ public sealed partial class SettingsController(
         s.SiteNameEn = T(b.SiteNameEn, 80, "siteNameEn", true); s.SiteNameAr = T(b.SiteNameAr, 80, "siteNameAr", true);
         s.HeaderNameEn = T(b.HeaderNameEn, 60, "headerNameEn"); s.HeaderNameAr = T(b.HeaderNameAr, 60, "headerNameAr");
         s.HeaderSubEn = T(b.HeaderSubEn, 80, "headerSubEn"); s.HeaderSubAr = T(b.HeaderSubAr, 80, "headerSubAr");
-        s.FooterTextEn = T(b.FooterTextEn, 300, "footerTextEn"); s.FooterTextAr = T(b.FooterTextAr, 300, "footerTextAr");
-        var email = T(b.ContactEmail, 254, "contactEmail");
-        if (email.Length > 0 && !email.Contains('@')) throw Err("required", "contactEmail");
-        s.ContactEmail = email.Length == 0 ? null : email;
-        var phone = T(b.ContactPhone, 30, "contactPhone");
-        s.ContactPhone = phone.Length == 0 ? null : phone;
-        s.ContactHoursEn = T(b.ContactHoursEn, 120, "contactHoursEn"); s.ContactHoursAr = T(b.ContactHoursAr, 120, "contactHoursAr");
         var color = T(b.BrandColor, 7, "brandColor");
         if (color.Length > 0 && !ColorRx().IsMatch(color)) throw Err("color", "brandColor");
         s.BrandColor = color.Length == 0 ? null : color.ToLowerInvariant();
@@ -96,7 +89,7 @@ public sealed partial class SettingsController(
     public async Task<object> UploadImage(string kind, IFormFile file, CancellationToken ct)
     {
         var c = await Need(ct);
-        if (kind is not ("logo" or "favicon" or "wordmark" or "wordmarkdark")) throw new NotFoundException();
+        if (kind is not ("logo" or "favicon" or "wordmark" or "wordmarkdark" or "footerlogo")) throw new NotFoundException();
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (ext is not (".png" or ".jpg" or ".jpeg" or ".webp" or ".svg" or ".ico")) throw Err("imageType", "file");
         if (file.Length is 0 or > 1024 * 1024) throw Err("imageSize", "file");
@@ -117,7 +110,7 @@ public sealed partial class SettingsController(
     {
         var c = await Need(ct);
         var s = await SiteAsync(ct);
-        if (kind is not ("logo" or "favicon" or "wordmark" or "wordmarkdark")) throw new NotFoundException();
+        if (kind is not ("logo" or "favicon" or "wordmark" or "wordmarkdark" or "footerlogo")) throw new NotFoundException();
         var old = ImagePath(s, kind);
         SetPath(s, kind, null);
         s.UpdatedAt = clock.UtcNow; s.UpdatedBy = c.UserId;
@@ -129,7 +122,7 @@ public sealed partial class SettingsController(
 
     private static string? ImagePath(SiteSettings s, string kind) => kind switch
     {
-        "logo" => s.LogoPath, "favicon" => s.FaviconPath, "wordmark" => s.WordmarkPath, _ => s.WordmarkDarkPath,
+        "logo" => s.LogoPath, "favicon" => s.FaviconPath, "wordmark" => s.WordmarkPath, "footerlogo" => s.FooterLogoPath, _ => s.WordmarkDarkPath,
     };
     private static void SetPath(SiteSettings s, string kind, string? name)
     {
@@ -138,6 +131,7 @@ public sealed partial class SettingsController(
             case "logo": s.LogoPath = name; break;
             case "favicon": s.FaviconPath = name; break;
             case "wordmark": s.WordmarkPath = name; break;
+            case "footerlogo": s.FooterLogoPath = name; break;
             default: s.WordmarkDarkPath = name; break;
         }
     }
@@ -147,7 +141,9 @@ public sealed partial class SettingsController(
     public sealed record FooterParts(bool Logo, bool About, string? AboutEn, string? AboutAr, bool Social, bool Links, string? LinksTitleEn, string? LinksTitleAr,
         bool Contact, string? ContactTitleEn, string? ContactTitleAr, bool Email, bool Phone, bool Hours, bool Copyright, string? CopyrightEn, string? CopyrightAr, bool Extra);
     public sealed record SocialLink(bool On, string? Url);
-    public sealed record FooterBody(FooterParts Footer, Dictionary<string, SocialLink>? Social);
+    /// <summary>Contact details and the extra line, shown in the footer (and used as {supportEmail} etc. in emails).</summary>
+    public sealed record FooterTexts(string? ContactEmail, string? ContactPhone, string? ContactHoursEn, string? ContactHoursAr, string? ExtraEn, string? ExtraAr);
+    public sealed record FooterBody(FooterParts Footer, Dictionary<string, SocialLink>? Social, FooterTexts? Texts = null);
     public static readonly string[] SocialKinds = ["web", "linkedin", "youtube", "facebook", "x"];
 
     /// <summary>Every part of the site footer (show switch + wording) and the social links shared with the email footer.</summary>
@@ -173,12 +169,22 @@ public sealed partial class SettingsController(
             if (url.Length > 0 && (!url.StartsWith("https://") || !SafeLink.IsAllowed(url))) throw Err("socialLink", "social_" + k);
             social[k] = new SocialLink(l.On && url.Length > 0, url);
         }
+        if (b.Texts is { } x)
+        {
+            var email = T(x.ContactEmail, 254, "contactEmail");
+            if (email.Length > 0 && !email.Contains('@')) throw Err("required", "contactEmail");
+            var phone = T(x.ContactPhone, 30, "contactPhone");
+            s.ContactEmail = email.Length == 0 ? null : email;
+            s.ContactPhone = phone.Length == 0 ? null : phone;
+            s.ContactHoursEn = T(x.ContactHoursEn, 120, "contactHoursEn"); s.ContactHoursAr = T(x.ContactHoursAr, 120, "contactHoursAr");
+            s.FooterTextEn = T(x.ExtraEn, 300, "footerTextEn"); s.FooterTextAr = T(x.ExtraAr, 300, "footerTextAr");
+        }
         var web = new JsonSerializerOptions(JsonSerializerDefaults.Web);
-        var before = new { s.FooterConfig, s.SocialLinks };
+        var before = new { s.FooterConfig, s.SocialLinks, s.ContactEmail, s.ContactPhone, s.FooterTextEn };
         s.FooterConfig = JsonSerializer.Serialize(parts, web);
         s.SocialLinks = JsonSerializer.Serialize(social, web);
         s.UpdatedAt = clock.UtcNow; s.UpdatedBy = c.UserId;
-        audit.Write("settings.footer", "site_settings", null, before, new { s.FooterConfig, s.SocialLinks });
+        audit.Write("settings.footer", "site_settings", null, before, new { s.FooterConfig, s.SocialLinks, s.ContactEmail, s.ContactPhone, s.FooterTextEn });
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
@@ -374,7 +380,7 @@ public sealed partial class SettingsController(
         var d = b.Design;
         string Pick(string? c, string fallback) => c is not null && ColorRx().IsMatch(c) ? c : fallback;
         var headerLogo = site.WordmarkDarkPath ?? site.WordmarkPath ?? site.LogoPath;
-        var footerLogo = site.WordmarkPath ?? site.LogoPath;
+        var footerLogo = site.FooterLogoPath ?? site.WordmarkPath ?? site.LogoPath;
         var design = ToDesign(d with { HeaderColor = Pick(d.HeaderColor, "#0b1a3a"), AccentColor = Pick(d.AccentColor, "#1f64e6"), PageBackground = Pick(d.PageBackground, "#f0f4fb") },
             d.UseLogo && headerLogo is not null ? $"/api/site/branding/{headerLogo}" : null);
         var ar = b.Rtl;

@@ -49,7 +49,7 @@ export interface NewTicketOptions { types: TypeOption[]; categories: CategoryOpt
 export interface SiteInfo {
   site: {
     siteNameEn: string; siteNameAr: string; headerNameEn: string; headerNameAr: string; headerSubEn: string; headerSubAr: string;
-    logoPath: string | null; faviconPath?: string | null; wordmarkPath?: string | null; wordmarkDarkPath?: string | null; footerConfig?: string; socialLinks?: string; homeContent?: string; footerTextEn: string; footerTextAr: string; contactEmail: string | null; contactPhone: string | null;
+    logoPath: string | null; faviconPath?: string | null; wordmarkPath?: string | null; wordmarkDarkPath?: string | null; footerLogoPath?: string | null; footerConfig?: string; socialLinks?: string; homeContent?: string; footerTextEn: string; footerTextAr: string; contactEmail: string | null; contactPhone: string | null;
     contactHoursEn: string; contactHoursAr: string; brandColor: string | null; loginNoticeEn: string; loginNoticeAr: string;
     homeTitleEn: string; homeTitleAr: string; homeIntroEn: string; homeIntroAr: string; registrationMode: string;
     uploadMaxMb: number; uploadMaxFiles: number; uploadExtensions: string;
@@ -94,6 +94,8 @@ export class SiteService {
   /** The wide logo (full name) for light backgrounds, and its white version for dark ones; null when not uploaded. */
   readonly wordmarkUrl = computed(() => { const p = this.info()?.site?.wordmarkPath; return p ? apiUrl('/api/site/branding/' + p) : null; });
   readonly wordmarkDarkUrl = computed(() => { const p = this.info()?.site?.wordmarkDarkPath; return p ? apiUrl('/api/site/branding/' + p) : null; });
+  /** Footer logo: its own upload, else the wide logo, else the header icon. */
+  readonly footerLogoUrl = computed(() => { const s = this.info()?.site; const p = s?.footerLogoPath ?? s?.wordmarkPath ?? s?.logoPath; return p ? apiUrl('/api/site/branding/' + p) : null; });
   readonly footer = computed(() => parse<FooterConfig>(this.info()?.site?.footerConfig, FOOTER_DEFAULTS));
   readonly social = computed(() => parse<SocialLinks>(this.info()?.site?.socialLinks, {}));
 

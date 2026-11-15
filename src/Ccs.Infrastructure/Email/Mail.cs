@@ -137,7 +137,7 @@ public sealed class TemplateMailer(CcsDbContext db, IOptions<AppUrlOptions> urls
         // "Use the logo" in Design: the header shows the white wide logo, else the wide logo, else the header icon.
         var headerLogo = site.WordmarkDarkPath ?? site.WordmarkPath ?? site.LogoPath;
         design = design with { LogoUrl = design.LogoUrl is null || headerLogo is null ? null : $"{siteUrl}/api/site/branding/{headerLogo}" };
-        var footerLogo = site.WordmarkPath ?? site.LogoPath;
+        var footerLogo = site.FooterLogoPath ?? site.WordmarkPath ?? site.LogoPath;
         var extras = new EmailExtras(greet, siteUrl, footerLogo is null ? null : $"{siteUrl}/api/site/branding/{footerLogo}", SocialLinks.Parse(site.SocialLinks));
         // Account emails: the code shows in the large box when the design asks for it and the text contains it (v1).
         var showBox = code is not null && design.LargeCodeBox && EmailRenderer.FillText(body, values).Contains(code);

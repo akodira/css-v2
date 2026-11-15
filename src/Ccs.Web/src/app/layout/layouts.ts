@@ -7,8 +7,8 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet } from '@angular/common';
 import { Auth } from '../core/auth';
 import { I18n, TPipe } from '../core/i18n';
-import { MenuRow, SiteService, SOCIAL_KINDS } from '../core/api';
-import { SocialIcon } from '../shared/social-icons';
+import { MenuRow, SiteService } from '../core/api';
+import { FooterView, footerModel } from '../shared/footer-view';
 import { LanguageSwitcher, Logo } from '../shared/ui';
 
 const ICONS: Record<string, string> = {
@@ -63,102 +63,28 @@ const ROUTE: Record<string, string> = {
 export interface SideItem { path: string; label: string; icon: string; exact?: boolean; badge?: number; also?: string[] }
 export interface SideGroup { id?: string; title?: string; color?: string; icon?: string; items: SideItem[] }
 
-/**
- * Site footer (Settings → Branding → Footer). Every part has its own show switch and wording; a column with nothing
- * to show hides, and the footer hides when every part is off. Links come from Menus → Customer footer menu.
- */
+/** Site footer (Settings → Branding → Footer), drawn by the shared FooterView so the settings preview matches it. */
 @Component({
   selector: 'app-footer',
-  imports: [TPipe, RouterLink, SocialIcon],
-  template: `
-    @if (any()) {
-    <footer class="mt-10 border-t border-line bg-surface text-sm text-muted">
-      @if (cols() > 0) {
-        <div class="mx-auto grid max-w-6xl grid-cols-1 gap-x-10 gap-y-6 px-4 py-7" [class]="gridCls()">
-          @if (showBrand()) {
-            <div class="flex flex-col gap-2.5">
-              @if (logo(); as src) { <img [src]="src" [alt]="siteName()" class="h-8 w-auto max-w-[14rem] self-start object-contain" /> }
-              @if (about()) { <p class="max-w-[38ch]" dir="auto">{{ about() }}</p> }
-              @if (socials().length) {
-                <ul class="flex flex-wrap gap-2" [attr.aria-label]="'Footer.social' | t">
-                  @for (s of socials(); track s.kind) {
-                    <li><a [href]="s.url" target="_blank" rel="noopener" [attr.aria-label]="'Footer.s_' + s.kind | t"
-                      class="grid size-9 place-items-center rounded-full border border-line text-brand-ink hover:bg-brand-soft"><app-social-icon [kind]="s.kind" /></a></li>
-                  }
-                </ul>
-              }
-            </div>
-          }
-          @if (links().length) {
-            <nav [attr.aria-label]="linksTitle() || ('Footer.links' | t)" class="flex flex-col gap-1.5">
-              @if (linksTitle()) { <p class="font-bold text-ink" dir="auto">{{ linksTitle() }}</p> }
-              @for (l of links(); track l.id) {
-                @if (l.href!.startsWith('/')) { <a [routerLink]="'/' + i18n.locale() + (l.href === '/' ? '' : l.href)" class="font-semibold text-brand-ink hover:underline" dir="auto">{{ i18n.pick(l.labelEn, l.labelAr) }}</a> }
-                @else { <a [href]="l.href" [attr.target]="l.newTab ? '_blank' : null" rel="noopener" class="font-semibold text-brand-ink hover:underline" dir="auto">{{ i18n.pick(l.labelEn, l.labelAr) }}</a> }
-              }
-            </nav>
-          }
-          @if (showContact()) {
-            <div class="flex flex-col gap-1.5">
-              @if (contactTitle()) { <p class="font-bold text-ink" dir="auto">{{ contactTitle() }}</p> }
-              <ul class="flex flex-col gap-1" [attr.aria-label]="contactTitle() || ('Footer.contact' | t)">
-                @if (email()) { <li><a [href]="'mailto:' + email()" dir="ltr" class="inline-block font-semibold text-brand-ink hover:underline">{{ email() }}</a></li> }
-                @if (phone()) { <li><a [href]="'tel:' + tel()" dir="ltr" class="inline-block font-semibold text-brand-ink hover:underline">{{ phone() }}</a></li> }
-                @if (hours()) { <li dir="auto">{{ hours() }}</li> }
-              </ul>
-            </div>
-          }
-        </div>
-      }
-      @if (copyright() || extra()) {
-        <div class="mx-auto flex max-w-6xl flex-wrap justify-between gap-x-6 gap-y-1 px-4 py-4 text-[0.82rem]" [class.border-t]="cols() > 0" [class.border-line]="cols() > 0">
-          @if (copyright()) { <p dir="auto">{{ copyright() }}</p> }
-          @if (extra()) { <p dir="auto">{{ extra() }}</p> }
-        </div>
-      }
-    </footer>
-    }`,
+  imports: [FooterView],
+  template: `<div class="mt-10"><app-footer-view [model]="model()" /></div>`,
 })
 export class Footer {
-  protected readonly i18n = inject(I18n);
+  private readonly i18n = inject(I18n);
   private readonly site = inject(SiteService);
   private readonly auth = inject(Auth);
-  private readonly s = computed(() => this.site.info()?.site ?? null);
-  private readonly f = computed(() => this.site.footer());
-  private readonly pick = (en?: string, ar?: string) => this.i18n.pick(en ?? '', ar ?? '').trim();
-  protected readonly siteName = computed(() => this.pick(this.s()?.siteNameEn, this.s()?.siteNameAr) || this.i18n.t('Brand.name'));
-  protected readonly logo = computed(() => (this.f().logo ? this.site.wordmarkUrl() ?? this.site.logoUrl() : null));
-  protected readonly about = computed(() => (this.f().about ? this.pick(this.f().aboutEn, this.f().aboutAr) : ''));
-  protected readonly socials = computed(() => {
-    if (!this.f().social) return [];
-    const all = this.site.social();
-    return SOCIAL_KINDS.filter((k) => all[k]?.on && all[k]?.url?.startsWith('https://')).map((k) => ({ kind: k, url: all[k].url }));
-  });
-  protected readonly showBrand = computed(() => !!this.logo() || !!this.about() || this.socials().length > 0);
-  protected readonly linksTitle = computed(() => this.pick(this.f().linksTitleEn, this.f().linksTitleAr));
-  /** Footer menu links this visitor may see (audience all / guest / signed in / customer / staff). */
-  protected readonly links = computed<MenuRow[]>(() => {
-    if (!this.f().links) return [];
-    const signedIn = this.auth.signedIn(), staff = this.auth.isStaff();
+  protected readonly model = computed(() => {
+    const s = this.site.info()?.site, signedIn = this.auth.signedIn(), staff = this.auth.isStaff();
     const ok = (a: string) => a === 'all' || (a === 'guest' && !signedIn) || (a === 'signed_in' && signedIn) || (a === 'customer' && signedIn && !staff) || (a === 'staff' && staff);
-    return this.site.menus().filter((r) => r.area === 'footer' && r.kind === 'link' && !!r.href && ok(r.audience)).sort((a, b) => a.sortOrder - b.sortOrder);
+    return footerModel({
+      cfg: this.site.footer(), social: this.site.social(), logo: this.site.footerLogoUrl(), ar: this.i18n.locale() === 'ar',
+      siteName: this.i18n.pick(s?.siteNameEn ?? '', s?.siteNameAr ?? '') || this.i18n.t('Brand.name'),
+      standardCopyright: (name) => this.i18n.t('Footer.copyright', { name }),
+      email: s?.contactEmail ?? '', phone: s?.contactPhone ?? '', hoursEn: s?.contactHoursEn ?? '', hoursAr: s?.contactHoursAr ?? '',
+      extraEn: s?.footerTextEn ?? '', extraAr: s?.footerTextAr ?? '',
+      links: this.site.menus().filter((r) => r.area === 'footer' && r.kind === 'link' && !!r.href && ok(r.audience)),
+    });
   });
-  protected readonly contactTitle = computed(() => this.pick(this.f().contactTitleEn, this.f().contactTitleAr));
-  protected readonly email = computed(() => (this.f().contact && this.f().email ? this.s()?.contactEmail ?? '' : ''));
-  protected readonly phone = computed(() => (this.f().contact && this.f().phone ? this.s()?.contactPhone ?? '' : ''));
-  protected readonly hours = computed(() => (this.f().contact && this.f().hours ? this.pick(this.s()?.contactHoursEn, this.s()?.contactHoursAr) : ''));
-  protected readonly tel = computed(() => this.phone().replace(/[^+0-9]/g, ''));
-  protected readonly showContact = computed(() => !!(this.email() || this.phone() || this.hours()));
-  protected readonly cols = computed(() => [this.showBrand(), this.links().length > 0, this.showContact()].filter(Boolean).length);
-  protected readonly gridCls = computed(() => (this.cols() === 3 ? 'md:grid-cols-[1.6fr_1fr_1fr]' : this.cols() === 2 ? 'md:grid-cols-2' : ''));
-  /** The admin's own line ({year} and {name} filled in), or the standard one. */
-  protected readonly copyright = computed(() => {
-    if (!this.f().copyright) return '';
-    const own = this.pick(this.f().copyrightEn, this.f().copyrightAr);
-    return own ? own.replaceAll('{year}', String(new Date().getFullYear())).replaceAll('{name}', this.siteName()) : this.i18n.t('Footer.copyright', { name: this.siteName() });
-  });
-  protected readonly extra = computed(() => (this.f().extra ? this.pick(this.s()?.footerTextEn, this.s()?.footerTextAr) : ''));
-  protected readonly any = computed(() => this.cols() > 0 || !!this.copyright() || !!this.extra());
 }
 
 /** Public header (white bar, logo, language, sign in) and footer - for visitors and the sign-in pages. */

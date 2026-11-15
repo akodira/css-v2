@@ -82,6 +82,8 @@ public class SiteSettings
     public string? WordmarkPath { get; set; }
     /// <summary>White version of the wide logo for dark backgrounds (email header); made automatically on upload.</summary>
     public string? WordmarkDarkPath { get; set; }
+    /// <summary>Logo for the site and email footers when it should differ from the wide logo; null = the wide logo.</summary>
+    public string? FooterLogoPath { get; set; }
     /// <summary>Footer parts, each with a show switch and its wording (JSON, see FooterConfig in the web app).</summary>
     public string FooterConfig { get; set; } = "{}";
     /// <summary>Website and social links shown in the site footer and the email footer (JSON: kind -> { on, url }).</summary>

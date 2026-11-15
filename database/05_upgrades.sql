@@ -93,3 +93,8 @@ IF COL_LENGTH(N'ccs.site_settings', N'wordmark_path') IS NULL
         footer_config nvarchar(max) NOT NULL CONSTRAINT DF_site_footer_config DEFAULT N'{}',
         social_links nvarchar(max) NOT NULL CONSTRAINT DF_site_social_links DEFAULT N'{}';
 GO
+
+/* Footer logo (Nov 2026): optional logo for the site and email footers; empty = the wide logo. */
+IF COL_LENGTH(N'ccs.site_settings', N'footer_logo_path') IS NULL
+    ALTER TABLE ccs.site_settings ADD footer_logo_path nvarchar(200) NULL;
+GO
