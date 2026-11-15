@@ -96,15 +96,15 @@ public sealed partial class SettingsController(
     public async Task<object> UploadImage(string kind, IFormFile file, CancellationToken ct)
     {
         var c = await Need(ct);
-        if (kind is not ("logo" or "favicon")) throw new NotFoundException();
+        if (kind is not ("logo" or "favicon" or "wordmark" or "wordmarkdark")) throw new NotFoundException();
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (ext is not (".png" or ".jpg" or ".jpeg" or ".webp" or ".svg" or ".ico")) throw Err("imageType", "file");
         if (file.Length is 0 or > 1024 * 1024) throw Err("imageSize", "file");
         var name = $"{kind}-{Guid.NewGuid():N}{ext}";
         await using (var stream = file.OpenReadStream()) await files.SaveAsync("branding/" + name, stream, ct);
         var s = await SiteAsync(ct);
-        var old = kind == "logo" ? s.LogoPath : s.FaviconPath;
-        if (kind == "logo") s.LogoPath = name; else s.FaviconPath = name;
+        var old = ImagePath(s, kind);
+        SetPath(s, kind, name);
         s.UpdatedAt = clock.UtcNow; s.UpdatedBy = c.UserId;
         audit.Write("settings.branding_image", "site_settings", null, new { kind, path = old }, new { kind, path = name });
         await db.SaveChangesAsync(ct);
@@ -117,13 +117,85 @@ public sealed partial class SettingsController(
     {
         var c = await Need(ct);
         var s = await SiteAsync(ct);
-        var old = kind == "logo" ? s.LogoPath : kind == "favicon" ? s.FaviconPath : throw new NotFoundException();
-        if (kind == "logo") s.LogoPath = null; else s.FaviconPath = null;
+        if (kind is not ("logo" or "favicon" or "wordmark" or "wordmarkdark")) throw new NotFoundException();
+        var old = ImagePath(s, kind);
+        SetPath(s, kind, null);
         s.UpdatedAt = clock.UtcNow; s.UpdatedBy = c.UserId;
         audit.Write("settings.branding_image", "site_settings", null, new { kind, path = old }, new { kind, path = (string?)null });
         await db.SaveChangesAsync(ct);
         if (old is not null) await files.DeleteAsync("branding/" + old, ct);
         return NoContent();
+    }
+
+    private static string? ImagePath(SiteSettings s, string kind) => kind switch
+    {
+        "logo" => s.LogoPath, "favicon" => s.FaviconPath, "wordmark" => s.WordmarkPath, _ => s.WordmarkDarkPath,
+    };
+    private static void SetPath(SiteSettings s, string kind, string? name)
+    {
+        switch (kind)
+        {
+            case "logo": s.LogoPath = name; break;
+            case "favicon": s.FaviconPath = name; break;
+            case "wordmark": s.WordmarkPath = name; break;
+            default: s.WordmarkDarkPath = name; break;
+        }
+    }
+
+    // ---------------------------------------------------------------- footer and social links
+
+    public sealed record FooterParts(bool Logo, bool About, string? AboutEn, string? AboutAr, bool Social, bool Links, string? LinksTitleEn, string? LinksTitleAr,
+        bool Contact, string? ContactTitleEn, string? ContactTitleAr, bool Email, bool Phone, bool Hours, bool Copyright, string? CopyrightEn, string? CopyrightAr, bool Extra);
+    public sealed record SocialLink(bool On, string? Url);
+    public sealed record FooterBody(FooterParts Footer, Dictionary<string, SocialLink>? Social);
+    public static readonly string[] SocialKinds = ["web", "linkedin", "youtube", "facebook", "x"];
+
+    /// <summary>Every part of the site footer (show switch + wording) and the social links shared with the email footer.</summary>
+    [HttpPut("branding/footer")]
+    public async Task<IActionResult> SaveFooter(FooterBody b, CancellationToken ct)
+    {
+        var c = await Need(ct);
+        var s = await SiteAsync(ct);
+        string T(string? v, int max, string field) { var x = (v ?? "").Trim(); if (x.Length > max) throw Err("locationLong", field); return x; }
+        var f = b.Footer ?? throw Err("required", "footer");
+        var parts = f with
+        {
+            AboutEn = T(f.AboutEn, 300, "aboutEn"), AboutAr = T(f.AboutAr, 300, "aboutAr"),
+            LinksTitleEn = T(f.LinksTitleEn, 60, "linksTitleEn"), LinksTitleAr = T(f.LinksTitleAr, 60, "linksTitleAr"),
+            ContactTitleEn = T(f.ContactTitleEn, 60, "contactTitleEn"), ContactTitleAr = T(f.ContactTitleAr, 60, "contactTitleAr"),
+            CopyrightEn = T(f.CopyrightEn, 200, "copyrightEn"), CopyrightAr = T(f.CopyrightAr, 200, "copyrightAr"),
+        };
+        var social = new Dictionary<string, SocialLink>();
+        foreach (var k in SocialKinds)
+        {
+            var l = b.Social is not null && b.Social.TryGetValue(k, out var v) ? v : new SocialLink(false, null);
+            var url = T(l.Url, 300, "social_" + k);
+            if (url.Length > 0 && (!url.StartsWith("https://") || !SafeLink.IsAllowed(url))) throw Err("socialLink", "social_" + k);
+            social[k] = new SocialLink(l.On && url.Length > 0, url);
+        }
+        var web = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var before = new { s.FooterConfig, s.SocialLinks };
+        s.FooterConfig = JsonSerializer.Serialize(parts, web);
+        s.SocialLinks = JsonSerializer.Serialize(social, web);
+        s.UpdatedAt = clock.UtcNow; s.UpdatedBy = c.UserId;
+        audit.Write("settings.footer", "site_settings", null, before, new { s.FooterConfig, s.SocialLinks });
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>A picture placed in an email template from the editor: PNG, JPG, GIF or WebP up to 1 MB, served to email apps by GET /api/site/email-images/{file}.</summary>
+    [HttpPost("email-images")]
+    [RequestSizeLimit(1_200_000)]
+    public async Task<object> UploadEmailImage(IFormFile file, CancellationToken ct)
+    {
+        var c = await Need(ct);
+        var ext = System.IO.Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (ext is not (".png" or ".jpg" or ".jpeg" or ".gif" or ".webp")) throw Err("imageType", "file");
+        if (file.Length is 0 or > 1024 * 1024) throw Err("imageSize", "file");
+        var name = $"{Guid.NewGuid():N}{ext}";
+        await using (var stream = file.OpenReadStream()) await files.SaveAsync("email-images/" + name, stream, ct);
+        audit.Write("settings.email_image", "email_images", null, null, new { name, by = c.UserId });
+        return new { url = "/api/site/email-images/" + name };
     }
 
     public sealed record HomeBody(bool ShowPopular, string? PopularTitleEn, string? PopularTitleAr);
@@ -215,7 +287,17 @@ public sealed partial class SettingsController(
     public sealed record SmtpBody(bool UseSmtp, string Host, int Port, string Security, string Username, string? Password, bool ClearPassword,
         string FromName, string FromEmail, string ReplyTo);
     public sealed record TestBody(string? To);
-    public sealed record DesignBody(string HeaderColor, string AccentColor, string PageBackground, bool UseLogo, bool ShowSiteName, bool Rounded, bool LargeCodeBox);
+    public sealed record DesignBody(string HeaderColor, string AccentColor, string PageBackground, bool UseLogo, bool ShowSiteName, bool Rounded, bool LargeCodeBox,
+        bool Stripes = true, string? TaglineEn = null, string? TaglineAr = null, bool GreetingIcon = true, string? FooterNoteEn = null, string? FooterNoteAr = null,
+        bool FooterLogo = true, bool FooterSocial = true);
+
+    /// <summary>The design as saved: "use the logo" is kept as a marker; the mailer picks the current logo when it sends.</summary>
+    private static EmailDesign ToDesign(DesignBody d, string? logo)
+    {
+        static string Cut(string? v, int max) { var x = (v ?? "").Trim(); return x.Length > max ? x[..max] : x; }
+        return new EmailDesign(d.HeaderColor, d.AccentColor, d.PageBackground, logo, d.ShowSiteName, d.Rounded, d.LargeCodeBox,
+            d.Stripes, Cut(d.TaglineEn, 80), Cut(d.TaglineAr, 80), d.GreetingIcon, Cut(d.FooterNoteEn, 200), Cut(d.FooterNoteAr, 200), d.FooterLogo, d.FooterSocial);
+    }
 
     private async Task<EmailSettings> EmailAsync(CancellationToken ct) =>
         await db.EmailSettings.FirstOrDefaultAsync(ct) ?? db.EmailSettings.Add(new EmailSettings { Id = 1 }).Entity;
@@ -290,16 +372,19 @@ public sealed partial class SettingsController(
         await Need(ct);
         var site = await SiteAsync(ct);
         var d = b.Design;
-        var logo = d.UseLogo && site.LogoPath is not null ? $"/api/site/branding/{site.LogoPath}" : null;
         string Pick(string? c, string fallback) => c is not null && ColorRx().IsMatch(c) ? c : fallback;
-        var design = new EmailDesign(Pick(d.HeaderColor, "#0b1a3a"), Pick(d.AccentColor, "#1f64e6"),
-            Pick(d.PageBackground, "#f0f4fb"), logo, d.ShowSiteName, d.Rounded, d.LargeCodeBox);
+        var headerLogo = site.WordmarkDarkPath ?? site.WordmarkPath ?? site.LogoPath;
+        var footerLogo = site.WordmarkPath ?? site.LogoPath;
+        var design = ToDesign(d with { HeaderColor = Pick(d.HeaderColor, "#0b1a3a"), AccentColor = Pick(d.AccentColor, "#1f64e6"), PageBackground = Pick(d.PageBackground, "#f0f4fb") },
+            d.UseLogo && headerLogo is not null ? $"/api/site/branding/{headerLogo}" : null);
         var ar = b.Rtl;
+        // The preview is shown inside the admin page, so site paths (icons, logos) load from this site.
+        var extras = new EmailExtras(ar ? "مرحبًا كمال،" : "Hello Kamal,", "", footerLogo is null ? null : $"/api/site/branding/{footerLogo}", SocialLinks.Parse(site.SocialLinks));
         var r = EmailRenderer.Render(ar ? "رمز الدخول" : "Your sign-in code",
-            (ar ? "مرحبًا كمال،" : "Hello Kamal,") + "\n\n" + (ar ? "استخدم هذا الرمز لتسجيل الدخول. يعمل لمدة 10 دقائق." : "Use this code to sign in. It works for 10 minutes."),
+            (ar ? "استخدم هذا الرمز لتسجيل الدخول:\n**هذا الرمز صالح لمدة 10 دقيقة.**\n[tip]نصيحة أمنية | لا تشارك هذا الرمز مع أي شخص." : "Use this code to sign in:\n**This code is valid for 10 minutes.**\n[tip]Security tip | Never share this code with anyone."),
             ar ? "فتح التذكرة" : "Open the ticket", "https://example.com/", new Dictionary<string, string>(), design,
             ar ? site.SiteNameAr : site.SiteNameEn, ar ? "ar" : "en", ar ? "إذا لم تطلب هذا الرمز، تجاهل الرسالة." : "If you did not ask for this, ignore this email.",
-            d.LargeCodeBox ? "482913" : null);
+            d.LargeCodeBox ? "482913" : null, extras);
         return new { html = r.Html };
     }
 
@@ -311,10 +396,10 @@ public sealed partial class SettingsController(
             if (!ColorRx().IsMatch(v ?? "")) throw Err("color", f);
         var e = await EmailAsync(ct);
         var site = await SiteAsync(ct);
-        var logo = b.UseLogo && site.LogoPath is not null ? $"/api/site/branding/{site.LogoPath}" : null;
+        var headerLogo = site.WordmarkDarkPath ?? site.WordmarkPath ?? site.LogoPath;
+        var logo = b.UseLogo && headerLogo is not null ? $"/api/site/branding/{headerLogo}" : null;
         var before = e.Design;
-        e.Design = JsonSerializer.Serialize(new EmailDesign(b.HeaderColor, b.AccentColor, b.PageBackground, logo, b.ShowSiteName, b.Rounded, b.LargeCodeBox),
-            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        e.Design = JsonSerializer.Serialize(ToDesign(b, logo), new JsonSerializerOptions(JsonSerializerDefaults.Web));
         e.UpdatedAt = clock.UtcNow; e.UpdatedBy = c.UserId;
         audit.Write("settings.email_design", "email_settings", null, before, e.Design);
         await db.SaveChangesAsync(ct);

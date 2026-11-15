@@ -1,12 +1,13 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, computed, effect, forwardRef, inject, input, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { Auth } from '../../core/auth';
-import { MenuRow, SiteService } from '../../core/api';
+import { FOOTER_DEFAULTS, FooterConfig, MenuRow, SiteService, SOCIAL_KINDS } from '../../core/api';
+import { SocialIcon } from '../../shared/social-icons';
 import { adminError } from '../../core/admin-api';
 import { apiUrl } from '../../core/api-base';
 import { I18n, TPipe } from '../../core/i18n';
@@ -15,6 +16,7 @@ import { EMAIL_ALL_PLACEHOLDERS, FormatBar, GLOBAL_TOKENS, PlaceholderInfo, Plac
 import { RichText, varsOf } from '../../shared/rich-text';
 import { CLS, Msg } from './admin-pages';
 import { feedbackFor } from '../../shared/feedback';
+import { RichEditor } from '../../shared/rich-editor';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
 const TABS = ['', 'home', 'menus', 'email', 'templates', 'messages', 'uploads', 'system', 'signin-codes', 'handover'];
@@ -62,7 +64,7 @@ const REQ = `<app-req />`;
 
 @Component({
   selector: 'app-set-branding',
-  imports: [TPipe, FormsModule, Alert],
+  imports: [TPipe, FormsModule, Alert, forwardRef(() => FooterSettings)],
   template: `
     ${MSG}
     @if (m) {
@@ -87,12 +89,23 @@ const REQ = `<app-req />`;
               <div class="flex flex-col gap-1.5">
                 <span [class]="cls.label">{{ 'AdminGeneral.' + sec.image | t }}</span>
                 <div class="flex flex-wrap items-center gap-3">
-                  @if (img(sec.image); as src) { <img [src]="src" alt="" class="h-16 w-16 rounded-lg border border-line object-contain" /> } @else { <span class="flex h-16 w-16 items-center justify-center rounded-lg border border-line bg-brand-soft text-xs text-muted">{{ 'AdminGeneral.defaultIcon' | t }}</span> }
+                  @if (img(sec.image); as src) { <img [src]="src" alt="" [class]="sec.image === 'wordmark' ? 'h-16 w-auto max-w-[16rem] rounded-lg border border-line bg-white object-contain p-2' : 'h-16 w-16 rounded-lg border border-line object-contain'" /> } @else { <span class="flex h-16 w-16 items-center justify-center rounded-lg border border-line bg-brand-soft text-xs text-muted">{{ 'AdminGeneral.defaultIcon' | t }}</span> }
                   <input type="file" class="cursor-pointer text-sm file:me-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:font-semibold file:text-brand-ink file:transition-colors hover:file:bg-brand hover:file:text-white"[attr.aria-label]="'AdminGeneral.' + sec.image | t" accept=".png,.jpg,.jpeg,.webp,.svg,.ico" (change)="upload(sec.image, $any($event.target))" />
                   @if (img(sec.image)) { <button type="button" [class]="cls.btn2" (click)="remove(sec.image)">{{ 'AdminGeneral.removeImage' | t }}</button> }
                 </div>
                 <p class="text-sm text-muted">{{ 'AdminGeneral.' + sec.image + 'Hint' | t }}</p>
               </div>
+              @if (sec.image === 'wordmark') {
+                <div class="flex flex-col gap-1.5">
+                  <span [class]="cls.label">{{ 'AdminGeneral.wordmarkdark' | t }}</span>
+                  <div class="flex flex-wrap items-center gap-3">
+                    <span class="grid h-16 min-w-32 place-items-center rounded-lg bg-[#0b1a3a] px-3">
+                      @if (img('wordmarkdark'); as src) { <img [src]="src" alt="" class="h-10 w-auto max-w-[14rem] object-contain" /> } @else { <span class="text-xs text-white/70">{{ 'AdminGeneral.noImage' | t }}</span> }</span>
+                    <input type="file" class="cursor-pointer text-sm file:me-3 file:min-h-9 file:cursor-pointer file:rounded-md file:border-0 file:bg-brand-soft file:px-3 file:font-semibold file:text-brand-ink" [attr.aria-label]="'AdminGeneral.wordmarkdark' | t" accept=".png,.webp,.svg" (change)="upload('wordmarkdark', $any($event.target))" />
+                  </div>
+                  <p class="text-sm text-muted">{{ 'AdminGeneral.wordmarkdarkHint' | t }}</p>
+                </div>
+              }
             }
           </fieldset>
           @if (sec.title === 'secFooter') {
@@ -109,6 +122,7 @@ const REQ = `<app-req />`;
         }
         ${SAVE}
       </form>
+      <app-footer-settings />
     }`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
@@ -116,25 +130,138 @@ export class BrandingTab extends Tab implements OnInit {
   protected readonly sections = [
     { title: 'secSite', image: 'favicon', fields: ['siteNameEn', 'siteNameAr'] },
     { title: 'secHeader', image: 'logo', fields: ['headerNameEn', 'headerNameAr', 'headerSubEn', 'headerSubAr'] },
+    { title: 'secWordmark', image: 'wordmark', fields: [] as string[] },
     { title: 'secFooter', image: '', fields: ['footerTextEn', 'footerTextAr', 'contactEmail', 'contactPhone', 'contactHoursEn', 'contactHoursAr'] },
     { title: 'secTexts', image: '', fields: ['homeTitleEn', 'homeTitleAr', 'homeIntroEn', 'homeIntroAr', 'loginNoticeEn', 'loginNoticeAr'] },
   ];
   protected m: Record<string, string> | null = null;
-  private paths = signal<{ logo: string | null; favicon: string | null }>({ logo: null, favicon: null });
+  private paths = signal<Record<string, string | null>>({});
 
   async ngOnInit(): Promise<void> {
     const s = await this.get<Record<string, string | null>>('branding');
     this.m = Object.fromEntries(Object.entries(s).map(([k, v]) => [k, v ?? '']));
-    this.paths.set({ logo: s['logoPath'] ?? null, favicon: s['faviconPath'] ?? null });
+    this.paths.set({ logo: s['logoPath'] ?? null, favicon: s['faviconPath'] ?? null, wordmark: s['wordmarkPath'] ?? null, wordmarkdark: s['wordmarkDarkPath'] ?? null });
   }
-  protected img(kind: string): string | null { const p = kind === 'logo' ? this.paths().logo : this.paths().favicon; return p ? apiUrl('/api/site/branding/' + p) : null; }
+  protected img(kind: string): string | null { const p = this.paths()[kind]; return p ? apiUrl('/api/site/branding/' + p) : null; }
   protected submit(): void { void this.save(() => this.put('branding', this.m)); }
   protected async upload(kind: string, el: HTMLInputElement): Promise<void> {
     const f = el.files?.[0]; if (!f) return;
     const fd = new FormData(); fd.append('file', f);
-    if (await this.save(async () => { const r = await this.post<{ path: string }>('branding/' + kind, fd); this.paths.update((p) => ({ ...p, [kind]: r.path })); })) el.value = '';
+    const ok = await this.save(async () => {
+      const r = await this.post<{ path: string }>('branding/' + kind, fd);
+      this.paths.update((p) => ({ ...p, [kind]: r.path }));
+      // A new wide logo also gets its white version for dark backgrounds (the email header).
+      if (kind === 'wordmark') {
+        const white = await whiteVersion(f);
+        if (white) { const w = new FormData(); w.append('file', white, 'white.png'); const d = await this.post<{ path: string }>('branding/wordmarkdark', w); this.paths.update((p) => ({ ...p, wordmarkdark: d.path })); }
+      }
+    });
+    if (ok) el.value = '';
   }
-  protected remove(kind: string): void { void this.save(async () => { await this.del('branding/' + kind); this.paths.update((p) => ({ ...p, [kind]: null })); }); }
+  protected remove(kind: string): void {
+    void this.save(async () => {
+      await this.del('branding/' + kind); this.paths.update((p) => ({ ...p, [kind]: null }));
+      if (kind === 'wordmark' && this.paths()['wordmarkdark']) { await this.del('branding/wordmarkdark'); this.paths.update((p) => ({ ...p, wordmarkdark: null })); }
+    });
+  }
+}
+
+/** Every visible pixel of the logo turned white, keeping its transparency; null when the picture cannot be read. */
+async function whiteVersion(file: File): Promise<Blob | null> {
+  try {
+    const url = URL.createObjectURL(file);
+    const img = await new Promise<HTMLImageElement>((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = fail; i.src = url; });
+    const w = img.naturalWidth || 600, h = img.naturalHeight || 160;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const g = c.getContext('2d'); if (!g) return null;
+    g.drawImage(img, 0, 0, w, h);
+    g.globalCompositeOperation = 'source-in'; g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+    URL.revokeObjectURL(url);
+    return await new Promise<Blob | null>((ok) => c.toBlob(ok, 'image/png'));
+  } catch { return null; }
+}
+
+// ================================================================== footer layout and social links (Branding tab)
+
+@Component({
+  selector: 'app-footer-settings',
+  imports: [TPipe, FormsModule, Alert, SocialIcon],
+  template: `
+    @if (f) {
+    <form [class]="cls.card + ' mt-6 flex flex-col gap-4 p-5'" (ngSubmit)="saveFooter()">
+      ${MSG}
+      <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.fTitle' | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.fHint' | t }}</p></div>
+
+
+      @for (p of parts; track p.key) {
+        <fieldset class="flex flex-col gap-2.5 rounded-xl border border-line p-3.5" [class.opacity-60]="!$any(f)[p.key]">
+          <legend class="px-1"><label class="flex items-center gap-2 font-bold"><input type="checkbox" class="h-5 w-5" [name]="'sw-' + p.key" [(ngModel)]="$any(f)[p.key]" />{{ 'AdminGeneral.fp_' + p.key | t }}</label></legend>
+          @if (p.texts) {
+            <div class="grid gap-3 md:grid-cols-2">
+              <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.' + p.texts + 'En' | t }}<input [name]="p.texts + 'En'" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="$any(f)[p.texts + 'En']" /></label>
+              <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.' + p.texts + 'Ar' | t }}<input [name]="p.texts + 'Ar'" dir="rtl" maxlength="300" [class]="cls.input + ' font-normal'" [(ngModel)]="$any(f)[p.texts + 'Ar']" /></label>
+            </div>
+          }
+          @if (p.key === 'social') {
+            <div class="flex flex-col gap-2">
+              @for (k of kinds; track k) {
+                <div class="grid grid-cols-[auto_8rem_1fr] items-center gap-2.5">
+                  <input type="checkbox" class="h-5 w-5" [name]="'so-' + k" [(ngModel)]="social[k].on" [attr.aria-label]="'Footer.s_' + k | t" />
+                  <span class="flex items-center gap-2 text-sm font-semibold"><app-social-icon [kind]="k" />{{ 'Footer.s_' + k | t }}</span>
+                  <input [name]="'su-' + k" [attr.aria-label]="('Footer.s_' + k | t) + ' https://'" dir="ltr" type="url" placeholder="https://" maxlength="300" [class]="cls.input" [(ngModel)]="social[k].url" />
+                </div>
+              }
+            </div>
+          }
+          @if (p.key === 'contact') {
+            <div class="flex flex-wrap gap-x-6 gap-y-2">
+              @for (c of ['email', 'phone', 'hours']; track c) {
+                <label class="flex min-h-10 items-center gap-2 text-sm font-semibold"><input type="checkbox" class="h-5 w-5" [name]="'sw-' + c" [(ngModel)]="$any(f)[c]" />{{ 'AdminGeneral.fc_' + c | t }}</label>
+              }
+            </div>
+          }
+          @if (p.hint) { <p class="text-sm text-muted">{{ 'AdminGeneral.' + p.hint | t }}</p> }
+        </fieldset>
+      }
+      <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCommon.save' | t }}</button></div>
+    </form>
+    }`,
+  changeDetection: ChangeDetectionStrategy.Default,
+})
+export class FooterSettings extends Tab implements OnInit {
+  protected readonly kinds = SOCIAL_KINDS;
+  /** The parts in the order they appear; "texts" names the English/Arabic pair of boxes. */
+  protected readonly parts = [
+    { key: 'logo', texts: '', hint: 'fpHint_logo' },
+    { key: 'about', texts: 'fAbout', hint: '' },
+    { key: 'social', texts: '', hint: 'fpHint_social' },
+    { key: 'links', texts: 'fLinksTitle', hint: 'fpHint_links' },
+    { key: 'contact', texts: 'fContactTitle', hint: 'fpHint_contact' },
+    { key: 'copyright', texts: 'fCopyright', hint: 'fpHint_copyright' },
+    { key: 'extra', texts: '', hint: 'fpHint_extra' },
+  ];
+  protected f: (FooterConfig & Record<string, unknown>) | null = null;
+  protected social: Record<string, { on: boolean; url: string }> = {};
+  async ngOnInit(): Promise<void> {
+    const s = await this.get<{ footerConfig?: string; socialLinks?: string }>('branding');
+    const read = <T,>(j: string | undefined, d: T): T => { try { return j ? { ...d, ...JSON.parse(j) } : d; } catch { return d; } };
+    const cfg = read<FooterConfig>(s.footerConfig, FOOTER_DEFAULTS);
+    // The box names use the "f" prefix; the stored names do not.
+    this.f = { ...cfg, fAboutEn: cfg.aboutEn, fAboutAr: cfg.aboutAr, fLinksTitleEn: cfg.linksTitleEn, fLinksTitleAr: cfg.linksTitleAr,
+      fContactTitleEn: cfg.contactTitleEn, fContactTitleAr: cfg.contactTitleAr, fCopyrightEn: cfg.copyrightEn, fCopyrightAr: cfg.copyrightAr };
+    const so = read<Record<string, { on: boolean; url: string }>>(s.socialLinks, {});
+    for (const k of SOCIAL_KINDS) this.social[k] = { on: !!so[k]?.on, url: so[k]?.url ?? '' };
+  }
+  protected saveFooter(): void {
+    const f = this.f!; const t = (k: string) => String(f[k] ?? '');
+    const footer: FooterConfig = {
+      logo: f.logo, about: f.about, aboutEn: t('fAboutEn'), aboutAr: t('fAboutAr'), social: f.social,
+      links: f.links, linksTitleEn: t('fLinksTitleEn'), linksTitleAr: t('fLinksTitleAr'),
+      contact: f.contact, contactTitleEn: t('fContactTitleEn'), contactTitleAr: t('fContactTitleAr'), email: f.email, phone: f.phone, hours: f.hours,
+      copyright: f.copyright, copyrightEn: t('fCopyrightEn'), copyrightAr: t('fCopyrightAr'), extra: f.extra,
+    };
+    void this.save(() => this.put('branding/footer', { footer, social: this.social }));
+  }
 }
 
 // ================================================================== home page
@@ -276,7 +403,8 @@ export class MenusTab extends Tab implements OnInit {
 
 interface EmailData {
   useSmtp: boolean; host: string; port: number; security: string; username: string; hasPassword: boolean; passwordOk?: boolean; fromName: string; fromEmail: string; replyTo: string;
-  design: { headerColor: string; accentColor: string; pageBackground: string; logoUrl: string | null; showSiteName: boolean; rounded: boolean; largeCodeBox: boolean };
+  design: { headerColor: string; accentColor: string; pageBackground: string; logoUrl: string | null; showSiteName: boolean; rounded: boolean; largeCodeBox: boolean;
+    stripes?: boolean; taglineEn?: string; taglineAr?: string; greetingIcon?: boolean; footerNoteEn?: string; footerNoteAr?: string; footerLogo?: boolean; footerSocial?: boolean };
   lastTestAt: string | null; lastTestOk: boolean | null; lastTestError: string | null;
 }
 
@@ -356,7 +484,8 @@ interface TplDefaults { ticketEvents: string[]; authEvents: string[]; en: Record
 type Fields = { subject: string; body: string; button: string; link: string; greeting: string; footer: string };
 const LAYOUT = '_layout';
 const NO_FOOTER = '[[none]]';
-const DEFAULT_DESIGN = { headerColor: '#0b1a3a', accentColor: '#1f64e6', pageBackground: '#f0f4fb', useLogo: false, showSiteName: true, rounded: true, largeCodeBox: true };
+const DEFAULT_DESIGN = { headerColor: '#0b1a3a', accentColor: '#1f64e6', pageBackground: '#f0f4fb', useLogo: false, showSiteName: true, rounded: true, largeCodeBox: true,
+  stripes: true, taglineEn: '', taglineAr: '', greetingIcon: true, footerNoteEn: 'This is an automated message. Please do not reply.', footerNoteAr: 'هذه رسالة آلية، يُرجى عدم الرد عليها.', footerLogo: true, footerSocial: true };
 
 /** The look of every email, with a live preview (v1 EmailDesign, on the Email templates tab). */
 @Component({
@@ -373,10 +502,24 @@ const DEFAULT_DESIGN = { headerColor: '#0b1a3a', accentColor: '#1f64e6', pageBac
                 <input type="text" [id]="'dc-' + c.key" [name]="c.key" maxlength="7" dir="ltr" class="min-h-11 w-32 rounded-lg border border-line bg-surface px-3 font-mono text-sm font-bold" [ngModel]="$any(d)[c.key]" (ngModelChange)="hex(c.key, $event)" /></div></div>
           }
           <div class="flex flex-col gap-1">
-            <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="logo" class="h-5 w-5" [(ngModel)]="d.useLogo" (ngModelChange)="refresh()" [disabled]="!site.logoUrl()" /> {{ 'AdminGeneral.designUseLogo' | t }}</label>
-            @if (!site.logoUrl()) { <p class="text-xs text-muted">{{ 'AdminGeneral.designNoLogo' | t }}</p> }
+            <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="logo" class="h-5 w-5" [(ngModel)]="d.useLogo" (ngModelChange)="refresh()" [disabled]="!site.logoUrl() && !site.wordmarkUrl()" /> {{ 'AdminGeneral.designUseLogo' | t }}</label>
+            @if (!site.logoUrl() && !site.wordmarkUrl()) { <p class="text-xs text-muted">{{ 'AdminGeneral.designNoLogo' | t }}</p> }
           </div>
           <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="name" class="h-5 w-5" [(ngModel)]="d.showSiteName" (ngModelChange)="refresh()" /> {{ 'AdminGeneral.designShowName' | t }}</label>
+          <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="stripes" class="h-5 w-5" [(ngModel)]="d.stripes" (ngModelChange)="refresh()" /> {{ 'AdminGeneral.designStripes' | t }}</label>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminGeneral.designTaglineEn' | t }}<input name="tagEn" maxlength="80" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base font-normal" [placeholder]="'AdminGeneral.designTaglinePh' | t" [(ngModel)]="d.taglineEn" (ngModelChange)="refresh()" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminGeneral.designTaglineAr' | t }}<input name="tagAr" dir="rtl" maxlength="80" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base font-normal" [(ngModel)]="d.taglineAr" (ngModelChange)="refresh()" /></label>
+          </div>
+          <p class="-mt-2 text-xs text-muted">{{ 'AdminGeneral.designTaglineHint' | t }}</p>
+          <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="greet" class="h-5 w-5" [(ngModel)]="d.greetingIcon" (ngModelChange)="refresh()" /> {{ 'AdminGeneral.designGreetingIcon' | t }}</label>
+          <fieldset class="flex flex-col gap-2 rounded-lg border border-line p-3"><legend class="px-1 text-sm font-bold">{{ 'AdminGeneral.designFooter' | t }}</legend>
+            <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="flogo" class="h-5 w-5" [(ngModel)]="d.footerLogo" (ngModelChange)="refresh()" /> {{ 'AdminGeneral.designFooterLogo' | t }}</label>
+            <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="fsoc" class="h-5 w-5" [(ngModel)]="d.footerSocial" (ngModelChange)="refresh()" /> {{ 'AdminGeneral.designFooterSocial' | t }}</label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminGeneral.designNoteEn' | t }}<input name="noteEn" maxlength="200" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base font-normal" [(ngModel)]="d.footerNoteEn" (ngModelChange)="refresh()" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminGeneral.designNoteAr' | t }}<input name="noteAr" dir="rtl" maxlength="200" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base font-normal" [(ngModel)]="d.footerNoteAr" (ngModelChange)="refresh()" /></label>
+            <p class="text-xs text-muted">{{ 'AdminGeneral.designFooterHint' | t }}</p>
+          </fieldset>
           <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="code" class="h-5 w-5" [(ngModel)]="d.largeCodeBox" (ngModelChange)="refresh()" /> {{ 'AdminGeneral.designCodeBox' | t }}</label>
           <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminGeneral.designCorners' | t }}
             <select name="corners" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [ngModel]="d.rounded ? 'round' : 'square'" (ngModelChange)="d.rounded = $event === 'round'; refresh()">
@@ -413,7 +556,9 @@ export class EmailDesignPanel extends Tab implements OnInit {
   private timer: ReturnType<typeof setTimeout> | undefined;
   async ngOnInit(): Promise<void> {
     const e = await this.get<EmailData>('email'); const x = e.design;
-    this.d = { headerColor: x.headerColor, accentColor: x.accentColor, pageBackground: x.pageBackground, useLogo: !!x.logoUrl, showSiteName: x.showSiteName, rounded: x.rounded, largeCodeBox: x.largeCodeBox };
+    this.d = { headerColor: x.headerColor, accentColor: x.accentColor, pageBackground: x.pageBackground, useLogo: !!x.logoUrl, showSiteName: x.showSiteName, rounded: x.rounded, largeCodeBox: x.largeCodeBox,
+      stripes: x.stripes ?? true, taglineEn: x.taglineEn ?? '', taglineAr: x.taglineAr ?? '', greetingIcon: x.greetingIcon ?? true, footerNoteEn: x.footerNoteEn ?? DEFAULT_DESIGN.footerNoteEn,
+      footerNoteAr: x.footerNoteAr ?? DEFAULT_DESIGN.footerNoteAr, footerLogo: x.footerLogo ?? true, footerSocial: x.footerSocial ?? true };
     this.refresh();
   }
   protected refresh(): void {
@@ -426,7 +571,7 @@ export class EmailDesignPanel extends Tab implements OnInit {
 /** Email templates (v1 EmailTemplates): event list, editor per language with greeting, subject, formatted body, button, link and footer, live preview, test and reset. */
 @Component({
   selector: 'app-set-templates',
-  imports: [TPipe, FormsModule, Alert, EmailDesignPanel, PlaceholderPicker, FormatBar],
+  imports: [TPipe, FormsModule, Alert, EmailDesignPanel, PlaceholderPicker, RichEditor],
   template: `
     <app-email-design />
     <div class="flex flex-col gap-4">
@@ -464,10 +609,10 @@ export class EmailDesignPanel extends Tab implements OnInit {
                     }
                     <label class="flex flex-col gap-1 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplGreeting' : 'AdminGeneral.tplSubject') | t }}
                       <input [name]="'s' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="200" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-semibold" [(ngModel)]="v[loc].subject" (focus)="track(loc, 'subject', $event)" (ngModelChange)="preview(loc)" /></label>
-                    <label [for]="'tb-' + loc" class="-mb-2 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplFooter' : 'AdminGeneral.tplBody') | t }}</label>
-                    <app-format-bar [el]="bodyEl" [anchor]="true" (changed)="v[loc].body = $event; preview(loc)" />
-                    <textarea #bodyEl [id]="'tb-' + loc" [name]="'b' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" [rows]="ev === layout ? 3 : 5" maxlength="2000"
-                      class="min-h-24 w-full rounded-lg border border-line bg-surface px-3 py-2 text-base" [(ngModel)]="v[loc].body" (focus)="track(loc, 'body', $event)" (ngModelChange)="preview(loc)"></textarea>
+                    <span class="-mb-1 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplFooter' : 'AdminGeneral.tplBody') | t }}</span>
+                    <app-rich-editor [value]="v[loc].body" [dir]="loc === 'ar' ? 'rtl' : 'ltr'" [rows]="ev === layout ? 3 : 6"
+                      [label]="((ev === layout ? 'AdminGeneral.tplFooter' : 'AdminGeneral.tplBody') | t) + ' (' + loc + ')'"
+                      (valueChange)="v[loc].body = $event; preview(loc)" (focused)="trackRich(loc, 'body', $event)" />
                     <label class="flex flex-col gap-1 text-sm font-semibold">{{ (ev === layout ? 'AdminGeneral.tplButton' : 'AdminGeneral.tplButtonOverride') | t }}
                       <input [name]="'u' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" maxlength="60" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base font-semibold" [placeholder]="ev === layout ? '' : btnDefault(ev, loc)" [(ngModel)]="v[loc].button" (focus)="track(loc, 'button', $event)" (ngModelChange)="preview(loc)" />
                       @if (ev !== layout) { <span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplButtonHint' | t: { text: btnDefault(ev, loc) } }}</span> }</label>
@@ -477,10 +622,9 @@ export class EmailDesignPanel extends Tab implements OnInit {
                         <span class="text-xs font-normal text-muted">{{ 'AdminGeneral.tplLinkHint' | t }}</span></label>
                     }
                     @if (ev !== layout) {
-                      <label [for]="'tf-' + loc" class="-mb-2 text-sm font-semibold">{{ 'AdminGeneral.tplFooter' | t }}</label>
-                      <app-format-bar [el]="footEl" [anchor]="true" (changed)="v[loc].footer = $event; preview(loc)" />
-                      <textarea #footEl [id]="'tf-' + loc" [name]="'f' + loc" [attr.dir]="loc === 'ar' ? 'rtl' : 'ltr'" rows="3" maxlength="2000"
-                        class="min-h-20 w-full rounded-lg border border-line bg-surface px-3 py-2 text-base" [(ngModel)]="v[loc].footer" (focus)="track(loc, 'footer', $event)" (ngModelChange)="preview(loc)"></textarea>
+                      <span class="-mb-1 text-sm font-semibold">{{ 'AdminGeneral.tplFooter' | t }}</span>
+                      <app-rich-editor [value]="v[loc].footer" [dir]="loc === 'ar' ? 'rtl' : 'ltr'" [rows]="3" [label]="('AdminGeneral.tplFooter' | t) + ' (' + loc + ')'"
+                        (valueChange)="v[loc].footer = $event; preview(loc)" (focused)="trackRich(loc, 'footer', $event)" />
                       <p class="-mt-1 text-xs text-muted">{{ 'AdminGeneral.tplSharedField' | t }}</p>
                     }
                     <div class="flex flex-col gap-2 rounded-lg border border-line bg-bg p-3">
@@ -526,7 +670,7 @@ export class TemplatesTab extends Tab implements OnInit {
   protected readonly testing = signal(false);
   protected readonly testLoc = signal<string | null>(null);
   protected readonly tests = signal<Record<string, { ok: boolean; text: string } | null>>({ en: null, ar: null });
-  private focused: { loc: 'en' | 'ar'; k: keyof Fields; el: HTMLInputElement | HTMLTextAreaElement } | null = null;
+  private focused: { loc: 'en' | 'ar'; k: keyof Fields; el?: HTMLInputElement | HTMLTextAreaElement; rich?: RichEditor } | null = null;
   private timers: Record<string, ReturnType<typeof setTimeout> | undefined> = {};
 
   async ngOnInit(): Promise<void> {
@@ -558,14 +702,18 @@ export class TemplatesTab extends Tab implements OnInit {
     }
   }
   protected track(loc: 'en' | 'ar', k: keyof Fields, e: Event): void { this.focused = { loc, k, el: e.target as HTMLInputElement }; this.needField.set(false); }
+  /** The body and footer use the visual editor: a placeholder goes in at its cursor. */
+  protected trackRich(loc: 'en' | 'ar', k: keyof Fields, ed: RichEditor): void { this.focused = { loc, k, rich: ed }; this.needField.set(false); }
   protected insert(token: string): void {
     const f = this.focused;
     if (!f) { this.needField.set(true); return; }
+    if (f.rich) { f.rich.insertText(token); return; }
+    if (!f.el) return;
     const s = f.el.selectionStart ?? f.el.value.length, e = f.el.selectionEnd ?? s;
     const cur = this.v[f.loc][f.k];
     this.v[f.loc][f.k] = cur.slice(0, s) + token + cur.slice(e);
     this.preview(f.loc);
-    requestAnimationFrame(() => { f.el.focus(); f.el.setSelectionRange(s + token.length, s + token.length); });
+    const el = f.el; requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s + token.length, s + token.length); });
   }
   protected preview(loc: 'en' | 'ar', wait = 300): void {
     const ev = this.cur(); if (!ev) return;

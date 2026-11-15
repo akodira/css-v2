@@ -49,7 +49,7 @@ export interface NewTicketOptions { types: TypeOption[]; categories: CategoryOpt
 export interface SiteInfo {
   site: {
     siteNameEn: string; siteNameAr: string; headerNameEn: string; headerNameAr: string; headerSubEn: string; headerSubAr: string;
-    logoPath: string | null; faviconPath?: string | null; homeContent?: string; footerTextEn: string; footerTextAr: string; contactEmail: string | null; contactPhone: string | null;
+    logoPath: string | null; faviconPath?: string | null; wordmarkPath?: string | null; wordmarkDarkPath?: string | null; footerConfig?: string; socialLinks?: string; homeContent?: string; footerTextEn: string; footerTextAr: string; contactEmail: string | null; contactPhone: string | null;
     contactHoursEn: string; contactHoursAr: string; brandColor: string | null; loginNoticeEn: string; loginNoticeAr: string;
     homeTitleEn: string; homeTitleAr: string; homeIntroEn: string; homeIntroAr: string; registrationMode: string;
     uploadMaxMb: number; uploadMaxFiles: number; uploadExtensions: string;
@@ -63,6 +63,22 @@ export interface SiteInfo {
   systemMessages?: { key: string; locale: string; body: string }[];
 }
 
+/** Settings → Branding → Footer: every part has a show switch; empty texts fall back to the standard wording. */
+export interface FooterConfig {
+  logo: boolean; about: boolean; aboutEn: string; aboutAr: string; social: boolean;
+  links: boolean; linksTitleEn: string; linksTitleAr: string;
+  contact: boolean; contactTitleEn: string; contactTitleAr: string; email: boolean; phone: boolean; hours: boolean;
+  copyright: boolean; copyrightEn: string; copyrightAr: string; extra: boolean;
+}
+export const FOOTER_DEFAULTS: FooterConfig = {
+  logo: true, about: true, aboutEn: '', aboutAr: '', social: true, links: true, linksTitleEn: '', linksTitleAr: '',
+  contact: true, contactTitleEn: '', contactTitleAr: '', email: true, phone: true, hours: true,
+  copyright: true, copyrightEn: '', copyrightAr: '', extra: true,
+};
+export const SOCIAL_KINDS = ['web', 'linkedin', 'youtube', 'facebook', 'x'] as const;
+export type SocialLinks = Record<string, { on: boolean; url: string }>;
+const parse = <T,>(json: string | undefined, fallback: T): T => { try { return json ? { ...fallback, ...JSON.parse(json) } : fallback; } catch { return fallback; } };
+
 export interface MenuRow { id: string; area: string; parentId: string | null; kind: 'link' | 'group'; labelEn: string; labelAr: string; href: string | null; audience: string; newTab: boolean; sortOrder: number; systemKey: string | null }
 
 // ---- Services ---------------------------------------------------------------------------------
@@ -75,6 +91,11 @@ export class SiteService {
   readonly menus = signal<MenuRow[]>([]);
   /** The uploaded logo, or null for the built-in mark. */
   readonly logoUrl = computed(() => { const p = this.info()?.site?.logoPath; return p ? apiUrl('/api/site/branding/' + p) : null; });
+  /** The wide logo (full name) for light backgrounds, and its white version for dark ones; null when not uploaded. */
+  readonly wordmarkUrl = computed(() => { const p = this.info()?.site?.wordmarkPath; return p ? apiUrl('/api/site/branding/' + p) : null; });
+  readonly wordmarkDarkUrl = computed(() => { const p = this.info()?.site?.wordmarkDarkPath; return p ? apiUrl('/api/site/branding/' + p) : null; });
+  readonly footer = computed(() => parse<FooterConfig>(this.info()?.site?.footerConfig, FOOTER_DEFAULTS));
+  readonly social = computed(() => parse<SocialLinks>(this.info()?.site?.socialLinks, {}));
 
   async load(): Promise<void> {
     try {

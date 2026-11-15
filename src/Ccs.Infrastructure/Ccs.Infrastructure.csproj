@@ -18,5 +18,7 @@
   <ItemGroup>
     <!-- v1 built-in email wording (Notifications.events, footers, account emails), used when a template is not customised. -->
     <EmbeddedResource Include="Email\email-defaults.json" LogicalName="Ccs.EmailDefaults.json" />
+    <!-- Icons drawn inside emails (person, shield, social), served by GET /api/site/email-assets/{name}.png. -->
+    <EmbeddedResource Include="Email\assets\*.png" LogicalName="Ccs.EmailAssets.%(Filename).png" />
   </ItemGroup>
 </Project>

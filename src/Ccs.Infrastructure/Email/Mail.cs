@@ -134,12 +134,16 @@ public sealed class TemplateMailer(CcsDbContext db, IOptions<AppUrlOptions> urls
         // Greeting, body and footer are Markdown: values go in neutralised (security audit M-03). The link stays raw (a URL).
         var greet = System.Text.RegularExpressions.Regex.Replace(EmailRenderer.FillText(greeting, values), @"\s+([,،])", "$1");
         var design = EmailDesign.FromJson(settings.Design);
-        if (design.LogoUrl is { } lu && lu.StartsWith('/')) design = design with { LogoUrl = siteUrl + lu };
+        // "Use the logo" in Design: the header shows the white wide logo, else the wide logo, else the header icon.
+        var headerLogo = site.WordmarkDarkPath ?? site.WordmarkPath ?? site.LogoPath;
+        design = design with { LogoUrl = design.LogoUrl is null || headerLogo is null ? null : $"{siteUrl}/api/site/branding/{headerLogo}" };
+        var footerLogo = site.WordmarkPath ?? site.LogoPath;
+        var extras = new EmailExtras(greet, siteUrl, footerLogo is null ? null : $"{siteUrl}/api/site/branding/{footerLogo}", SocialLinks.Parse(site.SocialLinks));
         // Account emails: the code shows in the large box when the design asks for it and the text contains it (v1).
         var showBox = code is not null && design.LargeCodeBox && EmailRenderer.FillText(body, values).Contains(code);
         if (showBox) body = System.Text.RegularExpressions.Regex.Replace(EmailRenderer.FillText(body, values).Replace(code!, ""), @"[:：]\s*(\n|$)", "$1");
-        return EmailRenderer.Render(subject, greet + "\n\n" + body, link is null ? null : label, link, values, design, siteName, locale,
-            footer.Length == 0 ? null : EmailRenderer.FillText(footer, values), showBox ? code : null);
+        return EmailRenderer.Render(subject, body, link is null ? null : label, link, values, design, siteName, locale,
+            footer.Length == 0 ? null : EmailRenderer.FillText(footer, values), showBox ? code : null, extras);
     }
 }
 

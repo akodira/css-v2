@@ -84,3 +84,12 @@ BEGIN
     EXEC (N'UPDATE ccs.signin_code_settings SET admins_need_two_factor = staff_need_two_factor;');
 END
 GO
+
+/* Branding (Nov 2026): a wide logo with a white version for dark backgrounds, an editable footer and social links. */
+IF COL_LENGTH(N'ccs.site_settings', N'wordmark_path') IS NULL
+    ALTER TABLE ccs.site_settings ADD
+        wordmark_path nvarchar(200) NULL,
+        wordmark_dark_path nvarchar(200) NULL,
+        footer_config nvarchar(max) NOT NULL CONSTRAINT DF_site_footer_config DEFAULT N'{}',
+        social_links nvarchar(max) NOT NULL CONSTRAINT DF_site_social_links DEFAULT N'{}';
+GO

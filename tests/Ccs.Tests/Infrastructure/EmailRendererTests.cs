@@ -51,4 +51,65 @@ public sealed class EmailRendererTests
         var html = Render("{subject}", new() { ["subject"] = "<script>alert(1)</script>" }).Html;
         Assert.DoesNotContain("<script>", html);
     }
+
+    // ---------------------------------------------------------------- editor formatting (Nov 2026)
+
+    private static string Md(string md) => EmailRenderer.MarkdownToHtml(md, "#1f64e6", "ltr", "https://ccs.example");
+
+    [Fact]
+    public void Alignment_heading_line_and_tip_box_render()
+    {
+        var html = Md("[center]Hello\n[end]Bye\n## Your code\n[line]\n[tip]Security tip | Keep it secret");
+        Assert.Contains("text-align:center;\">Hello", html);
+        Assert.Contains("text-align:right;\">Bye", html);
+        Assert.Contains("font-size:20px", html);
+        Assert.Contains("<hr", html);
+        Assert.Contains("Security tip", html);
+        Assert.Contains("https://ccs.example/api/site/email-assets/shield.png", html);
+    }
+
+    [Fact]
+    public void End_alignment_is_left_in_arabic()
+        => Assert.Contains("text-align:left;\">مع السلامة", EmailRenderer.MarkdownToHtml("[end]مع السلامة", "#1f64e6", "rtl"));
+
+    [Fact]
+    public void Size_colour_and_highlight_render()
+    {
+        var html = Md("[size=large]Big[/size] [color=#b42318]Red[/color] [mark]Note[/mark]");
+        Assert.Contains("font-size:19px;\">Big", html);
+        Assert.Contains("color:#b42318;\">Red", html);
+        Assert.Contains("background:#fff1a8", html);
+    }
+
+    [Fact]
+    public void Table_and_code_block_render()
+    {
+        var html = Md("| Item | Value |\n| --- | --- |\n| Ticket | REQ-26-0001 |\n```\nError <5>\n```");
+        Assert.Contains("<th", html);
+        Assert.Contains(">REQ-26-0001</td>", html);
+        Assert.DoesNotContain("---", html);
+        Assert.Contains("<pre", html);
+        Assert.Contains("Error &lt;5&gt;", html);
+    }
+
+    [Fact]
+    public void Only_pictures_uploaded_to_this_site_are_shown()
+    {
+        var ok = Md("![Map](/api/site/email-images/0123456789abcdef0123456789abcdef.png)");
+        Assert.Contains("src=\"https://ccs.example/api/site/email-images/0123456789abcdef0123456789abcdef.png\"", ok);
+        Assert.DoesNotContain("<img", Md("![Pixel](https://tracker.example/p.gif)"));
+    }
+
+    [Fact]
+    public void Values_cannot_create_marks_pictures_or_code()
+    {
+        var html = Render("Hi {name}", new()
+        {
+            ["name"] = "[color=#ff0000]x[/color] [mark]y[/mark] ![p](/api/site/email-images/0123456789abcdef0123456789abcdef.png) ```",
+        }).Html;
+        Assert.DoesNotContain("color:#ff0000", html);
+        Assert.DoesNotContain("#fff1a8", html);
+        Assert.DoesNotContain("<img src=\"/api/site/email-images", html);
+        Assert.DoesNotContain("<pre", html);
+    }
 }

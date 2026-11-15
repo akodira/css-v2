@@ -40,12 +40,33 @@ public sealed class SiteController(CcsDbContext db, SettingsService settings, Cc
     [ResponseCache(Duration = 86400)]
     public async Task<IActionResult> Branding(string name, CancellationToken ct)
     {
-        if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^(logo|favicon)-[0-9a-f]{32}\.(png|jpg|jpeg|webp|svg|ico)$")) return NotFound();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^(logo|favicon|wordmark|wordmarkdark)-[0-9a-f]{32}\.(png|jpg|jpeg|webp|svg|ico)$")) return NotFound();
         var stream = await files.OpenReadAsync("branding/" + name, ct);
         if (stream is null) return NotFound();
         var type = Path.GetExtension(name) switch { ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".webp" => "image/webp", ".svg" => "image/svg+xml", _ => "image/x-icon" };
         Response.Headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'";   // an uploaded SVG cannot run script
         return File(stream, type);
+    }
+
+    /// <summary>Pictures placed in email templates from the editor. Email apps load them from here.</summary>
+    [HttpGet("email-images/{name}")]
+    [ResponseCache(Duration = 86400)]
+    public async Task<IActionResult> EmailImage(string name, CancellationToken ct)
+    {
+        if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^[0-9a-f]{32}\.(png|jpg|jpeg|gif|webp)$")) return NotFound();
+        var stream = await files.OpenReadAsync("email-images/" + name, ct);
+        if (stream is null) return NotFound();
+        var type = Path.GetExtension(name) switch { ".png" => "image/png", ".gif" => "image/gif", ".webp" => "image/webp", _ => "image/jpeg" };
+        return File(stream, type);
+    }
+
+    /// <summary>Small icons drawn in every email (person, shield, website and social media).</summary>
+    [HttpGet("email-assets/{name}.png")]
+    [ResponseCache(Duration = 604800)]
+    public IActionResult EmailAsset(string name)
+    {
+        var s = Ccs.Infrastructure.Email.EmailAssets.Open(name);
+        return s is null ? NotFound() : File(s, "image/png");
     }
 
     [HttpGet("menus")]

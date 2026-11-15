@@ -78,6 +78,14 @@ public class SiteSettings
     public string HeaderSubAr { get; set; } = "";
     public string? LogoPath { get; set; }
     public string? FaviconPath { get; set; }
+    /// <summary>Wide logo (the full name) for light backgrounds: sign-in pages, email footer, site footer.</summary>
+    public string? WordmarkPath { get; set; }
+    /// <summary>White version of the wide logo for dark backgrounds (email header); made automatically on upload.</summary>
+    public string? WordmarkDarkPath { get; set; }
+    /// <summary>Footer parts, each with a show switch and its wording (JSON, see FooterConfig in the web app).</summary>
+    public string FooterConfig { get; set; } = "{}";
+    /// <summary>Website and social links shown in the site footer and the email footer (JSON: kind -> { on, url }).</summary>
+    public string SocialLinks { get; set; } = "{}";
     public string FooterTextEn { get; set; } = "";
     public string FooterTextAr { get; set; } = "";
     public string? ContactEmail { get; set; }

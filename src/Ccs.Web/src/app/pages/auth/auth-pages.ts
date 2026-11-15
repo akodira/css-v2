@@ -14,6 +14,18 @@ function safeNext(raw: string | null | undefined): string | null {
   return raw && raw.startsWith('/') && !raw.startsWith('//') && !raw.includes('\\') ? raw : null;
 }
 
+/** The wide logo (Settings → Branding) centred above the sign-in, create account and code forms; nothing when not uploaded. */
+@Component({
+  selector: 'app-auth-logo',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `@if (site.wordmarkUrl(); as src) { <div class="mx-auto mb-6 flex max-w-md justify-center"><img [src]="src" [alt]="name()" class="h-12 w-auto max-w-[16rem] object-contain" /></div> }`,
+})
+export class AuthLogo {
+  protected readonly site = inject(SiteService);
+  private readonly i18n = inject(I18n);
+  protected readonly name = computed(() => this.i18n.pick(this.site.info()?.site?.siteNameEn ?? '', this.site.info()?.site?.siteNameAr ?? ''));
+}
+
 abstract class FormBase {
   protected readonly i18n = inject(I18n);
   protected readonly auth = inject(Auth);
@@ -57,9 +69,10 @@ abstract class FormBase {
 
 @Component({
   selector: 'app-login',
-  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe],
+  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, RouterLink, TPipe],
   template: `
     <main class="px-4 py-12">
+      <app-auth-logo />
       @if (notice()) { <p role="note" dir="auto" class="mx-auto mb-4 max-w-md rounded-lg border border-line bg-brand-soft px-4 py-3 text-sm font-medium text-brand-ink">{{ notice() }}</p> }
       <app-card [heading]="'Auth.login.title' | t">
         @if (reason() === 'suspended') { <app-alert><app-rich [text]="'Auth.login.suspendedNotice' | t" [compact]="true" /></app-alert> }
@@ -113,9 +126,10 @@ export class LoginPage extends FormBase {
 
 @Component({
   selector: 'app-mfa',
-  imports: [Card, Alert, RichText, TextField, Submit, TPipe],
+  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, TPipe],
   template: `
     <main class="px-4 py-12">
+      <app-auth-logo />
       <app-card [heading]="'Auth.mfa.title' | t" [subtitle]="'Auth.mfa.subtitle' | t">
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="code" [label]="'Auth.mfa.label' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="6" [required]="true" [(value)]="code" />
@@ -139,9 +153,10 @@ export class MfaPage extends FormBase {
 
 @Component({
   selector: 'app-login-code',
-  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, Turnstile],
+  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, Turnstile],
   template: `
     <main class="px-4 py-12">
+      <app-auth-logo />
       <app-card [heading]="'Auth.signinCode.title' | t" [subtitle]="(sent() ? 'Auth.signinCode.sent' : 'Auth.signinCode.subtitle') | t">
         @if (!sent()) {
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); request()">
@@ -212,9 +227,10 @@ interface SignupOrg { id: string; name: string; branches: { id: string; name: st
 
 @Component({
   selector: 'app-register',
-  imports: [Card, Alert, RichText, TextField, Submit, Req, RouterLink, TPipe, NewPasswordFields, Turnstile],
+  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, Req, RouterLink, TPipe, NewPasswordFields, Turnstile],
   template: `
     <main class="px-4 py-12">
+      <app-auth-logo />
       @if (done()) {
         <app-card [heading]="'Auth.register.sentTitle' | t">
           <app-alert tone="success">{{ (mode() === 'pick_auto' ? 'V2.confirm.bodyAuto' : 'V2.confirm.body') | t }}</app-alert>
@@ -327,9 +343,10 @@ export class RegisterPage extends FormBase {
 
 @Component({
   selector: 'app-forgot',
-  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, Turnstile],
+  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, Turnstile],
   template: `
     <main class="px-4 py-12">
+      <app-auth-logo />
       <app-card [heading]="'Auth.forgot.title' | t" [subtitle]="'Auth.forgot.subtitle' | t">
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
@@ -356,9 +373,10 @@ export class ForgotPage extends FormBase {
 
 @Component({
   selector: 'app-reset',
-  imports: [Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, NewPasswordFields],
+  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, NewPasswordFields],
   template: `
     <main class="px-4 py-12">
+      <app-auth-logo />
       <app-card [heading]="'Auth.reset.title' | t" [subtitle]="'Auth.reset.subtitle' | t">
         @if (done()) {
           <app-alert tone="success">{{ 'V2.resetDone' | t }}</app-alert>
