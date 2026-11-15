@@ -144,10 +144,10 @@
       "phoneHint": "Type your 11-digit mobile number, starting with 01. You can also use it to sign in.",
       "identifier": "Email or phone number",
       "organization": "Organization",
-      "pickOrganization": "Choose your organization",
+      "pickOrganization": "Organization",
       "branch": "Branch",
       "pickBranch": "Choose your branch",
-      "noBranch": "None"
+      "noBranch": "Branch"
     },
     "login": {
       "title": "Sign in",
@@ -290,7 +290,8 @@
     },
     "phoneDigits": "A phone number has 11 digits starting with 01. You have typed {n}.",
     "phoneCount": "{n} of 11 digits",
-    "phoneLooksRight": "11 of 11 digits ✓"
+    "phoneLooksRight": "11 of 11 digits ✓",
+    "capsLock": "Caps Lock is on"
   },
   "Account": {
     "title": "My Account",
@@ -2450,7 +2451,39 @@
     "fLinkIncomplete": "Link {n} is not complete: write its text in English and Arabic (at least 2 letters each) and its address.",
     "sideNotShown": "Not shown: only customers see this menu. Edit it to fix, or delete it.",
     "authLogo": "Show the wide logo above the sign-in forms",
-    "authLogoHint": "On the sign-in, create account and one-time code pages. Off: the logo shows only in the footer and emails. Press Save to apply."
+    "authLogoHint": "On the sign-in, create account and one-time code pages. Off: the logo shows only in the footer and emails. Press Save to apply.",
+    "adTitle": "Home and sign-in look",
+    "adHint": "How the home page and the sign-in pages (sign in, create account, one-time code, two-step code, forgot and new password) look to visitors. Changes show as soon as you save.",
+    "adLook": "Look",
+    "ad_new": "New",
+    "ad_newHint": "A calm home page, and the sign-in pages with a picture beside the form.",
+    "ad_classic": "Classic",
+    "ad_classicHint": "The earlier home page and sign-in pages. Choose it to go back at any time.",
+    "adPicture": "Picture beside the sign-in form",
+    "adPictureHint": "Pick a drawing, or upload your own picture (JPG, PNG or WebP, up to 3 MB; an upright photo works best). It is hidden on phones.",
+    "adArt_a": "Support desk",
+    "adArt_b": "Brand icons",
+    "adArt_c": "Cairo skyline",
+    "adArt_d": "Calm pattern",
+    "adOwn": "Your own picture",
+    "adNoOwn": "No picture uploaded yet",
+    "adUpload": "Upload a picture…",
+    "adReplace": "Replace…",
+    "adRemoveOwn": "Remove",
+    "adTexts": "Text on the picture",
+    "adEmptyHint": "Leave a box empty to use the standard wording shown in grey.",
+    "ad_tagEn": "Line under the name (English)",
+    "ad_tagAr": "Line under the name (Arabic)",
+    "ad_titleEn": "Big line (English)",
+    "ad_titleAr": "Big line (Arabic)",
+    "ad_subEn": "Small line (English)",
+    "ad_subAr": "Small line (Arabic)",
+    "adBand": "Show the big and small lines at the bottom of the picture",
+    "adSave": "Save look",
+    "adSaved": "Saved. The home and sign-in pages use it now.",
+    "adPreview": "Preview",
+    "adPreviewHint": "The picture is cropped to fit the side of the screen.",
+    "adClassicNote": "Classic is chosen, so this picture is not shown. Choose New to use it."
   },
   "Approvals": {
     "title": "Account approvals",
@@ -4003,5 +4036,24 @@
   },
   "Common": {
     "clearFilters": "Clear filters"
+  },
+  "AuthLook": {
+    "tag": "Always here to help",
+    "title": "We're here to help",
+    "sub": "Your satisfaction is our priority",
+    "back": "Back to sign in",
+    "backShort": "Back",
+    "signinSub": "Welcome back! Please sign in to your account.",
+    "or": "OR",
+    "remember": "Remember my email or phone on this device",
+    "rememberedHere": "Remembered on this device.",
+    "notYou": "Not you?",
+    "cantSignIn": "Can't sign in? Contact us",
+    "pwChanged": "Password changed",
+    "enterCode": "Enter the code",
+    "mfaHint": "The code changes every 30 seconds. Typing the last digit signs you in."
+  },
+  "Otp": {
+    "digit": "Digit {n} of {total}"
   }
 }

@@ -88,6 +88,10 @@ public class SiteSettings
     public bool AuthLogo { get; set; }
     /// <summary>Footer parts, each with a show switch and its wording (JSON, see FooterConfig in the web app).</summary>
     public string FooterConfig { get; set; } = "{}";
+    /// <summary>Home and sign-in pages: look (new / classic), picture (a-d or own) and the texts on it (JSON, see AuthDesign in the web app).</summary>
+    public string AuthDesign { get; set; } = "{}";
+    /// <summary>Picture uploaded for the sign-in pages (used when AuthDesign picture is "own").</summary>
+    public string? SigninPicturePath { get; set; }
     /// <summary>Website and social links shown in the site footer and the email footer (JSON: kind -> { on, url }).</summary>
     public string SocialLinks { get; set; } = "{}";
     public string FooterTextEn { get; set; } = "";

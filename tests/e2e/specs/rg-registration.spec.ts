@@ -38,7 +38,7 @@ test.describe('RG Registration', () => {
       await authBudget(1);
       await page.getByRole('button', { name: t('Auth.register.submit') }).click();
       await expect(page.getByRole('heading', { name: t('Auth.register.sentTitle') })).toBeVisible();   // asked to confirm the email
-      await expect(page.locator('input[name="code"]')).toBeVisible();
+      await expect(page.locator('input[name="code0"]')).toBeVisible();
     } finally { await cleanup(await apiAs('admin'), email); }
   });
 

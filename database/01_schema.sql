@@ -790,6 +790,8 @@ CREATE TABLE ccs.site_settings (
     footer_logo_path   nvarchar(200) NULL,
     auth_logo          bit NOT NULL CONSTRAINT DF_site_settings_auth_logo DEFAULT 0,
     footer_config      nvarchar(max) NOT NULL CONSTRAINT DF_site_footer_config DEFAULT N'{}',
+    auth_design        nvarchar(max) NOT NULL CONSTRAINT DF_site_auth_design DEFAULT N'{}',   -- home + sign-in look (New / Classic), picture and its texts
+    signin_picture_path nvarchar(200) NULL,
     social_links       nvarchar(max) NOT NULL CONSTRAINT DF_site_social_links DEFAULT N'{}',
     footer_text_en     nvarchar(300) NOT NULL DEFAULT N'',
     footer_text_ar     nvarchar(300) NOT NULL DEFAULT N'',

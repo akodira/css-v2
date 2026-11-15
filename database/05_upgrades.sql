@@ -123,3 +123,11 @@ UPDATE ccs.menu_items SET system_key = N'notifications'
 WHERE area = N'header' AND href = N'/notifications' AND system_key IS NULL
   AND NOT EXISTS (SELECT 1 FROM ccs.menu_items WHERE area = N'header' AND system_key = N'notifications');
 GO
+
+-- Home and sign-in pages: New / Classic look, the sign-in picture (built-in drawing or an upload) and its texts.
+IF COL_LENGTH(N'ccs.site_settings', N'auth_design') IS NULL
+    ALTER TABLE ccs.site_settings ADD auth_design nvarchar(max) NOT NULL CONSTRAINT DF_site_auth_design DEFAULT N'{}';
+GO
+IF COL_LENGTH(N'ccs.site_settings', N'signin_picture_path') IS NULL
+    ALTER TABLE ccs.site_settings ADD signin_picture_path nvarchar(200) NULL;
+GO

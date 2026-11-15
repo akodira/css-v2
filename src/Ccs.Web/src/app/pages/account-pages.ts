@@ -85,6 +85,26 @@ type KpiKey = keyof typeof HOME_KPI;
           </div>
         </div>
       </main>
+    } @else if (site.newLook() && !auth.signedIn()) {
+      <!-- New look (Settings → Branding → Home and sign-in look): one title, one line, two buttons. -->
+      <main data-home class="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-[linear-gradient(180deg,#f4f8ff,#e6effc)] px-4 py-14">
+        <div aria-hidden="true" class="pointer-events-none absolute left-1/2 top-[-260px] h-[720px] w-[720px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(29,99,224,.16),transparent_62%)]"></div>
+        <div class="relative flex w-full max-w-2xl flex-col items-center text-center">
+          <span aria-hidden="true" class="mb-5 grid size-16 place-items-center rounded-2xl bg-surface text-brand shadow-[0_10px_26px_rgba(29,99,224,.18)]">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2" y="13" width="5" height="7" rx="2"/><rect x="17" y="13" width="5" height="7" rx="2"/></svg></span>
+          <h1 class="text-4xl font-extrabold leading-tight tracking-tight md:text-6xl" dir="auto">{{ title() }}</h1>
+          <p class="mt-3 text-pretty text-lg text-ink/80" dir="auto">{{ intro() }}</p>
+          <div class="mt-7 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
+            <a [routerLink]="link('/tickets/new')" class="flex min-h-13 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-lg font-bold text-white hover:bg-brand-ink">
+              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path [attr.d]="icon.plus" /></svg>{{ 'Home.createCta' | t }}</a>
+            <a [routerLink]="link('/login')" class="flex min-h-13 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-6 text-lg font-bold text-brand-ink hover:bg-bg">
+              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="rtl:-scale-x-100"><path d="M10 17l5-5-5-5M15 12H3M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/></svg>{{ 'Nav.signIn' | t }}</a>
+          </div>
+          @if (site.info()?.site?.registrationMode !== 'closed') {
+            <p class="mt-4 text-sm text-muted">{{ 'Auth.login.noAccount' | t }} <a [routerLink]="link('/register')" class="font-bold text-brand-ink underline">{{ 'Auth.login.register' | t }}</a></p>
+          }
+        </div>
+      </main>
     } @else {
       <main data-home class="flex flex-1 flex-col bg-brand-soft/60">
         <div [class]="auth.signedIn() ? '' : 'md:flex md:flex-1 md:items-center'">
@@ -132,7 +152,7 @@ type KpiKey = keyof typeof HOME_KPI;
 export class HomePage {
   protected readonly i18n = inject(I18n);
   protected readonly auth = inject(Auth);
-  private readonly site = inject(SiteService);
+  protected readonly site = inject(SiteService);
   private readonly router = inject(Router);
   private readonly tickets = inject(TicketsApi);
   private readonly http = inject(HttpClient);

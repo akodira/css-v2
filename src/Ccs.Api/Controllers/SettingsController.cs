@@ -86,14 +86,16 @@ public sealed partial class SettingsController(
 
     /// <summary>Logo or browser icon: PNG, JPG, WebP, SVG or ICO up to 1 MB. Served by GET /api/site/branding/{file}.</summary>
     [HttpPost("branding/{kind}")]
-    [RequestSizeLimit(1_200_000)]
+    [RequestSizeLimit(3_200_000)]
     public async Task<object> UploadImage(string kind, IFormFile file, CancellationToken ct)
     {
         var c = await Need(ct);
-        if (kind is not ("logo" or "favicon" or "wordmark" or "wordmarkdark" or "footerlogo")) throw new NotFoundException();
+        if (!IsImageKind(kind)) throw new NotFoundException();
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (ext is not (".png" or ".jpg" or ".jpeg" or ".webp" or ".svg" or ".ico")) throw Err("imageType", "file");
-        if (file.Length is 0 or > 1024 * 1024) throw Err("imageSize", "file");
+        if (kind == "signinpic" && ext is ".ico" or ".svg") throw Err("imageType", "file");
+        // The sign-in picture is a photo, so it may be larger (3 MB); logos and icons stay at 1 MB.
+        if (file.Length is 0 || file.Length > (kind == "signinpic" ? 3 : 1) * 1024 * 1024) throw Err("imageSize", "file");
         var name = $"{kind}-{Guid.NewGuid():N}{ext}";
         await using (var stream = file.OpenReadStream()) await files.SaveAsync("branding/" + name, stream, ct);
         var s = await SiteAsync(ct);
@@ -111,7 +113,7 @@ public sealed partial class SettingsController(
     {
         var c = await Need(ct);
         var s = await SiteAsync(ct);
-        if (kind is not ("logo" or "favicon" or "wordmark" or "wordmarkdark" or "footerlogo")) throw new NotFoundException();
+        if (!IsImageKind(kind)) throw new NotFoundException();
         var old = ImagePath(s, kind);
         SetPath(s, kind, null);
         s.UpdatedAt = clock.UtcNow; s.UpdatedBy = c.UserId;
@@ -121,9 +123,11 @@ public sealed partial class SettingsController(
         return NoContent();
     }
 
+    private static bool IsImageKind(string kind) => kind is "logo" or "favicon" or "wordmark" or "wordmarkdark" or "footerlogo" or "signinpic";
     private static string? ImagePath(SiteSettings s, string kind) => kind switch
     {
-        "logo" => s.LogoPath, "favicon" => s.FaviconPath, "wordmark" => s.WordmarkPath, "footerlogo" => s.FooterLogoPath, _ => s.WordmarkDarkPath,
+        "logo" => s.LogoPath, "favicon" => s.FaviconPath, "wordmark" => s.WordmarkPath, "footerlogo" => s.FooterLogoPath,
+        "signinpic" => s.SigninPicturePath, _ => s.WordmarkDarkPath,
     };
     private static void SetPath(SiteSettings s, string kind, string? name)
     {
@@ -133,8 +137,33 @@ public sealed partial class SettingsController(
             case "favicon": s.FaviconPath = name; break;
             case "wordmark": s.WordmarkPath = name; break;
             case "footerlogo": s.FooterLogoPath = name; break;
+            case "signinpic": s.SigninPicturePath = name; break;
             default: s.WordmarkDarkPath = name; break;
         }
+    }
+
+    // ---------------------------------------------------------------- home and sign-in look
+
+    /// <summary>New / Classic look, the sign-in picture (a-d = built-in drawings, own = uploaded) and the texts shown on it.</summary>
+    public sealed record AuthDesignBody(string? Look, string? Picture, bool Band, string? TagEn, string? TagAr, string? TitleEn, string? TitleAr, string? SubEn, string? SubAr);
+
+    [HttpPut("branding/auth-design")]
+    public async Task<IActionResult> SaveAuthDesign(AuthDesignBody b, CancellationToken ct)
+    {
+        var c = await Need(ct);
+        var s = await SiteAsync(ct);
+        string T(string? v, int max, string field) { var x = (v ?? "").Trim(); if (x.Length > max) throw Err("locationLong", field); return x; }
+        var look = b.Look is "classic" ? "classic" : "new";
+        var pic = b.Picture is "a" or "b" or "c" or "d" or "own" ? b.Picture : "a";
+        if (pic == "own" && s.SigninPicturePath is null) throw Err("required", "picture");
+        var d = new AuthDesignBody(look, pic, b.Band, T(b.TagEn, 80, "tagEn"), T(b.TagAr, 80, "tagAr"),
+            T(b.TitleEn, 80, "titleEn"), T(b.TitleAr, 80, "titleAr"), T(b.SubEn, 140, "subEn"), T(b.SubAr, 140, "subAr"));
+        var before = s.AuthDesign;
+        s.AuthDesign = JsonSerializer.Serialize(d, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        s.UpdatedAt = clock.UtcNow; s.UpdatedBy = c.UserId;
+        audit.Write("settings.auth_design", "site_settings", null, before, s.AuthDesign);
+        await db.SaveChangesAsync(ct);
+        return NoContent();
     }
 
     // ---------------------------------------------------------------- footer and social links

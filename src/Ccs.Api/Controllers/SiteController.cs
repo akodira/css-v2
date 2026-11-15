@@ -40,7 +40,7 @@ public sealed class SiteController(CcsDbContext db, SettingsService settings, Cc
     [ResponseCache(Duration = 86400)]
     public async Task<IActionResult> Branding(string name, CancellationToken ct)
     {
-        if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^(logo|favicon|wordmark|wordmarkdark|footerlogo)-[0-9a-f]{32}\.(png|jpg|jpeg|webp|svg|ico)$")) return NotFound();
+        if (!System.Text.RegularExpressions.Regex.IsMatch(name, @"^(logo|favicon|wordmark|wordmarkdark|footerlogo|signinpic)-[0-9a-f]{32}\.(png|jpg|jpeg|webp|svg|ico)$")) return NotFound();
         var stream = await files.OpenReadAsync("branding/" + name, ct);
         if (stream is null) return NotFound();
         var type = Path.GetExtension(name) switch { ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".webp" => "image/webp", ".svg" => "image/svg+xml", _ => "image/x-icon" };

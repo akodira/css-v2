@@ -6,7 +6,8 @@ import { RouterLink } from '@angular/router';
 import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 import { Auth } from '../../core/auth';
-import { FOOTER_DEFAULTS, FooterConfig, MenuRow, SiteService, SOCIAL_KINDS } from '../../core/api';
+import { AUTH_DESIGN_DEFAULTS, AuthDesign, FOOTER_DEFAULTS, FooterConfig, MenuRow, SiteService, SOCIAL_KINDS } from '../../core/api';
+import { AuthArt } from '../../shared/auth-art';
 import { SocialIcon } from '../../shared/social-icons';
 import { FooterModel, FooterView, footerModel } from '../../shared/footer-view';
 import { adminError } from '../../core/admin-api';
@@ -65,7 +66,7 @@ const REQ = `<app-req />`;
 
 @Component({
   selector: 'app-set-branding',
-  imports: [TPipe, FormsModule, Alert, forwardRef(() => FooterSettings)],
+  imports: [TPipe, FormsModule, Alert, forwardRef(() => FooterSettings), forwardRef(() => AuthDesignSettings)],
   template: `
     ${MSG}
     @if (m) {
@@ -126,6 +127,7 @@ const REQ = `<app-req />`;
         }
         ${SAVE}
       </form>
+      <app-auth-design-settings />
       <app-footer-settings />
     }`,
   changeDetection: ChangeDetectionStrategy.Default,
@@ -203,6 +205,127 @@ const QUICK_LINKS = [
   { href: '/login', en: 'Sign in', ar: 'تسجيل الدخول', audience: 'guest' },
   { href: '/register', en: 'Create account', ar: 'إنشاء حساب', audience: 'guest' },
 ];
+
+/** Settings → Branding → Home and sign-in look: New / Classic, the picture beside the sign-in form and the text on it. */
+@Component({
+  selector: 'app-auth-design-settings',
+  imports: [TPipe, FormsModule, Alert, AuthArt],
+  template: `
+    @if (d) {
+    <section [class]="cls.card + ' mt-6 p-5'" aria-labelledby="ad-h">
+      <div><h2 id="ad-h" class="text-lg font-bold">{{ 'AdminGeneral.adTitle' | t }}</h2><p class="mt-1 max-w-prose text-sm text-muted">{{ 'AdminGeneral.adHint' | t }}</p></div>
+      ${MSG}
+      <form class="mt-4 grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]" (ngSubmit)="saveDesign()">
+        <div class="flex flex-col gap-5">
+          <fieldset class="flex flex-col gap-2">
+            <legend class="mb-2 font-bold">{{ 'AdminGeneral.adLook' | t }}</legend>
+            <div class="grid gap-3 sm:grid-cols-2">
+              @for (l of looks; track l) {
+                <label class="flex cursor-pointer items-start gap-3 rounded-xl border p-3" [class]="d.look === l ? 'border-brand bg-brand-soft' : 'border-line'">
+                  <input type="radio" name="look" class="mt-1 h-5 w-5" [value]="l" [(ngModel)]="d.look" />
+                  <span><b class="block">{{ 'AdminGeneral.ad_' + l | t }}</b><span class="text-sm text-muted">{{ 'AdminGeneral.ad_' + l + 'Hint' | t }}</span></span>
+                </label>
+              }
+            </div>
+          </fieldset>
+          <fieldset class="flex flex-col gap-2">
+            <legend class="mb-1 font-bold">{{ 'AdminGeneral.adPicture' | t }}</legend>
+            <p class="text-sm text-muted">{{ 'AdminGeneral.adPictureHint' | t }}</p>
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+              @for (k of arts; track k) {
+                <button type="button" (click)="d.picture = k" [attr.aria-pressed]="d.picture === k" class="flex cursor-pointer flex-col overflow-hidden rounded-xl border-2 text-start" [class]="d.picture === k ? 'border-brand' : 'border-line'">
+                  <span class="relative block aspect-[4/5] w-full"><app-auth-art [kind]="k" /></span>
+                  <span class="px-2 py-1.5 text-xs font-semibold">{{ 'AdminGeneral.adArt_' + k | t }}</span>
+                </button>
+              }
+              <div class="flex flex-col overflow-hidden rounded-xl border-2" [class]="d.picture === 'own' ? 'border-brand' : 'border-line'">
+                <button type="button" class="relative block aspect-[4/5] w-full cursor-pointer bg-bg" [disabled]="!ownPath" (click)="d.picture = 'own'" [attr.aria-pressed]="d.picture === 'own'" [attr.aria-label]="'AdminGeneral.adOwn' | t">
+                  @if (ownUrl(); as u) { <img [src]="u" alt="" class="absolute inset-0 h-full w-full object-cover" /> }
+                  @else { <span class="absolute inset-0 grid place-items-center p-2 text-center text-xs text-muted">{{ 'AdminGeneral.adNoOwn' | t }}</span> }
+                </button>
+                <span class="flex flex-col gap-1 px-2 py-1.5 text-xs">
+                  <b>{{ 'AdminGeneral.adOwn' | t }}</b>
+                  <label class="cursor-pointer font-semibold text-brand-ink underline">{{ (ownPath ? 'AdminGeneral.adReplace' : 'AdminGeneral.adUpload') | t }}
+                    <input type="file" class="sr-only" accept=".png,.jpg,.jpeg,.webp" (change)="upload($any($event.target))" /></label>
+                  @if (ownPath) { <button type="button" class="cursor-pointer self-start font-semibold text-danger underline" (click)="removeOwn()">{{ 'AdminGeneral.adRemoveOwn' | t }}</button> }
+                </span>
+              </div>
+            </div>
+          </fieldset>
+          <fieldset class="flex flex-col gap-3">
+            <legend class="mb-1 font-bold">{{ 'AdminGeneral.adTexts' | t }}</legend>
+            <p class="text-sm text-muted">{{ 'AdminGeneral.adEmptyHint' | t }}</p>
+            <div class="grid gap-3 sm:grid-cols-2">
+              @for (t of texts; track t.key) {
+                <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AdminGeneral.ad_' + t.key | t }}
+                  <input [name]="t.key" [dir]="t.key.endsWith('Ar') ? 'rtl' : 'ltr'" [maxlength]="t.max" [class]="cls.input" [(ngModel)]="d[t.key]" [placeholder]="t.ph" /></label>
+              }
+            </div>
+            <label class="${CHECK} text-sm font-semibold"><input type="checkbox" name="band" class="h-5 w-5" [(ngModel)]="d.band" /> {{ 'AdminGeneral.adBand' | t }}</label>
+          </fieldset>
+          <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminGeneral.adSave' | t }}</button></div>
+        </div>
+        <div class="flex flex-col gap-2 xl:sticky xl:top-4">
+          <p class="font-bold">{{ 'AdminGeneral.adPreview' | t }}</p>
+          <div class="relative aspect-[4/5] w-full overflow-hidden rounded-xl border border-line" [class.opacity-50]="d.look === 'classic'">
+            @if (d.picture === 'own' && ownUrl(); as u) { <img [src]="u" alt="" class="absolute inset-0 h-full w-full object-cover" /> } @else { <app-auth-art [kind]="d.picture" /> }
+            <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.6)_0%,rgba(255,255,255,0)_24%)]"></div>
+            <div class="absolute inset-x-4 top-4 flex items-center gap-3 text-[#0b1f4d]">
+              @if (site.wordmarkUrl(); as w) { <img [src]="w" alt="" class="h-7 w-auto max-w-[7rem] object-contain" /> }
+              <div class="border-s-2 border-[#0b1f4d] ps-3 text-xs leading-tight" dir="auto"><b class="block">{{ siteSub() }}</b><span class="text-brand-ink">{{ pv('tag') }}</span></div>
+            </div>
+            @if (d.band) {
+              <div class="absolute inset-x-0 bottom-0 bg-[linear-gradient(0deg,rgba(11,31,77,.95),rgba(11,31,77,.6)_70%,transparent)] px-4 pb-4 pt-10 text-white" dir="auto">
+                <p class="text-lg font-bold">{{ pv('title') }}</p><p class="text-xs text-[#dbe6ff]">{{ pv('sub') }}</p>
+              </div>
+            }
+          </div>
+          @if (d.look === 'classic') { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminGeneral.adClassicNote' | t }}</p> }
+          <p class="text-xs text-muted">{{ 'AdminGeneral.adPreviewHint' | t }}</p>
+        </div>
+      </form>
+    </section>
+    }`,
+  changeDetection: ChangeDetectionStrategy.Default,
+})
+export class AuthDesignSettings extends Tab implements OnInit {
+  protected readonly looks = ['new', 'classic'] as const;
+  protected readonly arts = ['a', 'b', 'c', 'd'] as const;
+  protected readonly texts = [
+    // Grey examples in each box's own language (the standard wording in en.json / ar.json, AuthLook.*).
+    { key: 'tagEn', max: 80, ph: 'Always here to help' }, { key: 'tagAr', max: 80, ph: 'دائمًا هنا لمساعدتك' },
+    { key: 'titleEn', max: 80, ph: "We're here to help" }, { key: 'titleAr', max: 80, ph: 'نحن هنا لمساعدتك' },
+    { key: 'subEn', max: 140, ph: 'Your satisfaction is our priority' }, { key: 'subAr', max: 140, ph: 'رضاك أولويتنا' },
+  ] as const;
+  protected d: (AuthDesign & Record<string, unknown>) | null = null;
+  protected ownPath: string | null = null;
+  protected ownUrl(): string | null { return this.ownPath ? apiUrl('/api/site/branding/' + this.ownPath) : null; }
+  protected siteSub(): string { const s = this.site.info()?.site; return this.i18n.pick(s?.headerSubEn, s?.headerSubAr) || this.i18n.t('Brand.tagline'); }
+  /** Preview text in the admin's language: what is typed, else the standard wording. */
+  protected pv(k: 'tag' | 'title' | 'sub'): string {
+    const d = this.d!; return String(d[k + (this.i18n.locale() === 'ar' ? 'Ar' : 'En')] ?? '').trim() || this.i18n.t('AuthLook.' + k);
+  }
+  async ngOnInit(): Promise<void> {
+    const s = await this.get<Record<string, string | null>>('branding');
+    let saved: Partial<AuthDesign> = {};
+    try { saved = s['authDesign'] ? JSON.parse(s['authDesign']) : {}; } catch { saved = {}; }
+    this.d = { ...AUTH_DESIGN_DEFAULTS, ...saved } as AuthDesign & Record<string, unknown>;
+    for (const t of this.texts) this.d[t.key] = (this.d[t.key] as string) ?? '';
+    this.ownPath = s['signinPicturePath'] ?? null;
+  }
+  protected async upload(el: HTMLInputElement): Promise<void> {
+    const file = el.files?.[0]; if (!file) return;
+    const fd = new FormData(); fd.append('file', file);
+    if (await this.save(async () => { const r = await this.post<{ path: string }>('branding/signinpic', fd); this.ownPath = r.path; this.d!.picture = 'own'; await this.put('branding/auth-design', this.d); }, 'AdminGeneral.adSaved')) el.value = '';
+  }
+  protected removeOwn(): void {
+    void this.save(async () => {
+      await this.del('branding/signinpic'); this.ownPath = null;
+      if (this.d!.picture === 'own') { this.d!.picture = 'a'; await this.put('branding/auth-design', this.d); }
+    }, 'AdminGeneral.adSaved');
+  }
+  protected saveDesign(): void { void this.save(() => this.put('branding/auth-design', this.d), 'AdminGeneral.adSaved'); }
+}
 
 @Component({
   selector: 'app-footer-settings',

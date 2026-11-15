@@ -92,6 +92,7 @@ export class Footer {
   selector: 'app-public-layout',
   imports: [RouterOutlet, RouterLink, Logo, LanguageSwitcher, TPipe, Footer],
   template: `
+    @if (!bare()) {
     <header data-site-header class="sticky top-0 z-30 border-b border-line bg-surface md:static">
       <!-- Phone (v1 PublicNav): one slim bar - brand, Sign in, menu button; the panel holds Create account / My Account, language, Sign out -->
       <div class="md:hidden">
@@ -143,8 +144,9 @@ export class Footer {
         </div>
       </div>
     </header>
+    }
     <div data-outlet class="flex-1"><router-outlet /></div>
-    <app-footer />`,
+    @if (!bare()) { <app-footer /> }`,
   host: { class: 'flex flex-1 flex-col' },
   changeDetection: ChangeDetectionStrategy.Default,
 })
@@ -152,8 +154,12 @@ export class PublicLayout {
   protected readonly i18n = inject(I18n);
   /** Phone menu; closes on page change and Escape (v1 PublicNav). */
   protected readonly open = signal(false);
+  private readonly router = inject(Router);
+  private readonly url = signal(this.router.url);
+  /** Sign-in pages in the new look have their own frame (picture panel + card): no site header or footer there. */
+  protected readonly bare = computed(() => this.site.newLook() && /^\/(en|ar)\/(login|login\/code|mfa|register|forgot-password|reset-password)(?=[/?#]|$)/.test(this.url()));
   constructor() {
-    inject(Router).events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => this.open.set(false));
+    this.router.events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => { this.open.set(false); this.url.set(this.router.url); });
   }
   @HostListener('document:keydown.escape') protected esc(): void { this.open.set(false); }
   protected readonly auth = inject(Auth);

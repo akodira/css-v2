@@ -8,6 +8,10 @@ import { I18n, TPipe } from '../../core/i18n';
 import { SiteService } from '../../core/api';
 import { Alert, Card, NewPasswordFields, Req, Submit, TextField } from '../../shared/ui';
 import { Turnstile } from '../../shared/turnstile';
+import { OtpInput } from '../../shared/otp-input';
+import { AuthShell } from './auth-shell';
+
+export { AuthLogo } from './auth-shell';
 
 /** Egyptian mobile as typed (spaces, dashes, +20 / 0020) -> plain digits starting with 0, e.g. "01012345678". */
 export function normPhone(v: string): string {
@@ -17,23 +21,20 @@ export function normPhone(v: string): string {
   return d;
 }
 const PHONE_OK = /^01[0-9]{9}$/;
+/** Email or phone remembered on this device (only when "Remember" is ticked; never the password). */
+const REMEMBER_KEY = 'ccs.signin.remember';
+const readRemembered = (): string => { try { return localStorage.getItem(REMEMBER_KEY) ?? ''; } catch { return ''; } };
+const writeRemembered = (v: string | null): void => { try { if (v) localStorage.setItem(REMEMBER_KEY, v); else localStorage.removeItem(REMEMBER_KEY); } catch { /* private window */ } };
 
 /** Only same-site paths are accepted as "next" (safeNextPath today). */
 function safeNext(raw: string | null | undefined): string | null {
   return raw && raw.startsWith('/') && !raw.startsWith('//') && !raw.includes('\\') ? raw : null;
 }
 
-/** The wide logo (Settings → Branding) centred above the sign-in, create account and code forms, only when "Show above the sign-in forms" is on. */
-@Component({
-  selector: 'app-auth-logo',
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `@if (site.info()?.site?.authLogo && site.wordmarkUrl(); as src) { <div class="mx-auto mb-6 flex max-w-md justify-center"><img [src]="src" [alt]="name()" class="h-12 w-auto max-w-[16rem] object-contain" /></div> }`,
-})
-export class AuthLogo {
-  protected readonly site = inject(SiteService);
-  private readonly i18n = inject(I18n);
-  protected readonly name = computed(() => this.i18n.pick(this.site.info()?.site?.siteNameEn ?? '', this.site.info()?.site?.siteNameAr ?? ''));
-}
+/** Secondary button / divider / links in the new look. */
+const LINK = 'font-semibold text-brand-ink underline';
+const SOFT_BTN = 'flex min-h-11 items-center justify-center gap-2 rounded-lg bg-brand-soft px-5 text-base font-semibold text-brand-ink hover:bg-brand-soft/70';
+const OR = `<div class="flex items-center gap-3 text-xs font-bold text-muted before:h-px before:flex-1 before:bg-line after:h-px after:flex-1 after:bg-line">{{ 'AuthLook.or' | t }}</div>`;
 
 abstract class FormBase {
   protected readonly i18n = inject(I18n);
@@ -41,6 +42,7 @@ abstract class FormBase {
   protected readonly router = inject(Router);
   protected readonly route = inject(ActivatedRoute);
   protected readonly site = inject(SiteService);
+  protected readonly nl = this.site.newLook;
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly fieldErrors = signal<Record<string, string>>({});
@@ -78,38 +80,69 @@ abstract class FormBase {
 
 @Component({
   selector: 'app-login',
-  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, RouterLink, TPipe],
+  imports: [AuthShell, Card, Alert, RichText, TextField, Submit, RouterLink, TPipe],
   template: `
-    <main class="px-4 py-12">
-      <app-auth-logo />
-      @if (notice()) { <p role="note" dir="auto" class="mx-auto mb-4 max-w-md rounded-lg border border-line bg-brand-soft px-4 py-3 text-sm font-medium text-brand-ink">{{ notice() }}</p> }
-      <app-card [heading]="'Auth.login.title' | t">
+    <app-auth-shell>
+      @if (notice() && !nl()) { <p role="note" dir="auto" class="mx-auto mb-4 max-w-md rounded-lg border border-line bg-brand-soft px-4 py-3 text-sm font-medium text-brand-ink">{{ notice() }}</p> }
+      <app-card [heading]="'Auth.login.title' | t" [subtitle]="nl() ? ('AuthLook.signinSub' | t) : undefined" icon="user">
+        @if (notice() && nl()) {
+          <p role="note" dir="auto" class="flex items-start gap-2.5 rounded-lg border border-[#f1d58f] bg-warn-soft px-3 py-2.5 text-sm text-warn-ink">
+            <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="mt-0.5 flex-none"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></svg>{{ notice() }}</p>
+        }
         @if (reason() === 'suspended') { <app-alert><app-rich [text]="'Auth.login.suspendedNotice' | t" [compact]="true" /></app-alert> }
         @if (reason() === 'idle') { <app-alert><app-rich [text]="'Auth.login.idleNotice' | t" [compact]="true" /></app-alert> }
         @if (reason() === 'pending_approval') { <app-alert><app-rich [text]="'Auth.login.pendingNotice' | t" [compact]="true" /></app-alert> }
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="email" [label]="'Auth.fields.identifier' | t" [placeholder]="'Auth.login.identifierPlaceholder' | t" [hint]="'Auth.login.identifierHint' | t" [smallHint]="true" autocomplete="username" dir="ltr" [required]="true" [(value)]="identifier" [error]="fieldErrors()['identifier']" />
-          <app-text-field name="password" type="password" [label]="'Auth.fields.password' | t" [placeholder]="'Auth.login.passwordPlaceholder' | t" autocomplete="current-password" [required]="true" [(value)]="password" [error]="fieldErrors()['password']" />
           @if (tried() && phoneTyped() !== null) { <p class="-mt-2 text-sm font-medium text-danger" role="alert">{{ 'Auth.phoneDigits' | t: { n: phoneTyped() } }}</p> }
+          @if (remembered() && identifier() === remembered()) {
+            <p class="-mt-2 text-xs text-muted">{{ 'AuthLook.rememberedHere' | t }} <button type="button" class="cursor-pointer font-bold text-brand-ink underline" (click)="forget()">{{ 'AuthLook.notYou' | t }}</button></p>
+          }
+          <app-text-field name="password" type="password" [label]="'Auth.fields.password' | t" [placeholder]="'Auth.login.passwordPlaceholder' | t" autocomplete="current-password" [required]="true" [(value)]="password" [error]="fieldErrors()['password']" />
+          <label class="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" class="h-5 w-5" [checked]="remember()" (change)="remember.set($any($event.target).checked)" /> {{ 'AuthLook.remember' | t }}</label>
           @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.login.submit' | t }}</app-submit>
         </form>
-        <div class="flex flex-col gap-2 text-sm">
-          <a [routerLink]="link('/forgot-password')" class="font-semibold text-brand-ink underline">{{ 'Auth.login.forgot' | t }}</a>
-          @if (site.info()?.signinCodes?.enabled) { <a [routerLink]="link('/login/code')" [queryParams]="{ next: route.snapshot.queryParamMap.get('next') }" class="font-semibold text-brand-ink underline">{{ 'Auth.login.codeLink' | t }}</a> }
-          @if (site.info()?.site?.registrationMode !== 'closed') {
-            <p class="text-muted">{{ 'Auth.login.noAccount' | t }} <a [routerLink]="link('/register')" class="font-semibold text-brand-ink underline">{{ 'Auth.login.register' | t }}</a></p>
+        @if (nl()) {
+          @if (site.info()?.signinCodes?.enabled) {
+            ${OR}
+            <a [routerLink]="link('/login/code')" [queryParams]="{ next: route.snapshot.queryParamMap.get('next') }" class="${SOFT_BTN}">
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18v14H3zM3 7l9 6 9-6"/></svg>{{ 'Auth.login.codeLink' | t }}</a>
           }
-        </div>
+          <a [routerLink]="link('/forgot-password')" class="self-start text-sm ${LINK}">{{ 'Auth.login.forgot' | t }}</a>
+          @if (site.info()?.site?.registrationMode !== 'closed') {
+            <p class="border-t border-line pt-4 text-center text-sm text-muted">{{ 'Auth.login.noAccount' | t }} <a [routerLink]="link('/register')" class="${LINK}">{{ 'Auth.login.register' | t }}</a></p>
+          }
+          @if (contactEmail() || contactPhone()) {
+            <p class="flex items-start gap-2.5 rounded-lg bg-bg px-3 py-2.5 text-sm text-muted">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="mt-0.5 flex-none"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.7M12 17h.01"/></svg>
+              <span><b class="text-ink">{{ 'AuthLook.cantSignIn' | t }}</b>
+                @if (contactEmail(); as m) { <a [href]="'mailto:' + m" dir="ltr" class="ms-1 inline-block font-semibold text-brand-ink">{{ m }}</a> }
+                @if (contactEmail() && contactPhone()) { <span> · </span> }
+                @if (contactPhone(); as p) { <a [href]="'tel:' + p.replaceAll(' ', '')" dir="ltr" class="inline-block font-semibold text-brand-ink">{{ p }}</a> }</span></p>
+          }
+        } @else {
+          <div class="flex flex-col gap-2 text-sm">
+            <a [routerLink]="link('/forgot-password')" class="${LINK}">{{ 'Auth.login.forgot' | t }}</a>
+            @if (site.info()?.signinCodes?.enabled) { <a [routerLink]="link('/login/code')" [queryParams]="{ next: route.snapshot.queryParamMap.get('next') }" class="${LINK}">{{ 'Auth.login.codeLink' | t }}</a> }
+            @if (site.info()?.site?.registrationMode !== 'closed') {
+              <p class="text-muted">{{ 'Auth.login.noAccount' | t }} <a [routerLink]="link('/register')" class="${LINK}">{{ 'Auth.login.register' | t }}</a></p>
+            }
+          </div>
+        }
       </app-card>
-    </main>`,
+    </app-auth-shell>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class LoginPage extends FormBase {
-  protected readonly identifier = signal('');
+  protected readonly remembered = signal(readRemembered());
+  protected readonly identifier = signal(this.remembered());
+  protected readonly remember = signal(!!this.remembered());
   protected readonly password = signal('');
   protected readonly reason = computed(() => this.route.snapshot.queryParamMap.get('reason'));
   protected readonly notice = computed(() => this.i18n.pick(this.site.info()?.site?.loginNoticeEn, this.site.info()?.site?.loginNoticeAr));
+  protected readonly contactEmail = computed(() => this.site.info()?.site?.contactEmail ?? '');
+  protected readonly contactPhone = computed(() => this.site.info()?.site?.contactPhone ?? '');
 
   protected readonly tried = signal(false);
   /** When a phone number (not an email) is typed and it is not 11 digits starting with 01: how many digits were typed. */
@@ -119,6 +152,9 @@ export class LoginPage extends FormBase {
     const d = normPhone(v);
     return PHONE_OK.test(d) ? null : d.length;
   });
+
+  /** "Not you?": forget the remembered address on this device. */
+  protected forget(): void { writeRemembered(null); this.remembered.set(''); this.identifier.set(''); this.remember.set(false); }
 
   submit(): void {
     this.tried.set(true);
@@ -132,14 +168,18 @@ export class LoginPage extends FormBase {
       let s;
       try { s = await this.auth.signIn(this.identifier().trim(), this.password()); }
       catch (e) {
+        const code = problemOf(e).code;
         // Expired password: a code was emailed; open the renewal step (v1 /reset-password?expired=1).
-        if (problemOf(e).code === 'passwordExpired') {
+        if (code === 'passwordExpired') {
           const id = this.identifier().trim();
           await this.router.navigate([this.link('/reset-password')], { queryParams: { email: id.includes('@') ? id : null, expired: 1 } });
           return;
         }
+        // Wrong email/phone or password: shown under the password box (same words whether or not the account exists).
+        if (code === 'invalidCredentials') { this.fieldErrors.set({ password: 'invalidCredentials' }); return; }
         throw e;
       }
+      writeRemembered(this.remember() ? this.identifier().trim() : null);
       if (s.mfaRequired) await this.router.navigate([this.link('/mfa')], { queryParamsHandling: 'preserve' });
       else await this.goHome();
     });
@@ -148,18 +188,17 @@ export class LoginPage extends FormBase {
 
 @Component({
   selector: 'app-mfa',
-  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, TPipe],
+  imports: [AuthShell, Card, Alert, RichText, OtpInput, Submit, TPipe],
   template: `
-    <main class="px-4 py-12">
-      <app-auth-logo />
-      <app-card [heading]="'Auth.mfa.title' | t" [subtitle]="'Auth.mfa.subtitle' | t">
+    <app-auth-shell>
+      <app-card [heading]="'Auth.mfa.title' | t" [subtitle]="'Auth.mfa.subtitle' | t" icon="shield" [back]="link('/login')">
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
-          <app-text-field name="code" [label]="'Auth.mfa.label' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="6" [required]="true" [(value)]="code" />
+          <app-otp-input [label]="'Auth.mfa.label' | t" [hint]="'AuthLook.mfaHint' | t" [(value)]="code" (complete)="submit()" />
           @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.mfa.submit' | t }}</app-submit>
         </form>
       </app-card>
-    </main>`,
+    </app-auth-shell>`,
 })
 export class MfaPage extends FormBase {
   protected readonly code = signal('');
@@ -168,6 +207,7 @@ export class MfaPage extends FormBase {
     if (!this.auth.pendingMfaToken()) void this.router.navigateByUrl(this.link('/login'));
   }
   submit(): void {
+    if (this.pending()) return;
     if (!/^\d{6}$/.test(this.code().trim())) { this.error.set('codeFormat'); return; }
     void this.run(async () => { await this.auth.verifyMfa(this.code().trim()); await this.goHome(); });
   }
@@ -175,11 +215,11 @@ export class MfaPage extends FormBase {
 
 @Component({
   selector: 'app-login-code',
-  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, Turnstile],
+  imports: [AuthShell, Card, Alert, RichText, TextField, OtpInput, Submit, RouterLink, TPipe, Turnstile],
   template: `
-    <main class="px-4 py-12">
-      <app-auth-logo />
-      <app-card [heading]="'Auth.signinCode.title' | t" [subtitle]="(sent() ? 'Auth.signinCode.sent' : 'Auth.signinCode.subtitle') | t">
+    <app-auth-shell>
+      <app-card [heading]="(sent() ? 'AuthLook.enterCode' : 'Auth.signinCode.title') | t" [subtitle]="(sent() ? 'Auth.signinCode.sent' : 'Auth.signinCode.subtitle') | t"
+        [icon]="sent() ? 'lock' : 'mail'" [back]="link('/login')">
         @if (!sent()) {
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); request()">
             <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
@@ -188,6 +228,7 @@ export class MfaPage extends FormBase {
             <app-submit [pending]="pending()">{{ 'Auth.signinCode.send' | t }}</app-submit>
           </form>
         } @else {
+          <p class="-mt-2 self-start rounded-full bg-bg px-3 py-1 text-sm font-semibold" dir="ltr">{{ email() }}</p>
           <div role="timer" class="flex items-center gap-3 rounded-xl border px-3 py-2.5" [class]="left() === 0 ? 'border-danger bg-danger-soft text-danger' : left() <= 60 ? 'border-warn bg-warn-soft text-warn-ink' : 'border-line'">
             <svg viewBox="0 0 36 36" class="h-9 w-9 shrink-0 -rotate-90" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-opacity="0.15" stroke-width="4" />
               <circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray="94.25" [attr.stroke-dashoffset]="94.25 * (1 - left() / (minutes() * 60))" [class]="left() > 60 ? 'text-brand' : ''" /></svg>
@@ -195,16 +236,16 @@ export class MfaPage extends FormBase {
               <span class="block" [class.text-muted]="left() > 60">@if (left() > 0) { {{ 'Auth.signinCode.timeLeft' | t: { t: clock() } }} } @else { {{ 'Auth.signinCode.expired' | t }} }</span></span>
           </div>
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); verify()">
-            <app-text-field name="code" [label]="'Auth.signinCode.codeLabel' | t" [hint]="'Auth.signinCode.codeHint' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="10" [required]="true" [(value)]="code" />
+            <app-otp-input [label]="'Auth.signinCode.codeLabel' | t" [hint]="'Auth.signinCode.codeHint' | t" [(value)]="code" (complete)="verify()" />
             @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.signinCode.submit' | t }}</app-submit>
           </form>
           <button type="button" class="self-start text-sm font-semibold text-brand-ink underline disabled:text-muted disabled:no-underline" [disabled]="wait() > 0 || pending()" (click)="resend()">
             @if (wait() > 0) { {{ 'Auth.signinCode.resendIn' | t: { n: wait() } }} } @else { {{ 'Auth.signinCode.resend' | t }} }</button>
         }
-        <a [routerLink]="link('/login')" class="text-sm font-semibold text-brand-ink underline">{{ 'Auth.signinCode.back' | t }}</a>
+        <a [routerLink]="link('/login')" class="text-sm ${LINK}">{{ 'Auth.signinCode.back' | t }}</a>
       </app-card>
-    </main>`,
+    </app-auth-shell>`,
 })
 export class LoginCodePage extends FormBase {
   private readonly http = inject(HttpClient);
@@ -237,6 +278,7 @@ export class LoginCodePage extends FormBase {
     void this.run(async () => { await firstValueFrom(this.http.post('/api/auth/signin-code', { email: this.email().trim(), captchaToken: this.captchaToken() || null })); this.started(); this.sent.set(true); });
   }
   verify(): void {
+    if (this.pending()) return;
     void this.run(async () => {
       const s = await this.auth.verifySigninCode(this.email().trim(), this.code().trim());
       if (s.mfaRequired) await this.router.navigateByUrl(this.link('/mfa'));
@@ -247,45 +289,52 @@ export class LoginCodePage extends FormBase {
 
 interface SignupOrg { id: string; name: string; branches: { id: string; name: string }[] }
 
+const SELECT = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base disabled:bg-bg';
+
 @Component({
   selector: 'app-register',
-  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, Req, RouterLink, TPipe, NewPasswordFields, Turnstile],
+  imports: [AuthShell, Card, Alert, RichText, TextField, OtpInput, Submit, Req, RouterLink, TPipe, NewPasswordFields, Turnstile],
   template: `
-    <main class="px-4 py-12">
-      <app-auth-logo />
+    <app-auth-shell [wide]="!done()">
       @if (done()) {
-        <app-card [heading]="'Auth.register.sentTitle' | t">
+        <app-card [heading]="'Auth.register.sentTitle' | t" icon="mail" [back]="link('/login')">
           <app-alert tone="success">{{ (mode() === 'pick_auto' ? 'V2.confirm.bodyAuto' : 'V2.confirm.body') | t }}</app-alert>
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); confirm()">
-            <app-text-field name="code" [label]="'Auth.code.label' | t" [hint]="'V2.confirm.hint' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="6" [required]="true" [(value)]="code" />
+            <app-otp-input [label]="'Auth.code.label' | t" [hint]="'V2.confirm.hint' | t" [(value)]="code" (complete)="confirm()" />
             @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             @if (confirmed()) { <app-alert tone="success">{{ (mode() === 'pick_auto' ? 'V2.confirm.doneAuto' : 'V2.confirm.done') | t }}</app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.code.submit' | t }}</app-submit>
           </form>
-          <a [routerLink]="link('/login')" class="text-sm font-semibold text-brand-ink underline">{{ 'Auth.register.login' | t }}</a>
+          <a [routerLink]="link('/login')" class="text-sm ${LINK}">{{ 'Auth.register.login' | t }}</a>
         </app-card>
       } @else {
-        <app-card [heading]="'Auth.register.title' | t" [subtitle]="'Auth.register.subtitle' | t">
+        <app-card [heading]="'Auth.register.title' | t" [subtitle]="'Auth.register.subtitle' | t" icon="userAdd" [back]="link('/login')">
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
             <app-text-field name="fullName" [label]="'Auth.fields.fullName' | t" autocomplete="name" [maxLength]="120" [required]="true" [(value)]="fullName" [error]="fieldErrors()['fullName']" />
-            <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
-            <app-text-field name="phone" type="tel" [label]="'Auth.fields.phone' | t" autocomplete="tel-national" dir="ltr" [maxLength]="16" [required]="true" [hint]="'Auth.fields.phoneHint' | t" [(value)]="phone" [error]="fieldErrors()['phone']" />
-            @if (phone()) { <p class="-mt-3 text-sm font-semibold" [class]="phoneOk() ? 'text-ok' : 'text-muted'" aria-live="polite">{{ phoneOk() ? ('Auth.phoneLooksRight' | t) : ('Auth.phoneCount' | t: { n: phone().length }) }}</p> }
-            @if (mode() === 'pick_approval' || mode() === 'pick_auto') {
+            <div [class]="pair()">
+              <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
               <div class="flex flex-col gap-1.5">
-                <label for="org" class="text-sm font-semibold">{{ 'Auth.fields.organization' | t }}<app-req /></label>
-                <select id="org" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [value]="orgId()" (change)="orgId.set($any($event.target).value); branchId.set('')">
-                  <option value="">{{ 'Auth.fields.pickOrganization' | t }}</option>
-                  @for (o of orgs(); track o.id) { <option [value]="o.id">{{ o.name }}</option> }
-                </select>
-                @if (fieldErrors()['organizationId']) { <p class="text-sm font-medium text-danger">{{ 'Auth.errors.required' | t }}</p> }
+                <app-text-field name="phone" type="tel" [label]="'Auth.fields.phone' | t" autocomplete="tel-national" dir="ltr" [maxLength]="16" [required]="true" [hint]="'Auth.fields.phoneHint' | t" [smallHint]="nl()" [(value)]="phone" [error]="fieldErrors()['phone']" />
+                @if (phone()) { <p class="text-sm font-semibold" [class]="phoneOk() ? 'text-ok' : 'text-muted'" aria-live="polite">{{ phoneOk() ? ('Auth.phoneLooksRight' | t) : ('Auth.phoneCount' | t: { n: phone().length }) }}</p> }
               </div>
-              <div class="flex flex-col gap-1.5">
-                <label for="branch" class="text-sm font-semibold">{{ 'Auth.fields.branch' | t }}</label>
-                <select id="branch" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base disabled:bg-bg" [disabled]="!orgId()" [value]="branchId()" (change)="branchId.set($any($event.target).value)">
-                  <option value="">{{ 'Auth.fields.noBranch' | t }}</option>
-                  @for (b of branches(); track b.id) { <option [value]="b.id">{{ b.name }}</option> }
-                </select>
+            </div>
+            @if (mode() === 'pick_approval' || mode() === 'pick_auto') {
+              <div [class]="pair()">
+                <div class="flex flex-col gap-1.5">
+                  <label for="org" class="text-sm font-semibold">{{ 'Auth.fields.organization' | t }}<app-req /></label>
+                  <select id="org" class="${SELECT}" [value]="orgId()" (change)="orgId.set($any($event.target).value); branchId.set('')">
+                    <option value="">{{ 'Auth.fields.pickOrganization' | t }}</option>
+                    @for (o of orgs(); track o.id) { <option [value]="o.id">{{ o.name }}</option> }
+                  </select>
+                  @if (fieldErrors()['organizationId']) { <p class="text-sm font-medium text-danger">{{ 'Auth.errors.required' | t }}</p> }
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label for="branch" class="text-sm font-semibold">{{ 'Auth.fields.branch' | t }}</label>
+                  <select id="branch" class="${SELECT}" [disabled]="!orgId()" [value]="branchId()" (change)="branchId.set($any($event.target).value)">
+                    <option value="">{{ 'Auth.fields.noBranch' | t }}</option>
+                    @for (b of branches(); track b.id) { <option [value]="b.id">{{ b.name }}</option> }
+                  </select>
+                </div>
               </div>
             }
             <app-new-password [(value)]="password" [(confirm)]="confirmPw" [error]="fieldErrors()['password']" [confirmError]="fieldErrors()['confirm']" />
@@ -298,10 +347,10 @@ interface SignupOrg { id: string; name: string; branches: { id: string; name: st
             @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.register.submit' | t }}</app-submit>
           </form>
-          <p class="text-sm text-muted">{{ 'Auth.register.haveAccount' | t }} <a [routerLink]="link('/login')" class="font-semibold text-brand-ink underline">{{ 'Auth.register.login' | t }}</a></p>
+          <p class="text-sm text-muted" [class]="nl() ? 'border-t border-line pt-4 text-center' : ''">{{ 'Auth.register.haveAccount' | t }} <a [routerLink]="link('/login')" class="${LINK}">{{ 'Auth.register.login' | t }}</a></p>
         </app-card>
       }
-    </main>`,
+    </app-auth-shell>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class RegisterPage extends FormBase {
@@ -322,6 +371,8 @@ export class RegisterPage extends FormBase {
   protected readonly orgs = signal<SignupOrg[]>([]);
   protected readonly mode = computed(() => this.site.info()?.site?.registrationMode ?? 'approval');
   protected readonly branches = computed(() => this.orgs().find((o) => o.id === this.orgId())?.branches ?? []);
+  /** New look: two fields side by side on wider screens; classic: one under the other. */
+  protected readonly pair = computed(() => (this.nl() ? 'grid items-start gap-4 sm:grid-cols-2' : 'contents'));
 
   constructor() {
     super();
@@ -360,6 +411,7 @@ export class RegisterPage extends FormBase {
   }
 
   confirm(): void {
+    if (this.pending() || this.confirmed()) return;
     void this.run(async () => {
       await firstValueFrom(this.http.post('/api/auth/confirm-email', { email: this.email().trim(), code: this.code().trim() }));
       this.confirmed.set(true);
@@ -369,20 +421,19 @@ export class RegisterPage extends FormBase {
 
 @Component({
   selector: 'app-forgot',
-  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, Turnstile],
+  imports: [AuthShell, Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, Turnstile],
   template: `
-    <main class="px-4 py-12">
-      <app-auth-logo />
-      <app-card [heading]="'Auth.forgot.title' | t" [subtitle]="'Auth.forgot.subtitle' | t">
+    <app-auth-shell>
+      <app-card [heading]="'Auth.forgot.title' | t" [subtitle]="'Auth.forgot.subtitle' | t" icon="key" [back]="link('/login')">
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
           @if (captchaKey(); as k) { <app-turnstile [siteKey]="k" [resetKey]="captchaReset()" [(token)]="captchaToken" /> }
           @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.forgot.submit' | t }}</app-submit>
         </form>
-        <a [routerLink]="link('/login')" class="text-sm font-semibold text-brand-ink underline">{{ 'Auth.register.login' | t }}</a>
+        <a [routerLink]="link('/login')" class="text-sm ${LINK}">{{ 'Auth.register.login' | t }}</a>
       </app-card>
-    </main>`,
+    </app-auth-shell>`,
 })
 export class ForgotPage extends FormBase {
   private readonly http = inject(HttpClient);
@@ -399,26 +450,27 @@ export class ForgotPage extends FormBase {
 
 @Component({
   selector: 'app-reset',
-  imports: [AuthLogo, Card, Alert, RichText, TextField, Submit, RouterLink, TPipe, NewPasswordFields],
+  imports: [AuthShell, Card, Alert, RichText, TextField, OtpInput, Submit, RouterLink, TPipe, NewPasswordFields],
   template: `
-    <main class="px-4 py-12">
-      <app-auth-logo />
-      <app-card [heading]="'Auth.reset.title' | t" [subtitle]="'Auth.reset.subtitle' | t">
+    <app-auth-shell>
+      <app-card [heading]="(done() ? 'AuthLook.pwChanged' : 'Auth.reset.title') | t" [subtitle]="done() ? undefined : ('Auth.reset.subtitle' | t)"
+        [icon]="done() ? 'check' : 'lock'" [back]="done() ? '' : link('/forgot-password')" [backLabel]="'AuthLook.backShort' | t">
         @if (done()) {
           <app-alert tone="success">{{ 'V2.resetDone' | t }}</app-alert>
-          <a [routerLink]="link('/login')" class="text-sm font-semibold text-brand-ink underline">{{ 'Auth.register.login' | t }}</a>
+          @if (nl()) { <a [routerLink]="link('/login')" class="flex min-h-11 items-center justify-center rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink">{{ 'Auth.login.submit' | t }}</a> }
+          @else { <a [routerLink]="link('/login')" class="text-sm ${LINK}">{{ 'Auth.register.login' | t }}</a> }
         } @else {
           @if (expired) { <app-alert>{{ 'Auth.code.expired' | t }}</app-alert> }
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
             <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" dir="ltr" [required]="true" [(value)]="email" />
-            <app-text-field name="code" [label]="'Auth.code.label' | t" [hint]="'Auth.code.hint' | t" autocomplete="one-time-code" dir="ltr" [maxLength]="6" [required]="true" [(value)]="code" />
+            <app-otp-input [label]="'Auth.code.label' | t" [hint]="'Auth.code.hint' | t" [(value)]="code" />
             <app-new-password [(value)]="password" [(confirm)]="confirmPw" [error]="fieldErrors()['password']" [confirmError]="fieldErrors()['confirm']" />
             @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.reset.submit' | t }}</app-submit>
           </form>
         }
       </app-card>
-    </main>`,
+    </app-auth-shell>`,
 })
 export class ResetPage extends FormBase {
   private readonly http = inject(HttpClient);

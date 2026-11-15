@@ -49,7 +49,7 @@ export interface NewTicketOptions { types: TypeOption[]; categories: CategoryOpt
 export interface SiteInfo {
   site: {
     siteNameEn: string; siteNameAr: string; headerNameEn: string; headerNameAr: string; headerSubEn: string; headerSubAr: string;
-    logoPath: string | null; faviconPath?: string | null; wordmarkPath?: string | null; wordmarkDarkPath?: string | null; footerLogoPath?: string | null; authLogo?: boolean; footerConfig?: string; socialLinks?: string; homeContent?: string; footerTextEn: string; footerTextAr: string; contactEmail: string | null; contactPhone: string | null;
+    logoPath: string | null; faviconPath?: string | null; wordmarkPath?: string | null; wordmarkDarkPath?: string | null; footerLogoPath?: string | null; authLogo?: boolean; footerConfig?: string; authDesign?: string; signinPicturePath?: string | null; socialLinks?: string; homeContent?: string; footerTextEn: string; footerTextAr: string; contactEmail: string | null; contactPhone: string | null;
     contactHoursEn: string; contactHoursAr: string; brandColor: string | null; loginNoticeEn: string; loginNoticeAr: string;
     homeTitleEn: string; homeTitleAr: string; homeIntroEn: string; homeIntroAr: string; registrationMode: string;
     uploadMaxMb: number; uploadMaxFiles: number; uploadExtensions: string;
@@ -75,6 +75,9 @@ export const FOOTER_DEFAULTS: FooterConfig = {
   contact: true, contactTitleEn: '', contactTitleAr: '', email: true, phone: true, hours: true,
   copyright: true, copyrightEn: '', copyrightAr: '', extra: true,
 };
+/** Settings → Branding → Home and sign-in look: New / Classic, the sign-in picture (a-d drawings or an upload) and its texts (empty = standard wording). */
+export interface AuthDesign { look: 'new' | 'classic'; picture: 'a' | 'b' | 'c' | 'd' | 'own'; band: boolean; tagEn: string; tagAr: string; titleEn: string; titleAr: string; subEn: string; subAr: string }
+export const AUTH_DESIGN_DEFAULTS: AuthDesign = { look: 'new', picture: 'a', band: true, tagEn: '', tagAr: '', titleEn: '', titleAr: '', subEn: '', subAr: '' };
 export const SOCIAL_KINDS = ['web', 'linkedin', 'youtube', 'facebook', 'x'] as const;
 export type SocialLinks = Record<string, { on: boolean; url: string }>;
 const parse = <T,>(json: string | undefined, fallback: T): T => { try { return json ? { ...fallback, ...JSON.parse(json) } : fallback; } catch { return fallback; } };
@@ -98,6 +101,11 @@ export class SiteService {
   readonly footerLogoUrl = computed(() => { const s = this.info()?.site; const p = s?.footerLogoPath ?? s?.wordmarkPath ?? s?.logoPath; return p ? apiUrl('/api/site/branding/' + p) : null; });
   readonly footer = computed(() => parse<FooterConfig>(this.info()?.site?.footerConfig, FOOTER_DEFAULTS));
   readonly social = computed(() => parse<SocialLinks>(this.info()?.site?.socialLinks, {}));
+  readonly authDesign = computed(() => parse<AuthDesign>(this.info()?.site?.authDesign, AUTH_DESIGN_DEFAULTS));
+  /** True for the new home and sign-in pages; false for the classic ones (Settings → Branding). */
+  readonly newLook = computed(() => this.authDesign().look !== 'classic');
+  /** The uploaded sign-in picture, when "own" is chosen and one exists. */
+  readonly signinPictureUrl = computed(() => { const p = this.info()?.site?.signinPicturePath; return p && this.authDesign().picture === 'own' ? apiUrl('/api/site/branding/' + p) : null; });
 
   async load(): Promise<void> {
     try {

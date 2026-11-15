@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, model, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, InjectionToken, computed, inject, input, model, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18n, LOCALES, TPipe } from '../core/i18n';
 import { Router } from '@angular/router';
@@ -21,21 +21,62 @@ export class Req {}
 })
 export class ReqNote {}
 
-/** Centered auth card (Card in ui.tsx). */
+/** Set by the sign-in frame (AuthShell) so cards inside it take the new look when it is chosen in Branding. */
+export const AUTH_FRAME = new InjectionToken<boolean>('AUTH_FRAME');
+
+/** Round icons at the top of the new-look sign-in cards. */
+export const CARD_ICONS: Record<string, string> = {
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0',
+  userAdd: 'M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM2 21a8 8 0 0 1 14-5M19 14v6M16 17h6',
+  mail: 'M3 5h18v14H3zM3 7l9 6 9-6',
+  lock: 'M5 11h14v10H5zM8 11V8a4 4 0 0 1 8 0v3',
+  shield: 'M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7zM9 12l2 2 4-4',
+  key: 'M8 19a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM10.8 12.2 19 4M17 6l3 3M14 9l2 2',
+  check: 'M5 12l5 5L20 7',
+};
+
+/** Centered auth card (Card in ui.tsx). Inside the sign-in frame with the new look: icon, Back link and language switch. */
 @Component({
   selector: 'app-card',
-  imports: [RichText],
+  imports: [RichText, RouterLink, TPipe],
   template: `
-    <section class="mx-auto w-full max-w-md rounded-md border border-line bg-surface p-6 sm:p-8">
-      <h1 class="text-2xl font-bold tracking-tight">{{ heading() }}</h1>
+    <section [class]="framed() ? 'relative w-full rounded-2xl border border-line bg-surface p-6 shadow-[0_12px_30px_rgba(15,27,45,.10)] sm:p-8' : 'mx-auto w-full max-w-md rounded-md border border-line bg-surface p-6 sm:p-8'">
+      @if (framed()) {
+        <a [routerLink]="otherPath()" [queryParams]="query()" [attr.lang]="other()" [attr.hreflang]="other()" class="absolute end-3 top-3 inline-flex min-h-8 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-sm font-bold text-brand-ink hover:bg-brand-soft">
+          <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>{{ 'Language.' + other() | t }}</a>
+        @if (back()) {
+          <a [routerLink]="back()" class="mb-3 inline-flex min-h-8 items-center gap-1.5 text-sm font-semibold text-brand-ink hover:underline">
+            <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="rtl:-scale-x-100"><path d="M15 18l-6-6 6-6"/></svg>{{ backLabel() || ('AuthLook.back' | t) }}</a>
+        }
+      }
+      <div [class]="framed() ? 'flex items-center gap-3 pe-24' : ''">
+        @if (framed() && icon()) {
+          <span aria-hidden="true" class="grid size-12 flex-none place-items-center rounded-full" [class]="icon() === 'check' ? 'bg-ok-soft text-ok' : 'bg-brand-soft text-brand'">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="iconPath()"/></svg></span>
+        }
+        <h1 class="text-2xl font-bold tracking-tight">{{ heading() }}</h1>
+      </div>
       @if (subtitle()) { <div class="mt-2 text-sm leading-relaxed text-muted"><app-rich [text]="subtitle()!" [compact]="true" /></div> }
       <div class="mt-6 flex flex-col gap-4"><ng-content /></div>
     </section>`,
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.Default,
 })
 export class Card {
+  private readonly site = inject(SiteService);
+  private readonly router = inject(Router);
+  private readonly i18n = inject(I18n);
+  private readonly inFrame = inject(AUTH_FRAME, { optional: true }) ?? false;
   readonly heading = input.required<string>();
   readonly subtitle = input<string>();
+  /** New look only: round icon (a CARD_ICONS key), and a Back link at the top. */
+  readonly icon = input<string>('');
+  readonly back = input<string>('');
+  readonly backLabel = input<string>('');
+  protected readonly framed = computed(() => this.inFrame && this.site.newLook());
+  protected readonly iconPath = computed(() => CARD_ICONS[this.icon()] ?? '');
+  protected readonly other = computed(() => (this.i18n.locale() === 'ar' ? 'en' : 'ar'));
+  protected otherPath(): string { const path = this.router.url.split('?')[0].split('#')[0]; return '/' + this.other() + path.replace(/^\/(en|ar)(?=\/|$)/, ''); }
+  protected query() { return this.router.parseUrl(this.router.url).queryParams; }
 }
 
 @Component({
@@ -59,7 +100,7 @@ let fieldSeq = 0;
       <label [for]="id" class="text-sm font-semibold">{{ label() }}@if (required()) {<app-req />}</label>
       <div class="relative">
         <input [id]="id" [name]="name()" [type]="type() === 'password' && shown() ? 'text' : type()" [attr.autocomplete]="autocomplete()" [attr.dir]="type() === 'password' ? 'ltr' : dir()"
-          [attr.maxlength]="maxLength()" [attr.placeholder]="placeholder() || null" [required]="required()" [value]="value()" (input)="value.set($any($event.target).value)"
+          [attr.maxlength]="maxLength()" [attr.placeholder]="placeholder() || null" [required]="required()" [value]="value()" (input)="value.set($any($event.target).value)" (keyup)="caps($event)" (keydown)="caps($event)" (blur)="capsOn.set(false)"
           [attr.aria-invalid]="error() ? true : null" [attr.aria-describedby]="error() ? id + '-err' : hint() ? id + '-hint' : null"
           class="min-h-11 w-full rounded-lg border border-line bg-surface text-base placeholder:text-muted read-only:bg-bg read-only:text-muted aria-[invalid=true]:border-danger" [class]="inputLayout()" />
         @if (type() === 'password') {
@@ -72,6 +113,7 @@ let fieldSeq = 0;
           </button>
         }
       </div>
+      @if (capsOn()) { <p role="status" class="self-start rounded-md bg-warn-soft px-2 py-0.5 text-xs font-semibold text-warn-ink">{{ 'Auth.capsLock' | t }}</p> }
       @if (hint() && !error()) { <p [id]="id + '-hint'" class="text-muted" [class]="smallHint() ? 'text-xs' : 'text-sm'">{{ hint() }}</p> }
       @if (error()) { <p [id]="id + '-err'" class="text-sm font-medium text-danger">{{ 'Auth.errors.' + error() | t }}</p> }
     </div>`,
@@ -92,6 +134,9 @@ export class TextField {
     return rtlPage && inputLtr ? pad + ' placeholder:text-right' : pad;
   });
   readonly id = `f${++fieldSeq}`;
+  /** Password boxes warn when Caps Lock is on. */
+  protected readonly capsOn = signal(false);
+  protected caps(e: KeyboardEvent): void { if (this.type() === 'password' && e.getModifierState) this.capsOn.set(e.getModifierState('CapsLock')); }
   readonly name = input.required<string>();
   readonly label = input.required<string>();
   readonly type = input('text');
