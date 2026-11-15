@@ -100,6 +100,15 @@ export class I18n {
     return new Intl.DateTimeFormat(this.locale() === 'ar' ? 'ar' : 'en-US', { dateStyle: 'medium', timeZone: 'Africa/Cairo' }).format(new Date(iso));
   }
 
+  /** Compact date for tight tables: "Nov 14, 10:34 AM", with the year only when it is not this year. */
+  shortDate(iso: string | null | undefined): string {
+    if (!iso) return '-';
+    const d = new Date(iso), thisYear = d.getFullYear() === new Date().getFullYear();
+    return new Intl.DateTimeFormat(this.locale() === 'ar' ? 'ar' : 'en-US', {
+      month: 'short', day: 'numeric', year: thisYear ? undefined : 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Africa/Cairo',
+    }).format(d);
+  }
+
   date(iso: string | null | undefined, style: 'medium' | 'short' = 'medium'): string {
     if (!iso) return '-';
     // Same as v1 (next-intl with locale "en" / "ar"): "Nov 5, 2026, 12:32 PM".

@@ -1,6 +1,6 @@
 import { RichText } from '../../shared/rich-text';
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, DestroyRef, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { Auth, problemOf } from '../../core/auth';
@@ -8,6 +8,15 @@ import { I18n, TPipe } from '../../core/i18n';
 import { SiteService } from '../../core/api';
 import { Alert, Card, NewPasswordFields, Req, Submit, TextField } from '../../shared/ui';
 import { Turnstile } from '../../shared/turnstile';
+
+/** Egyptian mobile as typed (spaces, dashes, +20 / 0020) -> plain digits starting with 0, e.g. "01012345678". */
+export function normPhone(v: string): string {
+  let d = v.replace(/\D/g, '');
+  if (d.startsWith('0020') && d.length === 14) d = '0' + d.slice(4);
+  else if (d.startsWith('20') && d.length === 12) d = '0' + d.slice(2);
+  return d;
+}
+const PHONE_OK = /^01[0-9]{9}$/;
 
 /** Only same-site paths are accepted as "next" (safeNextPath today). */
 function safeNext(raw: string | null | undefined): string | null {
@@ -81,6 +90,7 @@ abstract class FormBase {
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="email" [label]="'Auth.fields.identifier' | t" [placeholder]="'Auth.login.identifierPlaceholder' | t" [hint]="'Auth.login.identifierHint' | t" [smallHint]="true" autocomplete="username" dir="ltr" [required]="true" [(value)]="identifier" [error]="fieldErrors()['identifier']" />
           <app-text-field name="password" type="password" [label]="'Auth.fields.password' | t" [placeholder]="'Auth.login.passwordPlaceholder' | t" autocomplete="current-password" [required]="true" [(value)]="password" [error]="fieldErrors()['password']" />
+          @if (tried() && phoneTyped() !== null) { <p class="-mt-2 text-sm font-medium text-danger" role="alert">{{ 'Auth.phoneDigits' | t: { n: phoneTyped() } }}</p> }
           @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.login.submit' | t }}</app-submit>
         </form>
@@ -101,11 +111,23 @@ export class LoginPage extends FormBase {
   protected readonly reason = computed(() => this.route.snapshot.queryParamMap.get('reason'));
   protected readonly notice = computed(() => this.i18n.pick(this.site.info()?.site?.loginNoticeEn, this.site.info()?.site?.loginNoticeAr));
 
+  protected readonly tried = signal(false);
+  /** When a phone number (not an email) is typed and it is not 11 digits starting with 01: how many digits were typed. */
+  protected readonly phoneTyped = computed(() => {
+    const v = this.identifier().trim();
+    if (!v || !/^[+\d\s()-]+$/.test(v)) return null;
+    const d = normPhone(v);
+    return PHONE_OK.test(d) ? null : d.length;
+  });
+
   submit(): void {
+    this.tried.set(true);
     const fe: Record<string, string> = {};
     if (!this.identifier().trim()) fe['identifier'] = 'required';
     if (!this.password()) fe['password'] = 'required';
     if (Object.keys(fe).length) { this.fieldErrors.set(fe); return; }
+    if (this.phoneTyped() !== null) return;
+    if (/^[+\d\s()-]+$/.test(this.identifier().trim())) this.identifier.set(normPhone(this.identifier()));
     void this.run(async () => {
       let s;
       try { s = await this.auth.signIn(this.identifier().trim(), this.password()); }
@@ -247,7 +269,8 @@ interface SignupOrg { id: string; name: string; branches: { id: string; name: st
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
             <app-text-field name="fullName" [label]="'Auth.fields.fullName' | t" autocomplete="name" [maxLength]="120" [required]="true" [(value)]="fullName" [error]="fieldErrors()['fullName']" />
             <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
-            <app-text-field name="phone" type="tel" [label]="'Auth.fields.phone' | t" autocomplete="tel-national" dir="ltr" [maxLength]="11" [required]="true" [hint]="'Auth.fields.phoneHint' | t" [(value)]="phone" [error]="fieldErrors()['phone']" />
+            <app-text-field name="phone" type="tel" [label]="'Auth.fields.phone' | t" autocomplete="tel-national" dir="ltr" [maxLength]="16" [required]="true" [hint]="'Auth.fields.phoneHint' | t" [(value)]="phone" [error]="fieldErrors()['phone']" />
+            @if (phone()) { <p class="-mt-3 text-sm font-semibold" [class]="phoneOk() ? 'text-ok' : 'text-muted'" aria-live="polite">{{ phoneOk() ? ('Auth.phoneLooksRight' | t) : ('Auth.phoneCount' | t: { n: phone().length }) }}</p> }
             @if (mode() === 'pick_approval' || mode() === 'pick_auto') {
               <div class="flex flex-col gap-1.5">
                 <label for="org" class="text-sm font-semibold">{{ 'Auth.fields.organization' | t }}<app-req /></label>
@@ -286,6 +309,9 @@ export class RegisterPage extends FormBase {
   protected readonly fullName = signal('');
   protected readonly email = signal('');
   protected readonly phone = signal('');
+  protected readonly phoneOk = computed(() => PHONE_OK.test(this.phone()));
+  /** Only digits are kept as you type; "+20 10 ..." becomes "010...". */
+  private readonly phoneClean = effect(() => { const v = this.phone(), d = normPhone(v); if (d !== v) this.phone.set(d); });
   protected readonly password = signal('');
   protected readonly confirmPw = signal('');
   protected readonly code = signal('');
@@ -316,7 +342,7 @@ export class RegisterPage extends FormBase {
     const fe: Record<string, string> = {};
     if (this.fullName().trim().length < 2) fe['fullName'] = 'nameRequired';
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email().trim())) fe['email'] = 'emailInvalid';
-    if (!/^01[0-9]{9}$/.test(this.phone().trim())) fe['phone'] = this.phone().trim() ? 'phoneInvalid' : 'phoneRequired';
+    if (!PHONE_OK.test(this.phone())) fe['phone'] = this.phone() ? 'phoneInvalid' : 'phoneRequired';
     const pw = this.passwordProblems(this.password());
     if (pw) fe['password'] = pw;
     if (this.password() !== this.confirmPw()) fe['confirm'] = 'passwordMismatch';

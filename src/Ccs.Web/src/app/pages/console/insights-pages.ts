@@ -387,9 +387,8 @@ interface AuditRow { id: number; action: string; entityType: string; entityId: s
       <header><h1 class="text-3xl font-bold tracking-tight">{{ 'AuditLog.title' | t }}</h1><p class="mt-1 text-muted">{{ 'AuditLog.subtitle' | t }}</p></header>
       <form class="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-4 shadow-card" (submit)="$event.preventDefault(); page.set(1); load()">
         <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'AuditLog.filterType' | t }}
-          <select class="min-h-11 min-w-56 rounded-lg border border-line bg-surface px-3 text-base" [value]="entity()" (change)="entity.set($any($event.target).value)">
+          <select class="min-h-11 min-w-56 rounded-lg border border-line bg-surface px-3 text-base" [value]="entity()" (change)="entity.set($any($event.target).value); page.set(1); load()">
             <option value="">{{ 'AuditLog.allTypes' | t }}</option>@for (x of types(); track x) { <option [value]="x">{{ x }}</option> }</select></label>
-        <button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'AuditLog.apply' | t }}</button>
       </form>
       @if (rows() && !rows()!.length) { <p class="rounded-xl border border-line bg-surface p-6 text-muted">{{ 'AuditLog.empty' | t }}</p> } @else {
         <div class="relative overflow-x-auto rounded-xl border border-line bg-surface shadow-card">

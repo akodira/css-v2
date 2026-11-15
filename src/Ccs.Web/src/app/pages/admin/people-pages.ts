@@ -8,6 +8,7 @@ import { Lookups, OrgRow, BranchRow, TeamRow, TeamsResult, generatePassword } fr
 import { Auth } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { Alert, Req, ReqNote } from '../../shared/ui';
+import { PwEye } from '../../shared/pw-eye';
 import { AdminBase, CLS, TurnBack } from './admin-pages';
 import { WhereEditor } from './where-editor';
 
@@ -286,7 +287,7 @@ export class StaffBody implements OnInit {
 
 @Component({
   selector: 'app-admin-staff',
-  imports: [TPipe, Alert, FormsModule, RoleCards, ScopePicker, StaffBody, Req, PageAbout],
+  imports: [TPipe, Alert, FormsModule, RoleCards, ScopePicker, StaffBody, Req, PageAbout, PwEye],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -304,7 +305,7 @@ export class StaffBody implements OnInit {
               <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" dir="ltr" placeholder="+20 10 1234 5678" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.phone" /></label>
               <div class="flex flex-col gap-1.5">
                 <label for="nw-pw" class="text-sm font-semibold">{{ 'Directory.tempPassword' | t }}<app-req /></label>
-                <span class="flex gap-2"><input id="nw-pw" name="w" dir="ltr" autocomplete="off" [class]="cls.input" [(ngModel)]="nw.password" />
+                <span class="flex gap-2"><span class="relative min-w-0 flex-1"><input #nwpw id="nw-pw" name="w" type="password" dir="ltr" autocomplete="new-password" [class]="cls.input + ' w-full pe-11'" [(ngModel)]="nw.password" /><app-pw-eye [target]="nwpw" /></span>
                   <button type="button" (click)="nw.password = gen()" class="min-h-11 shrink-0 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg">{{ 'Directory.generate' | t }}</button></span>
                 <p class="text-sm text-muted">{{ 'Directory.tempPasswordHint' | t }}</p>
               </div>

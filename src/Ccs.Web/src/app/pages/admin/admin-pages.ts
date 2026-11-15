@@ -12,6 +12,7 @@ import {
   adminError, generatePassword,
 } from '../../core/admin-api';
 import { Alert, PRIORITY_TONE, PrioIcon, Req, StatusBadge } from '../../shared/ui';
+import { PwEye } from '../../shared/pw-eye';
 import { WhereEditor } from './where-editor';
 import { feedbackFor } from '../../shared/feedback';
 
@@ -94,7 +95,7 @@ export const SEARCH = `
 
 @Component({
   selector: 'app-person-form',
-  imports: [FormsModule, TPipe, Req, WhereEditor, forwardRef(() => TurnBack)],
+  imports: [FormsModule, TPipe, Req, WhereEditor, forwardRef(() => TurnBack), PwEye],
   template: `
     <form class="flex flex-col gap-4" (ngSubmit)="submit()">
       <div class="grid gap-4 md:grid-cols-2">
@@ -106,7 +107,7 @@ export const SEARCH = `
           <input [id]="id + 'p'" name="phone" type="tel" dir="ltr" maxlength="24" [class]="cls.input" [(ngModel)]="m.phone" /></div>
         @if (!user()) {
           <div class="flex flex-col gap-1.5"><label [for]="id + 'w'" [class]="cls.label"><span>{{ 'Directory.tempPassword' | t }}<app-req /></span></label>
-            <div class="flex gap-2"><input [id]="id + 'w'" name="password" dir="ltr" required [class]="cls.input" [(ngModel)]="m.password" autocomplete="new-password" />
+            <div class="flex gap-2"><span class="relative min-w-0 flex-1"><input #pfw [id]="id + 'w'" name="password" type="password" dir="ltr" required [class]="cls.input + ' w-full pe-11'" [(ngModel)]="m.password" autocomplete="new-password" /><app-pw-eye [target]="pfw" /></span>
               <button type="button" [class]="cls.btn2" (click)="m.password = gen()">{{ 'Directory.generate' | t }}</button></div>
             <p class="text-sm text-muted">{{ 'Directory.tempPasswordHint' | t }}</p></div>
         }
@@ -225,9 +226,8 @@ interface CustomerRow { id: string; fullName: string; email: string; phone: stri
       }
       <form role="search" class="flex flex-wrap gap-2" (ngSubmit)="search()">
         <label class="sr-only" for="cq">{{ 'Customers.search' | t }}</label>
-        <input id="cq" name="q" type="search" dir="auto" [placeholder]="'Customers.searchPlaceholder' | t" [(ngModel)]="term"
+        <input id="cq" name="q" type="search" dir="auto" [placeholder]="'Customers.searchPlaceholder' | t" [(ngModel)]="term" (ngModelChange)="typed()"
           class="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 text-base" />
-        <button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Customers.searchButton' | t }}</button>
       </form>
       @if (!rows()) { <p class="text-muted">…</p> }
       @else if (!rows()!.length) { <p role="status" class="rounded-md border border-line bg-surface p-6 text-muted">{{ 'Customers.empty' | t }}</p> }
@@ -278,10 +278,16 @@ export class AdminCustomersPage extends AdminBase implements OnInit {
     this.term = this.route.snapshot.queryParamMap.get('q') ?? '';
     await Promise.all([this.isAdmin() ? this.loadLookups() : Promise.resolve(), this.reload()]);
   }
+  private timer?: ReturnType<typeof setTimeout>;
+  private seq = 0;
+  /** Search as you type: filters shortly after each letter. */
+  protected typed(): void { clearTimeout(this.timer); this.timer = setTimeout(() => this.search(), 250); }
   protected async reload(): Promise<void> {
+    const mine = ++this.seq;
     try {
       const q = this.term.trim().slice(0, 80);
-      this.rows.set(await firstValueFrom(this.http.get<CustomerRow[]>('/api/console/customers', { params: q ? { q } : {} })));
+      const r = await firstValueFrom(this.http.get<CustomerRow[]>('/api/console/customers', { params: q ? { q } : {} }));
+      if (mine === this.seq) this.rows.set(r);
     } catch (e) { this.fail(e); }
   }
   protected search(): void {

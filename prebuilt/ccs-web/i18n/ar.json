@@ -202,7 +202,7 @@
       "passwordLong": "استخدم 72 حرفًا كحد أقصى.",
       "passwordMismatch": "كلمتا المرور غير متطابقتين.",
       "nameRequired": "أدخل اسمك الكامل (من 2 إلى 120 حرفًا).",
-      "phoneInvalid": "أدخل رقم هاتف مع رمز الدولة، مثل ‎+20 10 1234 5678‎.",
+      "phoneInvalid": "أدخل 11 رقمًا يبدأ بـ 01، مثل 01012345678.",
       "required": "هذا الحقل مطلوب.",
       "notSignedIn": "انتهت جلستك. سجّل الدخول مرة أخرى.",
       "passwordUpper": "أضف حرفًا كبيرًا.",
@@ -287,7 +287,10 @@
     },
     "captcha": {
       "label": "التحقق الأمني"
-    }
+    },
+    "phoneDigits": "رقم الهاتف 11 رقمًا يبدأ بـ 01، وقد كتبت {n}.",
+    "phoneCount": "{n} من 11 رقمًا",
+    "phoneLooksRight": "11 من 11 رقمًا ✓"
   },
   "Account": {
     "title": "حسابي",
@@ -722,7 +725,8 @@
       "done": "تم تغيير التصنيف."
     },
     "categoryFilter": "عرض الفئة: {name}",
-    "clearFilter": "إلغاء التصفية"
+    "clearFilter": "إلغاء التصفية",
+    "updatedOn": "حُدّث {when}"
   },
   "AdminTeams": {
     "title": "الفرق",
@@ -3996,5 +4000,8 @@
     "imageTooBig": "يجب ألا يزيد حجم الصورة على 1 ميجابايت.",
     "imageType": "اختر صورة بصيغة PNG أو JPG أو GIF أو WebP.",
     "align_justify": "ضبط النص على الجانبين"
+  },
+  "Common": {
+    "clearFilters": "مسح عوامل التصفية"
   }
 }

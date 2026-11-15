@@ -7,6 +7,7 @@ import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Alert, ClockInput, PRIORITY_STRIPE, PRIORITY_TONE, PrioIcon, Req, ReqNote, SlaChip, SlaClockCard, SortTh, StatusBadge } from '../../shared/ui';
 import { AutoRefreshBar, autoRefresh } from '../tickets/customer-pages';
+import { liveSearch } from '../../shared/live-search';
 import { CannedApi } from '../help-pages';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
 import { NewTicketOptions } from '../../core/api';
@@ -91,31 +92,53 @@ const SLA_TONE: Record<string, string> = {
             <option value="">{{ 'Console.filters.any' | t }}</option>
             @for (x of teams(); track x.id) { <option [value]="x.id">{{ i18n.pick(x.nameEn, x.nameAr) }}</option> }
           </select></label>
-        <div class="flex items-end"><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink">{{ 'Console.filters.searchButton' | t }}</button></div>
+        @if (filtered()) { <div class="flex items-end"><button type="button" (click)="clearFilters()" class="min-h-11 cursor-pointer px-1 font-semibold text-brand-ink underline">{{ 'Common.clearFilters' | t }}</button></div> }
       </form>
 
       @if (data() && !data()!.items.length) { <p class="rounded-md border border-line bg-surface p-6 text-muted">{{ 'Console.empty' | t }}</p> }
       @else {
-        <div class="relative overflow-x-auto rounded-md border border-line bg-surface">
-          <table class="w-full min-w-[56rem] text-start text-sm">
+        <!-- Phones: one card per ticket. -->
+        <ul class="flex flex-col gap-3 md:hidden">
+          @for (r of data()?.items ?? []; track r.id) {
+            <li class="rounded-md border border-line bg-surface p-4" [class]="pstripe[r.priorityColor ?? 'grey'] ?? ''">
+              <div class="flex flex-wrap items-center justify-between gap-2"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink underline" dir="ltr">{{ r.reference }}</a><app-status-badge [status]="r.status" [staff]="true" /></div>
+              <p class="mt-1 font-semibold [overflow-wrap:anywhere]" dir="auto">{{ r.subject }}</p>
+              <p class="mt-1 text-sm text-muted" dir="auto">{{ r.requesterName }} · {{ i18n.pick(r.teamEn, r.teamAr) || ('Console.noTeam' | t) }} · {{ r.assigneeName ?? ('Console.unassignedLabel' | t) }}</p>
+              <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 font-semibold ' + prio(r.priorityColor)"><app-prio-icon [name]="r.priorityIcon ?? 'minus'" [size]="12" />{{ i18n.pick(r.priorityEn, r.priorityAr) || r.priority }}</span>
+                @if (clockOf(r); as ck) { <app-sla-chip [clock]="ck" /> }
+                <span class="text-muted">{{ 'Console.updatedOn' | t: { when: i18n.shortDate(r.updatedAt) } }}</span>
+              </div>
+            </li>
+          }
+        </ul>
+        <div class="relative hidden rounded-md border border-line bg-surface md:block">
+          <table class="w-full table-fixed text-start text-sm">
             <caption class="sr-only">{{ 'Console.title' | t }}</caption>
+            <colgroup><col class="w-[20%]" /><col class="w-[18%]" /><col class="w-[14%]" /><col class="w-[10%]" /><col class="w-[10%]" /><col class="w-[13%]" /><col class="w-[15%]" /></colgroup>
             <thead class="border-b border-line bg-chrome text-white"><tr>
               @for (c of columns; track c) { <th app-sort-th [label]="'Console.columns.' + c | t" [key]="c" [(sort)]="sort" [(desc)]="desc"></th> }
+              <th scope="col" class="p-0" [attr.aria-sort]="sort() === 'created' || sort() === 'updated' ? (desc() ? 'descending' : 'ascending') : 'none'">
+                <div class="flex flex-col py-1">
+                  @for (k of dateKeys; track k) {
+                    <button type="button" (click)="sortBy(k)" class="flex min-h-8 cursor-pointer items-center gap-1.5 px-3 text-start font-semibold hover:underline" [class.opacity-70]="sort() !== k">
+                      {{ 'Console.columns.' + k | t }}@if (sort() === k) { <span aria-hidden="true">{{ desc() ? '▼' : '▲' }}</span> }</button>
+                  }
+                </div></th>
             </tr></thead>
             <tbody>
               @for (r of data()?.items ?? []; track r.id) {
                 <tr class="border-b border-line align-top last:border-0 hover:bg-bg" [class]="pstripe[r.priorityColor ?? 'grey'] ?? ''">
-                  <td class="px-4 py-3"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink underline" dir="ltr">{{ r.reference }}</a><p class="mt-1 max-w-64 truncate" dir="auto">{{ r.subject }}</p></td>
-                  <td class="px-4 py-3"><p dir="auto">{{ r.requesterName }}</p><p class="text-muted" dir="ltr">{{ r.requesterEmail }}</p></td>
-                  <td class="px-4 py-3"><p dir="auto">{{ i18n.pick(r.teamEn, r.teamAr) || ('Console.noTeam' | t) }}</p><p class="text-muted" dir="auto">{{ r.assigneeName ?? ('Console.unassignedLabel' | t) }}</p></td>
-                  <td class="px-4 py-3"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prio(r.priorityColor)"><app-prio-icon [name]="r.priorityIcon ?? 'minus'" [size]="12" />{{ i18n.pick(r.priorityEn, r.priorityAr) || r.priority }}</span></td>
-                  <td class="px-4 py-3"><app-status-badge [status]="r.status" [staff]="true" /></td>
-                  <td class="px-4 py-3">
+                  <td class="px-3 py-3"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink underline" dir="ltr">{{ r.reference }}</a><p class="mt-1 [overflow-wrap:anywhere]" dir="auto">{{ r.subject }}</p></td>
+                  <td class="px-3 py-3"><p dir="auto">{{ r.requesterName }}</p><p class="text-muted [overflow-wrap:anywhere]" dir="ltr">{{ r.requesterEmail }}</p></td>
+                  <td class="px-3 py-3"><p dir="auto">{{ i18n.pick(r.teamEn, r.teamAr) || ('Console.noTeam' | t) }}</p><p class="text-muted" dir="auto">{{ r.assigneeName ?? ('Console.unassignedLabel' | t) }}</p></td>
+                  <td class="px-3 py-3"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prio(r.priorityColor)"><app-prio-icon [name]="r.priorityIcon ?? 'minus'" [size]="12" />{{ i18n.pick(r.priorityEn, r.priorityAr) || r.priority }}</span></td>
+                  <td class="px-3 py-3"><app-status-badge [status]="r.status" [staff]="true" /></td>
+                  <td class="px-3 py-3">
                     @if (clockOf(r); as ck) { <app-sla-chip [clock]="ck" /> } @else if (r.slaState) { <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold" [class]="sla[r.slaState] ?? ''">{{ 'Sla.' + r.slaState | t }}</span> } @else { - }
-                    @if (dueOf(r); as due) { <p class="mt-1 text-xs text-muted">{{ 'Console.due' | t: { when: i18n.date(due) } }}</p> }
+                    @if (dueOf(r); as due) { <p class="mt-1 text-xs text-muted">{{ 'Console.due' | t: { when: i18n.shortDate(due) } }}</p> }
                   </td>
-                  <td class="px-4 py-3 text-muted">{{ i18n.date(r.createdAt) }}</td>
-                  <td class="px-4 py-3 text-muted">{{ i18n.date(r.updatedAt) }}</td>
+                  <td class="px-3 py-3"><p>{{ i18n.shortDate(r.createdAt) }}</p><p class="text-xs text-muted">{{ 'Console.updatedOn' | t: { when: i18n.shortDate(r.updatedAt) } }}</p></td>
                 </tr>
               }
             </tbody>
@@ -146,7 +169,9 @@ export class ConsoleQueuePage {
   protected readonly statuses = ['new', 'open', 'in_progress', 'pending_customer', 'pending_internal', 'resolved', 'closed', 'reopened'];
   protected readonly slaStates = ['on_track', 'due_soon', 'breached', 'paused', 'completed'];
   protected readonly views = ['mine', 'unassigned', 'escalated', 'all'];
-  protected readonly columns = ['ticket', 'customer', 'team', 'priority', 'status', 'sla', 'created', 'updated'];
+  protected readonly columns = ['ticket', 'customer', 'team', 'priority', 'status', 'sla'];
+  protected readonly dateKeys = ['created', 'updated'];
+  protected sortBy(k: string): void { if (this.sort() === k) this.desc.set(!this.desc()); else { this.sort.set(k); this.desc.set(true); } }
   private readonly qp = this.route.snapshot.queryParamMap;
   /** Same default as today: admins, leaders and viewers see all; agents their own. */
   private readonly defaultView = (() => { const r = this.auth.me()?.roles ?? []; return r.some((x) => x === 'admin' || x === 'team_leader' || x === 'management_viewer') ? 'all' : 'mine'; })();
@@ -168,9 +193,12 @@ export class ConsoleQueuePage {
   protected readonly teams = signal<{ id: string; nameEn: string; nameAr: string }[]>([]);
   protected readonly readOnly = computed(() => !(this.auth.me()?.roles ?? []).some((r) => r === 'agent' || r === 'team_leader' || r === 'admin'));
   protected readonly pages = computed(() => Math.max(1, Math.ceil((this.data()?.total ?? 0) / 20)));
+  protected readonly filtered = computed(() => !!this.q().trim() || this.status() !== 'active' || !!this.priority() || !!this.slaF() || !!this.team());
+  protected clearFilters(): void { this.q.set(''); this.status.set('active'); this.priority.set(''); this.slaF.set(''); this.team.set(''); }
 
   constructor() {
     effect(() => { this.sort(); this.desc(); untracked(() => this.load()); });
+    liveSearch(() => [this.q(), this.status(), this.priority(), this.slaF(), this.team()], () => { this.page.set(1); this.load(); });
     autoRefresh(() => { if (!this.paused()) this.load(); });
     void this.api.options().then((o) => this.prios.set(o.priorities.map((p) => ({ code: p.code, nameEn: p.nameEn, nameAr: p.nameAr }))));
     void firstValueFrom(this.http.get<{ id: string; nameEn: string; nameAr: string }[]>('/api/console/teams')).then((t) => this.teams.set(t), () => undefined);
@@ -190,14 +218,16 @@ export class ConsoleQueuePage {
   }
   dueOf(r: TicketListItem): string | null { return r.firstRespondedAt ? r.resolutionDue : (r.firstResponseDue ?? r.resolutionDue); }
 
+  private seq = 0;
   load(): void {
+    const mine = ++this.seq;
     const view = this.view(), status = this.status(), priority = this.priority(), sla = this.slaF(), team = this.team(), q = this.q().trim(), page = this.page(), sort = this.sort(), desc = this.desc();
     void this.router.navigate([], { replaceUrl: true, queryParams: {
       view: view !== this.defaultView ? view : null, status: status !== 'active' ? status : null, priority: priority || null, sla: sla || null, team: team || null, category: this.category || null,
       q: q || null, page: page > 1 ? page : null, sort: sort !== 'updated' ? sort : null, dir: desc ? null : 'asc' } });
     const apiView = view === 'mine' ? 'assigned' : view === 'all' ? undefined : view;
     const st = status === 'active' ? { group: 'open' } : status === 'any' ? {} : { status };
-    void this.api.list({ view: apiView, ...st, priority: priority || undefined, sla: sla || undefined, teamId: team || undefined, categoryId: this.category || undefined, search: q, page, pageSize: 20, sort, desc }).then((d) => this.data.set(d));
+    void this.api.list({ view: apiView, ...st, priority: priority || undefined, sla: sla || undefined, teamId: team || undefined, categoryId: this.category || undefined, search: q, page, pageSize: 20, sort, desc }).then((d) => { if (mine === this.seq) this.data.set(d); });
     void firstValueFrom(this.http.get<NonNullable<ReturnType<typeof this.counts>>>('/api/console/counts')).then((c) => this.counts.set(c));
   }
 }

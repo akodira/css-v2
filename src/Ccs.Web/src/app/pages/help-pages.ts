@@ -8,6 +8,7 @@ import { firstValueFrom } from 'rxjs';
 import { Auth } from '../core/auth';
 import { adminError } from '../core/admin-api';
 import { I18n, TPipe } from '../core/i18n';
+import { liveSearch } from '../shared/live-search';
 import { Alert, Req } from '../shared/ui';
 import { CLS } from './admin/admin-pages';
 
@@ -32,7 +33,6 @@ interface KbArticle {
       <form role="search" class="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-4 shadow-card" (submit)="$event.preventDefault(); load()">
         <label for="kbq" class="sr-only">{{ 'Kb.search' | t }}</label>
         <input id="kbq" type="search" dir="auto" maxlength="100" [placeholder]="'Kb.searchPlaceholder' | t" [class]="cls.input + ' min-w-0 flex-1'" [value]="q()" (input)="q.set($any($event.target).value)" />
-        <button type="submit" [class]="cls.btn">{{ 'Kb.searchButton' | t }}</button>
       </form>
       @if (cats().length) {
         <nav [attr.aria-label]="'Kb.categories' | t" class="flex flex-wrap gap-2">
@@ -68,17 +68,21 @@ export class KbListPage implements OnInit {
   protected readonly loaded = signal(false);
 
   ngOnInit(): void { void this.load(); }
+  constructor() { liveSearch(() => this.q(), () => void this.load()); }
+  private seq = 0;
   /** v1: "Category · Nov 5, 2026" under each title. */
   protected meta(a: KbItem): string {
     const c = this.cats().find((x) => x.id === a.categoryId);
     return [c ? this.i18n.pick(c.nameEn, c.nameAr) : null, a.publishedAt ? this.i18n.day(a.publishedAt) : null].filter(Boolean).join(' · ');
   }
   protected async load(): Promise<void> {
+    const mine = ++this.seq;
     const params: Record<string, string> = {};
     if (this.q().trim()) params['q'] = this.q().trim();
     if (this.cat()) params['category'] = this.cat();
     try {
       const r = await firstValueFrom(this.http.get<{ categories: KbCatPub[]; items: KbItem[] }>('/api/kb', { params }));
+      if (mine !== this.seq) return;
       this.cats.set(r.categories); this.items.set(r.items);
     } finally { this.loaded.set(true); }
   }

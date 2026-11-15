@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Auth, problemOf } from '../../core/auth';
 import { CommentActions, CustomerLifecycle, LifecycleApi, TicketLifecycle, TicketLinksNotice } from './lifecycle';
 import { I18n, TPipe } from '../../core/i18n';
+import { liveSearch } from '../../shared/live-search';
 import { NewTicketOptions, Paged, SiteService, TicketDetail, TicketListItem, TicketSummary, TicketsApi } from '../../core/api';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
 import { Alert, PRIORITY_TONE, Req, ReqNote, STATUS_STRIPE, SortTh, StatusBadge } from '../../shared/ui';
@@ -94,7 +95,6 @@ export class AutoRefreshBar {
             <label for="q" class="text-sm font-semibold">{{ 'Tickets.searchLabel' | t }}</label>
             <input id="q" type="search" maxlength="60" dir="auto" [value]="q()" (input)="q.set($any($event.target).value)" [placeholder]="'Tickets.searchPlaceholder' | t" class="min-h-11 w-64 max-w-full rounded-lg border border-line bg-surface px-3" />
           </div>
-          <button type="submit" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg">{{ 'Tickets.searchButton' | t }}</button>
         </form>
       </div>
 
@@ -160,6 +160,7 @@ export class MyTicketsPage {
 
   constructor() {
     effect(() => { this.sort(); this.desc(); untracked(() => this.load()); });
+    liveSearch(() => this.q(), () => { this.page.set(1); this.load(); });
   }
 
   link(p: string): string { return `/${this.i18n.locale()}${p}`; }
@@ -167,7 +168,9 @@ export class MyTicketsPage {
   setGroup(g: string): void { this.group.set(this.group() === g && g !== 'all' ? 'all' : g); this.page.set(1); this.load(); }
   go(d: number): void { this.page.update((p) => p + d); this.load(); }
 
+  private seq = 0;
   load(): void {
+    const mine = ++this.seq;
     const g = this.group(), q = this.q().trim(), sort = this.sort(), desc = this.desc(), page = this.page();
     void this.router.navigate([], {
       replaceUrl: true, queryParams: {
@@ -175,7 +178,7 @@ export class MyTicketsPage {
         sort: sort !== 'updated' || !desc ? sort : null, dir: sort !== 'updated' || !desc ? (desc ? 'desc' : 'asc') : null,
       },
     });
-    void this.api.list({ view: 'mine', group: g === 'all' ? undefined : g, search: q, page, pageSize: 25, sort, desc }).then((d) => this.data.set(d));
+    void this.api.list({ view: 'mine', group: g === 'all' ? undefined : g, search: q, page, pageSize: 25, sort, desc }).then((d) => { if (mine === this.seq) this.data.set(d); });
     void this.api.summary(true).then((s) => this.summary.set(s));
   }
 }

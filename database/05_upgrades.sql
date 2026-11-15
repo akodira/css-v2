@@ -108,3 +108,18 @@ GO
 IF COL_LENGTH(N'ccs.site_settings', N'auth_logo') IS NULL
     ALTER TABLE ccs.site_settings ADD auth_logo bit NOT NULL CONSTRAINT DF_site_settings_auth_logo DEFAULT 0;
 GO
+
+-- Notifications becomes a built-in item of the customer side menu, so Settings -> Menus lists it (move or hide it there).
+-- Only where that menu has items (an empty menu shows the standard list, which already includes Notifications).
+IF EXISTS (SELECT 1 FROM ccs.menu_items WHERE area = N'header')
+   AND NOT EXISTS (SELECT 1 FROM ccs.menu_items WHERE area = N'header' AND (system_key = N'notifications' OR href = N'/notifications'))
+    INSERT INTO ccs.menu_items (area, kind, label_en, label_ar, href, audience, sort_order, system_key)
+    SELECT N'header', N'link', N'Notifications', N'الإشعارات', N'/notifications', N'signed_in',
+           ISNULL(MAX(sort_order), 0) + 10, N'notifications'
+    FROM ccs.menu_items WHERE area = N'header' AND parent_id IS NULL;
+GO
+-- An existing /notifications link becomes the built-in one.
+UPDATE ccs.menu_items SET system_key = N'notifications'
+WHERE area = N'header' AND href = N'/notifications' AND system_key IS NULL
+  AND NOT EXISTS (SELECT 1 FROM ccs.menu_items WHERE area = N'header' AND system_key = N'notifications');
+GO

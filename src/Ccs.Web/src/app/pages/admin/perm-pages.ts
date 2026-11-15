@@ -74,12 +74,11 @@ const TAB = 'px-5 py-3 font-semibold';
         <ul class="flex flex-col gap-1 text-sm text-muted"><li>{{ 'Permissions.noteEdit' | t }}</li><li>{{ 'Permissions.noteDelete' | t }}</li></ul>
       } @else {
         <form class="flex flex-wrap items-center gap-3" (ngSubmit)="applyFilter()">
-          <input name="q" type="search" [(ngModel)]="qIn" [placeholder]="'Permissions.searchStaff' | t" [attr.aria-label]="'Permissions.searchStaff' | t" class="min-h-11 w-80 max-w-full rounded-lg border border-line bg-surface px-3" />
-          <select name="type" [(ngModel)]="typeIn" [attr.aria-label]="'Permissions.filterType' | t" class="min-h-11 rounded-lg border border-line bg-surface px-3">
+          <input name="q" type="search" [(ngModel)]="qIn" (ngModelChange)="typed()" [placeholder]="'Permissions.searchStaff' | t" [attr.aria-label]="'Permissions.searchStaff' | t" class="min-h-11 w-80 max-w-full rounded-lg border border-line bg-surface px-3" />
+          <select name="type" [(ngModel)]="typeIn" (ngModelChange)="applyFilter()" [attr.aria-label]="'Permissions.filterType' | t" class="min-h-11 rounded-lg border border-line bg-surface px-3">
             <option value="">{{ 'Permissions.allTypes' | t }}</option>
             @for (o of types(); track o.id) { <option [value]="o.id">{{ i18n.pick(o.nameEn, o.nameAr) }}</option> }
           </select>
-          <button type="submit" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg">{{ 'Permissions.filter' | t }}</button>
           <span class="text-muted">{{ 'Permissions.staffCount' | t: { n: rows().length } }}</span>
         </form>
         <div class="relative overflow-x-auto rounded-xl border border-line bg-surface shadow-card">
@@ -170,8 +169,11 @@ export class AdminPermissionsPage extends AdminBase implements OnInit {
   ngOnInit(): void {
     this.route.queryParamMap.subscribe((m) => {
       this.tab.set(m.get('tab') === 'staff' ? 'staff' : 'types');
-      this.qIn = m.get('q') ?? ''; this.typeIn = m.get('type') ?? '';
-      this.search.set({ q: this.qIn, type: this.typeIn });
+      const q = m.get('q') ?? '', type = m.get('type') ?? '';
+      // While typing, the box is ahead of the address: keep what was typed since.
+      if (q.trim() !== this.qIn.trim() && !this.timer) this.qIn = q;
+      this.typeIn = type; this.timer = undefined;
+      this.search.set({ q, type });
     });
     void this.loadLookups();
     void this.reload();
@@ -184,6 +186,9 @@ export class AdminPermissionsPage extends AdminBase implements OnInit {
       this.staff.set(s.staff);
     } catch (e) { this.fail(e); }
   }
+  private timer?: ReturnType<typeof setTimeout>;
+  /** Search as you type. */
+  protected typed(): void { clearTimeout(this.timer); this.timer = setTimeout(() => this.applyFilter(), 250); }
   protected applyFilter(): void {
     void this.router.navigate([this.base], { queryParams: { tab: 'staff', q: this.qIn || null, type: this.typeIn || null } });
   }

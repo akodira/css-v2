@@ -87,7 +87,7 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
                 || db.Organizations.Any(o => o.Id == p.OrganizationId && o.Name.Contains(term))
                 || db.Branches.Any(b => b.Id == p.BranchId && b.Name.Contains(term)));
         var visible = access.VisibleTickets(db.Tickets.AsNoTracking(), c);
-        return await customers.OrderByDescending(p => p.CreatedAt).Take(200).Select(p => new
+        return await customers.OrderBy(p => p.FullName).ThenBy(p => p.Email).Take(200).Select(p => new
         {
             p.Id, p.FullName, p.Email, p.Phone, p.AccountStatus, p.CreatedAt,
             organization = db.Organizations.Where(o => o.Id == p.OrganizationId).Select(o => o.Name).FirstOrDefault(),

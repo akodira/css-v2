@@ -317,7 +317,7 @@ export class Shell {
 
   /**
    * Customer menu, same as v1 CustomerFrame: the "header" menu from Settings → Menus, as a signed-in customer sees it
-   * (audience all / signed_in / customer, visible only; a group shows its links), plus Notifications if it is missing.
+   * (audience all / signed_in / customer, visible only; a group shows its links). Notifications is a built-in item of that menu, so it can be moved or hidden there.
    */
   private customerItems(): SideItem[] {
     const rows = this.site.menus().filter((r) => r.area === 'header');
@@ -335,9 +335,9 @@ export class Shell {
     if (!items.length) {   // no menu saved yet: v1's default header menu
       const t = (k: string) => this.i18n.t(k);
       items.push({ path: '/', label: t('Nav.home'), icon: 'dashboard', exact: true }, { path: '/tickets', label: t('Nav.tickets'), icon: 'tickets' },
-        { path: '/kb', label: t('Nav.kb'), icon: 'kb' }, { path: '/help', label: t('Nav.help'), icon: 'catalog' }, { path: '/account', label: t('Nav.account'), icon: 'users' });
+        { path: '/kb', label: t('Nav.kb'), icon: 'kb' }, { path: '/help', label: t('Nav.help'), icon: 'catalog' }, { path: '/account', label: t('Nav.account'), icon: 'users' },
+        { path: '/notifications', label: t('Notifications.title'), icon: 'bell' });
     }
-    if (!items.some((i) => i.path === '/notifications')) items.push({ path: '/notifications', label: this.i18n.t('Notifications.title'), icon: 'bell' });
     return items;
   }
 

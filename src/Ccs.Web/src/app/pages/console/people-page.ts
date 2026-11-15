@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { adminError, generatePassword } from '../../core/admin-api';
 import { I18n, TPipe } from '../../core/i18n';
 import { Alert } from '../../shared/ui';
+import { PwEye } from '../../shared/pw-eye';
 import { CLS, Msg } from '../admin/admin-pages';
 
 interface POrg { id: string; name: string }
@@ -18,7 +19,7 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
 /** People, same as v1: Branch Admins and Organization Admins create and manage the people inside their own scope. */
 @Component({
   selector: 'app-people',
-  imports: [TPipe, FormsModule, Alert],
+  imports: [TPipe, FormsModule, Alert, PwEye],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -44,7 +45,7 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
                 <div class="flex flex-col gap-1.5"><label for="pp-p" [class]="cls.label">{{ 'People.phone' | t }}</label>
                   <input id="pp-p" name="phone" dir="ltr" placeholder="+20 10 1234 5678" autocomplete="off" [class]="cls.input" [ngModel]="n().phone" (ngModelChange)="patch({ phone: $event })" /></div>
                 <div class="flex flex-col gap-1.5"><label for="pp-w" [class]="cls.label">{{ 'People.tempPassword' | t }}</label>
-                  <span class="flex gap-2"><input id="pp-w" name="password" dir="ltr" autocomplete="off" [class]="cls.input" [ngModel]="n().password" (ngModelChange)="patch({ password: $event })" />
+                  <span class="flex gap-2"><span class="relative min-w-0 flex-1"><input #ppw id="pp-w" name="password" type="password" dir="ltr" autocomplete="new-password" [class]="cls.input + ' w-full pe-11'" [ngModel]="n().password" (ngModelChange)="patch({ password: $event })" /><app-pw-eye [target]="ppw" /></span>
                     <button type="button" [class]="btn + ' shrink-0'" (click)="patch({ password: gen() })">{{ 'People.generate' | t }}</button></span></div>
                 <div class="flex flex-col gap-1.5"><label for="pp-o" [class]="cls.label">{{ 'People.organization' | t }}</label>
                   <select id="pp-o" name="org" [class]="cls.input" [ngModel]="n().organizationId" (ngModelChange)="pickOrg($event)">
