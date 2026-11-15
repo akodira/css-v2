@@ -86,8 +86,8 @@ type KpiKey = keyof typeof HOME_KPI;
         </div>
       </main>
     } @else {
-      <main data-home class="bg-brand-soft/60">
-        <div [class]="auth.signedIn() ? '' : 'md:flex md:min-h-[calc(100dvh-8.25rem)] md:items-center'">
+      <main data-home class="flex flex-1 flex-col bg-brand-soft/60">
+        <div [class]="auth.signedIn() ? '' : 'md:flex md:flex-1 md:items-center'">
           <section class="mx-auto grid w-full max-w-6xl items-center gap-10 px-4 pb-14 pt-8 md:grid-cols-[1.5fr_1fr] md:pb-16 md:pt-6">
             <div class="flex flex-col gap-5">
               <h1 class="text-4xl font-extrabold leading-tight tracking-tight md:text-6xl">{{ title() }}</h1>

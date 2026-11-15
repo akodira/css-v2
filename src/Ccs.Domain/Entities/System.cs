@@ -84,6 +84,8 @@ public class SiteSettings
     public string? WordmarkDarkPath { get; set; }
     /// <summary>Logo for the site and email footers when it should differ from the wide logo; null = the wide logo.</summary>
     public string? FooterLogoPath { get; set; }
+    /// <summary>Show the wide logo above the sign-in, create-account and code forms (Settings → Branding).</summary>
+    public bool AuthLogo { get; set; }
     /// <summary>Footer parts, each with a show switch and its wording (JSON, see FooterConfig in the web app).</summary>
     public string FooterConfig { get; set; } = "{}";
     /// <summary>Website and social links shown in the site footer and the email footer (JSON: kind -> { on, url }).</summary>

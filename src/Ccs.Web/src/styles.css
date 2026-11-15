@@ -64,7 +64,10 @@ body {
   outline-offset: 2px;
 }
 
-body:has([data-home]) footer { margin-top: 0; }
+/* Home: no gap above the footer, and the guest hero fills the space between the header and the (real, any-size) footer. */
+body:has([data-home]) app-footer > div { margin-top: 0; }
+[data-outlet]:has(> app-home) { display: flex; flex-direction: column; }
+app-home { display: flex; flex: 1 1 auto; flex-direction: column; }
 
 /* "* Required" legend: only visible in forms that contain a marked (mandatory) field. */
 .req-note { display: none; }

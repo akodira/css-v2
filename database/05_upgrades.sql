@@ -103,3 +103,8 @@ GO
 -- (copied from v1) that nobody could see.
 DELETE FROM ccs.menu_items WHERE area = N'header' AND system_key IS NULL AND audience = N'staff' AND href = N'/console/dashboard';
 GO
+
+-- Show the wide logo above the sign-in forms: a Branding switch, off by default.
+IF COL_LENGTH(N'ccs.site_settings', N'auth_logo') IS NULL
+    ALTER TABLE ccs.site_settings ADD auth_logo bit NOT NULL CONSTRAINT DF_site_settings_auth_logo DEFAULT 0;
+GO

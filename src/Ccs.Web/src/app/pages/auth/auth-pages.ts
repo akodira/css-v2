@@ -14,11 +14,11 @@ function safeNext(raw: string | null | undefined): string | null {
   return raw && raw.startsWith('/') && !raw.startsWith('//') && !raw.includes('\\') ? raw : null;
 }
 
-/** The wide logo (Settings → Branding) centred above the sign-in, create account and code forms; nothing when not uploaded. */
+/** The wide logo (Settings → Branding) centred above the sign-in, create account and code forms, only when "Show above the sign-in forms" is on. */
 @Component({
   selector: 'app-auth-logo',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `@if (site.wordmarkUrl(); as src) { <div class="mx-auto mb-6 flex max-w-md justify-center"><img [src]="src" [alt]="name()" class="h-12 w-auto max-w-[16rem] object-contain" /></div> }`,
+  template: `@if (site.info()?.site?.authLogo && site.wordmarkUrl(); as src) { <div class="mx-auto mb-6 flex max-w-md justify-center"><img [src]="src" [alt]="name()" class="h-12 w-auto max-w-[16rem] object-contain" /></div> }`,
 })
 export class AuthLogo {
   protected readonly site = inject(SiteService);

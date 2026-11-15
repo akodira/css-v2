@@ -2444,7 +2444,9 @@
     "fPreviewHint": "This is exactly how the footer will look, in your current language.",
     "wordmarkNoAlpha": "No white version was made: this logo has a solid background. Upload a PNG with a clear background, or upload a white version yourself.",
     "fLinkIncomplete": "Link {n} is not complete: write its text in English and Arabic (at least 2 letters each) and its address.",
-    "sideNotShown": "Not shown: only customers see this menu. Edit it to fix, or delete it."
+    "sideNotShown": "Not shown: only customers see this menu. Edit it to fix, or delete it.",
+    "authLogo": "Show the wide logo above the sign-in forms",
+    "authLogoHint": "On the sign-in, create account and one-time code pages. Off: the logo shows only in the footer and emails. Press Save to apply."
   },
   "Approvals": {
     "title": "Account approvals",

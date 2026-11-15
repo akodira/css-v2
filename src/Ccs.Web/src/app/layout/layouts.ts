@@ -143,7 +143,7 @@ export class Footer {
         </div>
       </div>
     </header>
-    <div class="flex-1"><router-outlet /></div>
+    <div data-outlet class="flex-1"><router-outlet /></div>
     <app-footer />`,
   host: { class: 'flex flex-1 flex-col' },
   changeDetection: ChangeDetectionStrategy.Default,

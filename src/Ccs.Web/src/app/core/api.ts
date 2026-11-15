@@ -49,7 +49,7 @@ export interface NewTicketOptions { types: TypeOption[]; categories: CategoryOpt
 export interface SiteInfo {
   site: {
     siteNameEn: string; siteNameAr: string; headerNameEn: string; headerNameAr: string; headerSubEn: string; headerSubAr: string;
-    logoPath: string | null; faviconPath?: string | null; wordmarkPath?: string | null; wordmarkDarkPath?: string | null; footerLogoPath?: string | null; footerConfig?: string; socialLinks?: string; homeContent?: string; footerTextEn: string; footerTextAr: string; contactEmail: string | null; contactPhone: string | null;
+    logoPath: string | null; faviconPath?: string | null; wordmarkPath?: string | null; wordmarkDarkPath?: string | null; footerLogoPath?: string | null; authLogo?: boolean; footerConfig?: string; socialLinks?: string; homeContent?: string; footerTextEn: string; footerTextAr: string; contactEmail: string | null; contactPhone: string | null;
     contactHoursEn: string; contactHoursAr: string; brandColor: string | null; loginNoticeEn: string; loginNoticeAr: string;
     homeTitleEn: string; homeTitleAr: string; homeIntroEn: string; homeIntroAr: string; registrationMode: string;
     uploadMaxMb: number; uploadMaxFiles: number; uploadExtensions: string;

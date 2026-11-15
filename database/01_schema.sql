@@ -788,6 +788,7 @@ CREATE TABLE ccs.site_settings (
     wordmark_path      nvarchar(200) NULL,
     wordmark_dark_path nvarchar(200) NULL,
     footer_logo_path   nvarchar(200) NULL,
+    auth_logo          bit NOT NULL CONSTRAINT DF_site_settings_auth_logo DEFAULT 0,
     footer_config      nvarchar(max) NOT NULL CONSTRAINT DF_site_footer_config DEFAULT N'{}',
     social_links       nvarchar(max) NOT NULL CONSTRAINT DF_site_social_links DEFAULT N'{}',
     footer_text_en     nvarchar(300) NOT NULL DEFAULT N'',

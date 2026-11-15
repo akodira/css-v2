@@ -107,6 +107,8 @@ const REQ = `<app-req />`;
                   @if (noWhite() || (img('wordmark') && !img('wordmarkdark'))) { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminGeneral.wordmarkNoAlpha' | t }}</p> }
                   <p class="text-sm text-muted">{{ 'AdminGeneral.wordmarkdarkHint' | t }}</p>
                 </div>
+                <label class="flex items-start gap-3 rounded-lg border border-line p-3"><input type="checkbox" name="authLogo" class="mt-0.5 h-5 w-5 flex-none" [(ngModel)]="m['authLogo']" />
+                  <span><span class="font-semibold">{{ 'AdminGeneral.authLogo' | t }}</span><span class="block text-sm text-muted">{{ 'AdminGeneral.authLogoHint' | t }}</span></span></label>
               }
             }
           </fieldset>

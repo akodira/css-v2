@@ -46,7 +46,7 @@ public sealed partial class SettingsController(
 
     /// <summary>Site name, header, colour and home texts. The footer texts and contact details are saved by the Footer box (PUT branding/footer).</summary>
     public sealed record BrandingBody(string SiteNameEn, string SiteNameAr, string HeaderNameEn, string HeaderNameAr, string HeaderSubEn, string HeaderSubAr, string? BrandColor,
-        string HomeTitleEn, string HomeTitleAr, string HomeIntroEn, string HomeIntroAr, string LoginNoticeEn, string LoginNoticeAr);
+        string HomeTitleEn, string HomeTitleAr, string HomeIntroEn, string HomeIntroAr, string LoginNoticeEn, string LoginNoticeAr, bool? AuthLogo = null);
 
     [HttpGet("branding")]
     public async Task<object> Branding(CancellationToken ct)
@@ -77,6 +77,7 @@ public sealed partial class SettingsController(
         s.HomeTitleEn = T(b.HomeTitleEn, 120, "homeTitleEn"); s.HomeTitleAr = T(b.HomeTitleAr, 120, "homeTitleAr");
         s.HomeIntroEn = T(b.HomeIntroEn, 300, "homeIntroEn"); s.HomeIntroAr = T(b.HomeIntroAr, 300, "homeIntroAr");
         s.LoginNoticeEn = T(b.LoginNoticeEn, 300, "loginNoticeEn"); s.LoginNoticeAr = T(b.LoginNoticeAr, 300, "loginNoticeAr");
+        if (b.AuthLogo is bool al) s.AuthLogo = al;
         s.UpdatedAt = clock.UtcNow; s.UpdatedBy = c.UserId;
         audit.Write("settings.branding", "site_settings", null, before, b);
         await db.SaveChangesAsync(ct);
