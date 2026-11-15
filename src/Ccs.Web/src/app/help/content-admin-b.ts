@@ -21,6 +21,7 @@ export const ADMIN_B_ARTICLES: Article[] = [
       { name: { en: "Open, customer picks, admin approves", ar: "مفتوح والعميل يختار والمدير يوافق" }, tone: "purple", tag: { en: "Branch or organization admin approves", ar: "موافقة مدير الفرع أو المؤسسة" }, points: [
         { en: "Customers pick their organization and branch.", ar: "يختار العميل مؤسسته وفرعه." },
         { en: "The admins of that branch or organization are emailed and approve.", ar: "يصل بريد إلى مديري ذلك الفرع أو المؤسسة ويوافقون." },
+        { en: "Only they see the request. With no branch admin it goes to the organization admin, then to the system administrators.", ar: "لا يرى الطلبَ سواهم، فإن لم يكن للفرع مدير انتقل إلى مدير المؤسسة، ثم إلى مديري النظام." },
       ] },
       { name: { en: "Open, customer picks, no approval", ar: "مفتوح والعميل يختار دون موافقة" }, tone: "ok", tag: { en: "No approval", ar: "دون موافقة" }, points: [
         { en: "Customers pick their organization and branch.", ar: "يختار العميل مؤسسته وفرعه." },

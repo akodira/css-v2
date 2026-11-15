@@ -32,7 +32,7 @@ public sealed record RegisterRequest(string FullName, string Email, string? Phon
 public sealed class AuthService(
     UserManager<AppUser> users, CcsDbContext db, TokenService tokens, TemplateMailer mailer, IEmailSender sender,
     NotificationService notifications, AuditService audit, IClock clock, ILogger<AuthService> log,
-    Ccs.Application.Settings.SettingsService settings)
+    Ccs.Application.Settings.SettingsService settings, AccountApprovers approvers)
 {
     private const int ResetCodeLength = 6, ResetCodeMinutes = 60, ResetCodeAttempts = 5;
     /// <summary>Security audit M-02: at most this many recovery codes per account per 24 hours, and password reset
@@ -221,7 +221,7 @@ public sealed class AuthService(
 
     /// <summary>
     /// Email confirmation by code. Then: approval modes wait in pending_approval and notify the approvers
-    /// (branch admin, then organization admin, then system admins); pick_auto activates immediately.
+    /// (branch admin, else organization admin up the tree, else system admins); pick_auto activates immediately.
     /// </summary>
     public async Task ConfirmEmailAsync(string email, string code, string registrationMode, CancellationToken ct = default)
     {
@@ -244,33 +244,8 @@ public sealed class AuthService(
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>account_approvers(): branch admins, else organization admins (up the tree), else system admins.</summary>
-    public async Task<List<Guid>> ApproversAsync(Profile p, CancellationToken ct)
-    {
-        async Task<List<Guid>> WithPermission(IQueryable<Guid> candidates) =>
-            await (from id in candidates
-                   join pr in db.Profiles on id equals pr.Id
-                   where pr.AccountStatus == AccountStatus.Active
-                         && db.AccountTypePermissions.Any(ap => ap.AccountTypeId == pr.AccountTypeId && ap.Permission == Permission.ApproveCustomers)
-                   select id).Distinct().ToListAsync(ct);
-
-        if (p.BranchId is Guid b)
-        {
-            var branchAdmins = await WithPermission(db.AdminScopes.Where(s => s.BranchId == b).Select(s => s.UserId));
-            if (branchAdmins.Count > 0) return branchAdmins;
-        }
-        var org = p.OrganizationId;
-        var guard = 0;
-        while (org is Guid o && guard++ < 20)
-        {
-            var orgAdmins = await WithPermission(db.AdminScopes.Where(s => s.OrganizationId == o && s.BranchId == null).Select(s => s.UserId));
-            if (orgAdmins.Count > 0) return orgAdmins;
-            org = await db.Organizations.Where(x => x.Id == o).Select(x => x.ParentId).FirstOrDefaultAsync(ct);
-        }
-        return await (from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id
-                      join pr in db.Profiles on ur.UserId equals pr.Id
-                      where r.Code == RoleCode.Admin && pr.AccountStatus == AccountStatus.Active select ur.UserId).ToListAsync(ct);
-    }
+    /// <summary>account_approvers(): see <see cref="AccountApprovers"/>.</summary>
+    public Task<List<Guid>> ApproversAsync(Profile p, CancellationToken ct) => approvers.ForAsync(p.OrganizationId, p.BranchId, ct);
 
     /// <summary>my_password_status().expired: expiry switched on and the password is older than the allowed days.</summary>
     private async Task<bool> PasswordExpiredAsync(Guid userId, CancellationToken ct)

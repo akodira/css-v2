@@ -58,6 +58,7 @@ public static class DependencyInjection
 
         services.AddScoped<TokenService>();
         services.AddScoped<AuthService>();
+        services.AddScoped<AccountApprovers>();
         services.AddScoped<TemplateMailer>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<EmailDispatcher>();

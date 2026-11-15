@@ -24,7 +24,7 @@ namespace Ccs.Api.Controllers;
 [Route("api/admin")]
 public sealed class AdminController(
     CcsDbContext db, AccessService access, AuditService audit, NotificationService notify,
-    UserManager<AppUser> users, IClock clock) : ControllerBase
+    UserManager<AppUser> users, IClock clock, AccountApprovers approvers) : ControllerBase
 {
     // ---------------------------------------------------------------- contracts
 
@@ -112,13 +112,11 @@ public sealed class AdminController(
             var scoped = access.CustomersInScope(db.Profiles, c);
             rows = rows.Where(x => scoped.Any(s => s.Id == x.p.Id));
         }
-        else if (kind != "staff" && !c.Admin && !c.AllScope)
+        else if (kind == "pending" && !c.Admin)
         {
-            var orgIds = c.Scope.Where(s => s.BranchId == null).Select(s => s.OrganizationId).ToList();
-            var branchIds = c.Scope.Where(s => s.BranchId != null).Select(s => s.BranchId!.Value).ToList();
-            rows = rows.Where(x => x.p.OrganizationId == null && kind == "pending"
-                || (x.p.OrganizationId != null && orgIds.Contains(x.p.OrganizationId.Value))
-                || (x.p.BranchId != null && branchIds.Contains(x.p.BranchId.Value)));
+            // Only the requests routed to the caller (branch admin, else organization admin up the tree).
+            var mine = (await approvers.VisibleAsync(c, ct)).ToList();
+            rows = rows.Where(x => mine.Contains(x.p.Id));
         }
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -869,8 +867,8 @@ public sealed class AdminController(
     private async Task<Profile> PendingAsync(AccessContext c, Guid id, CancellationToken ct)
     {
         var p = await db.Profiles.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
-        // Same rule as the pending list: unplaced sign-ups are offered to every approver, placed ones only in scope.
-        if (p.OrganizationId is not null && !Covers(c, p.OrganizationId, p.BranchId)) throw new NotFoundException();
+        // Same rule as the pending list: only the request's own approvers (system admins: all).
+        if (!await approvers.CanHandleAsync(c, p, ct)) throw new NotFoundException();
         if (p.AccountStatus != AccountStatus.PendingApproval) throw Err("not_pending_approval");
         return p;
     }

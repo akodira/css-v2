@@ -17,7 +17,7 @@ namespace Ccs.Api.Controllers;
 [ApiController]
 [Authorize]
 [Route("api/console")]
-public sealed class ConsoleController(CcsDbContext db, AccessService access, TicketQueries tickets, IClock clock) : ControllerBase
+public sealed class ConsoleController(CcsDbContext db, AccessService access, TicketQueries tickets, IClock clock, Ccs.Infrastructure.Identity.AccountApprovers approvers) : ControllerBase
 {
     private static readonly string[] Open = [TicketStatus.New, TicketStatus.Open, TicketStatus.InProgress, TicketStatus.PendingCustomer, TicketStatus.PendingInternal, TicketStatus.Reopened];
     private const double YellowBelow = 0.5, RedBelow = 0.2;   // share of the target still left (same as the current clock)
@@ -117,7 +117,7 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         var unassigned = await q.CountAsync(t => (t.AssignedAgentId == null || t.AssignedAgentId == uid) && Open.Contains(t.Status), ct);
         var approvals = 0;
         if (c.Admin || c.Has(Permission.ApproveCustomers))
-            approvals = await db.Profiles.CountAsync(p => p.AccountStatus == AccountStatus.PendingApproval, ct);
+            approvals = await approvers.WaitingOnAsync(c, ct);   // only requests routed to me
         return new { tickets = unassigned, approvals };
     }
 
