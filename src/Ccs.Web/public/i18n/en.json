@@ -710,8 +710,7 @@
       "claim": "Assign to me",
       "done": "Assignment updated.",
       "onlyClaim": "You can assign this ticket to yourself. Team leaders and admins can reassign it.",
-      "cannotServe": "cannot serve this customer",
-      "cannotServeHint": "Greyed-out agents cannot take this ticket: their account type covers other organizations or branches. An administrator can change that under Permissions."
+      "leftOut": "Not listed, because their account type does not cover this customer: {names}."
     },
     "errors": {
       "messageLength": "Message must be 1 to 10000 characters.",

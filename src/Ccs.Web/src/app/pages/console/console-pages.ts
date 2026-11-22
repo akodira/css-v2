@@ -383,9 +383,9 @@ export class ConsoleQueuePage {
                           <div class="flex flex-col gap-1.5"><label for="as-agent" class="text-sm font-semibold">{{ 'Console.assignForm.agent' | t }}</label>
                             <select id="as-agent" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [value]="asAgent()" (change)="asAgent.set($any($event.target).value)">
                               <option value="" [selected]="!asAgent()">{{ 'Console.assignForm.noAgent' | t }}</option>
-                              @for (m of agentsOf(asTeam()); track m.userId) { <option [value]="m.userId" [selected]="m.userId === asAgent()" [disabled]="m.canServe === false">{{ m.fullName }}@if (m.canServe === false) { ({{ 'Console.assignForm.cannotServe' | t }}) }</option> }
+                              @for (m of servable(asTeam()); track m.userId) { <option [value]="m.userId" [selected]="m.userId === asAgent()">{{ m.fullName }}</option> }
                             </select>
-                            @if (someCannotServe(asTeam())) { <p class="text-xs text-muted">{{ 'Console.assignForm.cannotServeHint' | t }}</p> }</div>
+                            @if (leftOut(asTeam()); as names) { <p class="text-xs text-muted" dir="auto">{{ 'Console.assignForm.leftOut' | t: { names } }}</p> }</div>
                           <div class="flex flex-col gap-1.5"><label for="as-reason" class="text-sm font-semibold">{{ 'Console.assignForm.reason' | t }}</label>
                             <input id="as-reason" maxlength="1000" dir="auto" class="min-h-11 rounded-lg border border-line px-3 text-base" [value]="asReason()" (input)="asReason.set($any($event.target).value)" /></div>
                           @if (notice() && where() === 'assign') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
@@ -518,8 +518,19 @@ export class ConsoleTicketPage {
   protected readonly prioOptions = computed(() => { const x = this.x(), cur = this.t()?.priority; return (x?.priorities ?? []).filter((p) => !x?.fixedPriority || p.code === x.fixedPriority || p.code === cur); });
   protected prioName(code: string): string { const p = this.x()?.priorities.find((q) => q.code === code); return p ? this.i18n.pick(p.nameEn, p.nameAr) : code; }
   protected agentsOf(team: string): { userId: string; fullName: string; canServe?: boolean }[] { return (this.x()?.members ?? []).filter((m) => m.teamId === team); }
-  /** Some agents of this team may not serve this customer (their account type covers other organizations or branches). */
-  protected someCannotServe(team: string): boolean { return this.agentsOf(team).some((m) => m.canServe === false); }
+  /**
+   * Agents offered for this ticket: only team members whose account type covers this customer (the server refuses the others).
+   * The current assignee stays listed so the box still shows who has the ticket.
+   */
+  protected servable(team: string): { userId: string; fullName: string }[] {
+    const current = this.t()?.assignedAgentId;
+    return this.agentsOf(team).filter((m) => m.canServe !== false || m.userId === current);
+  }
+  /** Names of the team members left out of the list, for the note under it ('' when nobody is left out). */
+  protected leftOut(team: string): string {
+    const current = this.t()?.assignedAgentId;
+    return this.agentsOf(team).filter((m) => m.canServe === false && m.userId !== current).map((m) => m.fullName).join(this.i18n.locale() === 'ar' ? '، ' : ', ');
+  }
   protected initials(n: string | null): string { return (n ?? '').split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?'; }
   /** Activity: status changes and assignments, oldest first (v1). */
   protected readonly activity = computed(() => {

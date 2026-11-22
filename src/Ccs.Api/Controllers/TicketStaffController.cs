@@ -72,7 +72,8 @@ public sealed class TicketStaffController(CcsDbContext db, AccessService access)
         bool canWork = c.Staff;
         bool inTeam = t.TeamId is Guid team && c.Teams.Contains(team);
         bool canReassign = c.Admin || (canWork && c.Has(Permission.AssignOthers) && (inTeam || c.Has(Permission.AllTeams)));
-        bool canClaim = canWork && c.Has(Permission.AssignSelf) && t.AssignedAgentId == null && t.TeamId != null && inTeam;
+        bool canClaim = canWork && c.Has(Permission.AssignSelf) && t.AssignedAgentId == null && t.TeamId != null && inTeam
+                        && await access.UserInScopeAsync(c.UserId, t.RequesterId, ct);   // same rule as assigning: the agent must be able to serve this customer
 
         // Status form: the staff moves from here, without Resolved/Closed for people who may not do them (v1).
         var moves = await db.TicketStatusTransitions.AsNoTracking().Where(x => x.FromStatus == t.Status && x.Actor == "staff")
