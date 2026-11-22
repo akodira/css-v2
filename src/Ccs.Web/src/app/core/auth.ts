@@ -28,6 +28,8 @@ export interface Me {
   scopeLevel: string | null;
   leadsTeam?: boolean;
   accountStatus?: string;
+  /** Two-step is required for this person and not set up: by "deadline"; "blocked" once it has passed. */
+  mfaSetup?: { deadline: string; blocked: boolean } | null;
   mfaEnabled: boolean;
   unreadNotifications: number;
   idleTimeoutMinutes?: number;
@@ -166,6 +168,9 @@ export class Auth {
     this.touch(Date.now());   // the countdown starts again from the save
   }
 
+  /** My account page (staff have it inside the console). */
+  accountPath(): string { return `/${this.i18n.locale()}${this.isStaff() ? '/console/account' : '/account'}`; }
+
   /** Where a person lands after signing in (same rule as homeFor() today). */
   homePath(): string {
     const l = this.i18n.locale();
@@ -219,6 +224,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         void router.navigate([`/${i18n.locale()}/login`], { queryParams: { reason: code === 'suspended' ? 'suspended' : 'pending_approval' } });
       }
       if (err.status === 401 && code === 'mfaRequired') void router.navigate([`/${i18n.locale()}/mfa`]);
+      // Two-step is required and its setup time has passed: only the setup on My account works until it is done.
+      if (err.status === 403 && code === 'mfaSetupRequired') void router.navigate([auth.accountPath()], { queryParams: { setup: 1 } });
       return throwError(() => err);
     }),
   );

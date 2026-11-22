@@ -40,8 +40,24 @@ public sealed class AccountGateMiddleware(RequestDelegate next)
     private static bool Gated(PathString path) =>
         !path.StartsWithSegments("/api/auth") || GatedAuthPaths.Any(p => path.Equals(p, StringComparison.OrdinalIgnoreCase));
 
-    public async Task InvokeAsync(HttpContext ctx, ICurrentUser current, CcsDbContext db)
+    /// <summary>
+    /// What someone who must set up two-step (and whose setup time has passed) can still reach: who they are, the setup
+    /// itself, their own devices, and the public site data. Everything else answers 403 "mfaSetupRequired".
+    /// </summary>
+    private static bool AllowedBeforeMfaSetup(PathString path) =>
+        path.Equals("/api/me", StringComparison.OrdinalIgnoreCase) || path.StartsWithSegments("/api/me/sessions")
+        || path.StartsWithSegments("/api/auth") || path.StartsWithSegments("/api/site");
+
+    public async Task InvokeAsync(HttpContext ctx, ICurrentUser current, CcsDbContext db, TokenService tokens, AccountSecurity security)
     {
+        // A signed-out device (from the profile or by an admin) stops working at once, not when its 15-minute token ends.
+        if (current.UserId is not null && Guid.TryParse(ctx.User.FindFirst(CcsClaims.Session)?.Value, out var sid)
+            && !await tokens.SessionLiveAsync(sid, ctx.RequestAborted))
+        {
+            await Problem(ctx, 401, "sessionEnded");
+            return;
+        }
+
         if (current.UserId is Guid uid && Gated(ctx.Request.Path))
         {
             var row = await db.Profiles.AsNoTracking().Where(p => p.Id == uid)
@@ -55,6 +71,11 @@ public sealed class AccountGateMiddleware(RequestDelegate next)
             if (row.Mfa && current.MfaLevel < 2)
             {
                 await Problem(ctx, 401, "mfaRequired");
+                return;
+            }
+            if (!row.Mfa && !AllowedBeforeMfaSetup(ctx.Request.Path) && (await security.MfaDueAsync(uid, false, ctx.RequestAborted)).Blocked)
+            {
+                await Problem(ctx, 403, "mfaSetupRequired");
                 return;
             }
         }

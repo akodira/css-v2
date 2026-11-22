@@ -119,10 +119,23 @@ CREATE TABLE ccs.refresh_tokens (
     revoked_at   datetimeoffset(7) NULL,
     replaced_by  uniqueidentifier NULL,
     user_agent   nvarchar(300) NULL,
-    ip_address   nvarchar(64) NULL
+    ip_address   nvarchar(64) NULL,
+    session_id   uniqueidentifier NULL,                -- one sign-in across rotations (Security -> Sessions)
+    session_started_at datetimeoffset(7) NULL
 );
 CREATE UNIQUE INDEX UX_refresh_tokens_hash ON ccs.refresh_tokens (token_hash);
 CREATE INDEX IX_refresh_tokens_user ON ccs.refresh_tokens (user_id, expires_at);
+CREATE INDEX IX_refresh_tokens_session ON ccs.refresh_tokens (session_id) INCLUDE (revoked_at, expires_at);
+GO
+
+/* Password history: the last passwords as one-way hashes (Security -> Password policy) */
+CREATE TABLE ccs.password_history (
+    id            bigint IDENTITY(1,1) NOT NULL CONSTRAINT PK_password_history PRIMARY KEY,
+    user_id       uniqueidentifier NOT NULL CONSTRAINT FK_password_history_user REFERENCES dbo.AspNetUsers(Id) ON DELETE CASCADE,
+    password_hash nvarchar(max) NOT NULL,
+    created_at    datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME()
+);
+CREATE INDEX IX_password_history_user ON ccs.password_history (user_id, created_at DESC);
 GO
 
 /* Reset codes (password reset by code, email confirmation code) */

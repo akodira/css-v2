@@ -83,6 +83,8 @@ abstract class FormBase {
   }
 
   protected async goHome(): Promise<void> {
+    // Required two-step not set up in time: straight to the setup (the server refuses everything else meanwhile).
+    if (this.auth.me()?.mfaSetup?.blocked) { await this.router.navigate([this.auth.accountPath()], { queryParams: { setup: 1 } }); return; }
     const next = safeNext(this.route.snapshot.queryParamMap.get('next'));
     await this.router.navigateByUrl(next ?? this.auth.homePath());
   }

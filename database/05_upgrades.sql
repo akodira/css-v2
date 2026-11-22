@@ -142,3 +142,23 @@ GO
 -- Locks made by the old fixed rule (10 tries, 15 minutes) keep their end time; give them a start so the admin page can show them.
 UPDATE dbo.AspNetUsers SET LockedAt = DATEADD(minute, -15, LockoutEnd) WHERE LockoutEnd > SYSUTCDATETIME() AND LockedAt IS NULL;
 GO
+
+-- Security extras: one sign-in (session) across refresh-token rotations, and password history (one-way hashes only).
+IF COL_LENGTH(N'ccs.refresh_tokens', N'session_id') IS NULL ALTER TABLE ccs.refresh_tokens ADD session_id uniqueidentifier NULL;
+GO
+IF COL_LENGTH(N'ccs.refresh_tokens', N'session_started_at') IS NULL ALTER TABLE ccs.refresh_tokens ADD session_started_at datetimeoffset(7) NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_refresh_tokens_session' AND object_id = OBJECT_ID(N'ccs.refresh_tokens'))
+    CREATE INDEX IX_refresh_tokens_session ON ccs.refresh_tokens (session_id) INCLUDE (revoked_at, expires_at);
+GO
+IF OBJECT_ID(N'ccs.password_history') IS NULL
+BEGIN
+    CREATE TABLE ccs.password_history (
+        id            bigint IDENTITY(1,1) NOT NULL CONSTRAINT PK_password_history PRIMARY KEY,
+        user_id       uniqueidentifier NOT NULL CONSTRAINT FK_password_history_user REFERENCES dbo.AspNetUsers(Id) ON DELETE CASCADE,
+        password_hash nvarchar(max) NOT NULL,
+        created_at    datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME()
+    );
+    CREATE INDEX IX_password_history_user ON ccs.password_history (user_id, created_at DESC);
+END
+GO

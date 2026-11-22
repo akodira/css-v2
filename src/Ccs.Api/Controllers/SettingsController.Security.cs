@@ -62,7 +62,7 @@ public sealed partial class SettingsController
             {
                 id = u.EntityId.Value, name = n.FullName, email = (string?)n.Email, phone = (string?)n.Phone, failed = 0, lockedAt = (DateTimeOffset?)null, until = (DateTimeOffset?)null,
                 adminOnly = false, lastFailed = (DateTimeOffset?)null, status = "unlocked",
-                unlock = new { action = u.Action, at = (DateTimeOffset?)u.CreatedAt, by = u.ActorId is Guid a && names.TryGetValue(a, out var an) ? an.FullName : null, reason = Reason(u.After) },
+                unlock = u.Action is null ? null : new { action = u.Action, at = (DateTimeOffset?)u.CreatedAt, by = u.ActorId is Guid a && names.TryGetValue(a, out var an) ? an.FullName : null, reason = Reason(u.After) },
             });
             shown.Add(u.EntityId.Value);
         }

@@ -106,6 +106,16 @@
         "title": "Account locked: {person}",
         "body": "The account of {person} ({email}) was locked at {at} (Cairo time) after too many failed sign-in attempts. It unlocks after {until}.\n\nYou can see it and unlock it under Settings → Security → Locked accounts.",
         "button": "Open locked accounts"
+      },
+      "new_signin": {
+        "title": "New sign-in to your account",
+        "body": "Your account was just used to sign in from a new device: {device}, on {at} (Cairo time), network address {ip}.\n\nIf this was you, you don't need to do anything. If it wasn't, reset your password now and sign out all other devices from your account page.",
+        "button": "Review my devices"
+      },
+      "new_signin_admin": {
+        "title": "Admin account signed in from a new device: {person}",
+        "body": "The admin account of {person} ({email}) signed in from a new device: {device}, on {at} (Cairo time), network address {ip}.\n\nIf this is not expected, sign this person out everywhere under Settings → Security → Sessions and devices.",
+        "button": "Open sessions and devices"
       }
     },
     "emailFooter": "You receive this email because of activity on your tickets.",
@@ -219,6 +229,16 @@
         "title": "تم إيقاف حساب: {person}",
         "body": "أُوقف حساب {person} ({email}) في {at} (بتوقيت القاهرة) بعد محاولات دخول غير ناجحة كثيرة، ويُفتح بعد {until}.\n\nيمكنك الاطلاع عليه وفتحه من الإعدادات ← الأمان ← الحسابات الموقوفة.",
         "button": "فتح الحسابات الموقوفة"
+      },
+      "new_signin": {
+        "title": "تسجيل دخول جديد إلى حسابك",
+        "body": "استُخدم حسابك الآن لتسجيل الدخول من جهاز جديد: {device}، في {at} (بتوقيت القاهرة)، من عنوان الشبكة {ip}.\n\nإن كنت أنت، فلا حاجة إلى أي إجراء. وإن لم تكن أنت، فأعد تعيين كلمة المرور فورًا وسجّل الخروج من جميع الأجهزة الأخرى من صفحة حسابك.",
+        "button": "مراجعة أجهزتي"
+      },
+      "new_signin_admin": {
+        "title": "دخول حساب مسؤول من جهاز جديد: {person}",
+        "body": "سجّل حساب المسؤول {person} ({email}) الدخول من جهاز جديد: {device}، في {at} (بتوقيت القاهرة)، من عنوان الشبكة {ip}.\n\nإن لم يكن ذلك متوقعًا، فسجّل خروج هذا الشخص من جميع الأجهزة من الإعدادات ← الأمان ← الجلسات والأجهزة.",
+        "button": "فتح الجلسات والأجهزة"
       }
     },
     "emailFooter": "تصلك هذه الرسالة بسبب نشاط على تذاكرك.",
@@ -359,6 +379,8 @@
     "approval_requested",
     "password_expiring",
     "account_locked",
-    "account_locked_admin"
+    "account_locked_admin",
+    "new_signin",
+    "new_signin_admin"
   ]
 }

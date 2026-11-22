@@ -42,7 +42,7 @@ public sealed record RegisterRequest(string FullName, string Email, string? Phon
 public sealed class AuthService(
     UserManager<AppUser> users, CcsDbContext db, TokenService tokens, TemplateMailer mailer, IEmailSender sender,
     NotificationService notifications, AuditService audit, IClock clock, ILogger<AuthService> log,
-    Ccs.Application.Settings.SettingsService settings, AccountApprovers approvers, LockoutService lockout)
+    Ccs.Application.Settings.SettingsService settings, AccountApprovers approvers, LockoutService lockout, AccountSecurity security)
 {
     private const int ResetCodeLength = 6, ResetCodeMinutes = 60, ResetCodeAttempts = 5;
     /// <summary>Security audit M-02: at most this many recovery codes per account per 24 hours, and password reset
@@ -58,6 +58,9 @@ public sealed class AuthService(
         if (user is null)
         {
             // No such account: counted in memory with the same rule, so the answers are the same as for a real one.
+            // Recorded for the security report without the full address (and never the password).
+            audit.Write("auth.login_failed", "user", null, null, new { method = "password", unknown = MaskIdentifier(identifier) }, null);
+            await db.SaveChangesAsync(ct);
             var ghost = await lockout.GhostStateAsync(identifier, ct);
             if (ghost.Locked) throw AuthError.Locked(ghost);
             var g = await lockout.GhostFailAsync(identifier, ct);
@@ -96,9 +99,10 @@ public sealed class AuthService(
             return new SignInResult(null, true, mfaToken, roles, profile.PreferredLocale);
         }
         EnsureActive(profile);
-        var pair = await tokens.IssueAsync(user.Id, user.Email!, roles, 1, userAgent, ip, ct);
+        var pair = await tokens.IssueAsync(user.Id, user.Email!, roles, 1, userAgent, ip, ct, maxSession: await security.MaxSessionAsync(roles, ct));
         audit.Write("auth.sign_in", "user", user.Id, null, new { method = "password" }, user.Id);
         await db.SaveChangesAsync(ct);
+        await security.AfterSignInAsync(user.Id, roles, userAgent, ip, pair.SessionId, ct);
         return new SignInResult(pair, false, null, roles, profile.PreferredLocale);
     }
 
@@ -119,9 +123,10 @@ public sealed class AuthService(
         var profile = await db.Profiles.AsNoTracking().FirstAsync(p => p.Id == user.Id, ct);
         EnsureActive(profile);
         var roles = await RolesAsync(user.Id, ct);
-        var pair = await tokens.IssueAsync(user.Id, user.Email!, roles, 2, userAgent, ip, ct);
+        var pair = await tokens.IssueAsync(user.Id, user.Email!, roles, 2, userAgent, ip, ct, maxSession: await security.MaxSessionAsync(roles, ct));
         audit.Write("auth.sign_in", "user", user.Id, null, new { method = "password+totp" }, user.Id);
         await db.SaveChangesAsync(ct);
+        await security.AfterSignInAsync(user.Id, roles, userAgent, ip, pair.SessionId, ct);
         return new SignInResult(pair, false, null, roles, profile.PreferredLocale);
     }
 
@@ -134,7 +139,8 @@ public sealed class AuthService(
         var level = used.Old.MfaLevel;
         if (user.TwoFactorEnabled && level < 2) throw new AuthError("notSignedIn", 401);   // factor added since: sign in again
         var roles = await RolesAsync(user.Id, ct);
-        var pair = await tokens.IssueAsync(user.Id, user.Email!, roles, level, userAgent, ip, ct);
+        // Same sign-in continues (same session); it cannot outlive the longest sign-in time.
+        var pair = await tokens.IssueAsync(user.Id, user.Email!, roles, level, userAgent, ip, ct, used.Old, await security.MaxSessionAsync(roles, ct));
         return new SignInResult(pair, false, null, roles, profile.PreferredLocale);
     }
 
@@ -305,9 +311,12 @@ public sealed class AuthService(
         if (await RecoveryFailuresTodayAsync(user.Id, ct) >= RecoveryFailuresPerDay) throw new AuthError("rateLimited", 429);
         await ConsumeCodeAsync(user.Id, "recovery", code, ct);
         if (await users.CheckPasswordAsync(user, newPassword)) throw new AuthError("passwordSame", 400, "password");
+        await security.CheckReuseAsync(user, newPassword, users.PasswordHasher, ct);
+        var replaced = user.PasswordHash;
         var token = await users.GeneratePasswordResetTokenAsync(user);
         var res = await users.ResetPasswordAsync(user, token, newPassword);
         if (!res.Succeeded) throw new AuthError("passwordWeak", 400, "password");
+        await security.RememberAsync(user.Id, replaced, ct);
         if (!user.EmailConfirmed) { user.EmailConfirmed = true; await users.UpdateAsync(user); }   // the code proved the mailbox
         await PasswordChangedAsync(user.Id, ct);
         return await lockout.StateAsync(user.Id, ct);
@@ -318,8 +327,11 @@ public sealed class AuthService(
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthError("notSignedIn", 401);
         if (!await users.CheckPasswordAsync(user, current)) throw new AuthError("currentWrong", 400, "currentPassword");
         if (current == next) throw new AuthError("passwordSame", 400, "password");
+        await security.CheckReuseAsync(user, next, users.PasswordHasher, ct);
+        var replaced = user.PasswordHash;
         var res = await users.ChangePasswordAsync(user, current, next);
         if (!res.Succeeded) throw new AuthError("passwordWeak", 400, "password");
+        await security.RememberAsync(user.Id, replaced, ct);
         await PasswordChangedAsync(user.Id, ct);
     }
 
@@ -486,6 +498,16 @@ public sealed class AuthService(
 
     private static bool FixedEquals(string a, string b) =>
         CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(a), Encoding.ASCII.GetBytes(b));
+
+    /// <summary>"inf…@example.com" / "+2010…89": enough to group repeated tries in the report, not the whole address.</summary>
+    public static string MaskIdentifier(string identifier)
+    {
+        var v = identifier.Trim().ToLowerInvariant();
+        if (v.Length > 120) v = v[..120];
+        var at = v.IndexOf('@');
+        if (at > 0) return v[..Math.Min(3, at)] + "…" + v[at..];
+        return v.Length <= 6 ? "…" : v[..5] + "…" + v[^2..];
+    }
 
     private static string Clean(string code) => new(code.Where(char.IsDigit).ToArray());
 }

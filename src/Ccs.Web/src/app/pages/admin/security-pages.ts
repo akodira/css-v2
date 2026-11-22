@@ -11,7 +11,7 @@ import { CLS, Msg } from './admin-pages';
 
 /** Settings → Security pages that are new (lockout policy, locked accounts, overview). The moved parts stay in settings-pages.ts. */
 
-const API = '/api/admin/settings/';
+export const API = '/api/admin/settings/';
 const MSG = `@if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }`;
 const CHECK = 'flex min-h-11 items-start gap-3';
 
@@ -21,8 +21,15 @@ export interface LockedRow {
   adminOnly: boolean; lastFailed: string | null; status: 'locked' | 'active' | 'unlocked';
   unlock: { action: string; at: string | null; by: string | null; reason: string | null } | null;
 }
-interface SystemData { settings: Record<string, string>; registrationMode: string; captcha: { enabled: boolean } }
+export interface SystemData { settings: Record<string, string>; registrationMode: string; captcha: { enabled: boolean } }
 interface CodesData { enabled: boolean; customersMode: string; staffMode: string; adminsMode: string }
+
+/** Settings → Security extras with the defaults the server uses when nothing is saved. */
+export const EXTRAS_DEFAULTS = {
+  n: { password_history_count: 5, session_max_hours_staff: 12, session_max_days_customers: 14, mfa_setup_days: 7, signin_known_days: 90 } as Record<string, number>,
+  b: { password_history_enabled: true, mfa_required_admins: false, mfa_required_staff: false, mfa_required_customers: false, signin_alerts_enabled: true, signin_alerts_admins: true } as Record<string, boolean>,
+};
+export interface MfaCounts { admins: { total: number; on: number }; staff: { total: number; on: number }; customers: { total: number; on: number } }
 
 export const LOCKOUT_DEFAULTS = {
   n: { lockout_max_attempts: 5, lockout_window_minutes: 15, lockout_duration_minutes: 30, lockout_reset_minutes: 15 } as Record<string, number>,
@@ -30,14 +37,14 @@ export const LOCKOUT_DEFAULTS = {
 };
 
 /** Reads the saved values (JSON strings) with the defaults for anything not saved yet. */
-function readValues(s: Record<string, string>, n: Record<string, number>, b: Record<string, boolean>) {
+export function readValues(s: Record<string, string>, n: Record<string, number>, b: Record<string, boolean>) {
   const nn: Record<string, number> = {}, bb: Record<string, boolean> = {};
   for (const [k, v] of Object.entries(n)) nn[k] = s[k] !== undefined ? Number(JSON.parse(s[k])) : v;
   for (const [k, v] of Object.entries(b)) bb[k] = s[k] !== undefined ? JSON.parse(s[k]) === true : v;
   return { n: nn, b: bb };
 }
 
-abstract class SecBase {
+export abstract class SecBase {
   protected readonly i18n = inject(I18n);
   protected readonly http = inject(HttpClient);
   protected readonly cls = CLS;
@@ -281,16 +288,21 @@ export class SecurityOverview extends SecBase implements OnInit {
   protected readonly boxes = signal<{ p: string; text: string; badge: string; tone: 'ok' | 'warn' | 'bad' | 'off' }[] | null>(null);
 
   async ngOnInit(): Promise<void> {
-    const [sys, codes, locked] = await Promise.all([
+    const [sys, codes, locked, mfa, rep] = await Promise.all([
       this.get<SystemData>('system'), this.get<CodesData>('signin-codes'), this.get<{ counts: LockedCounts }>('security/locked'),
+      this.get<{ counts: MfaCounts }>('security/mfa'), this.get<{ failed: number; locks: number }>('security/report?days=7'),
     ]);
+    const x = readValues(sys.settings, EXTRAS_DEFAULTS.n, EXTRAS_DEFAULTS.b);
     const t = (k: string, p?: Record<string, unknown>) => this.i18n.t('AdminSecurity.' + k, p);
     const s = sys.settings, num = (k: string, d: number) => (s[k] !== undefined ? Number(JSON.parse(s[k])) : d), on = (k: string, d: boolean) => (s[k] !== undefined ? JSON.parse(s[k]) === true : d);
     const lk = readValues(s, LOCKOUT_DEFAULTS.n, LOCKOUT_DEFAULTS.b);
     const need = [['password_require_upper', 'pwUpper'], ['password_require_lower', 'pwLower'], ['password_require_number', 'pwNumber'], ['password_require_special', 'pwSymbol']]
       .filter((x) => on(x[0], true)).map((x) => t(x[1]));
     const pwText = t('ovPw', { min: num('password_min_length', 10), need: need.join(this.i18n.locale() === 'ar' ? '، ' : ', ') || '-' }) + ' '
+      + (x.b['password_history_enabled'] ? t('ovPwHistory', { n: x.n['password_history_count'] }) + ' ' : '')
       + (on('password_expiry_enabled', false) ? t('ovPwExpiry', { days: num('password_expiry_days', 90) }) : t('ovPwNoExpiry'));
+    const req = (['admins', 'staff', 'customers'] as const).filter((g) => x.b['mfa_required_' + g]);
+    const list = (a: string[]) => a.join(this.i18n.locale() === 'ar' ? '، ' : ', ');
     const groups = (['customers', 'staff', 'admins'] as const).filter((g) => (codes as unknown as Record<string, string>)[g + 'Mode'] !== 'off');
     const codesOn = codes.enabled && groups.length > 0;
     const c = locked.counts;
@@ -299,10 +311,15 @@ export class SecurityOverview extends SecBase implements OnInit {
       { p: 'lockout', text: lockoutSummary(this.i18n, lk.n, lk.b), badge: t(lk.b['lockout_enabled'] ? 'on' : 'off'), tone: lk.b['lockout_enabled'] ? 'ok' : 'warn' },
       { p: 'locked', text: t('ovLocked', { n: c.locked, f: c.failing }), badge: String(c.locked), tone: c.locked ? 'bad' : 'ok' },
       { p: 'codes', text: codesOn ? t('ovCodesOn', { who: groups.map((g) => t('grp_' + g)).join(this.i18n.locale() === 'ar' ? '، ' : ', ') }) : t('ovCodesOff'), badge: t(codesOn ? 'on' : 'off'), tone: codesOn ? 'ok' : 'off' },
-      { p: 'sessions', text: t('ovIdle', { min: num('idle_timeout_minutes', 5) }), badge: t('on'), tone: 'ok' },
+      { p: 'mfa', text: (req.length ? t('ovMfaReq', { who: list(req.map((g) => t('grp_' + g))) }) : t('ovMfaNone')) + ' '
+          + t('ovMfaSetUp', { on: mfa.counts.staff.on + mfa.counts.admins.on, total: mfa.counts.staff.total + mfa.counts.admins.total }),
+        badge: t(req.length ? 'on' : 'off'), tone: req.length ? 'ok' : 'warn' },
+      { p: 'sessions', text: t('ovIdle', { min: num('idle_timeout_minutes', 5) }) + ' ' + t('ovMax', { h: x.n['session_max_hours_staff'], d: x.n['session_max_days_customers'] }), badge: t('on'), tone: 'ok' },
+      { p: 'alerts', text: t(x.b['signin_alerts_enabled'] ? 'ovAlertsOn' : 'ovAlertsOff'), badge: t(x.b['signin_alerts_enabled'] ? 'on' : 'off'), tone: x.b['signin_alerts_enabled'] ? 'ok' : 'warn' },
       { p: 'signup', text: t('ovReg_' + sys.registrationMode), badge: t(sys.registrationMode === 'closed' ? 'off' : 'on'), tone: sys.registrationMode === 'closed' ? 'off' : 'ok' },
       { p: 'bots', text: t(sys.captcha.enabled ? 'ovCaptchaOn' : 'ovCaptchaOff'), badge: t(sys.captcha.enabled ? 'on' : 'off'),
         tone: sys.captcha.enabled ? 'ok' : sys.registrationMode === 'closed' ? 'off' : 'warn' },
+      { p: 'report', text: t('ovReport', { f: rep.failed, l: rep.locks }), badge: String(rep.failed), tone: 'off' },
     ]);
   }
 }

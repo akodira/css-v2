@@ -34,6 +34,7 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
     public DbSet<SigninCode> SigninCodes => Set<SigninCode>();
     public DbSet<AuthCode> AuthCodes => Set<AuthCode>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<PasswordHistory> PasswordHistory => Set<PasswordHistory>();
     public DbSet<Ticket> Tickets => Set<Ticket>();
     public DbSet<TicketCounter> TicketCounters => Set<TicketCounter>();
     public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
@@ -82,7 +83,7 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
         [typeof(AccountTypeAccess)] = "account_type_access", [typeof(AdminScope)] = "admin_scopes",
         [typeof(StaffPlacement)] = "staff_placement", [typeof(Organization)] = "organizations", [typeof(Branch)] = "branches",
         [typeof(Team)] = "teams", [typeof(TeamMember)] = "team_members", [typeof(SigninCode)] = "signin_codes",
-        [typeof(AuthCode)] = "auth_codes", [typeof(RefreshToken)] = "refresh_tokens",
+        [typeof(AuthCode)] = "auth_codes", [typeof(RefreshToken)] = "refresh_tokens", [typeof(PasswordHistory)] = "password_history",
         [typeof(Ticket)] = "tickets", [typeof(TicketCounter)] = "ticket_counters", [typeof(TicketMessage)] = "ticket_messages",
         [typeof(TicketAttachment)] = "ticket_attachments", [typeof(TicketStatusHistory)] = "ticket_status_history",
         [typeof(TicketStatusTransition)] = "ticket_status_transitions", [typeof(TicketAssignment)] = "ticket_assignments",

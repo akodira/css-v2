@@ -161,4 +161,16 @@ public class RefreshToken
     public Guid? ReplacedBy { get; set; }
     public string? UserAgent { get; set; }
     public string? IpAddress { get; set; }
+    /// <summary>One sign-in across rotations (the first row's id); null on rows made before it existed.</summary>
+    public Guid? SessionId { get; set; }
+    public DateTimeOffset? SessionStartedAt { get; set; }
+}
+
+/// <summary>Earlier passwords as one-way hashes, so they cannot be used again (Settings → Security → Password policy).</summary>
+public class PasswordHistory
+{
+    public long Id { get; set; }
+    public Guid UserId { get; set; }
+    public string PasswordHash { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
 }

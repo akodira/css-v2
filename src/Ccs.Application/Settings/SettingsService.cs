@@ -91,4 +91,23 @@ public sealed class SettingsService(ICcsDbContext db)
         AutoUnlock: await GetBoolAsync("lockout_auto_unlock", true, ct),
         NotifyUser: await GetBoolAsync("lockout_notify_user", true, ct),
         NotifyAdmins: await GetBoolAsync("lockout_notify_admins", true, ct));
+    /// <summary>Settings → Security extras: password history, longest sign-in, required two-step, new sign-in alerts.</summary>
+    public async Task<SecurityExtras> GetSecurityExtrasAsync(CancellationToken ct = default)
+    {
+        async Task<DateTimeOffset?> Since(string g) =>
+            DateTimeOffset.TryParse(await GetStringAsync("mfa_required_since_" + g, "", ct), out var d) ? d : null;
+        return new(
+            HistoryEnabled: await GetBoolAsync("password_history_enabled", true, ct),
+            HistoryCount: await GetIntAsync("password_history_count", 5, ct),
+            StaffMaxHours: await GetIntAsync("session_max_hours_staff", 12, ct),
+            CustomerMaxDays: await GetIntAsync("session_max_days_customers", 14, ct),
+            MfaAdmins: await GetBoolAsync("mfa_required_admins", false, ct),
+            MfaStaff: await GetBoolAsync("mfa_required_staff", false, ct),
+            MfaCustomers: await GetBoolAsync("mfa_required_customers", false, ct),
+            MfaSetupDays: await GetIntAsync("mfa_setup_days", 7, ct),
+            MfaAdminsSince: await Since("admins"), MfaStaffSince: await Since("staff"), MfaCustomersSince: await Since("customers"),
+            AlertsEnabled: await GetBoolAsync("signin_alerts_enabled", true, ct),
+            AlertAdmins: await GetBoolAsync("signin_alerts_admins", true, ct),
+            KnownDays: await GetIntAsync("signin_known_days", 90, ct));
+    }
 }

@@ -605,10 +605,14 @@ public sealed partial class SettingsController(
         ["password_min_length"] = (8, 128), ["password_expiry_days"] = (7, 730), ["password_warn_1_days"] = (1, 60), ["password_warn_2_days"] = (1, 60), ["password_warn_3_days"] = (1, 60),
         // Settings → Security → Account lockout policy
         ["lockout_max_attempts"] = (3, 20), ["lockout_window_minutes"] = (1, 1440), ["lockout_duration_minutes"] = (1, 1440), ["lockout_reset_minutes"] = (1, 1440),
+        // Settings → Security extras
+        ["password_history_count"] = (1, 24), ["session_max_hours_staff"] = (1, 720), ["session_max_days_customers"] = (1, 90),
+        ["mfa_setup_days"] = (0, 90), ["signin_known_days"] = (7, 365),
     };
     private static readonly string[] BoolRules =
         ["email_enabled", "password_require_upper", "password_require_lower", "password_require_number", "password_require_special", "password_expiry_enabled",
-         "lockout_enabled", "lockout_auto_unlock", "lockout_notify_user", "lockout_notify_admins"];
+         "lockout_enabled", "lockout_auto_unlock", "lockout_notify_user", "lockout_notify_admins",
+         "password_history_enabled", "mfa_required_admins", "mfa_required_staff", "mfa_required_customers", "signin_alerts_enabled", "signin_alerts_admins"];
 
     [HttpGet("system")]
     public async Task<object> GetSystem([FromServices] CaptchaVerifier captchaCheck, CancellationToken ct)
@@ -652,9 +656,20 @@ public sealed partial class SettingsController(
             var row = await db.AppSettings.FirstOrDefaultAsync(s => s.Key == key, ct);
             if (row is null) db.AppSettings.Add(row = new AppSetting { Key = key });
             before[key] = row.Value;
+            // Required two-step: the setup days count from the moment the rule is switched on (kept per group).
+            if (key.StartsWith("mfa_required_") && json == "true" && row.Value != "true")
+            {
+                var sinceKey = "mfa_required_since_" + key["mfa_required_".Length..];
+                var since = await db.AppSettings.FirstOrDefaultAsync(s => s.Key == sinceKey, ct);
+                if (since is null) db.AppSettings.Add(since = new AppSetting { Key = sinceKey });
+                since.Value = JsonSerializer.Serialize(clock.UtcNow.ToString("O"));
+            }
             row.Value = json;
         }
-        audit.Write(b.Settings is { Count: > 0 } ks && ks.Keys.All(k => k.StartsWith("lockout_")) ? "settings.lockout" : "settings.system", "app_settings", null, before, b.Settings);
+        var action = b.Settings is { Count: > 0 } ks && ks.Keys.All(k => k.StartsWith("lockout_")) ? "settings.lockout"
+            : b.Settings is { Count: > 0 } ks2 && ks2.Keys.All(k => k.StartsWith("password_history_") || k.StartsWith("session_max_") || k.StartsWith("mfa_") || k.StartsWith("signin_")) ? "settings.security"
+            : "settings.system";
+        audit.Write(action, "app_settings", null, before, b.Settings);
         await db.SaveChangesAsync(ct);
         return NoContent();
     }

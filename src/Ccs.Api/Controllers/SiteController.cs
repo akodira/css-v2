@@ -95,13 +95,14 @@ public sealed class SiteController(CcsDbContext db, SettingsService settings, Cc
 public sealed class MeController(AccessService access, CcsDbContext db, SettingsService settings) : ControllerBase
 {
     [HttpGet]
-    public async Task<object> Get(CancellationToken ct)
+    public async Task<object> Get([FromServices] Ccs.Infrastructure.Identity.AccountSecurity security, CancellationToken ct)
     {
         var c = await access.RequireSignedInAsync(ct);
         var p = await db.Profiles.AsNoTracking().FirstAsync(x => x.Id == c.UserId, ct);
         var roles = await (from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id where ur.UserId == c.UserId select r.Code).ToListAsync(ct);
         var mfa = await db.Users.Where(u => u.Id == c.UserId).Select(u => u.TwoFactorEnabled).FirstOrDefaultAsync(ct);
         var unread = await db.Notifications.CountAsync(n => n.UserId == c.UserId && n.Channel == "in_app" && n.ReadAt == null, ct);
+        var due = await security.MfaDueAsync(c.UserId, mfa, ct);
         return new
         {
             p.Id, p.FullName, p.Email, p.Phone, p.PreferredLocale, p.OrganizationId, p.BranchId,
@@ -109,7 +110,47 @@ public sealed class MeController(AccessService access, CcsDbContext db, Settings
             customer = roles.Contains(RoleCode.Customer), scopeLevel = c.ScopeLevel, teams = c.Teams, leadsTeam = c.LeaderOfTeams.Count > 0, mfaEnabled = mfa,
             unreadNotifications = unread, p.PasswordChangedAt, p.AccountStatus,
             idleTimeoutMinutes = await settings.GetIntAsync("idle_timeout_minutes", 5, ct),
+            // Settings → Security → Two-step: must set it up by "deadline"; "blocked" once that time has passed.
+            mfaSetup = due.Required ? new { deadline = due.Deadline, blocked = due.Blocked } : null,
         };
+    }
+
+    // ------------------------------------------------------------------ my signed-in devices
+
+    private Guid? MySession => Guid.TryParse(User.FindFirst(Ccs.Infrastructure.Identity.CcsClaims.Session)?.Value, out var s) ? s : null;
+
+    /// <summary>Where I am signed in: one row per device, this one first.</summary>
+    [HttpGet("sessions")]
+    public async Task<object> Sessions([FromServices] Ccs.Infrastructure.Identity.TokenService tokens, CancellationToken ct)
+    {
+        var c = await access.RequireSignedInAsync(ct);
+        var mine = MySession;
+        return (await tokens.SessionsAsync(c.UserId, ct))
+            .Select(x => new { x.Id, device = Ccs.Domain.Rules.DeviceInfo.Label(x.UserAgent), ip = Ccs.Domain.Rules.DeviceInfo.MaskIp(x.IpAddress), x.StartedAt, x.LastUsed, current = x.Id == mine })
+            .OrderByDescending(x => x.current).ThenByDescending(x => x.LastUsed).ToList();
+    }
+
+    /// <summary>Signs one of my other devices out (at once).</summary>
+    [HttpDelete("sessions/{id:guid}")]
+    public async Task<IActionResult> EndSession(Guid id, [FromServices] Ccs.Infrastructure.Identity.TokenService tokens, [FromServices] Ccs.Application.Common.AuditService audit, CancellationToken ct)
+    {
+        var c = await access.RequireSignedInAsync(ct);
+        if (id == MySession) throw new Ccs.Infrastructure.Identity.AuthError("thisDevice", 400);
+        if (!await tokens.RevokeSessionAsync(id, c.UserId, ct)) return NotFound();
+        audit.Write("auth.session_ended", "user", c.UserId, null, new { by = "self" });
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>Signs out every device except this one.</summary>
+    [HttpPost("sessions/sign-out-others")]
+    public async Task<object> EndOthers([FromServices] Ccs.Infrastructure.Identity.TokenService tokens, [FromServices] Ccs.Application.Common.AuditService audit, CancellationToken ct)
+    {
+        var c = await access.RequireSignedInAsync(ct);
+        var n = MySession is Guid mine ? await tokens.RevokeOthersAsync(c.UserId, mine, ct) : 0;
+        audit.Write("auth.sessions_ended", "user", c.UserId, null, new { by = "self", others = true });
+        await db.SaveChangesAsync(ct);
+        return new { ended = n };
     }
 
     public sealed record ProfileBody(string? FullName, string? Phone, string? PreferredLocale);

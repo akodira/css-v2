@@ -20,6 +20,7 @@ import { CLS, Msg } from './admin-pages';
 import { feedbackFor } from '../../shared/feedback';
 import { RichEditor } from '../../shared/rich-editor';
 import { LockedAccountsPage, LockedCounts, LockoutPolicyPage, SecurityOverview } from './security-pages';
+import { AlertsPage, MfaPolicyPage, PasswordHistoryForm, ReportPage, SessionsPage } from './security-extras';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
 const TABS = ['', 'home', 'menus', 'email', 'templates', 'messages', 'uploads', 'system', 'handover', 'security'];
@@ -1704,14 +1705,16 @@ export class HandoverTab extends Tab implements OnInit {
 
 const SEC_GROUPS = [
   ['', ['overview']],
-  ['grpSignin', ['password', 'lockout', 'locked', 'codes', 'sessions']],
+  ['grpSignin', ['password', 'lockout', 'locked', 'codes', 'mfa', 'sessions', 'alerts']],
   ['grpSignup', ['signup', 'bots']],
+  ['grpReports', ['report']],
 ] as const;
 const SEC_PARTS: string[] = SEC_GROUPS.flatMap((g) => [...g[1]]);
 
 @Component({
   selector: 'app-set-security',
-  imports: [TPipe, RouterLink, SystemTab, SigninCodesTab, LockoutPolicyPage, LockedAccountsPage, SecurityOverview],
+  imports: [TPipe, RouterLink, SystemTab, SigninCodesTab, LockoutPolicyPage, LockedAccountsPage, SecurityOverview,
+    PasswordHistoryForm, SessionsPage, MfaPolicyPage, AlertsPage, ReportPage],
   template: `
     <div class="grid items-start gap-6 md:grid-cols-[15rem_1fr]">
       <nav [attr.aria-label]="'AdminSecurity.menu' | t" [class]="cls.card + ' flex flex-col gap-1 p-2 md:sticky md:top-20'">
@@ -1731,11 +1734,14 @@ const SEC_PARTS: string[] = SEC_GROUPS.flatMap((g) => [...g[1]]);
           <p class="mt-1 max-w-prose text-muted">{{ 'AdminSecurity.intro_' + cur() | t }}</p></div>
         @switch (cur()) {
           @case ('overview') { <app-sec-overview /> }
-          @case ('password') { <app-set-system part="pw" /> }
+          @case ('password') { <app-set-system part="pw" /><app-sec-pw-history /> }
           @case ('lockout') { <app-sec-lockout /> }
           @case ('locked') { <app-sec-locked (changed)="counts($event)" /> }
           @case ('codes') { <app-set-signin-codes /> }
-          @case ('sessions') { <app-set-system part="idle" /> }
+          @case ('mfa') { <app-sec-mfa /> }
+          @case ('sessions') { <app-set-system part="idle" /><app-sec-sessions /> }
+          @case ('alerts') { <app-sec-alerts /> }
+          @case ('report') { <app-sec-report /> }
           @case ('signup') { <app-set-system part="reg" /> }
           @case ('bots') { <app-set-system part="captcha" /> }
         }

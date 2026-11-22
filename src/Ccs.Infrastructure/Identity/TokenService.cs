@@ -26,9 +26,13 @@ public static class CcsClaims
 {
     public const string Mfa = "aal";            // "1" or "2", same idea as the Supabase JWT claim
     public const string Purpose = "purpose";    // "mfa" for the short-lived second-step token
+    public const string Session = "sid";        // the sign-in (refresh_tokens.session_id); ends at once when it is signed out
 }
 
-public sealed record TokenPair(string AccessToken, DateTimeOffset AccessExpires, string RefreshToken, DateTimeOffset RefreshExpires);
+/// <summary>One sign-in: a device that holds a live refresh token. Id is the session id.</summary>
+public sealed record SessionRow(Guid Id, Guid UserId, string? UserAgent, string? IpAddress, DateTimeOffset StartedAt, DateTimeOffset LastUsed, DateTimeOffset ExpiresAt);
+
+public sealed record TokenPair(string AccessToken, DateTimeOffset AccessExpires, string RefreshToken, DateTimeOffset RefreshExpires, Guid SessionId = default);
 
 /// <summary>Short-lived JWT access tokens plus rotating refresh tokens kept hashed in ccs.refresh_tokens.</summary>
 public sealed class TokenService(IOptions<JwtOptions> options, CcsDbContext db, IClock clock)
@@ -38,7 +42,7 @@ public sealed class TokenService(IOptions<JwtOptions> options, CcsDbContext db, 
     public SymmetricSecurityKey Key => new(Convert.FromBase64String(_o.SigningKey));
 
     public string CreateAccessToken(Guid userId, string email, IEnumerable<string> roles, int mfaLevel, out DateTimeOffset expires,
-        string? purpose = null, int? minutes = null)
+        string? purpose = null, int? minutes = null, Guid? sessionId = null)
     {
         expires = clock.UtcNow.AddMinutes(minutes ?? _o.AccessMinutes);
         var claims = new List<Claim>
@@ -48,6 +52,7 @@ public sealed class TokenService(IOptions<JwtOptions> options, CcsDbContext db, 
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
             new(CcsClaims.Mfa, mfaLevel.ToString()),
         };
+        if (sessionId is Guid sid) claims.Add(new Claim(CcsClaims.Session, sid.ToString()));
         if (purpose is not null) claims.Add(new Claim(CcsClaims.Purpose, purpose));
         else claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
 
@@ -56,20 +61,30 @@ public sealed class TokenService(IOptions<JwtOptions> options, CcsDbContext db, 
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    /// <param name="previous">The row being rotated: the new row continues the same sign-in (session id and start time).</param>
+    /// <param name="maxSession">Longest a sign-in lasts (Settings → Security → Sessions); the refresh token never outlives it.</param>
     public async Task<TokenPair> IssueAsync(Guid userId, string email, IEnumerable<string> roles, int mfaLevel,
-        string? userAgent, string? ip, CancellationToken ct = default)
+        string? userAgent, string? ip, CancellationToken ct = default, RefreshToken? previous = null, TimeSpan? maxSession = null)
     {
-        var access = CreateAccessToken(userId, email, roles, mfaLevel, out var accessExp);
+        var now = clock.UtcNow;
+        var id = Guid.NewGuid();
+        var sessionId = previous is null ? id : previous.SessionId ?? previous.Id;
+        var started = previous is null ? now : previous.SessionStartedAt ?? previous.CreatedAt;
+        var expires = now.AddDays(_o.RefreshDays);
+        if (maxSession is TimeSpan max && started + max < expires) expires = started + max;
+        if (expires <= now) throw new AuthError("notSignedIn", 401);   // the sign-in reached its longest time: sign in again
+        var access = CreateAccessToken(userId, email, roles, mfaLevel, out var accessExp, sessionId: sessionId);
         var raw = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
         var refresh = new RefreshToken
         {
-            Id = Guid.NewGuid(), UserId = userId, TokenHash = Hash(raw), MfaLevel = (byte)mfaLevel,
-            CreatedAt = clock.UtcNow, ExpiresAt = clock.UtcNow.AddDays(_o.RefreshDays),
+            Id = id, UserId = userId, TokenHash = Hash(raw), MfaLevel = (byte)mfaLevel,
+            CreatedAt = now, ExpiresAt = expires, SessionId = sessionId, SessionStartedAt = started,
             UserAgent = userAgent?[..Math.Min(userAgent.Length, 300)], IpAddress = ip,
         };
+        if (previous is not null) previous.ReplacedBy = id;   // tracked row from ConsumeAsync
         db.RefreshTokens.Add(refresh);
         await db.SaveChangesAsync(ct);
-        return new TokenPair(access, accessExp, raw, refresh.ExpiresAt);
+        return new TokenPair(access, accessExp, raw, refresh.ExpiresAt, sessionId);
     }
 
     /// <summary>Rotates a refresh token. Reuse of a revoked token revokes the whole family (theft signal).</summary>
@@ -80,7 +95,9 @@ public sealed class TokenService(IOptions<JwtOptions> options, CcsDbContext db, 
         if (row is null) return null;
         if (row.RevokedAt is not null)
         {
-            await RevokeAllAsync(row.UserId, ct);
+            // A rotated token used again: theft signal, end every sign-in. A token whose sign-in was ended on purpose
+            // (signed out, signed out by an admin, password change) just stops working.
+            if (row.ReplacedBy is not null) await RevokeAllAsync(row.UserId, ct);
             return null;
         }
         if (row.ExpiresAt <= clock.UtcNow) return null;
@@ -100,6 +117,38 @@ public sealed class TokenService(IOptions<JwtOptions> options, CcsDbContext db, 
     public Task RevokeAllAsync(Guid userId, CancellationToken ct = default) =>
         db.RefreshTokens.Where(r => r.UserId == userId && r.RevokedAt == null)
             .ExecuteUpdateAsync(s => s.SetProperty(r => r.RevokedAt, clock.UtcNow), ct);
+
+    /// <summary>Live sign-ins (one row per device: the newest, unrevoked, unexpired refresh token of each session).</summary>
+    public async Task<List<SessionRow>> SessionsAsync(Guid? userId, CancellationToken ct = default)
+    {
+        var now = clock.UtcNow;
+        var q = db.RefreshTokens.AsNoTracking().Where(r => r.RevokedAt == null && r.ExpiresAt > now);
+        if (userId is Guid u) q = q.Where(r => r.UserId == u);
+        var rows = await q.OrderByDescending(r => r.CreatedAt).Take(2000)
+            .Select(r => new SessionRow(r.SessionId ?? r.Id, r.UserId, r.UserAgent, r.IpAddress, r.SessionStartedAt ?? r.CreatedAt, r.CreatedAt, r.ExpiresAt))
+            .ToListAsync(ct);
+        return rows.GroupBy(r => r.Id).Select(g => g.First()).ToList();
+    }
+
+    /// <summary>Is this sign-in still live? Checked on every request, so signing a device out takes effect at once.</summary>
+    public Task<bool> SessionLiveAsync(Guid sessionId, CancellationToken ct = default)
+    {
+        var now = clock.UtcNow;
+        return db.RefreshTokens.AnyAsync(r => (r.SessionId == sessionId || (r.SessionId == null && r.Id == sessionId)) && r.RevokedAt == null && r.ExpiresAt > now, ct);
+    }
+
+    /// <summary>Ends one sign-in (of this person when userId is given). False when there was no live one.</summary>
+    public async Task<bool> RevokeSessionAsync(Guid sessionId, Guid? userId, CancellationToken ct = default)
+    {
+        var q = db.RefreshTokens.Where(r => (r.SessionId == sessionId || (r.SessionId == null && r.Id == sessionId)) && r.RevokedAt == null);
+        if (userId is Guid u) q = q.Where(r => r.UserId == u);
+        return await q.ExecuteUpdateAsync(x => x.SetProperty(r => r.RevokedAt, clock.UtcNow), ct) > 0;
+    }
+
+    /// <summary>Ends every sign-in of a person except one (the device asking).</summary>
+    public Task<int> RevokeOthersAsync(Guid userId, Guid keepSession, CancellationToken ct = default) =>
+        db.RefreshTokens.Where(r => r.UserId == userId && r.RevokedAt == null && (r.SessionId ?? r.Id) != keepSession)
+            .ExecuteUpdateAsync(x => x.SetProperty(r => r.RevokedAt, clock.UtcNow), ct);
 
     public static string Hash(string raw) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
 }

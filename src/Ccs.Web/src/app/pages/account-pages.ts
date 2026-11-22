@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import QRCode from 'qrcode';
 import { Auth, problemOf } from '../core/auth';
@@ -206,6 +206,11 @@ export class HomePage {
         <p class="mt-1 text-muted">{{ 'Account.subtitle' | t }}</p>
       </div>
       @if (auth.me(); as me) {
+        @if (me.mfaSetup && !me.mfaEnabled) {
+          <p role="alert" class="rounded-lg border px-4 py-3 text-sm font-semibold" [class]="me.mfaSetup.blocked ? 'border-danger bg-danger-soft text-danger' : 'border-[#f1d58f] bg-warn-soft text-warn-ink'">
+            {{ me.mfaSetup.blocked ? ('Mfa.requiredNow' | t) : ('Mfa.requiredBy' | t: { date: i18n.day(me.mfaSetup.deadline) }) }}
+            <button type="button" class="ms-1 cursor-pointer underline" (click)="goSetup()">{{ 'Mfa.setUpNow' | t }}</button></p>
+        }
         <section aria-labelledby="access" class="rounded-md border border-line bg-surface p-6">
           <h2 id="access" class="text-lg font-bold">{{ 'Account.roles' | t }}</h2>
           <ul class="mt-3 flex flex-wrap gap-2">
@@ -236,8 +241,8 @@ export class HomePage {
           </form>
         </section>
 
-        <section class="rounded-md border border-line bg-surface p-6">
-          <h2 class="mb-4 text-lg font-bold">{{ 'Mfa.title' | t }}</h2>
+        <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="mfa-title">
+          <h2 id="mfa-title" class="mb-4 scroll-mt-24 text-lg font-bold">{{ 'Mfa.title' | t }}</h2>
           <p class="mb-4 text-sm text-muted">{{ 'Mfa.intro' | t }}</p>
           <p class="mb-4 text-sm font-semibold">{{ 'Mfa.status' | t }}: <span [class]="me.mfaEnabled ? 'text-ok' : 'text-muted'">{{ (me.mfaEnabled ? 'Mfa.on' : 'Mfa.off') | t }}</span></p>
           @if (me.mfaEnabled) {
@@ -279,6 +284,25 @@ export class HomePage {
           }
         </section>
 
+        <section aria-labelledby="dev" class="rounded-md border border-line bg-surface p-6">
+          <h2 id="dev" class="text-lg font-bold">{{ 'Devices.title' | t }}</h2>
+          <p class="mb-4 mt-1 text-sm text-muted">{{ 'Devices.intro' | t }}</p>
+          @if (devMsg()) { <app-alert [tone]="devTone()">{{ devMsg() }}</app-alert> }
+          <ul class="flex flex-col divide-y divide-line">
+            @for (d of devices(); track d.id) {
+              <li class="flex flex-wrap items-center justify-between gap-3 py-3">
+                <span><span class="block font-semibold">{{ d.device }}
+                  @if (d.current) { <span class="ms-2 rounded-full bg-ok-soft px-2 py-0.5 text-xs font-bold text-ok">{{ 'Devices.thisOne' | t }}</span> }</span>
+                  <span class="block text-sm text-muted">{{ 'Devices.lastUsed' | t: { when: i18n.shortDate(d.lastUsed) } }}@if (d.ip) { · <span dir="ltr">{{ d.ip }}</span> }</span></span>
+                @if (!d.current) { <button type="button" (click)="endDevice(d.id)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg">{{ 'Devices.signOut' | t }}</button> }
+              </li>
+            } @empty { <li class="py-3 text-sm text-muted">{{ 'Devices.none' | t }}</li> }
+          </ul>
+          @if (devices().length > 1) {
+            <button type="button" (click)="endOthers()" class="mt-3 min-h-11 cursor-pointer rounded-lg border border-danger bg-surface px-4 font-semibold text-danger hover:bg-danger-soft">{{ 'Devices.signOutOthers' | t }}</button>
+          }
+        </section>
+
         <section aria-labelledby="pw" class="rounded-md border border-line bg-surface p-6">
           <h2 id="pw" class="mb-4 text-lg font-bold">{{ 'Account.password' | t }}</h2>
           <form class="flex max-w-md flex-col gap-4" novalidate (submit)="$event.preventDefault(); changePassword()">
@@ -310,6 +334,34 @@ export class AccountPage {
   protected readonly mfaErr = signal<string | null>(null);
   protected readonly confirmOff = signal(false);
   protected readonly offCode = signal('');
+
+  // My devices: where I am signed in now.
+  protected readonly devices = signal<{ id: string; device: string; ip: string; lastUsed: string; current: boolean }[]>([]);
+  protected readonly devMsg = signal<string | null>(null);
+  protected readonly devTone = signal<'error' | 'success'>('success');
+  constructor() {
+    void this.loadDevices();
+    // Sent here because two-step must be set up: open the setup at once.
+    if (inject(ActivatedRoute).snapshot.queryParamMap.get('setup') && this.auth.me() && !this.auth.me()!.mfaEnabled)
+      setTimeout(() => this.goSetup());
+  }
+  /** Opens the two-step setup and scrolls to it. */
+  protected goSetup(): void { document.getElementById('mfa-title')?.scrollIntoView({ behavior: 'smooth' }); if (!this.qr() && !this.auth.me()?.mfaEnabled) void this.startMfa(); }
+  private async loadDevices(): Promise<void> {
+    try { this.devices.set(await firstValueFrom(this.http.get<{ id: string; device: string; ip: string; lastUsed: string; current: boolean }[]>('/api/me/sessions'))); } catch { /* the list is optional */ }
+  }
+  protected async endDevice(id: string): Promise<void> {
+    this.devMsg.set(null);
+    try { await firstValueFrom(this.http.delete('/api/me/sessions/' + id)); this.devTone.set('success'); this.devMsg.set(this.i18n.t('Devices.ended')); }
+    catch { this.devTone.set('error'); this.devMsg.set(this.i18n.t('Auth.errors.generic')); }
+    await this.loadDevices();
+  }
+  protected async endOthers(): Promise<void> {
+    this.devMsg.set(null);
+    try { await firstValueFrom(this.http.post('/api/me/sessions/sign-out-others', {})); this.devTone.set('success'); this.devMsg.set(this.i18n.t('Devices.endedOthers')); }
+    catch { this.devTone.set('error'); this.devMsg.set(this.i18n.t('Auth.errors.generic')); }
+    await this.loadDevices();
+  }
   protected disableMfa(): void {
     this.mfaErr.set(null);
     firstValueFrom(this.http.post('/api/auth/mfa/disable', { code: this.offCode().trim() }))

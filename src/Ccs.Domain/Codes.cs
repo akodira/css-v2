@@ -144,4 +144,8 @@ public static class NotificationEvent
     public const string AccountLocked = "account_locked";
     /// <summary>To system admins when any account is locked.</summary>
     public const string AccountLockedAdmin = "account_locked_admin";
+    /// <summary>Sign-in from a device or browser not used on the account recently (Settings → Security → New sign-in alerts).</summary>
+    public const string NewSignin = "new_signin";
+    /// <summary>To admins: an admin account signed in from a new device.</summary>
+    public const string NewSigninAdmin = "new_signin_admin";
 }
