@@ -1,0 +1,1 @@
+import{k as Wt}from"./main-T45BBIRT.js";import"./chunk-DoMPm57t.js";import"./chunk-DdDf-V10.js";export{Wt as PeoplePage};
