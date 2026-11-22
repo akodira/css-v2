@@ -161,16 +161,19 @@ export class KbArticlePage {
 
 // ================================================================== saved replies (staff)
 
-interface Canned { id: string; title: string; body: string; language: string; isShared: boolean; owner: string; mine: boolean }
-type CannedModel = { title: string; body: string; language: string; isShared: boolean };
-const blankCanned = (): CannedModel => ({ title: '', body: '', language: 'any', isShared: false });
+interface Canned { id: string; title: string; body: string; language: string; isShared: boolean; teamId: string | null; owner: string; mine: boolean }
+interface CannedTeam { id: string; nameEn: string; nameAr: string }
+/** Who can use it: me only, one of my teams, or all staff (needs "Manage saved replies"). */
+type CannedModel = { title: string; body: string; language: string; scope: 'me' | 'team' | 'all'; teamId: string };
+const blankCanned = (): CannedModel => ({ title: '', body: '', language: 'any', scope: 'me', teamId: '' });
 
 @Injectable({ providedIn: 'root' })
 export class CannedApi {
   private readonly http = inject(HttpClient);
-  list(): Promise<{ items: Canned[]; canShare: boolean }> { return firstValueFrom(this.http.get<{ items: Canned[]; canShare: boolean }>('/api/canned')); }
+  list(): Promise<{ items: Canned[]; canShare: boolean; teams: CannedTeam[] }> { return firstValueFrom(this.http.get<{ items: Canned[]; canShare: boolean; teams: CannedTeam[] }>('/api/canned')); }
   save(id: string | null, m: CannedModel): Promise<unknown> {
-    return firstValueFrom(id ? this.http.put('/api/canned/' + id, m) : this.http.post('/api/canned', m));
+    const body = { title: m.title, body: m.body, language: m.language, isShared: m.scope === 'all', teamId: m.scope === 'team' ? m.teamId || null : null };
+    return firstValueFrom(id ? this.http.put('/api/canned/' + id, body) : this.http.post('/api/canned', body));
   }
   del(id: string): Promise<unknown> { return firstValueFrom(this.http.delete('/api/canned/' + id)); }
 }
@@ -192,7 +195,24 @@ export class CannedApi {
             <app-placeholder-picker [items]="tokens" (insert)="insert(box, m, $event)" /></div>
           <div class="flex flex-col gap-1.5 sm:max-w-xs"><label [for]="'cn-lang-' + (id ?? 'new')" class="text-sm font-semibold">{{ 'Canned.language' | t }}</label>
             <select [id]="'cn-lang-' + (id ?? 'new')" name="l" [class]="field" [(ngModel)]="m.language">@for (l of langs; track l) { <option [value]="l">{{ 'Canned.lang.' + l | t }}</option> }</select></div>
-          @if (canShare()) { <label class="flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" name="s" class="h-5 w-5" [(ngModel)]="m.isShared" />{{ 'Canned.shared' | t }}</label> }
+          <fieldset class="flex flex-col gap-2"><legend class="mb-1 text-sm font-semibold">{{ 'Canned.who' | t }}<app-req /></legend>
+            <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+              <input type="radio" name="sc" value="me" class="mt-1 h-5 w-5" [(ngModel)]="m.scope" /><span><span class="block font-semibold">{{ 'Canned.scopeMe' | t }}</span><span class="block text-sm text-muted">{{ 'Canned.scopeMeHint' | t }}</span></span></label>
+            @if (teams().length) {
+              <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+                <input type="radio" name="sc" value="team" class="mt-1 h-5 w-5" [(ngModel)]="m.scope" (ngModelChange)="m.teamId = m.teamId || teams()[0].id" />
+                <span class="flex-1"><span class="block font-semibold">{{ 'Canned.scopeTeam' | t: { team: teams().length === 1 ? i18n.pick(teams()[0].nameEn, teams()[0].nameAr) : '' } }}</span><span class="block text-sm text-muted">{{ 'Canned.scopeTeamHint' | t }}</span>
+                  @if (m.scope === 'team' && teams().length > 1) {
+                    <select name="tm" [attr.aria-label]="'Canned.whichTeam' | t" class="mt-2 min-h-11 w-full max-w-xs rounded-lg border border-line bg-surface px-3 text-base" [(ngModel)]="m.teamId">
+                      @for (tm of teams(); track tm.id) { <option [value]="tm.id">{{ i18n.pick(tm.nameEn, tm.nameAr) }}</option> }
+                    </select>
+                  }</span></label>
+            }
+            @if (canShare()) {
+              <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-surface p-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+                <input type="radio" name="sc" value="all" class="mt-1 h-5 w-5" [(ngModel)]="m.scope" /><span><span class="block font-semibold">{{ 'Canned.scopeAll' | t }}</span><span class="block text-sm text-muted">{{ 'Canned.scopeAllHint' | t }}</span></span></label>
+            }
+          </fieldset>
           <div class="flex flex-wrap gap-2">
             <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Canned.save' | t }}</button>
             <button type="button" (click)="id ? editing.set(null) : adding.set(false)" [class]="quiet">{{ 'Canned.cancel' | t }}</button>
@@ -215,7 +235,8 @@ export class CannedApi {
                     <li class="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4">
                       <div class="flex flex-wrap items-center gap-2">
                         <h3 class="font-bold" dir="auto">{{ c.title }}</h3>
-                        <span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="c.isShared ? 'bg-brand-soft text-brand-ink' : 'bg-bg text-muted'">{{ (c.isShared ? 'Canned.sharedBadge' : 'Canned.personalBadge') | t }}</span>
+                        <span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="c.isShared ? 'bg-brand-soft text-brand-ink' : c.teamId ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (c.isShared ? 'Canned.sharedBadge' : c.teamId ? 'Canned.teamBadge' : 'Canned.personalBadge') | t: { team: teamName(c.teamId) } }}</span>
+                        @if (!c.mine) { <span class="text-xs text-muted" dir="auto">{{ 'Canned.by' | t: { name: c.owner } }}</span> }
                         @if (c.language !== 'any') { <span class="rounded-full bg-bg px-2 py-0.5 text-xs font-semibold text-muted">{{ 'Canned.lang.' + c.language | t }}</span> }
                       </div>
                       <p class="line-clamp-3 whitespace-pre-wrap text-sm text-muted" dir="auto">{{ c.body }}</p>
@@ -247,10 +268,13 @@ export class CannedPage implements OnInit {
   protected readonly langs = ['any', 'en', 'ar'];
   protected readonly rows = signal<Canned[]>([]);
   protected readonly canShare = signal(false);
+  protected readonly teams = signal<CannedTeam[]>([]);
+  protected teamName(id: string | null): string { const t = this.teams().find((x) => x.id === id); return t ? this.i18n.pick(t.nameEn, t.nameAr) : ''; }
   protected readonly busy = signal(false);
   protected readonly msg = signal<{ tone: 'error' | 'success'; text: string } | null>(null);
   protected readonly groups = computed(() => [
-    { key: 'mine', title: 'Canned.personalTitle', items: this.rows().filter((c) => !c.isShared) },
+    { key: 'mine', title: 'Canned.personalTitle', items: this.rows().filter((c) => !c.isShared && c.mine) },
+    { key: 'team', title: 'Canned.teamTitle', items: this.rows().filter((c) => !c.isShared && !c.mine) },
     { key: 'shared', title: 'Canned.sharedTitle', items: this.rows().filter((c) => c.isShared) },
   ]);
   protected readonly adding = signal(false);
@@ -279,8 +303,8 @@ export class CannedPage implements OnInit {
   ngOnInit(): void { void this.load(); }
   private async load(): Promise<void> {
     const r = await this.api.list();
-    for (const c of r.items) this.ed[c.id] = { title: c.title, body: c.body, language: c.language, isShared: c.isShared };
-    this.canShare.set(r.canShare); this.rows.set(r.items);
+    for (const c of r.items) this.ed[c.id] = { title: c.title, body: c.body, language: c.language, scope: c.isShared ? 'all' : c.teamId ? 'team' : 'me', teamId: c.teamId ?? '' };
+    this.canShare.set(r.canShare); this.teams.set(r.teams ?? []); this.rows.set(r.items);
   }
   protected editable(c: Canned): boolean { return c.isShared ? this.canShare() : c.mine; }
   private async act(fn: () => Promise<unknown>, ok: string): Promise<boolean> {

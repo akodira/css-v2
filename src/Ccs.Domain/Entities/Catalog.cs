@@ -91,6 +91,8 @@ public class CannedResponse
     public Guid Id { get; set; }
     public Guid OwnerId { get; set; }
     public bool IsShared { get; set; }
+    /// <summary>Shared with this team only (IsShared stays false): its members can use it, the owner changes it.</summary>
+    public Guid? TeamId { get; set; }
     public string Title { get; set; } = "";
     public string Body { get; set; } = "";
     public string Language { get; set; } = "any";

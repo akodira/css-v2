@@ -51,8 +51,8 @@ public static class StatusFlow
         string? resolution = null;
         if (r.TargetStatus == TicketStatus.Resolved)
         {
+            // Optional: when given, it is shown to the customer as how the ticket was resolved.
             resolution = Clean(r.Resolution);
-            if (resolution is null || resolution.Length < 5) return StatusChangeDecision.Deny("resolution details are required");
         }
 
         string? closure = null;

@@ -20,7 +20,7 @@ namespace Ccs.Api.Controllers;
 /// </summary>
 [ApiController]
 [Authorize]
-public sealed class PeopleController(CcsDbContext db, AccessService access, AuditService audit, UserManager<AppUser> users, IClock clock) : ControllerBase
+public sealed partial class PeopleController(CcsDbContext db, AccessService access, AuditService audit, UserManager<AppUser> users, IClock clock) : ControllerBase
 {
     public sealed record CreateBody(string Kind, string FullName, string Email, string? Phone, string Password, Guid OrganizationId, Guid? BranchId, Guid? AccountTypeId);
     public sealed record UpdateBody(string FullName, string Email, string? Phone);

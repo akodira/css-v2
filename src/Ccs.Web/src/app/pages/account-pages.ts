@@ -7,20 +7,13 @@ import { Auth, problemOf } from '../core/auth';
 import { I18n, TPipe } from '../core/i18n';
 import { SiteService, TicketListItem, TicketsApi, TicketSummary } from '../core/api';
 import { Alert, NewPasswordFields, StatusBadge, Submit, TextField } from '../shared/ui';
+import { CustomerKpis } from '../shared/customer-kpis';
 
 const HOME_ICON = { plus: 'M12 5v14M5 12h14', list: 'M4 6h16M4 12h16M4 18h10' };
-const HOME_KPI = {
-  active: { path: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 6v6l4 2', tone: 'bg-warn-soft text-warn-ink' },
-  waiting: { path: 'M4 4h16v16H4zM4 7l8 6 8-6', tone: 'bg-danger-soft text-danger' },
-  resolved: { path: 'M20 6 9 17l-5-5', tone: 'bg-ok-soft text-ok' },
-  closed: { path: 'M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2 2 0 0 0 0 4v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2 2 0 0 0 0-4z', tone: 'bg-brand-soft text-brand' },
-} as const;
-type KpiKey = keyof typeof HOME_KPI;
-
 /** Home, same as v1: guest hero with two action cards and the illustration; signed-in customers get their dashboard; staff go to the console. */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, TPipe, StatusBadge],
+  imports: [RouterLink, TPipe, StatusBadge, CustomerKpis],
   template: `
     @if (customer()) {
       <main data-home class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -33,17 +26,7 @@ type KpiKey = keyof typeof HOME_KPI;
             <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path [attr.d]="icon.plus" /></svg>{{ 'Home.createCta' | t }}
           </a>
         </header>
-        <dl class="grid grid-cols-2 gap-4 md:grid-cols-4">
-          @for (k of kpis; track k) {
-            <a [routerLink]="link('/tickets')" [queryParams]="{ filter: k }" [class]="card + ' flex flex-col items-center gap-2 text-center hover:bg-bg'">
-              <span aria-hidden="true" class="flex h-12 w-12 items-center justify-center rounded-full" [class]="kpi[k].tone">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path [attr.d]="kpi[k].path" /></svg>
-              </span>
-              <dd class="text-4xl font-bold leading-none">{{ counts()?.[k] ?? '…' }}</dd>
-              <dt class="text-sm font-medium text-muted">{{ 'Tickets.summary.' + k | t }}</dt>
-            </a>
-          }
-        </dl>
+        <app-customer-kpis [counts]="counts()" (pick)="openList($event)" />
         <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <section aria-labelledby="home-recent" [class]="card + ' lg:col-span-2'">
             <div class="mb-3 flex items-center justify-between gap-3">
@@ -157,14 +140,14 @@ export class HomePage {
   private readonly tickets = inject(TicketsApi);
   private readonly http = inject(HttpClient);
   protected readonly icon = HOME_ICON;
-  protected readonly kpi = HOME_KPI;
-  protected readonly kpis = Object.keys(HOME_KPI) as KpiKey[];
   protected readonly card = 'rounded-xl border border-line bg-surface p-5 shadow-card';
   private readonly base = 'flex min-h-[84px] flex-1 basis-60 items-center gap-4 rounded-xl px-5 py-4 sm:max-w-80';
   protected readonly solid = this.base + ' bg-brand text-white hover:bg-brand-ink';
   protected readonly outline = this.base + ' border border-line bg-surface text-ink hover:bg-bg';
   protected readonly customer = computed(() => this.auth.isCustomer() && !this.auth.isStaff());
   protected readonly counts = signal<TicketSummary | null>(null);
+  /** A card opens My tickets on that list ("Total tickets" = all). */
+  protected openList(k: string): void { void this.router.navigate([this.link('/tickets')], { queryParams: { filter: k === 'total' ? null : k } }); }
   protected readonly recent = signal<TicketListItem[] | null>(null);
   protected readonly popular = signal<{ id: string; slug: string; titleEn: string; titleAr: string | null }[]>([]);
   private readonly home = computed(() => {

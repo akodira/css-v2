@@ -8,14 +8,8 @@ import { I18n, TPipe } from '../../core/i18n';
 import { liveSearch } from '../../shared/live-search';
 import { NewTicketOptions, Paged, SiteService, TicketDetail, TicketListItem, TicketSummary, TicketsApi } from '../../core/api';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
+import { CustomerKpis } from '../../shared/customer-kpis';
 import { Alert, PRIORITY_TONE, Req, ReqNote, STATUS_STRIPE, SortTh, StatusBadge } from '../../shared/ui';
-
-const CARD: Record<string, string> = {
-  active: 'border-s-amber-500 bg-warn-soft text-warn-ink',
-  waiting: 'border-s-danger bg-danger-soft text-danger',
-  resolved: 'border-s-ok bg-ok-soft text-ok',
-  closed: 'border-s-brand bg-brand-soft text-brand-ink',
-};
 
 /** Auto-refresh every N seconds (Settings, System rules; 0 turns it off). */
 export function autoRefresh(load: () => void): void {
@@ -35,10 +29,12 @@ export function autoRefresh(load: () => void): void {
 @Component({
   selector: 'app-auto-refresh',
   imports: [TPipe],
+  // Always on the right of the page, the same on every page that has it (customer, agent, team leader).
+  host: { class: 'flex justify-end' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (secs > 0) {
-      <p class="flex flex-wrap items-center gap-2 text-sm text-muted" role="status">
+      <p class="flex flex-wrap items-center justify-end gap-2 text-sm text-muted" role="status">
         <span>{{ paused() ? ('AutoRefresh.paused' | t) : ('AutoRefresh.note' | t: { seconds: secs }) }}</span>
         <button type="button" (click)="paused.set(!paused())" class="min-h-9 cursor-pointer rounded-lg border border-line bg-surface px-3 text-sm font-semibold text-ink hover:bg-bg">{{ (paused() ? 'AutoRefresh.resume' : 'AutoRefresh.pause') | t }}</button>
       </p>
@@ -61,7 +57,7 @@ export class AutoRefreshBar {
 
 @Component({
   selector: 'app-my-tickets',
-  imports: [RouterLink, TPipe, StatusBadge, SortTh, AutoRefreshBar],
+  imports: [RouterLink, TPipe, StatusBadge, SortTh, AutoRefreshBar, CustomerKpis],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div class="flex flex-wrap items-start justify-between gap-4">
@@ -73,15 +69,7 @@ export class AutoRefreshBar {
       </div>
       <app-auto-refresh (tick)="load()" />
 
-      <dl class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        @for (k of groups; track k) {
-          <button type="button" (click)="setGroup(k)" [attr.aria-current]="k === group() ? 'true' : null"
-            class="cursor-pointer rounded-xl border border-line border-s-4 p-4 text-start shadow-card hover:brightness-95" [class]="cards[k] + (k === group() ? ' ring-2 ring-current' : '')">
-            <dt class="text-sm font-semibold">{{ 'Tickets.summary.' + k | t }}</dt>
-            <dd class="mt-1 text-3xl font-bold">{{ count(k) }}</dd>
-          </button>
-        }
-      </dl>
+      <app-customer-kpis [counts]="summary()" [selected]="group() === 'all' ? 'total' : group()" (pick)="setGroup($event === 'total' ? 'all' : $event)" />
 
       <div class="flex flex-wrap items-end justify-between gap-3">
         <nav [attr.aria-label]="'Tickets.title' | t" class="flex flex-wrap gap-2">
@@ -141,7 +129,6 @@ export class MyTicketsPage {
   private readonly api = inject(TicketsApi);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  protected readonly cards = CARD;
   protected readonly stripe = STATUS_STRIPE;
   protected readonly groups = ['active', 'waiting', 'resolved', 'closed'] as const;
   protected readonly filters = ['all', 'active', 'waiting', 'resolved', 'closed'] as const;

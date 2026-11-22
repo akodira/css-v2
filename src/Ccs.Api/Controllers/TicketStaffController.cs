@@ -23,7 +23,13 @@ public sealed class TicketStaffController(CcsDbContext db, AccessService access)
         var (c, _) = await access.RequireTicketAsync(id, ct);
         if (!c.Internal) throw new ForbiddenException();
         var t = await db.Tickets.AsNoTracking().FirstAsync(x => x.Id == id, ct);
-        var phone = await db.Profiles.AsNoTracking().Where(p => p.Id == t.RequesterId).Select(p => p.Phone).FirstOrDefaultAsync(ct);
+        var requester = await db.Profiles.AsNoTracking().Where(p => p.Id == t.RequesterId).Select(p => new
+        {
+            p.Phone,
+            Organization = db.Organizations.Where(o => o.Id == p.OrganizationId).Select(o => o.Name).FirstOrDefault(),
+            Branch = db.Branches.Where(b => b.Id == p.BranchId).Select(b => b.Name).FirstOrDefault(),
+        }).FirstOrDefaultAsync(ct);
+        var phone = requester?.Phone;
 
         var members = await (from m in db.TeamMembers.AsNoTracking()
                              join p in db.Profiles on m.UserId equals p.Id
@@ -79,6 +85,8 @@ public sealed class TicketStaffController(CcsDbContext db, AccessService access)
             moves = canWork ? moves.Cast<object>().ToList() : [],
             closureReasons,
             requesterPhone = phone,
+            requesterOrganization = requester?.Organization,
+            requesterBranch = requester?.Branch,
             teamLeaders = leaders,
             sla = sla is null ? null : new { sla.State, sla.FirstResponseDue, sla.ResolutionDue, sla.FirstRespondedAt, sla.ResolvedAt, sla.PausedAt, sla.PausedTotalSeconds },
             assignments,

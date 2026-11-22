@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { adminError, generatePassword } from '../../core/admin-api';
@@ -16,27 +16,25 @@ interface PData { level: string | null; orgs: POrg[]; branches: PBranch[]; types
 
 const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg';
 
-/** People, same as v1: Branch Admins and Organization Admins create and manage the people inside their own scope. */
+/**
+ * Organization and Branch Admins manage the people inside their own scope. Two uses:
+ * - the Staff page (People → Staff): add staff, the staff list, and the branch a team leader leads;
+ * - mode "customer" inside Customers: only the "Add a customer" box (the customer list is the Customers table).
+ */
 @Component({
   selector: 'app-people',
   imports: [TPipe, FormsModule, Alert, PwEye],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'People.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'People.subtitle' | t }}</p></div>
+    <div [class]="mode() === 'staff' ? 'mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8' : 'flex flex-col gap-6'">
+      @if (mode() === 'staff') { <div><h1 class="text-3xl font-bold tracking-tight">{{ 'People.staffTitle' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'People.staffSubtitle' | t }}</p></div> }
       @if (d(); as d) {
         @if (d.orgs.length === 0) {
           <p role="status" class="rounded-lg bg-warn-soft px-4 py-3 text-sm font-semibold text-warn-ink">{{ 'People.noScope' | t }}</p>
         } @else {
           <details class="rounded-xl border border-line bg-surface shadow-card">
-            <summary class="cursor-pointer px-5 py-4 text-lg font-bold">{{ 'People.add' | t }}</summary>
+            <summary class="cursor-pointer px-5 py-4 text-lg font-bold">{{ (mode() === 'staff' ? 'People.addStaff' : 'People.addCustomer') | t }}</summary>
             <form class="flex flex-col gap-4 px-5 pb-5" (ngSubmit)="create()">
-              <div class="flex flex-wrap gap-2" role="group" [attr.aria-label]="'People.kind' | t">
-                @for (k of kinds; track k) {
-                  <button type="button" [attr.aria-pressed]="n().kind === k" (click)="patch({ kind: k })"
-                    [class]="btn + (n().kind === k ? ' border-brand bg-brand text-white hover:bg-brand-ink' : '')">{{ (k === 'customer' ? 'People.kindCustomer' : 'People.kindStaff') | t }}</button>
-                }
-              </div>
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div class="flex flex-col gap-1.5"><label for="pp-n" [class]="cls.label">{{ 'People.name' | t }}</label>
                   <input id="pp-n" name="fullName" dir="auto" autocomplete="off" [class]="cls.input" [ngModel]="n().fullName" (ngModelChange)="patch({ fullName: $event })" /></div>
@@ -70,12 +68,13 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
           </details>
         }
 
+        @if (mode() === 'staff') {
         <div class="flex flex-col gap-3">
           <div><label for="people-q" class="sr-only">{{ 'People.searchLabel' | t }}</label>
             <input id="people-q" type="search" dir="auto" [placeholder]="'People.searchPlaceholder' | t" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base"
               [ngModel]="q()" (ngModelChange)="q.set($event)" /></div>
           @if (rows().length === 0) {
-            <p class="text-muted">{{ (d.people.length ? 'People.noMatch' : 'People.empty') | t }}</p>
+            <p class="text-muted">{{ (staffOnly().length ? 'People.noMatch' : 'People.emptyStaff') | t }}</p>
           } @else {
             <ul class="flex flex-col gap-4">
               @for (p of rows(); track p.id) {
@@ -92,6 +91,17 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
                     <div class="flex flex-col gap-4 border-t border-line p-4">
                       @if (p.status === 'active' || p.status === 'suspended') {
                         <div><button type="button" [class]="btn" [disabled]="busy()" (click)="setStatus(p)">{{ (p.status === 'suspended' ? 'People.reactivate' : 'People.suspend') | t }}</button></div>
+                      }
+                      @if (isLeader(p) && br()?.branches?.length) {
+                        <form class="flex flex-wrap items-end gap-3" (ngSubmit)="setLeads(p)">
+                          <div class="flex min-w-56 flex-col gap-1.5"><label [for]="'pl-' + p.id" [class]="cls.label">{{ 'People.leadsBranch' | t }}</label>
+                            <select [id]="'pl-' + p.id" name="leads" [class]="cls.input" [(ngModel)]="ed.leads">
+                              <option value="">{{ 'People.leadsNone' | t }}</option>
+                              @for (b of br()!.branches; track b.id) { <option [value]="b.id">{{ b.name }}@if (b.teamLeaderId && b.teamLeaderId !== p.id) { ({{ 'People.leadNow' | t: { name: b.teamLeader } }}) }</option> }
+                            </select>
+                            <p class="text-xs text-muted">{{ 'People.leadsHint' | t }}</p></div>
+                          <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'People.save' | t }}</button>
+                        </form>
                       }
                       @if (isStaff(p)) {
                         <form class="flex flex-wrap items-end gap-3" (ngSubmit)="setType(p)">
@@ -124,17 +134,20 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
             </ul>
           }
         </div>
+        }
       } @else if (loadError()) {
         <app-alert tone="error">{{ loadError() }}</app-alert>
       }
-    </main>`,
+    </div>`,
 })
 export class PeoplePage {
   protected readonly i18n = inject(I18n);
   private readonly http = inject(HttpClient);
   protected readonly cls = CLS;
   protected readonly btn = BTN;
-  protected readonly kinds = ['customer', 'staff'] as const;
+  /** "staff": the Staff page; "customer": only the add box, inside the Customers page. */
+  readonly mode = input<'staff' | 'customer'>('staff');
+  readonly created = output<void>();
   protected readonly d = signal<PData | null>(null);
   protected readonly loadError = signal('');
   protected readonly busy = signal(false);
@@ -142,13 +155,16 @@ export class PeoplePage {
   protected readonly rowMsg = signal<Msg>(null);
   protected readonly q = signal('');
   protected readonly open = signal<string | null>(null);
-  protected readonly n = signal({ kind: 'customer' as 'customer' | 'staff', fullName: '', email: '', phone: '', password: '', organizationId: '', branchId: '', accountTypeId: '' });
-  protected ed = { fullName: '', email: '', phone: '', type: '' };
+  protected readonly n = signal({ kind: 'staff' as 'customer' | 'staff', fullName: '', email: '', phone: '', password: '', organizationId: '', branchId: '', accountTypeId: '' });
+  protected ed = { fullName: '', email: '', phone: '', type: '', leads: '' };
+  /** Branches in my scope, for "Leads branch" on team leaders (Staff page only). */
+  protected readonly br = signal<{ branches: { id: string; name: string; teamLeaderId: string | null; teamLeader: string | null }[] } | null>(null);
+  protected readonly staffOnly = computed(() => (this.d()?.people ?? []).filter((p) => this.isStaff(p)));
 
   protected readonly myBranches = computed(() => (this.d()?.branches ?? []).filter((b) => b.organizationId === this.n().organizationId));
   protected readonly rows = computed(() => {
     const needle = this.q().trim().toLowerCase();
-    return (this.d()?.people ?? []).filter((p) => !needle || `${p.fullName} ${p.email} ${p.phone ?? ''} ${this.place(p)} ${p.roles.join(' ')}`.toLowerCase().includes(needle));
+    return this.staffOnly().filter((p) => !needle || `${p.fullName} ${p.email} ${p.phone ?? ''} ${this.place(p)} ${p.roles.join(' ')}`.toLowerCase().includes(needle));
   });
 
   constructor() { void this.load(true); }
@@ -158,11 +174,12 @@ export class PeoplePage {
       const d = await firstValueFrom(this.http.get<PData>('/api/console/people'));
       this.d.set(d);
       if (first) this.resetNew(d);
+      if (this.mode() === 'staff') this.br.set(await firstValueFrom(this.http.get<{ branches: { id: string; name: string; teamLeaderId: string | null; teamLeader: string | null }[] }>('/api/console/branches')).catch(() => null));
     } catch (e) { this.loadError.set(adminError(this.i18n, e)); }
   }
   private resetNew(d: PData): void {
     const org = d.orgs[0]?.id ?? '';
-    this.n.set({ kind: this.n().kind, fullName: '', email: '', phone: '', password: '', organizationId: org, branchId: this.firstBranch(d, org), accountTypeId: '' });
+    this.n.set({ kind: this.mode() === 'staff' ? 'staff' : 'customer', fullName: '', email: '', phone: '', password: '', organizationId: org, branchId: this.firstBranch(d, org), accountTypeId: '' });
   }
   private firstBranch(d: PData, org: string): string { return d.level === 'branch' ? (d.branches.find((b) => b.organizationId === org)?.id ?? '') : ''; }
   protected patch(v: Partial<ReturnType<typeof this.n>>): void { this.n.update((x) => ({ ...x, ...v })); }
@@ -170,6 +187,7 @@ export class PeoplePage {
   protected gen(): string { return generatePassword(); }
   protected typeName(t: PType): string { return this.i18n.pick(t.nameEn, t.nameAr); }
   protected isStaff(p: PRow): boolean { return p.roles.some((r) => r !== 'customer'); }
+  protected isLeader(p: PRow): boolean { return p.roles.includes('team_leader'); }
   protected roleNames(p: PRow): string { return p.roles.map((r) => this.i18n.t('Roles.' + r)).join(', '); }
   protected place(p: PRow): string {
     const d = this.d();
@@ -181,7 +199,8 @@ export class PeoplePage {
   protected toggle(p: PRow): void {
     this.rowMsg.set(null);
     if (this.open() === p.id) { this.open.set(null); return; }
-    this.ed = { fullName: p.fullName, email: p.email, phone: p.phone ?? '', type: this.d()?.types.some((t) => t.id === p.accountTypeId) ? (p.accountTypeId ?? '') : '' };
+    this.ed = { fullName: p.fullName, email: p.email, phone: p.phone ?? '', type: this.d()?.types.some((t) => t.id === p.accountTypeId) ? (p.accountTypeId ?? '') : '',
+      leads: this.br()?.branches.find((b) => b.teamLeaderId === p.id)?.id ?? '' };
     this.open.set(p.id);
   }
 
@@ -195,10 +214,20 @@ export class PeoplePage {
     const v = this.n();
     if (v.kind === 'staff' && !v.accountTypeId) { this.createMsg.set({ tone: 'error', text: this.i18n.t('AdminCommon.errors.typeRequired') }); return; }
     const body = { ...v, phone: v.phone || null, branchId: v.branchId || null, accountTypeId: v.kind === 'staff' ? v.accountTypeId : null };
-    if (await this.run(() => firstValueFrom(this.http.post('/api/console/people', body)), this.createMsg)) this.resetNew(this.d()!);
+    if (await this.run(() => firstValueFrom(this.http.post('/api/console/people', body)), this.createMsg)) { this.resetNew(this.d()!); this.created.emit(); }
   }
   protected setStatus(p: PRow): void {
     void this.run(() => firstValueFrom(this.http.post(`/api/console/people/${p.id}/status`, { status: p.status === 'suspended' ? 'active' : 'suspended' })), this.rowMsg);
+  }
+  /** Makes this team leader the leader of one branch (or of none): sets that branch, and clears the branch they led before. */
+  protected setLeads(p: PRow): void {
+    const now = this.br()?.branches.find((b) => b.teamLeaderId === p.id)?.id ?? '';
+    const next = this.ed.leads;
+    if (now === next) return;
+    void this.run(async () => {
+      if (now) await firstValueFrom(this.http.put(`/api/console/branches/${now}/leader`, { teamLeaderId: null }));
+      if (next) await firstValueFrom(this.http.put(`/api/console/branches/${next}/leader`, { teamLeaderId: p.id }));
+    }, this.rowMsg);
   }
   protected setType(p: PRow): void { void this.run(() => firstValueFrom(this.http.post(`/api/console/people/${p.id}/type`, { accountTypeId: this.ed.type })), this.rowMsg); }
   protected update(p: PRow): void {

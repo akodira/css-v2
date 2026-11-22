@@ -50,7 +50,7 @@
   --font-sans: "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, sans-serif;
 }
 
-html { color-scheme: light; }
+html { color-scheme: light; scrollbar-gutter: stable; }   /* the page never shifts sideways when a scroll bar appears or goes */
 
 body {
   background: var(--bg);

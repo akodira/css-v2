@@ -445,40 +445,81 @@ export class AuditPage implements OnInit {
 
 // ================================================================== My team
 
-interface TeamMemberRow { teamId: string; userId: string; isLeader: boolean; fullName: string; email: string; autoAssign: boolean; canCreateForCustomers: boolean }
+interface TeamMemberRow {
+  teamId: string; userId: string; isLeader: boolean; fullName: string; email: string; phone: string | null;
+  autoAssign: boolean; canCreateForCustomers: boolean; open: number;
+}
+interface TeamView { id: string; nameEn: string; nameAr: string; canEdit: boolean; me: string; categories: { nameEn: string; nameAr: string }[]; members: TeamMemberRow[] }
 
+/**
+ * People → My team. Agents: who is in the team, how to reach them and their open tickets. Team leaders (and admins)
+ * also switch, per person, "Gets new tickets" and "Opens tickets for customers", with a sentence saying what is on.
+ */
 @Component({
   selector: 'app-my-team',
   imports: [TPipe, Alert],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'Team.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'Team.subtitle' | t }}</p></div>
+      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'Team.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'Team.subtitle2' | t }}</p></div>
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       @if (teams() && !teams()!.length) { <p role="status" class="rounded-lg bg-warn-soft px-4 py-3 text-sm font-medium text-warn-ink">{{ 'Team.noTeams' | t }}</p> }
       @for (t of teams() ?? []; track t.id) {
-        <section class="rounded-xl border border-line bg-surface p-6 shadow-card">
-          <h2 class="mb-1 text-xl font-bold" dir="auto">{{ i18n.pick(t.nameEn, t.nameAr) }}</h2>
-          <p class="mb-1 text-sm text-muted">{{ 'Team.rule' | t }}</p><p class="mb-4 text-sm text-muted">{{ 'Team.createRule' | t }}</p>
-          <ul class="flex flex-col gap-2">
-            @for (r of t.members; track r.userId) {
-              <li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line p-3">
-                <span><span class="font-semibold" dir="auto">{{ r.fullName }}</span>{{ ' ' }}<span class="text-sm text-muted" dir="ltr">{{ r.email }}</span>
-                  @if (r.isLeader) { <span class="ms-2 rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-ink">{{ 'Team.leader' | t }}</span> }</span>
-                <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
-                  <div class="flex flex-wrap items-center gap-3">
-                    <label class="flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" class="h-5 w-5" [checked]="r.autoAssign" [disabled]="state()[r.userId + 'a'] === 'saving'" [attr.aria-label]="'Team.switchFor' | t: { name: r.fullName }"
-                      (change)="set(r, 'a', { autoAssign: $any($event.target).checked })" />{{ (r.autoAssign ? 'Team.on' : 'Team.off') | t }}</label>
-                    @if (state()[r.userId + 'a'] === 'saving') { <span class="text-sm text-muted">{{ 'Team.saving' | t }}</span> } @else if (state()[r.userId + 'a'] === 'saved') { <span role="status" class="text-sm font-semibold text-brand-ink">{{ 'Team.saved' | t }}</span> }
+        <section class="flex flex-col gap-4 rounded-xl border border-line bg-surface p-6 shadow-card" [attr.aria-labelledby]="'tm-' + t.id">
+          <div>
+            <h2 [id]="'tm-' + t.id" class="text-xl font-bold" dir="auto">{{ i18n.pick(t.nameEn, t.nameAr) }}</h2>
+            <p class="mt-1 text-sm text-muted">
+              {{ 'Team.leaderIs' | t: { name: leaderOf(t) } }} · {{ 'Team.memberCount' | t: { n: t.members.length } }}
+              @if (t.categories.length) { · {{ 'Team.handles' | t: { list: categoriesOf(t) } }} }
+            </p>
+            @if (t.canEdit) { <p class="mt-2 max-w-prose rounded-lg bg-bg px-3 py-2 text-sm">{{ 'Team.rule2' | t }}</p> }
+          </div>
+          <div class="overflow-x-auto rounded-lg border border-line">
+            <table class="w-full min-w-[44rem] text-start text-sm">
+              <caption class="sr-only">{{ i18n.pick(t.nameEn, t.nameAr) }}</caption>
+              <thead class="bg-chrome text-white"><tr>
+                <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Team.colName' | t }}</th>
+                <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Team.colEmail' | t }}</th>
+                <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Team.colPhone' | t }}</th>
+                <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Team.colRole' | t }}</th>
+                <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Team.colOpen' | t }}</th>
+                <th scope="col" class="px-4 py-3 text-start font-semibold">{{ 'Team.colNew' | t }}</th>
+              </tr></thead>
+              <tbody>
+                @for (r of t.members; track r.userId) {
+                  <tr class="border-t border-line align-top">
+                    <td class="px-4 py-3"><span class="font-semibold" dir="auto">{{ r.fullName }}</span>@if (r.userId === t.me) { <span class="ms-1 text-muted">{{ 'Team.you' | t }}</span> }</td>
+                    <td class="break-all px-4 py-3" dir="ltr">{{ r.email }}</td>
+                    <td class="px-4 py-3" dir="ltr">{{ r.phone || '-' }}</td>
+                    <td class="px-4 py-3">@if (r.isLeader) { <span class="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-ink">{{ 'Team.leader' | t }}</span> } @else { {{ 'Roles.agent' | t }} }</td>
+                    <td class="px-4 py-3" dir="ltr">{{ r.open }}</td>
+                    <td class="px-4 py-3"><span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="r.autoAssign ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (r.autoAssign ? 'Team.yes' : 'Team.no') | t }}</span></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          @if (t.canEdit) {
+            <h3 class="text-lg font-bold">{{ 'Team.settingsTitle' | t }}</h3>
+            <ul class="flex flex-col gap-3">
+              @for (r of t.members; track r.userId) {
+                <li class="grid gap-x-6 gap-y-2 rounded-lg border border-line p-4 md:grid-cols-[1fr_auto]">
+                  <span class="flex flex-wrap items-baseline gap-x-2"><span class="font-semibold" dir="auto">{{ r.fullName }}</span><span class="text-sm text-muted" dir="ltr">{{ r.email }}</span></span>
+                  <div class="flex flex-wrap items-center gap-x-6 gap-y-1">
+                    <label class="flex min-h-11 cursor-pointer items-center gap-2 font-semibold">
+                      <input type="checkbox" role="switch" class="h-5 w-5" [checked]="r.autoAssign" [disabled]="state()[r.userId + 'a'] === 'saving'" (change)="set(r, 'a', { autoAssign: $any($event.target).checked })" />{{ 'Team.getsNew' | t }}</label>
+                    <label class="flex min-h-11 cursor-pointer items-center gap-2 font-semibold">
+                      <input type="checkbox" role="switch" class="h-5 w-5" [checked]="r.canCreateForCustomers" [disabled]="state()[r.userId + 'c'] === 'saving'" (change)="set(r, 'c', { canCreateForCustomers: $any($event.target).checked })" />{{ 'Team.opensFor' | t }}</label>
+                    @if (state()[r.userId + 'a'] === 'saving' || state()[r.userId + 'c'] === 'saving') { <span class="text-sm text-muted">{{ 'Team.saving' | t }}</span> }
+                    @else if (state()[r.userId + 'a'] === 'saved' || state()[r.userId + 'c'] === 'saved') { <span role="status" class="text-sm font-semibold text-brand-ink">{{ 'Team.saved' | t }}</span> }
                   </div>
-                  <div class="flex flex-wrap items-center gap-3">
-                    <label class="flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" class="h-5 w-5" [checked]="r.canCreateForCustomers" [disabled]="state()[r.userId + 'c'] === 'saving'" [attr.aria-label]="'Team.createFor' | t: { name: r.fullName }"
-                      (change)="set(r, 'c', { canCreateForCustomers: $any($event.target).checked })" />{{ (r.canCreateForCustomers ? 'Team.createOn' : 'Team.createOff') | t }}</label>
-                    @if (state()[r.userId + 'c'] === 'saving') { <span class="text-sm text-muted">{{ 'Team.saving' | t }}</span> } @else if (state()[r.userId + 'c'] === 'saved') { <span role="status" class="text-sm font-semibold text-brand-ink">{{ 'Team.saved' | t }}</span> }
-                  </div>
-                </div>
-              </li>
-            }
-          </ul>
+                  <p class="m-0 rounded-lg bg-bg px-3 py-2 text-sm md:col-span-2">
+                    <span [class]="r.autoAssign ? 'text-ok' : 'text-muted'">{{ (r.autoAssign ? 'Team.saysAutoOn' : 'Team.saysAutoOff') | t: { name: first(r) } }}</span>
+                    {{ ' ' }}<span [class]="r.canCreateForCustomers ? 'text-ok' : 'text-muted'">{{ (r.canCreateForCustomers ? 'Team.saysCreateOn' : 'Team.saysCreateOff') | t: { name: first(r) } }}</span></p>
+                </li>
+              }
+            </ul>
+          }
         </section>
       }
     </main>`,
@@ -486,10 +527,13 @@ interface TeamMemberRow { teamId: string; userId: string; isLeader: boolean; ful
 export class MyTeamPage {
   protected readonly i18n = inject(I18n);
   private readonly http = inject(HttpClient);
-  protected readonly teams = signal<{ id: string; nameEn: string; nameAr: string; members: TeamMemberRow[] }[] | null>(null);
+  protected readonly teams = signal<TeamView[] | null>(null);
   protected readonly msg = signal<{ tone: 'error' | 'success'; text: string } | null>(null);
+  protected leaderOf(t: TeamView): string { return t.members.filter((m) => m.isLeader).map((m) => m.fullName).join(', ') || '-'; }
+  protected categoriesOf(t: TeamView): string { return t.categories.map((c) => this.i18n.pick(c.nameEn, c.nameAr)).join(this.i18n.locale() === 'ar' ? '، ' : ', '); }
+  protected first(r: TeamMemberRow): string { return r.fullName.split(' ')[0] || r.fullName; }
   constructor() { void this.load(); }
-  private async load(): Promise<void> { this.teams.set(await firstValueFrom(this.http.get<{ id: string; nameEn: string; nameAr: string; members: TeamMemberRow[] }[]>('/api/console/my-team'))); }
+  private async load(): Promise<void> { this.teams.set(await firstValueFrom(this.http.get<TeamView[]>('/api/console/my-team'))); }
   /** Saves one switch as soon as it changes and says so next to it (v1 AutoAssignSwitch / TicketCreationSwitch). */
   protected readonly state = signal<Record<string, 'saving' | 'saved'>>({});
   protected async set(r: TeamMemberRow, which: 'a' | 'c', b: Partial<Pick<TeamMemberRow, 'autoAssign' | 'canCreateForCustomers'>>): Promise<void> {

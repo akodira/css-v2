@@ -338,22 +338,39 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
 
     public sealed record MemberSwitch(bool? AutoAssign, bool? CanCreateForCustomers);
 
+    /// <summary>
+    /// The teams I work in: agents see their teams read-only (name, contact, role, open tickets); team leaders (and admins)
+    /// also get the two switches for the teams they lead.
+    /// </summary>
     [HttpGet("api/console/my-team")]
     public async Task<object> MyTeam(CancellationToken ct)
     {
         var c = await access.RequireSignedInAsync(ct);
-        if (!c.Admin && c.LeaderOfTeams.Count == 0) throw new ForbiddenException();
+        if (!c.Admin && c.LeaderOfTeams.Count == 0 && c.Teams.Count == 0) throw new ForbiddenException();
         var lead = c.LeaderOfTeams.ToList();
-        var teams = await db.Teams.AsNoTracking().Where(t => c.Admin || lead.Contains(t.Id)).OrderBy(t => t.NameEn).ToListAsync(ct);
+        var mine = c.Teams.Concat(lead).Distinct().ToList();
+        var teams = await db.Teams.AsNoTracking().Where(t => c.Admin || mine.Contains(t.Id)).OrderBy(t => t.NameEn).ToListAsync(ct);
         var teamIds = teams.Select(t => t.Id).ToList();
+        string[] done = [TicketStatus.Resolved, TicketStatus.Closed];
         var members = await (from m in db.TeamMembers.AsNoTracking()
                              join p in db.Profiles on m.UserId equals p.Id
                              where teamIds.Contains(m.TeamId) && p.AccountStatus == AccountStatus.Active
                              orderby m.IsLeader descending, p.CreatedAt // leader, then the earliest added (v1 row order)
-                             select new { m.TeamId, m.UserId, m.IsLeader, p.FullName, p.Email, p.AutoAssign, p.CanCreateForCustomers }).ToListAsync(ct);
-        // Leaders first in each team; the biggest team first (v1 shows Technical support, then the others).
+                             select new
+                             {
+                                 m.TeamId, m.UserId, m.IsLeader, p.FullName, p.Email, p.Phone, p.AutoAssign, p.CanCreateForCustomers,
+                                 open = db.Tickets.Count(t => t.AssignedAgentId == p.Id && !done.Contains(t.Status)),
+                             }).ToListAsync(ct);
+        var categories = await db.TicketCategories.AsNoTracking().Where(x => x.IsActive && x.DefaultTeamId != null && teamIds.Contains(x.DefaultTeamId.Value))
+            .Select(x => new { TeamId = x.DefaultTeamId!.Value, x.NameEn, x.NameAr }).ToListAsync(ct);
+        // The biggest team first (v1 shows Technical support, then the others).
         return teams.OrderByDescending(t => members.Count(m => m.TeamId == t.Id)).ThenBy(t => t.NameEn)
-            .Select(t => new { t.Id, t.NameEn, t.NameAr, members = members.Where(m => m.TeamId == t.Id) });
+            .Select(t => new
+            {
+                t.Id, t.NameEn, t.NameAr, canEdit = c.Admin || lead.Contains(t.Id), me = c.UserId,
+                categories = categories.Where(x => x.TeamId == t.Id).Select(x => new { x.NameEn, x.NameAr }),
+                members = members.Where(m => m.TeamId == t.Id),
+            });
     }
 
     [HttpPut("api/console/my-team/{userId:guid}")]

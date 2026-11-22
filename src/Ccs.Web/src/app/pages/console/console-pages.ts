@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Auth, problemOf } from '../../core/auth';
@@ -14,7 +15,7 @@ import { NewTicketOptions } from '../../core/api';
 import { CommentActions, LifecycleApi, StaffLifecycle, TicketLifecycle } from '../tickets/lifecycle';
 
 interface StaffExtra {
-  requesterPhone: string | null; teamLeaders: string[];
+  requesterPhone: string | null; requesterOrganization?: string | null; requesterBranch?: string | null; teamLeaders: string[];
   sla: { state: string; firstResponseDue: string | null; resolutionDue: string | null; firstRespondedAt: string | null; resolvedAt: string | null; pausedAt: string | null; pausedTotalSeconds: number } | null;
   assignments: { at: string; teamEn: string | null; teamAr: string | null; agent: string | null; by: string | null; reason: string | null }[];
   teams: { id: string; nameEn: string; nameAr: string }[]; members: { teamId: string; userId: string; fullName: string }[];
@@ -43,7 +44,7 @@ const SLA_TONE: Record<string, string> = {
         @if (readOnly()) { <p role="status" class="mt-3 rounded-lg bg-warn-soft px-4 py-3 text-sm font-medium text-warn-ink">{{ 'Console.readOnly' | t }}</p> }
       </header>
 
-      <div class="flex flex-wrap items-center gap-3 text-sm text-muted">
+      <div class="flex flex-wrap items-center justify-end gap-3 text-sm text-muted">
         <span>{{ paused() ? ('AutoRefresh.paused' | t) : ('AutoRefresh.note' | t: { seconds: refreshSecs }) }}</span>
         <button type="button" (click)="paused.set(!paused())" class="min-h-10 cursor-pointer rounded-lg border border-line bg-surface px-3 font-semibold text-ink hover:bg-bg">{{ (paused() ? 'AutoRefresh.resume' : 'AutoRefresh.pause') | t }}</button>
       </div>
@@ -59,10 +60,11 @@ const SLA_TONE: Record<string, string> = {
       <nav [attr.aria-label]="'Console.title' | t" class="flex flex-wrap gap-2">
         @for (v of views; track v) {
           @if (v === 'escalated') {
-            <button type="button" (click)="setView(v)" [attr.aria-current]="isView(v) ? 'page' : null" class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-semibold" [class]="isView(v) ? 'border-warn-ink bg-warn-ink text-white' : 'border-warn-ink bg-warn-soft text-warn-ink hover:brightness-95'">
-              {{ 'Console.views.escalated' | t }}<span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="isView(v) ? 'bg-white text-warn-ink' : 'bg-warn-ink text-white'">{{ counts()?.escalated ?? 0 }}</span></button>
-            <button type="button" (click)="showClosed()" [attr.aria-current]="status() === 'closed' ? 'page' : null" class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-semibold" [class]="status() === 'closed' ? 'border-ok bg-ok text-white' : 'border-ok bg-ok-soft text-ok hover:brightness-95'">
-              {{ 'Console.views.closed' | t }}<span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="status() === 'closed' ? 'bg-white text-ok' : 'bg-ok text-white'">{{ counts()?.closed ?? 0 }}</span></button>
+            <!-- Same look as the other tabs; only the count badge differs. -->
+            <button type="button" (click)="setView(v)" [attr.aria-current]="isView(v) ? 'page' : null" class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-semibold" [class]="isView(v) ? 'border-brand bg-brand text-white' : 'border-line bg-surface hover:bg-bg'">
+              {{ 'Console.views.escalated' | t }}<span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="isView(v) ? 'bg-white text-brand-ink' : 'bg-warn-soft text-warn-ink'">{{ counts()?.escalated ?? 0 }}</span></button>
+            <button type="button" (click)="showClosed()" [attr.aria-current]="status() === 'closed' ? 'page' : null" class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-semibold" [class]="status() === 'closed' ? 'border-brand bg-brand text-white' : 'border-line bg-surface hover:bg-bg'">
+              {{ 'Console.views.closed' | t }}<span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="status() === 'closed' ? 'bg-white text-brand-ink' : 'bg-bg text-muted'">{{ counts()?.closed ?? 0 }}</span></button>
           } @else {
             <button type="button" (click)="setView(v)" [attr.aria-current]="isView(v) ? 'page' : null" class="flex min-h-11 cursor-pointer items-center rounded-lg border px-4 text-sm font-semibold" [class]="isView(v) ? 'border-brand bg-brand text-white' : 'border-line bg-surface hover:bg-bg'">{{ 'Console.views.' + v | t }}</button>
           }
@@ -168,13 +170,14 @@ export class ConsoleQueuePage {
   protected readonly field = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base';
   protected readonly statuses = ['new', 'open', 'in_progress', 'pending_customer', 'pending_internal', 'resolved', 'closed', 'reopened'];
   protected readonly slaStates = ['on_track', 'due_soon', 'breached', 'paused', 'completed'];
-  protected readonly views = ['mine', 'unassigned', 'escalated', 'all'];
+  /** "All visible" first: it is where every role starts. */
+  protected readonly views = ['all', 'mine', 'unassigned', 'escalated'];
   protected readonly columns = ['ticket', 'customer', 'team', 'priority', 'status', 'sla'];
   protected readonly dateKeys = ['created', 'updated'];
   protected sortBy(k: string): void { if (this.sort() === k) this.desc.set(!this.desc()); else { this.sort.set(k); this.desc.set(true); } }
   private readonly qp = this.route.snapshot.queryParamMap;
   /** Same default as today: admins, leaders and viewers see all; agents their own. */
-  private readonly defaultView = (() => { const r = this.auth.me()?.roles ?? []; return r.some((x) => x === 'admin' || x === 'team_leader' || x === 'management_viewer') ? 'all' : 'mine'; })();
+  private readonly defaultView = 'all';
   protected readonly view = signal(this.normView(this.qp.get('view')) ?? this.defaultView);
   protected readonly status = signal(this.qp.get('status') ?? 'active');
   protected readonly priority = signal(this.qp.get('priority') ?? '');
@@ -235,7 +238,7 @@ export class ConsoleQueuePage {
 /** Ticket workspace: reply or internal note, status change, claim (spec 7). Escalation, links and fields arrive in stage 4. */
 @Component({
   selector: 'app-console-ticket',
-  imports: [RouterLink, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions, AutoRefreshBar, SlaClockCard, Req, ReqNote, PrioIcon],
+  imports: [RouterLink, NgTemplateOutlet, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions, AutoRefreshBar, SlaClockCard, Req, ReqNote, PrioIcon],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -349,6 +352,8 @@ export class ConsoleQueuePage {
                 <div><dt class="text-sm text-muted">{{ 'Console.ticket.customer' | t }}</dt><dd class="font-semibold" dir="auto">{{ tk.requesterName }}</dd></div>
                 <div><dt class="text-sm text-muted">{{ 'Console.ticket.email' | t }}</dt><dd dir="ltr" class="break-all">{{ tk.requesterEmail }}</dd></div>
                 @if (x()?.requesterPhone) { <div><dt class="text-sm text-muted">{{ 'Console.ticket.phone' | t }}</dt><dd dir="ltr">{{ x()!.requesterPhone }}</dd></div> }
+                @if (x()?.requesterOrganization) { <div><dt class="text-sm text-muted">{{ 'Customers.organization' | t }}</dt><dd dir="auto">{{ x()!.requesterOrganization }}</dd></div> }
+                @if (x()?.requesterBranch) { <div><dt class="text-sm text-muted">{{ 'Customers.branch' | t }}</dt><dd dir="auto">{{ x()!.requesterBranch }}</dd></div> }
                 @if (tk.names.typeEn) { <div><dt class="text-sm text-muted">{{ 'TicketTypes.label' | t }}</dt><dd>{{ i18n.pick(tk.names.typeEn, tk.names.typeAr) }}</dd></div> }
                 <div><dt class="text-sm text-muted">{{ 'Console.ticket.category' | t }}</dt><dd>{{ i18n.pick(tk.names.categoryEn, tk.names.categoryAr) }}@if (tk.names.subcategoryEn) { / {{ i18n.pick(tk.names.subcategoryEn, tk.names.subcategoryAr) }} }</dd></div>
                 <div><dt class="text-sm text-muted">{{ 'Console.ticket.team' | t }}</dt><dd>{{ i18n.pick(tk.names.teamEn, tk.names.teamAr) || '-' }}</dd></div>
@@ -357,6 +362,39 @@ export class ConsoleQueuePage {
                 <div><dt class="text-sm text-muted">{{ 'Console.ticket.updated' | t }}</dt><dd>{{ i18n.date(tk.updatedAt) }}</dd></div>
               </dl>
             </section>
+
+            <!-- Unassigned: Assignment comes first, right under the customer, so the ticket gets an owner. -->
+            @if (!tk.assignedAgentId && x()) { <ng-container *ngTemplateOutlet="assignTpl" /> }
+            <ng-template #assignTpl>
+  @if (x()!.canReassign || x()!.canClaim) {
+                  <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="as">
+                    <h2 id="as" class="mb-3 text-lg font-bold">{{ 'Console.assignForm.title' | t }}</h2>
+                    <div class="flex flex-col gap-4">
+                      @if (x()!.canClaim && tk.teamId) {
+                        <div><button type="button" (click)="assign(tk.teamId!, auth.me()!.id, '')" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.assignForm.claim' | t }}</button></div>
+                      }
+                      @if (x()!.canReassign) {
+                        <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); assign(asTeam(), asAgent() || null, asReason())" novalidate>
+                          <div class="flex flex-col gap-1.5"><label for="as-team" class="text-sm font-semibold">{{ 'Console.assignForm.team' | t }}</label>
+                            <select id="as-team" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [value]="asTeam()" (change)="asTeam.set($any($event.target).value); asAgent.set('')">
+                              <option value="" disabled [selected]="!asTeam()"></option>
+                              @for (tm of x()!.teams; track tm.id) { <option [value]="tm.id" [selected]="tm.id === asTeam()">{{ i18n.pick(tm.nameEn, tm.nameAr) }}</option> }
+                            </select></div>
+                          <div class="flex flex-col gap-1.5"><label for="as-agent" class="text-sm font-semibold">{{ 'Console.assignForm.agent' | t }}</label>
+                            <select id="as-agent" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [value]="asAgent()" (change)="asAgent.set($any($event.target).value)">
+                              <option value="" [selected]="!asAgent()">{{ 'Console.assignForm.noAgent' | t }}</option>
+                              @for (m of agentsOf(asTeam()); track m.userId) { <option [value]="m.userId" [selected]="m.userId === asAgent()">{{ m.fullName }}</option> }
+                            </select></div>
+                          <div class="flex flex-col gap-1.5"><label for="as-reason" class="text-sm font-semibold">{{ 'Console.assignForm.reason' | t }}</label>
+                            <input id="as-reason" maxlength="1000" dir="auto" class="min-h-11 rounded-lg border border-line px-3 text-base" [value]="asReason()" (input)="asReason.set($any($event.target).value)" /></div>
+                          @if (notice() && where() === 'assign') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
+                          <div><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.assignForm.submit' | t }}</button> <app-req-note /></div>
+                        </form>
+                      } @else if (notice() && where() === 'assign') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
+                    </div>
+                  </section>
+                }
+            </ng-template>
 
             @if (x()?.canWork) { <app-staff-lifecycle part="fields" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" /> }
 
@@ -386,7 +424,7 @@ export class ConsoleQueuePage {
                       </select>
                     </div>
                     @if (to() === 'resolved') {
-                      <div class="flex flex-col gap-1.5"><label for="res" class="text-sm font-semibold"><span>{{ 'Console.statusForm.resolution' | t }}<app-req /></span></label>
+                      <div class="flex flex-col gap-1.5"><label for="res" class="text-sm font-semibold"><span>{{ 'Console.statusForm.resolution' | t }}</span></label>
                         <textarea id="res" rows="3" maxlength="5000" dir="auto" class="rounded-lg border border-line p-3" [value]="resolution()" (input)="resolution.set($any($event.target).value)"></textarea></div>
                     }
                     @if (to() === 'closed') {
@@ -430,34 +468,8 @@ export class ConsoleQueuePage {
               <app-staff-lifecycle part="category" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
               <app-staff-lifecycle part="escalate" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
 
-              @if (x()!.canReassign || x()!.canClaim) {
-                <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="as">
-                  <h2 id="as" class="mb-3 text-lg font-bold">{{ 'Console.assignForm.title' | t }}</h2>
-                  <div class="flex flex-col gap-4">
-                    @if (x()!.canClaim && tk.teamId) {
-                      <div><button type="button" (click)="assign(tk.teamId!, auth.me()!.id, '')" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.assignForm.claim' | t }}</button></div>
-                    }
-                    @if (x()!.canReassign) {
-                      <form class="flex flex-col gap-3" (submit)="$event.preventDefault(); assign(asTeam(), asAgent() || null, asReason())" novalidate>
-                        <div class="flex flex-col gap-1.5"><label for="as-team" class="text-sm font-semibold">{{ 'Console.assignForm.team' | t }}</label>
-                          <select id="as-team" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" (change)="asTeam.set($any($event.target).value); asAgent.set('')">
-                            <option value="" disabled [selected]="!asTeam()"></option>
-                            @for (tm of x()!.teams; track tm.id) { <option [value]="tm.id" [selected]="tm.id === asTeam()">{{ i18n.pick(tm.nameEn, tm.nameAr) }}</option> }
-                          </select></div>
-                        <div class="flex flex-col gap-1.5"><label for="as-agent" class="text-sm font-semibold">{{ 'Console.assignForm.agent' | t }}</label>
-                          <select id="as-agent" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" (change)="asAgent.set($any($event.target).value)">
-                            <option value="" [selected]="!asAgent()">{{ 'Console.assignForm.noAgent' | t }}</option>
-                            @for (m of agentsOf(asTeam()); track m.userId) { <option [value]="m.userId" [selected]="m.userId === asAgent()">{{ m.fullName }}</option> }
-                          </select></div>
-                        <div class="flex flex-col gap-1.5"><label for="as-reason" class="text-sm font-semibold">{{ 'Console.assignForm.reason' | t }}</label>
-                          <input id="as-reason" maxlength="1000" dir="auto" class="min-h-11 rounded-lg border border-line px-3 text-base" [value]="asReason()" (input)="asReason.set($any($event.target).value)" /></div>
-                        @if (notice() && where() === 'assign') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
-                        <div><button type="submit" class="min-h-11 cursor-pointer rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Console.assignForm.submit' | t }}</button> <app-req-note /></div>
-                      </form>
-                    } @else if (notice() && where() === 'assign') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
-                  </div>
-                </section>
-              }
+              <!-- Assigned: Assignment stays here, after the other actions. -->
+              @if (tk.assignedAgentId) { <ng-container *ngTemplateOutlet="assignTpl" /> }
             }
 
             <section class="rounded-md border border-line bg-surface p-6" aria-labelledby="act">
@@ -548,7 +560,11 @@ export class ConsoleTicketPage {
   protected readonly lc = signal<TicketLifecycle | null>(null);
   protected readonly opts = signal<NewTicketOptions | null>(null);
   load(): void {
-    this.api.get(this.id).then((t) => { this.t.set(t); if (!t.canReply && t.canSeeInternalNotes) this.kind.set('internal_note'); }).catch(() => this.missing.set(true));
+    this.api.get(this.id).then((t) => {
+      this.t.set(t); if (!t.canReply && t.canSeeInternalNotes) this.kind.set('internal_note');
+      // The ticket and the staff extras arrive in any order: fill the assignment form from whichever comes last.
+      if (!this.asTeam()) { this.asTeam.set(t.teamId ?? ''); this.asAgent.set(t.assignedAgentId ?? ''); }
+    }).catch(() => this.missing.set(true));
     firstValueFrom(this.http.get<StaffExtra>(`/api/tickets/${this.id}/staff`)).then((x) => {
       this.x.set(x);
       if (!this.asTeam()) { this.asTeam.set(this.t()?.teamId ?? ''); this.asAgent.set(this.t()?.assignedAgentId ?? ''); }

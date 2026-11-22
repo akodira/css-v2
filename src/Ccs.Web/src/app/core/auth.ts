@@ -27,6 +27,8 @@ export interface Me {
   customer: boolean;
   scopeLevel: string | null;
   leadsTeam?: boolean;
+  /** Teams I am a member of (agents see People → My team). */
+  teams?: string[];
   accountStatus?: string;
   /** Two-step is required for this person and not set up: by "deadline"; "blocked" once it has passed. */
   mfaSetup?: { deadline: string; blocked: boolean } | null;

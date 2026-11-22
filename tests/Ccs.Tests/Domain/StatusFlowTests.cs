@@ -61,10 +61,11 @@ public class StatusFlowTests
         Assert.Equal("a reason is required", Try("new", "closed", StatusActor.Staff, reason: "  ").Error);
 
     [Fact]
-    public void Resolving_needs_permission_and_resolution_details()
+    public void Resolving_needs_permission_and_resolution_details_are_optional()
     {
         Assert.Equal("not allowed to resolve tickets", Try("open", "resolved", StatusActor.Staff, resolve: false).Error);
-        Assert.Equal("resolution details are required", Try("open", "resolved", StatusActor.Staff, resolution: "ok").Error);
+        Assert.True(Try("open", "resolved", StatusActor.Staff, resolution: "").Allowed);
+        Assert.Equal("ok", Try("open", "resolved", StatusActor.Staff, resolution: "ok").Resolution);
         Assert.True(Try("open", "resolved", StatusActor.Staff).Allowed);
     }
 

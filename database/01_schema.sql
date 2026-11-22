@@ -437,6 +437,7 @@ CREATE TABLE ccs.canned_responses (
     id         uniqueidentifier NOT NULL CONSTRAINT PK_canned_responses PRIMARY KEY DEFAULT NEWID(),
     owner_id   uniqueidentifier NOT NULL CONSTRAINT FK_canned_owner REFERENCES ccs.profiles(id) ON DELETE CASCADE,
     is_shared  bit NOT NULL DEFAULT 0,
+    team_id    uniqueidentifier NULL,   -- shared with one team (any member may use it); FK added after ccs.teams exists
     title      nvarchar(120) NOT NULL CONSTRAINT CK_canned_title CHECK (LEN(LTRIM(RTRIM(title))) BETWEEN 2 AND 120),
     body       nvarchar(max) NOT NULL CONSTRAINT CK_canned_body CHECK (LEN(LTRIM(RTRIM(body))) BETWEEN 2 AND 5000),
     language   nvarchar(3) NOT NULL DEFAULT N'any' CONSTRAINT CK_canned_language CHECK (language IN ('any','en','ar')),
@@ -905,4 +906,7 @@ CREATE TABLE ccs.rate_counters (
     hits         int NOT NULL DEFAULT 0,
     CONSTRAINT PK_rate_counters PRIMARY KEY (bucket, window_start)
 );
+GO
+
+ALTER TABLE ccs.canned_responses ADD CONSTRAINT FK_canned_team FOREIGN KEY (team_id) REFERENCES ccs.teams(id) ON DELETE SET NULL;
 GO

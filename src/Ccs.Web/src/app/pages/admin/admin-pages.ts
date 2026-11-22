@@ -3,7 +3,9 @@ import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, computed, forwardRef, inject, input, output, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { TicketsApi } from '../../core/api';
+import { TicketsApi, TicketSummary } from '../../core/api';
+import { PeoplePage } from '../console/people-page';
+import { CustomerKpi, CustomerKpis } from '../../shared/customer-kpis';
 import { FormsModule } from '@angular/forms';
 import { Auth } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
@@ -210,11 +212,11 @@ interface CustomerRow { id: string; fullName: string; email: string; phone: stri
 /** Customers screen, same as v1 /console/customers: add form (admins), search, and a table of the customers this person may see. */
 @Component({
   selector: 'app-admin-customers',
-  imports: [TPipe, Alert, PersonForm, RouterLink, FormsModule, PageAbout],
+  imports: [TPipe, Alert, PersonForm, RouterLink, FormsModule, PageAbout, forwardRef(() => PeoplePage)],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <h1 class="text-3xl font-bold tracking-tight">{{ title | t }}</h1>
-      <app-page-about key="customers" tile="person" [points]="['person', 'building', 'check', 'history']" />
+      @if (isAdmin()) { <app-page-about key="customers" tile="person" [points]="['person', 'building', 'check', 'history']" /> }
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       @if (isAdmin()) {
         <details [class]="cls.card" #add>
@@ -223,10 +225,13 @@ interface CustomerRow { id: string; fullName: string; email: string; phone: stri
             @if (lk()) { <app-person-form #pf mode="customer" [lk]="lk()" [busy]="busy()" (save)="create($event, pf, add)" /> }
           </div>
         </details>
+      } @else if (scoped()) {
+        <!-- Organization and branch admins add customers here (the Staff page adds staff only). -->
+        <app-people mode="customer" (created)="reload()" />
       }
       <form role="search" class="flex flex-wrap gap-2" (ngSubmit)="search()">
         <label class="sr-only" for="cq">{{ 'Customers.search' | t }}</label>
-        <input id="cq" name="q" type="search" dir="auto" [placeholder]="'Customers.searchPlaceholder' | t" [(ngModel)]="term" (ngModelChange)="typed()"
+        <input id="cq" name="q" type="search" dir="auto" autocomplete="off" [placeholder]="'Customers.searchPlaceholder' | t" [(ngModel)]="term" (ngModelChange)="typed()"
           class="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 text-base" />
       </form>
       @if (!rows()) { <p class="text-muted">…</p> }
@@ -271,11 +276,12 @@ export class AdminCustomersPage extends AdminBase implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   protected readonly isAdmin = computed(() => !!this.auth.me()?.roles.includes('admin'));
+  /** Organization or branch admin: may add customers inside their scope. */
+  protected readonly scoped = computed(() => !this.isAdmin() && !!this.auth.me()?.scopeLevel);
   protected readonly rows = signal<CustomerRow[] | null>(null);
   protected term = '';
 
   async ngOnInit(): Promise<void> {
-    this.term = this.route.snapshot.queryParamMap.get('q') ?? '';
     await Promise.all([this.isAdmin() ? this.loadLookups() : Promise.resolve(), this.reload()]);
   }
   private timer?: ReturnType<typeof setTimeout>;
@@ -290,10 +296,8 @@ export class AdminCustomersPage extends AdminBase implements OnInit {
       if (mine === this.seq) this.rows.set(r);
     } catch (e) { this.fail(e); }
   }
-  protected search(): void {
-    void this.router.navigate([], { relativeTo: this.route, queryParams: { q: this.term.trim() || null }, replaceUrl: true });
-    void this.reload();
-  }
+  /** Searches now; the text is not kept in the address, so a refresh starts with an empty box. */
+  protected search(): void { clearTimeout(this.timer); void this.reload(); }
   protected async create(body: UserBody, form: PersonForm, box: HTMLDetailsElement): Promise<void> {
     if (await this.run(() => this.api.post('users', body), 'Directory.createdUser', { email: body.email, password: body.password })) {
       form.reset();
@@ -467,7 +471,7 @@ interface CustomerProfile {
 
 @Component({
   selector: 'app-customer-profile',
-  imports: [TPipe, Alert, PersonForm, RouterLink, StatusBadge, FormsModule, PrioIcon],
+  imports: [TPipe, Alert, PersonForm, RouterLink, StatusBadge, FormsModule, PrioIcon, CustomerKpis],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <a [routerLink]="'/' + i18n.locale() + '/admin/customers'" class="text-sm font-semibold text-brand-ink underline">{{ 'Customers.title' | t }}</a>
@@ -531,8 +535,9 @@ interface CustomerProfile {
         <section aria-labelledby="hist"><h2 id="hist" class="mb-3 text-xl font-bold">{{ 'Customers.history' | t }}</h2>
           @if (!d.tickets.length) { <p class="text-muted">{{ 'Customers.noTickets' | t }}</p> }
           @else {
+            <div class="mb-4"><app-customer-kpis [counts]="histCounts()" [selected]="histGroup()" labels="Customers.kpi." (pick)="histGroup.set($event === histGroup() ? 'total' : $event)" /></div>
             <ul class="flex flex-col gap-2">
-              @for (r of d.tickets; track r.id) {
+              @for (r of histRows(); track r.id) {
                 <li class="flex flex-wrap items-center justify-between gap-2 rounded border border-line bg-surface p-4">
                   <a [routerLink]="'/' + i18n.locale() + '/console/tickets/' + r.id" class="font-semibold text-brand-ink underline" dir="auto"><span dir="ltr">{{ r.reference }}</span> · {{ r.subject }}</a>
                   <span class="flex items-center gap-2"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prioTone(r.priority)"><app-prio-icon [name]="prioOf(r.priority)?.icon ?? 'minus'" [size]="12" />{{ priorityName(r.priority) }}</span><app-status-badge [status]="r.status" [staff]="true" /></span>
@@ -552,6 +557,17 @@ export class CustomerProfilePage extends AdminBase implements OnInit {
   private readonly tickets = inject(TicketsApi);
   private readonly prios = signal<{ code: string; nameEn: string; nameAr: string; color: string; icon: string }[]>([]);
   protected readonly d = signal<CustomerProfile | null>(null);
+  /** Ticket history cards: every ticket, open (in any working status), waiting for the customer, resolved, closed. */
+  protected readonly histGroup = signal<CustomerKpi>('total');
+  private groupOf(status: string): CustomerKpi {
+    return status === 'pending_customer' ? 'waiting' : status === 'resolved' ? 'resolved' : status === 'closed' ? 'closed' : 'active';
+  }
+  protected readonly histCounts = computed<TicketSummary | null>(() => {
+    const t = this.d()?.tickets; if (!t) return null;
+    const n = (g: CustomerKpi) => t.filter((r) => this.groupOf(r.status) === g).length;
+    return { total: t.length, active: n('active'), waiting: n('waiting'), resolved: n('resolved'), closed: n('closed'), unassigned: 0, breached: 0 };
+  });
+  protected readonly histRows = computed(() => (this.d()?.tickets ?? []).filter((r) => this.histGroup() === 'total' || this.groupOf(r.status) === this.histGroup()));
   protected readonly staffRoles = ['agent', 'team_leader', 'admin', 'management_viewer'];
   protected readonly activeTeams = computed(() => (this.lk()?.teams ?? []).filter((t) => t.isActive));
   protected pm = { role: '', accountTypeId: null as string | null, teamId: null as string | null, autoAssign: false };

@@ -338,13 +338,16 @@ public sealed partial class ContentAdminController(CcsDbContext db, AccessServic
     [GeneratedRegex("^[a-z0-9][a-z0-9-]{1,79}$")] private static partial Regex SlugOk();
 }
 
-/// <summary>Saved replies: personal ones for their owner, shared ones for all staff (manage_canned to edit them).</summary>
+/// <summary>
+/// Saved replies: personal (owner only), shared with the owner's team (any agent may share; members use it, the owner
+/// changes it), or shared with all staff (needs manage_canned, set on the account type under Admin → Permissions).
+/// </summary>
 [ApiController]
 [Authorize]
 [Route("api/canned")]
 public sealed class CannedController(CcsDbContext db, AccessService access, AuditService audit, IClock clock) : ControllerBase
 {
-    public sealed record CannedBody(string Title, string Body, string Language, bool IsShared);
+    public sealed record CannedBody(string Title, string Body, string Language, bool IsShared, Guid? TeamId = null);
 
     private async Task<AccessContext> Staff(CancellationToken ct)
     {
@@ -358,21 +361,23 @@ public sealed class CannedController(CcsDbContext db, AccessService access, Audi
         var c = await Staff(ct);
         var rows = await (from r in db.CannedResponses.AsNoTracking()
                           join p in db.Profiles on r.OwnerId equals p.Id
-                          where r.IsActive && (r.OwnerId == c.UserId || r.IsShared)
+                          where r.IsActive && (r.OwnerId == c.UserId || r.IsShared || (r.TeamId != null && c.Teams.Contains(r.TeamId.Value)))
                           orderby r.IsShared, r.Title
-                          select new { r.Id, r.Title, r.Body, r.Language, r.IsShared, Owner = p.FullName, Mine = r.OwnerId == c.UserId }).ToListAsync(ct);
-        return new { items = rows, canShare = c.Admin || c.Has(Permission.ManageCanned) };
+                          select new { r.Id, r.Title, r.Body, r.Language, r.IsShared, r.TeamId, Owner = p.FullName, Mine = r.OwnerId == c.UserId }).ToListAsync(ct);
+        var myTeams = c.Teams.ToList();
+        var teams = await db.Teams.AsNoTracking().Where(t => myTeams.Contains(t.Id)).OrderBy(t => t.NameEn).Select(t => new { t.Id, t.NameEn, t.NameAr }).ToListAsync(ct);
+        return new { items = rows, canShare = c.Admin || c.Has(Permission.ManageCanned), teams };
     }
 
     [HttpPost]
     public async Task<object> Create(CannedBody b, CancellationToken ct)
     {
         var c = await Staff(ct);
-        if (b.IsShared && !(c.Admin || c.Has(Permission.ManageCanned))) throw new ForbiddenException();
+        CheckScope(c, b);
         var r = new CannedResponse { Id = Guid.NewGuid(), OwnerId = c.UserId, CreatedAt = clock.UtcNow, IsActive = true };
         await ApplyAsync(r, b, ct);
         db.CannedResponses.Add(r);
-        audit.Write("canned.create", "canned_response", r.Id, null, new { b.Title, b.IsShared });
+        audit.Write("canned.create", "canned_response", r.Id, null, new { b.Title, b.IsShared, b.TeamId });
         await db.SaveChangesAsync(ct);
         return new { r.Id };
     }
@@ -382,9 +387,9 @@ public sealed class CannedController(CcsDbContext db, AccessService access, Audi
     {
         var c = await Staff(ct);
         var r = await EditableAsync(c, id, ct);
-        if (b.IsShared && !(c.Admin || c.Has(Permission.ManageCanned))) throw new ForbiddenException();
+        CheckScope(c, b);
         await ApplyAsync(r, b, ct);
-        audit.Write("canned.update", "canned_response", id, null, new { b.Title, b.IsShared });
+        audit.Write("canned.update", "canned_response", id, null, new { b.Title, b.IsShared, b.TeamId });
         await db.SaveChangesAsync(ct);
         return NoContent();
     }
@@ -398,6 +403,13 @@ public sealed class CannedController(CcsDbContext db, AccessService access, Audi
         audit.Write("canned.delete", "canned_response", id, new { r.Title }, null);
         await db.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    /// <summary>All staff needs manage_canned; a team must be one of the caller's teams; not both at once.</summary>
+    private static void CheckScope(AccessContext c, CannedBody b)
+    {
+        if (b.IsShared && !(c.Admin || c.Has(Permission.ManageCanned))) throw new ForbiddenException();
+        if (b.TeamId is Guid t && (b.IsShared || !c.Teams.Contains(t))) throw new ForbiddenException();
     }
 
     private async Task<CannedResponse> EditableAsync(AccessContext c, Guid id, CancellationToken ct)
@@ -417,7 +429,7 @@ public sealed class CannedController(CcsDbContext db, AccessService access, Audi
             ? await db.CannedResponses.AnyAsync(x => x.Id != r.Id && x.IsShared && x.Title == title, ct)
             : await db.CannedResponses.AnyAsync(x => x.Id != r.Id && !x.IsShared && x.OwnerId == r.OwnerId && x.Title == title, ct);
         if (taken) throw new AuthError("nameTaken", 409, "title");
-        r.Title = title; r.Body = body; r.Language = b.Language; r.IsShared = b.IsShared; r.UpdatedAt = clock.UtcNow;
+        r.Title = title; r.Body = body; r.Language = b.Language; r.IsShared = b.IsShared; r.TeamId = b.IsShared ? null : b.TeamId; r.UpdatedAt = clock.UtcNow;
     }
 }
 

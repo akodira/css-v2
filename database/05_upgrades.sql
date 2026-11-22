@@ -162,3 +162,10 @@ BEGIN
     CREATE INDEX IX_password_history_user ON ccs.password_history (user_id, created_at DESC);
 END
 GO
+
+-- Saved replies shared with one team (the owner's team): any member can use them; only the owner changes them.
+IF COL_LENGTH(N'ccs.canned_responses', N'team_id') IS NULL ALTER TABLE ccs.canned_responses ADD team_id uniqueidentifier NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_canned_team')
+    ALTER TABLE ccs.canned_responses ADD CONSTRAINT FK_canned_team FOREIGN KEY (team_id) REFERENCES ccs.teams(id) ON DELETE SET NULL;
+GO

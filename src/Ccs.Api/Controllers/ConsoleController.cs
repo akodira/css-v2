@@ -82,7 +82,16 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         customers = access.CustomersInScope(customers, c);
         var term = (q ?? "").Trim();
         if (term.Length > 80) term = term[..80];
-        if (term.Length > 0)
+        // Short searches (1-2 letters) match the start of a word, so the first letter of a name finds that name and not
+        // everyone with that letter somewhere; from 3 letters any part matches. Phone numbers always match any part.
+        if (term.Length is > 0 and < 3)
+        {
+            var w = " " + term;
+            customers = customers.Where(p => p.FullName.StartsWith(term) || p.FullName.Contains(w) || p.Email.StartsWith(term) || (p.Phone ?? "").Contains(term)
+                || db.Organizations.Any(o => o.Id == p.OrganizationId && (o.Name.StartsWith(term) || o.Name.Contains(w)))
+                || db.Branches.Any(b => b.Id == p.BranchId && (b.Name.StartsWith(term) || b.Name.Contains(w))));
+        }
+        else if (term.Length > 0)
             customers = customers.Where(p => p.FullName.Contains(term) || p.Email.Contains(term) || (p.Phone ?? "").Contains(term)
                 || db.Organizations.Any(o => o.Id == p.OrganizationId && o.Name.Contains(term))
                 || db.Branches.Any(b => b.Id == p.BranchId && b.Name.Contains(term)));

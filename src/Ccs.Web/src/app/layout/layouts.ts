@@ -32,7 +32,7 @@ const ICONS: Record<string, string> = {
 /** Same grouping, icons and colours as the current staff sidebar (lib/site/sidebar.ts). */
 const GROUP_OF: Record<string, string> = {
   dashboard: 'top', tickets: 'top',
-  customers: 'people', admin_customers: 'people', people: 'people', approvals: 'people', users: 'people', admin_teams: 'people', team: 'people', permissions: 'people', organizations: 'people', hierarchy: 'people',
+  customers: 'people', admin_customers: 'people', people: 'people', branches: 'people', approvals: 'people', users: 'people', admin_teams: 'people', team: 'people', permissions: 'people', organizations: 'people', hierarchy: 'people',
   catalog: 'rules', ticket_types: 'rules', priorities: 'rules', ticket_status: 'rules', sla_settings: 'rules', escalation: 'rules',
   kb_admin: 'content', kb_console: 'content', canned: 'content',
   reports: 'insights', sla: 'insights', audit: 'insights',
@@ -44,7 +44,7 @@ const GROUP_STYLE: Record<string, { color: string; icon: string }> = {
   content: { color: '#3ecf8e', icon: 'kb' }, insights: { color: '#b388f5', icon: 'reports' }, system: { color: '#5fd0e0', icon: 'settings' }, more: { color: '#8aa4d6', icon: 'catalog' },
 };
 const ITEM_ICON: Record<string, string> = {
-  dashboard: 'dashboard', tickets: 'tickets', canned: 'kb', team: 'teams', customers: 'customers', people: 'users', approvals: 'users', sla: 'clock',
+  dashboard: 'dashboard', tickets: 'tickets', canned: 'kb', team: 'teams', customers: 'customers', people: 'users', branches: 'customers', approvals: 'users', sla: 'clock',
   reports: 'reports', kb_console: 'kb', users: 'users', hierarchy: 'teams', escalation: 'flag', admin_customers: 'customers', admin_teams: 'teams',
   permissions: 'users', organizations: 'customers', catalog: 'catalog', ticket_types: 'tickets', priorities: 'flag', ticket_status: 'tickets', kb_admin: 'kb',
   sla_settings: 'clock', audit: 'audit', settings: 'settings', help: 'kb', help_center: 'kb',
@@ -56,7 +56,7 @@ const ROUTE: Record<string, string> = {
   '/admin/users': '/admin/users', '/admin/customers': '/console/customers', '/admin/teams': '/admin/teams', '/admin/permissions': '/admin/permissions',
   '/admin/organizations': '/admin/organizations', '/admin/escalation': '/admin/escalation', '/admin/catalog': '/admin/catalog', '/admin/ticket-types': '/admin/ticket-types',
   '/admin/priorities': '/admin/priorities', '/admin/ticket-status': '/admin/ticket-status', '/admin/kb': '/admin/kb', '/admin/sla': '/admin/sla',
-  '/admin/general/settings': '/admin/general/settings', '/admin/general/help': '/admin/general/help', '/console/help': '/console/help', '/console/people': '/console/people',
+  '/admin/general/settings': '/admin/general/settings', '/admin/general/help': '/admin/general/help', '/console/help': '/console/help', '/console/people': '/console/people', '/console/branches': '/console/branches',
   '/console/reports': '/console/reports', '/console/sla': '/console/sla', '/console/team': '/console/team', '/admin/audit': '/admin/audit',
 };
 
@@ -66,11 +66,32 @@ export interface SideGroup { id?: string; title?: string; color?: string; icon?:
 /** Site footer (Settings → Branding → Footer), drawn by the shared FooterView so the settings preview matches it. */
 @Component({
   selector: 'app-footer',
-  imports: [FooterView],
-  template: `<div class="mt-10"><app-footer-view [model]="model()" /></div>`,
+  imports: [FooterView, RouterLink, TPipe],
+  template: `
+    @if (slim()) {
+      <!-- Signed-in pages: one slim line, so it is seen without scrolling; the full footer stays on public pages. -->
+      @let m = model();
+      <footer class="mt-6 border-t border-line bg-surface print:hidden">
+        <div class="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3 text-sm text-muted">
+          <span dir="auto">{{ m.copyright }}</span>
+          <nav [attr.aria-label]="m.linksTitle || ('Footer.links' | t)" class="flex flex-wrap items-center gap-x-4 gap-y-1">
+            @for (l of m.links; track l.id) {
+              @if (l.href.startsWith('/')) { <a [routerLink]="'/' + i18n.locale() + (l.href === '/' ? '' : l.href)" class="font-semibold text-brand-ink hover:underline" dir="auto">{{ l.label }}</a> }
+              @else { <a [href]="l.href" [attr.target]="l.newTab ? '_blank' : null" rel="noopener" class="font-semibold text-brand-ink hover:underline" dir="auto">{{ l.label }}</a> }
+            }
+            @if (m.email) { <a [href]="'mailto:' + m.email" dir="ltr" class="font-semibold text-brand-ink hover:underline">{{ m.email }}</a> }
+            @if (m.phone) { <a [href]="'tel:' + m.phone.replaceAll(' ', '')" dir="ltr" class="font-semibold text-brand-ink hover:underline">{{ m.phone }}</a> }
+          </nav>
+        </div>
+      </footer>
+    } @else {
+      <div class="mt-10"><app-footer-view [model]="model()" /></div>
+    }`,
 })
 export class Footer {
-  private readonly i18n = inject(I18n);
+  /** One-line footer for signed-in pages. */
+  readonly slim = input(false);
+  protected readonly i18n = inject(I18n);
   private readonly site = inject(SiteService);
   private readonly auth = inject(Auth);
   protected readonly model = computed(() => {
@@ -287,7 +308,7 @@ export class PublicLayout {
           </div>
         </div>
         <div class="flex-1"><router-outlet /></div>
-        <app-footer />
+        <app-footer [slim]="true" />
       </div>
     </div>`,
   host: { class: 'flex flex-1 flex-col' },
@@ -368,8 +389,8 @@ export class Shell {
     const canKb = admin || has('manage_kb'), canCatalog = admin || has('manage_catalog'), canSettings = admin || has('manage_settings');
     // Same rules as v1 StaffShell: who sees which built-in item.
     const can: Record<string, boolean> = {
-      canned: admin || has('reply'), team: !!me?.leadsTeam, reports: has('reports_own') || has('reports_all'), kb_console: !(admin || canKb),
-      users: admin, people: !admin && !!me?.scopeLevel, hierarchy: false, escalation: admin, admin_customers: admin, customers: !admin, admin_teams: admin,
+      canned: admin || has('reply'), team: !!me?.leadsTeam || !!me?.teams?.length, reports: has('reports_own') || has('reports_all'), kb_console: !(admin || canKb),
+      users: admin, people: !admin && !!me?.scopeLevel, branches: !admin && !!me?.scopeLevel, hierarchy: false, escalation: admin, admin_customers: admin, customers: !admin, admin_teams: admin,
       permissions: admin, organizations: admin, catalog: canCatalog, priorities: canCatalog, ticket_status: canSettings,
       approvals: admin || has('approve_customers'), help: !canSettings, help_center: canSettings, kb_admin: canKb, sla_settings: canSettings,
       audit: admin || roles.includes('management_viewer'), settings: canSettings,
@@ -380,6 +401,7 @@ export class Shell {
       if (!rows.some((r) => r.systemKey === key)) rows.push({ ...(rows[0] ?? {}), id: 'x-' + key, area, kind: 'link', parentId: null, href, systemKey: key, labelEn: en, labelAr: ar, sortOrder: order } as typeof rows[number]);
     };
     add('people', 'console', '/console/people', 'People', 'الأشخاص', 45);
+    add('branches', 'console', '/console/branches', 'Branches', 'الفروع', 44);
     add('help', 'console', '/console/help', 'Help', 'المساعدة', 90);
     add('help_center', 'general', '/admin/general/help', 'Help Center', 'مركز المساعدة', 20);
     const badge: Record<string, number> = { tickets: this.badges().tickets, approvals: this.badges().approvals };
@@ -393,7 +415,9 @@ export class Shell {
       if (!path || seen.has(path)) continue;          // screens of later stages stay out of the menu until they exist
       seen.add(path);
       const gid = (r.systemKey && GROUP_OF[r.systemKey]) || 'more';
-      const item: SideItem = { path, label: this.i18n.locale() === 'ar' ? r.labelAr : r.labelEn, icon: (r.systemKey && ITEM_ICON[r.systemKey]) || 'catalog',
+      // Organization and branch admins: "People" is the staff page (customers are added under Customers).
+      const label = r.systemKey === 'people' ? this.i18n.t('People.staffTitle') : this.i18n.locale() === 'ar' ? r.labelAr : r.labelEn;
+      const item: SideItem = { path, label, icon: (r.systemKey && ITEM_ICON[r.systemKey]) || 'catalog',
         exact: r.systemKey === 'dashboard' || r.systemKey === 'tickets', also: r.systemKey === 'tickets' ? ['/console/tickets'] : r.systemKey === 'admin_customers' ? ['/console/customers'] : undefined,
         badge: r.systemKey ? badge[r.systemKey] || undefined : undefined };
       (by.get(gid) ?? by.set(gid, []).get(gid)!).push({ order: r.sortOrder, item });
