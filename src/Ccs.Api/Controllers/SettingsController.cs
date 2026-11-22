@@ -601,7 +601,7 @@ public sealed partial class SettingsController(
     {
         ["reopen_window_days"] = (0, 365), ["auto_close_days"] = (1, 90), ["min_reply_chars"] = (0, 500),
         ["pending_reminder_1_day"] = (1, 60), ["pending_reminder_2_day"] = (1, 60), ["pending_final_day"] = (1, 90), ["no_response_close_days"] = (1, 120),
-        ["resolved_reminder_day"] = (1, 60), ["auto_refresh_seconds"] = (0, 600), ["idle_timeout_minutes"] = (0, 1440),
+        ["resolved_reminder_day"] = (1, 60), ["pending_internal_reminder_days"] = (0, 60), ["auto_refresh_seconds"] = (0, 600), ["idle_timeout_minutes"] = (0, 1440),
         ["password_min_length"] = (8, 128), ["password_expiry_days"] = (7, 730), ["password_warn_1_days"] = (1, 60), ["password_warn_2_days"] = (1, 60), ["password_warn_3_days"] = (1, 60),
         // Settings → Security → Account lockout policy
         ["lockout_max_attempts"] = (3, 20), ["lockout_window_minutes"] = (1, 1440), ["lockout_duration_minutes"] = (1, 1440), ["lockout_reset_minutes"] = (1, 1440),
@@ -610,7 +610,7 @@ public sealed partial class SettingsController(
         ["mfa_setup_days"] = (0, 90), ["signin_known_days"] = (7, 365),
     };
     private static readonly string[] BoolRules =
-        ["email_enabled", "password_require_upper", "password_require_lower", "password_require_number", "password_require_special", "password_expiry_enabled",
+        ["email_enabled", "resolved_reply_reopens", "password_require_upper", "password_require_lower", "password_require_number", "password_require_special", "password_expiry_enabled",
          "lockout_enabled", "lockout_auto_unlock", "lockout_notify_user", "lockout_notify_admins",
          "password_history_enabled", "mfa_required_admins", "mfa_required_staff", "mfa_required_customers", "signin_alerts_enabled", "signin_alerts_admins"];
 

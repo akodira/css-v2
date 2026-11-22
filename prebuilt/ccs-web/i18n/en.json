@@ -884,6 +884,10 @@
         "title": "Is {reference} fixed?",
         "body": "\"{subject}\" was marked as resolved. Please confirm it is fixed, or reopen it if you still need help."
       },
+      "pending_internal_reminder": {
+        "title": "Still waiting on another team: {reference}",
+        "body": "\"{subject}\" has been in Pending internal for {days} day(s)."
+      },
       "cancellation_requested": {
         "title": "Cancellation requested: {reference}",
         "body": "The customer asked to cancel \"{subject}\". Reason: {reason}"
@@ -1321,12 +1325,15 @@
     "reg_pick_auto_help": "Customers pick their organization and branch, confirm their email, and can sign in at once.",
     "regNote": "Changing this does not affect accounts already waiting for approval.",
     "timersTitle": "Reminders and automatic closing",
-    "timersHelp": "These timers run for tickets waiting on the customer and for resolved tickets. Days are calendar days.",
+    "timersHelp": "These timers run for tickets waiting on the customer, waiting on another team, and resolved. Days are calendar days.",
+    "replyReopens": "A customer reply on a Resolved ticket reopens it",
+    "replyReopensHint": "The automatic close stops and the team gets the \"Ticket reopened\" email. When off, the ticket stays Resolved and still closes on its day.",
     "reminder1": "First reminder to the customer (days after waiting starts)",
     "reminder2": "Second reminder (days)",
     "finalWarning": "Final warning (days)",
     "noResponseClose": "Close with \"No customer response\" after (days)",
     "resolvedReminder": "Reminder after a ticket is resolved (days)",
+    "internalReminder": "Remind the agent and team leader about \"Pending internal\" every (days, 0 = off)",
     "minReply": "Minimum reply length to count as a first response (characters)",
     "timersHint": "Use 0 to turn a step off. Reminders must come in order and before the automatic close. Changes apply from the next minute.",
     "captchaTitle": "Sign-up captcha",
@@ -2336,6 +2343,7 @@
       "customer_reminder": "Reminder: waiting for customer",
       "customer_final_warning": "Final warning: waiting for customer",
       "resolved_reminder": "Reminder: confirm resolution",
+      "pending_internal_reminder": "Reminder: waiting on another team (to staff)",
       "cancellation_requested": "Cancellation requested",
       "cancellation_rejected": "Cancellation declined",
       "password_expiring": "Account: your password expires soon (warning)",
@@ -2375,6 +2383,7 @@
       "customer_reminder": "Sent to the customer.",
       "customer_final_warning": "Sent to the customer.",
       "resolved_reminder": "Sent to the customer.",
+      "pending_internal_reminder": "Sent to the assigned agent and the team leaders while a ticket stays in Pending internal, every few days (Settings, System rules). {days} is how long it has waited.",
       "cancellation_requested": "Sent to support staff.",
       "cancellation_rejected": "Sent to the customer.",
       "password_expiring": "Sent to anyone whose password is about to expire, up to three times (see Settings, Security, Password policy). {days} is the days left.",

@@ -45,6 +45,10 @@
         "title": "{reference} was reopened",
         "body": "\"{subject}\" was reopened."
       },
+      "pending_internal_reminder": {
+        "title": "Still waiting on another team: {reference}",
+        "body": "\"{subject}\" has been in Pending internal for {days} day(s). The customer sees it as In progress. Please follow up with the other team, or move the ticket on."
+      },
       "ticket_escalated": {
         "title": "Ticket escalated: {reference}",
         "body": "\"{subject}\" was escalated. Reason: {reason}"
@@ -167,6 +171,10 @@
       "ticket_reopened": {
         "title": "أُعيد فتح {reference}",
         "body": "أُعيد فتح \"{subject}\"."
+      },
+      "pending_internal_reminder": {
+        "title": "ما زالت بانتظار جهة داخلية: {reference}",
+        "body": "التذكرة \"{subject}\" في حالة «بانتظار جهة داخلية» منذ {days} يوم. ويراها العميل «قيد المعالجة». يُرجى المتابعة مع الفريق الآخر أو نقل التذكرة إلى الحالة التالية."
       },
       "ticket_escalated": {
         "title": "تم تصعيد تذكرة: {reference}",

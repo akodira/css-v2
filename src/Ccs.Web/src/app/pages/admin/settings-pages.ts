@@ -1284,6 +1284,8 @@ export class UploadsTab extends Tab implements OnInit {
             <div class="flex flex-col gap-1.5"><label [for]="f.key" [class]="cls.label">{{ 'AdminSettings.' + f.label | t }}${REQ}</label><input [id]="f.key" [name]="f.key" type="number" dir="ltr" [class]="cls.input" [(ngModel)]="n[f.key]" /></div>
           }
         </div>
+        <label class="${CHECK}"><input type="checkbox" name="replyReopens" class="h-5 w-5" [(ngModel)]="b['resolved_reply_reopens']" /> {{ 'AdminSettings.replyReopens' | t }}</label>
+        <p class="-mt-2 text-xs text-muted">{{ 'AdminSettings.replyReopensHint' | t }}</p>
         <p class="text-sm text-muted">{{ 'AdminSettings.timersHint' | t }}</p>
         <div class="grid gap-4 md:grid-cols-2">
           @for (f of basic.slice(3); track f.key) {
@@ -1437,11 +1439,12 @@ export class SystemTab extends Tab implements OnInit {
   protected readonly timers = [
     { key: 'pending_reminder_1_day', label: 'reminder1' }, { key: 'pending_reminder_2_day', label: 'reminder2' }, { key: 'pending_final_day', label: 'finalWarning' },
     { key: 'no_response_close_days', label: 'noResponseClose' }, { key: 'resolved_reminder_day', label: 'resolvedReminder' },
+    { key: 'pending_internal_reminder_days', label: 'internalReminder' },
   ];
   protected readonly modes = ['closed', 'approval', 'pick_approval', 'pick_auto'];
   private readonly defaults: Record<string, number> = {
     reopen_window_days: 30, auto_close_days: 5, min_reply_chars: 20, auto_refresh_seconds: 30, idle_timeout_minutes: 5, pending_reminder_1_day: 2, pending_reminder_2_day: 4, pending_final_day: 7,
-    no_response_close_days: 10, resolved_reminder_day: 3, password_min_length: 10, password_expiry_days: 90, password_warn_1_days: 7, password_warn_2_days: 4, password_warn_3_days: 1,
+    no_response_close_days: 10, resolved_reminder_day: 3, pending_internal_reminder_days: 3, password_min_length: 10, password_expiry_days: 90, password_warn_1_days: 7, password_warn_2_days: 4, password_warn_3_days: 1,
   };
   protected readonly loaded = signal(false);
   protected n: Record<string, number> = {};
@@ -1452,8 +1455,8 @@ export class SystemTab extends Tab implements OnInit {
   async ngOnInit(): Promise<void> {
     const d = await this.get<{ settings: Record<string, string>; registrationMode: string; captcha: { enabled: boolean; siteKey: string; hasSecret: boolean; fault?: string | null } }>('system');
     for (const [k, v] of Object.entries(this.defaults)) this.n[k] = d.settings[k] !== undefined ? Number(JSON.parse(d.settings[k])) : v;
-    for (const k of ['email_enabled', 'password_require_upper', 'password_require_lower', 'password_require_number', 'password_require_special', 'password_expiry_enabled'])
-      this.b[k] = d.settings[k] !== undefined ? JSON.parse(d.settings[k]) === true : k.startsWith('password_require');
+    for (const k of ['email_enabled', 'resolved_reply_reopens', 'password_require_upper', 'password_require_lower', 'password_require_number', 'password_require_special', 'password_expiry_enabled'])
+      this.b[k] = d.settings[k] !== undefined ? JSON.parse(d.settings[k]) === true : k.startsWith('password_require') || k === 'resolved_reply_reopens';
     this.reg = d.registrationMode;
     this.cap = { ...d.captcha, secret: '' };
     this.loaded.set(true);
@@ -1499,7 +1502,7 @@ export class SystemTab extends Tab implements OnInit {
     }
   }
   private pick(keys: string[]): Record<string, unknown> { return Object.fromEntries(keys.map((k) => [k, k in this.b ? this.b[k] : Number(this.n[k])])); }
-  protected saveRules(): void { void this.save(() => this.put('system', { settings: this.pick([...this.basic.map((x) => x.key), ...this.timers.map((x) => x.key), 'email_enabled']) })); }
+  protected saveRules(): void { void this.save(() => this.put('system', { settings: this.pick([...this.basic.map((x) => x.key), ...this.timers.map((x) => x.key), 'email_enabled', 'resolved_reply_reopens']) })); }
   protected savePw(): void {
     void this.save(() => this.put('system', { settings: this.pick(['password_min_length', 'password_require_upper', 'password_require_lower', 'password_require_number', 'password_require_special',
       'password_expiry_enabled', 'password_expiry_days', 'password_warn_1_days', 'password_warn_2_days', 'password_warn_3_days']) }));

@@ -137,6 +137,8 @@ public static class NotificationEvent
     public const string CustomerReminder = "customer_reminder";
     public const string CustomerFinalWarning = "customer_final_warning";
     public const string ResolvedReminder = "resolved_reminder";
+    /// <summary>To the assigned agent and team leaders: a ticket has been waiting on another team (Pending internal) for N days.</summary>
+    public const string PendingInternalReminder = "pending_internal_reminder";
     public const string CancellationRequested = "cancellation_requested";
     public const string CancellationRejected = "cancellation_rejected";
     public const string PasswordExpiring = "password_expiring";

@@ -251,7 +251,7 @@ export const GENERAL_FLOWS: Flow[] = [
   {
     id: "f-reopen", area: "tickets", audience: [...c],
     title: { en: "Not fixed: reopen or follow up", ar: "لم تُحل: إعادة فتح أو متابعة" },
-    summary: { en: "Within the reopen period you can reopen. After it, start a follow-up ticket that links back.", ar: "خلال مدة إعادة الفتح يمكنك إعادة فتح التذكرة، وبعدها ابدأ تذكرة متابعة مرتبطة بها." },
+    summary: { en: "If it is Resolved, just reply and it reopens. If it is Closed, reopen it within the reopen period; after it, start a follow-up ticket that links back.", ar: "إن كانت «تم الحل» فيكفي أن ترد لتُعاد فتحها. وإن كانت مغلقة فأعد فتحها خلال مدة إعادة الفتح، وبعدها ابدأ تذكرة متابعة مرتبطة بها." },
     nodes: [
       { label: { en: "Resolved or closed", ar: "تم الحل أو مغلقة" }, tone: "o" },
       { label: { en: "Still broken", ar: "المشكلة قائمة" }, tone: "d" },

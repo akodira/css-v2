@@ -18,7 +18,7 @@ public sealed class NotificationService(ICcsDbContext db, IClock clock)
         NotificationEvent.TicketAssigned, NotificationEvent.SlaWarning, NotificationEvent.SlaBreach,
         NotificationEvent.TicketReopened, NotificationEvent.TicketEscalated, NotificationEvent.CancellationRequested,
         NotificationEvent.PasswordExpiring, NotificationEvent.AccountLocked, NotificationEvent.AccountLockedAdmin,
-        NotificationEvent.NewSignin, NotificationEvent.NewSigninAdmin,
+        NotificationEvent.NewSignin, NotificationEvent.NewSigninAdmin, NotificationEvent.PendingInternalReminder,
     ];
 
     private readonly HashSet<string> _pendingKeys = [];

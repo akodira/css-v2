@@ -79,6 +79,28 @@ public sealed class LifecycleService(ICcsDbContext db, SettingsService settings,
                 sent++;
             }
         }
+
+        // 4. Pending internal (waiting on another team): remind the assigned agent and the team leaders every N days. Never closes.
+        int dpi = await settings.GetIntAsync("pending_internal_reminder_days", 3, ct);
+        if (dpi > 0)
+        {
+            var internalWait = await db.Tickets.Where(t => t.Status == TicketStatus.PendingInternal).ToListAsync(ct);
+            foreach (var t in internalWait)
+            {
+                var since = await db.TicketStatusHistory.Where(h => h.TicketId == t.Id && h.ToStatus == TicketStatus.PendingInternal)
+                    .MaxAsync(h => (DateTimeOffset?)h.CreatedAt, ct) ?? t.UpdatedAt;
+                var cal = await CalendarForAsync(t.Id, ct);
+                var stage = TicketTimers.InternalReminderStage(now, dpi, d => WallClock.LifecycleBoundary(cal, since, d));
+                if (stage == 0) continue;
+                var to = new HashSet<Guid>();
+                if (t.AssignedAgentId is Guid agent) to.Add(agent);
+                if (t.TeamId is Guid team) to.UnionWith(await db.TeamMembers.Where(m => m.TeamId == team && m.IsLeader).Select(m => m.UserId).ToListAsync(ct));
+                var payload = await notifications.TicketPayloadAsync(t.Id, new Dictionary<string, object?> { ["days"] = stage * dpi }, ct);
+                foreach (var u in to)
+                    await notifications.NotifyAsync(u, NotificationEvent.PendingInternalReminder, t.Id, payload, $"pi:{since.ToUnixTimeSeconds()}:{stage}", ct);
+                if (to.Count > 0) sent++;
+            }
+        }
         await db.SaveChangesAsync(ct);
 
         var pw = await PasswordExpiryTickAsync(ct);

@@ -274,10 +274,20 @@ public sealed class TicketService(
         db.TicketMessages.Add(msg);
         t.UpdatedAt = now;
 
-        if (isCustomer && t.Status == TicketStatus.PendingCustomer)
+        var autoMove = isCustomer ? TicketTimers.AfterCustomerReply(t.Status, await settings.GetBoolAsync("resolved_reply_reopens", true, ct)) : null;
+        if (autoMove == TicketStatus.InProgress)
         {
             AddHistory(t, TicketStatus.InProgress, c.UserId, "Customer replied", now);
             await sla.ResumeAsync(t.Id, ct);
+        }
+        else if (autoMove == TicketStatus.Reopened)
+        {
+            // Settings → System rules: a reply on a Resolved ticket reopens it, so the automatic close stops and the team is told.
+            AddHistory(t, TicketStatus.Reopened, c.UserId, "Customer replied after the ticket was resolved", now);
+            t.ReopenedCount++;
+            await sla.StartReopenCycleAsync(t.Id, ct);
+            audit.Write("ticket.status_changed", "ticket", t.Id, new { status = TicketStatus.Resolved },
+                new { status = TicketStatus.Reopened, reason = "Customer replied after the ticket was resolved" });
         }
 
         var minReply = await settings.GetIntAsync("min_reply_chars", 20, ct);
