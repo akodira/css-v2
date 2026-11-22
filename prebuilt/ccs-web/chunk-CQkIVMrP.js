@@ -1,1 +1,0 @@
-import{O as Ut}from"./main-SZ2F5UUQ.js";import"./chunk-DoMPm57t.js";import"./chunk-DdDf-V10.js";export{Ut as PeoplePage};

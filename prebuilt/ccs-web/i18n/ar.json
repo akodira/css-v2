@@ -791,7 +791,8 @@
     "makeLeader": "تعيين قائدًا",
     "unLeader": "إلغاء القيادة",
     "activeLong": "الفريق نشط",
-    "delTitle": "حذف هذا الفريق"
+    "delTitle": "حذف هذا الفريق",
+    "openProfile": "فتح بطاقة {name} في صفحة الموظفين"
   },
   "Notifications": {
     "title": "الإشعارات",

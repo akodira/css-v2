@@ -500,6 +500,13 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
     this.typeFilter.set(m.get('type') ?? '');
     this.wantNeeds.set(m.get('need') === '1');
     await Promise.all([this.loadLookups(), this.reload()]);
+    const open = m.get('open');
+    if (open && this.data()?.staff.some((u) => u.id === open)) this.openPerson(open);
+  }
+  /** A link from Teams (?open=id): that person's card, opened and scrolled into view. */
+  private openPerson(id: string): void {
+    this.opened.set([id]);
+    setTimeout(() => { const el = document.getElementById('acc-' + id)?.closest('li'); el?.scrollIntoView({ block: 'start' }); el?.querySelector<HTMLElement>('h2 button')?.focus({ preventScroll: true }); }, 50);
   }
   protected async reload(): Promise<void> {
     try {
@@ -554,7 +561,7 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
 
 @Component({
   selector: 'app-admin-teams',
-  imports: [TPipe, Alert, AddPanel, FormsModule, Req, ReqNote, PageAbout],
+  imports: [TPipe, Alert, AddPanel, FormsModule, RouterLink, Req, ReqNote, PageAbout],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -657,7 +664,8 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
               @for (mb of t.members; track mb.userId) {
                 <li class="flex flex-wrap items-center gap-3 border-t border-line px-3.5 py-2.5 first:border-t-0 hover:bg-[#f7f9fd]">
                   <span aria-hidden="true" class="grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold" [class]="avatarTone(mb.userId)">{{ initials(mb.fullName) }}</span>
-                  <span class="min-w-40 flex-1"><b class="block" dir="auto">{{ mb.fullName }}</b><span class="block text-xs text-muted" dir="ltr">{{ mb.email }}</span></span>
+                  <span class="min-w-40 flex-1"><a [routerLink]="'/' + i18n.locale() + '/admin/users'" [queryParams]="{ open: mb.userId }" class="block font-bold text-brand-ink hover:underline" dir="auto"
+                    [attr.aria-label]="'AdminTeams.openProfile' | t: { name: mb.fullName }">{{ mb.fullName }}</a><span class="block text-xs text-muted" dir="ltr">{{ mb.email }}</span></span>
                   <span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="mb.isLeader ? 'bg-brand-soft text-brand-ink' : 'bg-bg text-muted'">{{ (mb.isLeader ? 'AdminTeams.leader' : 'AdminTeams.agent') | t }}</span>
                   <span class="hidden min-w-20 text-xs text-muted sm:inline">{{ 'AdminTeams.openCount' | t: { count: mb.openTickets ?? 0 } }}</span>
                   <span class="hidden rounded-full px-2 py-0.5 text-xs font-semibold sm:inline" [class]="mb.autoAssign ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (mb.autoAssign ? 'AdminTeams.autoOn' : 'AdminTeams.autoOff') | t }}</span>
