@@ -2597,7 +2597,11 @@
     "adSaved": "Saved. The home and sign-in pages use it now.",
     "adPreview": "Preview",
     "adPreviewHint": "The picture is cropped to fit the side of the screen.",
-    "adClassicNote": "Classic is chosen, so this picture is not shown. Choose New to use it."
+    "adClassicNote": "Classic is chosen, so this picture is not shown. Choose New to use it.",
+    "saveSection": "Save",
+    "unsaved": "Unsaved changes",
+    "imagesAtOnce": "Pictures are saved as soon as you choose them.",
+    "sectionSaved": "{name}: saved."
   },
   "Approvals": {
     "title": "Account approvals",

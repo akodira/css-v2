@@ -68,15 +68,14 @@ const REQ = `<app-req />`;
 
 @Component({
   selector: 'app-set-branding',
-  imports: [TPipe, FormsModule, Alert, forwardRef(() => FooterSettings), forwardRef(() => AuthDesignSettings)],
+  imports: [TPipe, FormsModule, Alert, NgTemplateOutlet, forwardRef(() => FooterSettings), forwardRef(() => AuthDesignSettings)],
   template: `
     ${MSG}
     @if (m) {
-      <form class="flex flex-col gap-6" (ngSubmit)="submit()">
+      <div class="flex flex-col gap-6">
         @for (sec of sections; track sec.title) {
-          <fieldset [class]="cls.card + ' flex flex-col gap-4 p-5'">
-            <legend class="sr-only">{{ 'AdminGeneral.' + sec.title | t }}</legend>
-            <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.' + sec.title | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.' + sec.title + 'Hint' | t }}</p></div>
+          <form [class]="cls.card + ' flex flex-col gap-4 p-5'" novalidate [attr.aria-labelledby]="'bs-' + sec.title" (ngSubmit)="saveSection(sec.title, sec.keys)">
+            <div><h2 [id]="'bs-' + sec.title" class="text-lg font-bold">{{ 'AdminGeneral.' + sec.title | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.' + sec.title + 'Hint' | t }}</p></div>
             <div class="grid gap-4 md:grid-cols-2">
               @for (f of sec.fields; track f) {
                 <div [class]="'flex flex-col gap-1.5' + (f.startsWith('homeIntro') || f.startsWith('loginNotice') ? ' md:col-span-2' : '')">
@@ -114,21 +113,29 @@ const REQ = `<app-req />`;
                   <span><span class="font-semibold">{{ 'AdminGeneral.authLogo' | t }}</span><span class="block text-sm text-muted">{{ 'AdminGeneral.authLogoHint' | t }}</span></span></label>
               }
             }
-          </fieldset>
+            <ng-container *ngTemplateOutlet="secSave; context: { sec: sec.title, files: !!sec.image }" />
+          </form>
           @if (sec.title === 'secWordmark') {
-          <fieldset [class]="cls.card + ' flex flex-col gap-3 p-5'">
-            <legend class="sr-only">{{ 'AdminGeneral.secColor' | t }}</legend>
-            <div><h2 class="text-lg font-bold">{{ 'AdminGeneral.secColor' | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.secColorHint' | t }}</p></div>
+          <form [class]="cls.card + ' flex flex-col gap-3 p-5'" novalidate aria-labelledby="bs-secColor" (ngSubmit)="saveSection('secColor', ['brandColor'])">
+            <div><h2 id="bs-secColor" class="text-lg font-bold">{{ 'AdminGeneral.secColor' | t }}</h2><p class="text-sm text-muted">{{ 'AdminGeneral.secColorHint' | t }}</p></div>
             <div class="flex flex-wrap items-end gap-4">
               <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminGeneral.brandColor' | t }}
                 <input name="color" type="color" class="h-11 w-24 cursor-pointer rounded-lg border border-line bg-surface p-1" [ngModel]="m['brandColor'] || '#1f64e6'" (ngModelChange)="m['brandColor'] = $event" /></label>
               <label class="flex min-h-11 items-center gap-2 text-sm font-semibold"><input type="checkbox" name="useDefaultColor" class="h-5 w-5" [checked]="!m['brandColor']" (change)="m['brandColor'] = $any($event.target).checked ? '' : '#1f64e6'" />{{ 'AdminGeneral.useDefaultColor' | t }}</label>
             </div>
-          </fieldset>
+            <ng-container *ngTemplateOutlet="secSave; context: { sec: 'secColor', files: false }" />
+          </form>
           }
         }
-        ${SAVE}
-      </form>
+      </div>
+      <ng-template #secSave let-sec="sec" let-files="files">
+        @if (secMsg(); as sm) { @if (sm.sec === sec) { <app-alert [tone]="sm.tone">{{ sm.text }}</app-alert> } }
+        <div class="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+          <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminGeneral.saveSection' | t }}</button>
+          @if (dirty(sec)) { <span class="text-sm font-semibold text-warn-ink">{{ 'AdminGeneral.unsaved' | t }}</span> }
+          @if (files) { <span class="text-sm text-muted">{{ 'AdminGeneral.imagesAtOnce' | t }}</span> }
+        </div>
+      </ng-template>
       <app-auth-design-settings />
       <app-footer-settings />
     }`,
@@ -136,12 +143,17 @@ const REQ = `<app-req />`;
 })
 export class BrandingTab extends Tab implements OnInit {
   protected readonly sections = [
-    { title: 'secSite', image: 'favicon', fields: ['siteNameEn', 'siteNameAr'] },
-    { title: 'secHeader', image: 'logo', fields: ['headerNameEn', 'headerNameAr', 'headerSubEn', 'headerSubAr'] },
-    { title: 'secWordmark', image: 'wordmark', fields: [] as string[] },
-    { title: 'secTexts', image: '', fields: ['homeTitleEn', 'homeTitleAr', 'homeIntroEn', 'homeIntroAr', 'loginNoticeEn', 'loginNoticeAr'] },
+    { title: 'secSite', image: 'favicon', fields: ['siteNameEn', 'siteNameAr'], keys: ['siteNameEn', 'siteNameAr'] },
+    { title: 'secHeader', image: 'logo', fields: ['headerNameEn', 'headerNameAr', 'headerSubEn', 'headerSubAr'], keys: ['headerNameEn', 'headerNameAr', 'headerSubEn', 'headerSubAr'] },
+    { title: 'secWordmark', image: 'wordmark', fields: [] as string[], keys: ['authLogo'] },
+    { title: 'secTexts', image: '', fields: ['homeTitleEn', 'homeTitleAr', 'homeIntroEn', 'homeIntroAr', 'loginNoticeEn', 'loginNoticeAr'],
+      keys: ['homeTitleEn', 'homeTitleAr', 'homeIntroEn', 'homeIntroAr', 'loginNoticeEn', 'loginNoticeAr'] },
   ];
+  private readonly keysOf: Record<string, string[]> = { ...Object.fromEntries(this.sections.map((x) => [x.title, x.keys])), secColor: ['brandColor'] };
   protected m: Record<string, string> | null = null;
+  /** What the server holds now: a section's Save sends its own fields and these values for every other section. */
+  private saved: Record<string, unknown> = {};
+  protected readonly secMsg = signal<{ sec: string; tone: 'success' | 'error'; text: string } | null>(null);
   private paths = signal<Record<string, string | null>>({});
   /** True after a wide logo without a clear background was uploaded: no white copy could be made. */
   protected readonly noWhite = signal(false);
@@ -149,10 +161,25 @@ export class BrandingTab extends Tab implements OnInit {
   async ngOnInit(): Promise<void> {
     const s = await this.get<Record<string, string | null>>('branding');
     this.m = Object.fromEntries(Object.entries(s).map(([k, v]) => [k, v ?? '']));
+    this.saved = { ...this.m };
     this.paths.set({ logo: s['logoPath'] ?? null, favicon: s['faviconPath'] ?? null, wordmark: s['wordmarkPath'] ?? null, wordmarkdark: s['wordmarkDarkPath'] ?? null });
   }
   protected img(kind: string): string | null { const p = this.paths()[kind]; return p ? apiUrl('/api/site/branding/' + p) : null; }
-  protected submit(): void { void this.save(() => this.put('branding', this.m)); }
+  protected dirty(sec: string): boolean { return !!this.m && (this.keysOf[sec] ?? []).some((k) => String(this.m![k] ?? '') !== String(this.saved[k] ?? '')); }
+  /** Saves one section only; unsaved edits in other sections stay on screen and are not sent. */
+  protected async saveSection(sec: string, keys: string[]): Promise<void> {
+    if (!this.m) return;
+    const body: Record<string, unknown> = { ...this.saved };
+    for (const k of keys) body[k] = this.m[k];
+    this.busy.set(true); this.secMsg.set(null);
+    try {
+      await this.put('branding', body);
+      for (const k of keys) this.saved[k] = this.m[k];
+      this.secMsg.set({ sec, tone: 'success', text: this.i18n.t('AdminGeneral.sectionSaved', { name: this.i18n.t('AdminGeneral.' + sec) }) });
+      await this.site.load();
+    } catch (e) { this.secMsg.set({ sec, tone: 'error', text: adminError(this.i18n, e) }); }
+    finally { this.busy.set(false); }
+  }
   protected async upload(kind: string, el: HTMLInputElement): Promise<void> {
     const f = el.files?.[0]; if (!f) return;
     const fd = new FormData(); fd.append('file', f);
