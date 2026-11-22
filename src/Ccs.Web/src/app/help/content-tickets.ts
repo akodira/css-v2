@@ -10,8 +10,14 @@ export const TICKET_ARTICLES: Article[] = [
     id: "c-my-tickets", kind: "feature", area: "tickets", audience: [...c], path: "/tickets",
     title: { en: "My tickets", ar: "تذاكري" },
     summary: { en: "Every request you opened, with its reference, status and last update.", ar: "كل الطلبات التي فتحتها مع رقمها المرجعي وحالتها وآخر تحديث." },
+    optionsTitle: { en: "The cards", ar: "البطاقات" },
+    options: [
+      { name: { en: "In progress", ar: "قيد المعالجة" }, tone: "warn", text: { en: "We are working on it.", ar: "نعمل عليها." } },
+      { name: { en: "Waiting for you", ar: "بانتظار ردك" }, tone: "danger", text: { en: "We need your reply. Without one it closes after a few days.", ar: "نحتاج ردك، وإن لم ترد تُغلق بعد بضعة أيام." } },
+      { name: { en: "Resolved", ar: "تم الحل" }, tone: "ok", text: { en: "Fixed. Confirm it, or reply if it is not, and it reopens.", ar: "أُصلحت. أكّد ذلك، أو رد إن لم تُحل فتُعاد فتحها." } },
+      { name: { en: "Closed", ar: "مغلقة" }, tone: "neutral", text: { en: "Finished. You can reopen it within the reopen period.", ar: "انتهت، ويمكنك إعادة فتحها خلال مدة إعادة الفتح." } },
+    ],
     points: [
-      { en: "Four coloured cards count your tickets: In progress, Waiting for you, Resolved and Closed.", ar: "أربع بطاقات ملونة تعدّ تذاكرك: قيد المعالجة، بانتظار ردك، تم الحل، مغلقة." },
       { en: "Select a card or a filter to narrow the list.", ar: "اختر بطاقة أو مرشحًا لتضييق القائمة." },
       { en: "Search by reference or subject.", ar: "ابحث بالرقم المرجعي أو الموضوع." },
     ],
@@ -103,11 +109,17 @@ export const TICKET_ARTICLES: Article[] = [
     id: "s-queue", kind: "feature", area: "tickets", audience: [...s], path: "/console",
     title: { en: "Ticket queue", ar: "قائمة التذاكر" },
     summary: { en: "The working list of the tickets your teams are responsible for.", ar: "قائمة العمل للتذاكر التي تتولاها فرقك." },
-    optionsTitle: { en: "On the page", ar: "محتوى الصفحة" },
+    optionsTitle: { en: "The cards (each one opens its list)", ar: "البطاقات (كل بطاقة تفتح قائمتها)" },
     options: [
-      { name: { en: "Cards", ar: "البطاقات" }, tone: "brand", text: { en: "Assigned to me, Unassigned, SLA breached, Due soon and Closed. Each card opens that list.", ar: "المسندة إليّ، غير المسندة، تجاوز اتفاقية الخدمة، تستحق قريبًا، والمغلقة. وكل بطاقة تفتح قائمتها." } },
-      { name: { en: "Views", ar: "العروض" }, tone: "purple", text: { en: "Assigned to me, Unassigned, All visible, Escalated and Closed.", ar: "المسندة إليّ، غير المسندة، كل المرئي، المصعّدة، المغلقة." } },
-      { name: { en: "Filter, search and sort", ar: "الترشيح والبحث والترتيب" }, tone: "ok", text: { en: "Filter by status, priority or SLA, search by reference, subject or customer, and sort any column.", ar: "رشّح بالحالة أو الأولوية أو اتفاقية الخدمة، وابحث بالرقم أو الموضوع أو العميل، ورتّب أي عمود." } },
+      { name: { en: "Assigned to me", ar: "المسندة إليّ" }, tone: "brand", text: { en: "Open tickets assigned to you.", ar: "التذاكر المفتوحة المسندة إليك." } },
+      { name: { en: "Unassigned", ar: "غير مسندة" }, tone: "purple", text: { en: "Open tickets in a team queue with no agent yet.", ar: "التذاكر المفتوحة في قائمة فريق دون موظف بعد." } },
+      { name: { en: "SLA breached", ar: "تجاوزت اتفاقية الخدمة" }, tone: "danger", text: { en: "Past the deadline for first reply or resolution.", ar: "تجاوزت موعد أول رد أو موعد الحل." } },
+      { name: { en: "Due soon", ar: "يقترب موعدها" }, tone: "warn", text: { en: "Has used 80% of its SLA time and is not overdue yet. The 80% is the warning level set in each SLA policy.", ar: "استهلكت 80% من وقت اتفاقية الخدمة ولم تتأخر بعد. ونسبة 80% هي مستوى التحذير المحدد في كل سياسة." } },
+      { name: { en: "Closed tickets", ar: "التذاكر المغلقة" }, tone: "neutral", text: { en: "Finished tickets.", ar: "التذاكر المنتهية." } },
+    ],
+    points: [
+      { en: "Views: All visible, Assigned to me, Unassigned and Escalated.", ar: "العروض: كل المرئي، والمسندة إليّ، وغير المسندة، والمصعّدة." },
+      { en: "Filter by status, priority or SLA, search by reference, subject or customer, and sort any column.", ar: "رشّح بالحالة أو الأولوية أو اتفاقية الخدمة، وابحث بالرقم أو الموضوع أو العميل، ورتّب أي عمود." },
     ],
     tips: [
       { en: "The default Status filter is Active, so closed tickets are hidden. Use the green Closed button or card to see them.", ar: "مرشح الحالة الافتراضي هو «نشطة» فتُخفى التذاكر المغلقة. استخدم زر أو بطاقة «مغلقة» الخضراء لعرضها." },
@@ -254,7 +266,7 @@ export const TICKET_ARTICLES: Article[] = [
     optionsTitle: { en: "What the clock shows", ar: "ما تعرضه الساعة" },
     options: [
       { name: { en: "On track", ar: "في الموعد" }, tone: "ok", text: { en: "Within the deadline.", ar: "ضمن الموعد." } },
-      { name: { en: "Due soon", ar: "يستحق قريبًا" }, tone: "warn", text: { en: "The deadline is close.", ar: "الموعد يقترب." } },
+      { name: { en: "Due soon", ar: "يستحق قريبًا" }, tone: "warn", text: { en: "80% of the time is used (the warning level in the SLA policy).", ar: "استُهلك 80% من الوقت (مستوى التحذير في سياسة اتفاقية الخدمة)." } },
       { name: { en: "Breached", ar: "متجاوز" }, tone: "danger", text: { en: "The deadline has passed.", ar: "انتهى الموعد." } },
       { name: { en: "Paused", ar: "متوقف" }, tone: "neutral", text: { en: "Stopped while the ticket waits for the customer.", ar: "متوقفة أثناء انتظار العميل." } },
     ],

@@ -114,9 +114,17 @@ export const GENERAL_ARTICLES: Article[] = [
     id: "c-home", kind: "feature", area: "tickets", audience: [...c], path: "/",
     title: { en: "Your home page", ar: "صفحتك الرئيسية" },
     summary: { en: "Your starting point after signing in.", ar: "نقطة البداية بعد تسجيل الدخول." },
+    optionsTitle: { en: "The cards", ar: "البطاقات" },
+    options: [
+      { name: { en: "Total tickets", ar: "إجمالي التذاكر" }, tone: "brand", text: { en: "Every ticket you have opened.", ar: "كل التذاكر التي فتحتها." } },
+      { name: { en: "In progress", ar: "قيد المعالجة" }, tone: "warn", text: { en: "We have your ticket and are working on it.", ar: "وصلتنا تذكرتك ونعمل عليها." } },
+      { name: { en: "Waiting for you", ar: "بانتظار ردك" }, tone: "danger", text: { en: "We need your reply before we can continue.", ar: "نحتاج ردك قبل أن نواصل." } },
+      { name: { en: "Resolved", ar: "تم الحل" }, tone: "ok", text: { en: "We fixed it. Please confirm, or reply if it is not fixed.", ar: "أصلحناها. يُرجى التأكيد، أو الرد إن لم تُحل." } },
+      { name: { en: "Closed", ar: "مغلقة" }, tone: "neutral", text: { en: "Finished. You can still reopen it for a while.", ar: "انتهت، ويمكنك إعادة فتحها خلال مدة محددة." } },
+    ],
     points: [
       { en: "A welcome with shortcuts to create a ticket and view your tickets.", ar: "ترحيب مع اختصارات لإنشاء تذكرة وعرض تذاكرك." },
-      { en: "A snapshot of your tickets: total, open, waiting for you and resolved.", ar: "لمحة عن تذاكرك: الإجمالي والمفتوحة وبانتظار ردك والمحلولة." },
+      { en: "Select a card to open My tickets on that list.", ar: "اختر بطاقة لفتح «تذاكري» على تلك القائمة." },
       { en: "Your most recent tickets and popular help articles.", ar: "أحدث تذاكرك والمقالات الشائعة." },
     ],
     notes: [
@@ -199,12 +207,21 @@ export const GENERAL_ARTICLES: Article[] = [
   {
     id: "r-dashboard", kind: "feature", area: "reports", audience: [...s], path: "/console/dashboard",
     title: { en: "Dashboard", ar: "لوحة المتابعة" },
-    summary: { en: "A summary of the last 30 days.", ar: "ملخص لآخر 30 يومًا." },
+    summary: { en: "Your tickets at a glance. The cards count every ticket you can see; the charts cover the last 30 days.", ar: "تذاكرك في لمحة. تعدّ البطاقات كل التذاكر التي تراها، وتغطي المخططات آخر 30 يومًا." },
+    optionsTitle: { en: "The cards", ar: "البطاقات" },
     options: [
-      { name: { en: "Tickets", ar: "التذاكر" }, tone: "brand", text: { en: "Total, new, in progress, resolved and overdue, with a trend of created against resolved.", ar: "الإجمالي والجديدة وقيد المعالجة والمحلولة والمتأخرة، مع مخطط المنشأة مقابل المحلولة." } },
-      { name: { en: "Service", ar: "الخدمة" }, tone: "ok", text: { en: "SLA compliance and average resolution time.", ar: "الالتزام باتفاقية الخدمة ومتوسط زمن الحل." } },
-      { name: { en: "Work", ar: "العمل" }, tone: "purple", text: { en: "Recent tickets, agent workload, and tickets per organization and branch.", ar: "أحدث التذاكر وحمل العمل على الموظفين والتذاكر لكل مؤسسة وفرع." } },
-      { name: { en: "Quick actions", ar: "إجراءات سريعة" }, tone: "warn", text: { en: "Jump to unassigned, assigned to me and SLA breached tickets.", ar: "انتقل إلى غير المسندة والمسندة إليّ والمتجاوزة." } },
+      { name: { en: "Total tickets", ar: "إجمالي التذاكر" }, tone: "brand", text: { en: "Every ticket you can see, from any time.", ar: "كل التذاكر التي تراها، من أي وقت." } },
+      { name: { en: "New", ar: "جديدة" }, tone: "purple", text: { en: "Received, but not assigned or started yet.", ar: "وصلت، لكنها لم تُسند ولم يبدأ العمل عليها بعد." } },
+      { name: { en: "In progress", ar: "قيد المعالجة" }, tone: "warn", text: { en: "Open and started, including tickets waiting on the customer, waiting on another team, or reopened.", ar: "مفتوحة وبدأ العمل عليها، ومنها التي بانتظار العميل أو بانتظار جهة داخلية أو المعاد فتحها." } },
+      { name: { en: "Resolved", ar: "تم حلّها" }, tone: "ok", text: { en: "Resolved or closed.", ar: "تم حلها أو أُغلقت." } },
+      { name: { en: "Overdue", ar: "متأخرة" }, tone: "danger", text: { en: "Past their SLA deadline for first reply or resolution.", ar: "تجاوزت موعد اتفاقية الخدمة لأول رد أو للحل." } },
+      { name: { en: "Organizations and Branches", ar: "المؤسسات والفروع" }, tone: "neutral", text: { en: "How many organizations and branches you can see.", ar: "عدد المؤسسات والفروع التي تراها." } },
+    ],
+    points: [
+      { en: "Ticket trends: tickets created against tickets resolved, day by day.", ar: "اتجاه التذاكر: المنشأة مقابل المحلولة يومًا بيوم." },
+      { en: "SLA compliance and average resolution time.", ar: "الالتزام باتفاقية الخدمة ومتوسط زمن الحل." },
+      { en: "Recent tickets, agent workload, and tickets per organization and branch.", ar: "أحدث التذاكر وحمل العمل على الموظفين والتذاكر لكل مؤسسة وفرع." },
+      { en: "Quick actions jump to unassigned, assigned to me and SLA breached tickets.", ar: "تنقلك الإجراءات السريعة إلى غير المسندة والمسندة إليّ والمتجاوزة." },
     ],
   },
   {
