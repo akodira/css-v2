@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticket status workflow</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0f1a2e; --muted:#5b6478; --line:#dfe4ee; --brand:#1d63ed; --brand-ink:#1645a8; --soft:#eef3fd;
+          --ok:#14804a; --ok-soft:#e3f5ea; --warn:#9a5b00; --warn-soft:#fff3dc; --danger:#b42318; --danger-soft:#fdecea; --new:#e8590c; --new-soft:#fff1e6; }
+  * { box-sizing:border-box; } html { scrollbar-gutter:stable; }
+  body { margin:0; font-family:'IBM Plex Sans',system-ui,sans-serif; color:var(--ink); background:#f3f5f9; line-height:1.45; }
+  .wrap { max-width:1180px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 4px; } .lead { color:var(--muted); margin:0 0 18px; max-width:85ch; }
+  section.s { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; margin:18px 0; }
+  h2.sec { font-size:20px; margin:0 0 6px; display:flex; gap:10px; align-items:center; }
+  .num { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--brand); color:#fff; font-size:14px; flex:none; }
+  .note { color:var(--muted); font-size:14px; margin:4px 0 14px; max-width:90ch; }
+  .tag-new { display:inline-block; font-size:11px; font-weight:700; color:var(--new); background:var(--new-soft); border-radius:999px; padding:2px 8px; vertical-align:middle; margin-inline-start:6px; }
+  .legend { display:flex; flex-wrap:wrap; gap:18px; font-size:13px; color:var(--muted); margin-top:10px; }
+  .legend span { display:inline-flex; align-items:center; gap:8px; }
+  .legend i { display:inline-block; width:28px; height:0; border-top:3px solid; }
+  .diagram { overflow-x:auto; } .diagram svg { min-width:980px; width:100%; height:auto; display:block; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th, td { text-align:start; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); background:#f8fafd; }
+  .pill { display:inline-block; padding:3px 10px; border-radius:999px; font-weight:600; font-size:13px; }
+  .p-blue { background:var(--soft); color:var(--brand-ink); } .p-amber { background:var(--warn-soft); color:var(--warn); }
+  .p-red { background:var(--danger-soft); color:var(--danger); } .p-green { background:var(--ok-soft); color:var(--ok); } .p-gray { background:#eef0f4; color:#3c4658; }
+  .strike { text-decoration:line-through; color:var(--muted); }
+  .changes { display:grid; gap:16px; }
+  .chg { border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .chg h3 { margin:0; padding:12px 16px; font-size:16px; background:#f8fafd; border-bottom:1px solid var(--line); display:flex; gap:10px; align-items:center; }
+  .chg h3 b { display:inline-grid; place-items:center; width:24px; height:24px; border-radius:50%; background:var(--new); color:#fff; font-size:13px; flex:none; }
+  .ba { display:grid; grid-template-columns:1fr 1fr; }
+  .ba > div { padding:14px 16px; } .ba > div + div { border-inline-start:1px solid var(--line); }
+  .ba .lbl { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; }
+  .before .lbl { color:var(--danger); } .after .lbl { color:var(--ok); }
+  .ba p { margin:0 0 10px; font-size:14px; }
+  .mock { border:1px solid var(--line); border-radius:10px; padding:12px; background:#fbfcfe; font-size:13px; }
+  .mock .row { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+  .mock .t { font-weight:700; font-size:14px; }
+  .btn { display:inline-flex; align-items:center; min-height:36px; padding:0 14px; border-radius:8px; font-weight:700; font-size:13px; border:1px solid var(--line); background:#fff; color:var(--brand-ink); }
+  .btn.pri { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .btn.dan { color:var(--danger); border-color:#f3c1bb; }
+  .banner { margin-top:10px; padding:10px 12px; border-radius:8px; font-size:13px; }
+  .b-ok { background:var(--ok-soft); color:var(--ok); } .b-warn { background:var(--warn-soft); color:var(--warn); } .b-blue { background:var(--soft); color:var(--brand-ink); }
+  .field { margin-top:8px; } .field label { display:block; font-weight:600; margin-bottom:4px; }
+  .field .in { border:1px solid var(--line); border-radius:8px; background:#fff; padding:8px 10px; color:var(--muted); }
+  .req { color:var(--danger); }
+  .muted { color:var(--muted); }
+  .stays { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .stays div { border:1px solid var(--line); border-radius:10px; padding:12px; font-size:14px; } .stays b { display:block; margin-bottom:2px; }
+  @media (max-width:760px) { .ba { grid-template-columns:1fr; } .ba > div + div { border-inline-start:0; border-top:1px solid var(--line); } .stays { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Ticket status workflow: suggested</h1>
+  <p class="lead">The same eight staff statuses as today. Customers see five simple names. Four gaps closed. Anything marked <span class="tag-new">NEW</span> does not exist today.</p>
+
+  <!-- 1. Diagram -->
+  <section class="s">
+    <h2 class="sec"><span class="num">1</span> The whole flow on one page</h2>
+    <p class="note">Boxes are the staff names; the small line under each is what the customer sees. Orange lines are the new moves.</p>
+    <div class="diagram">
+      <svg viewBox="0 0 1100 500" xmlns="http://www.w3.org/2000/svg" font-family="IBM Plex Sans, system-ui, sans-serif">
+        <defs>
+          <marker id="mb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1d63ed"/></marker>
+          <marker id="mg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#14804a"/></marker>
+          <marker id="ma" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#7a8396"/></marker>
+          <marker id="mo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#e8590c"/></marker>
+        </defs>
+        <g font-size="12" fill="#3c4658">
+          <!-- automatic: New -> Open -> In progress -->
+          <path d="M200 200H236" stroke="#7a8396" stroke-width="2.5" stroke-dasharray="6 4" fill="none" marker-end="url(#ma)"/>
+          <text x="220" y="250" text-anchor="middle">assigned</text>
+          <path d="M400 200H446" stroke="#7a8396" stroke-width="2.5" stroke-dasharray="6 4" fill="none" marker-end="url(#ma)"/>
+          <text x="425" y="250" text-anchor="middle">1st reply</text>
+          <!-- In progress <-> Pending customer -->
+          <path d="M515 172V100" stroke="#1d63ed" stroke-width="2.5" fill="none" marker-end="url(#mb)"/>
+          <path d="M545 100V172" stroke="#14804a" stroke-width="2.5" fill="none" marker-end="url(#mg)"/>
+          <text x="560" y="140">customer replies</text>
+          <text x="500" y="140" text-anchor="end">staff asks</text>
+          <!-- In progress <-> Pending internal -->
+          <path d="M515 228V316" stroke="#1d63ed" stroke-width="2.5" fill="none" marker-end="url(#mb)"/>
+          <path d="M545 316V228" stroke="#1d63ed" stroke-width="2.5" fill="none" marker-end="url(#mb)"/>
+          <text x="500" y="276" text-anchor="end">other team</text>
+          <!-- In progress -> Resolved -->
+          <path d="M610 200H676" stroke="#1d63ed" stroke-width="2.5" fill="none" marker-end="url(#mb)"/>
+          <text x="643" y="190" text-anchor="middle">fixed</text>
+          <!-- Resolved -> Closed -->
+          <path d="M840 192H896" stroke="#14804a" stroke-width="2.5" fill="none" marker-end="url(#mg)"/>
+          <text x="868" y="182" text-anchor="middle">confirms</text>
+          <path d="M840 212H896" stroke="#7a8396" stroke-width="2.5" stroke-dasharray="6 4" fill="none" marker-end="url(#ma)"/>
+          <text x="868" y="230" text-anchor="middle">day 5</text>
+          <!-- Resolved -> Reopened (reopen button + NEW: reply) -->
+          <path d="M745 228V316" stroke="#14804a" stroke-width="2.5" fill="none" marker-end="url(#mg)"/>
+          <text x="737" y="270" text-anchor="end">reopens</text>
+          <path d="M775 228V316" stroke="#e8590c" stroke-width="3" fill="none" marker-end="url(#mo)"/>
+          <text x="785" y="266" fill="#e8590c" font-weight="700">replies</text>
+          <text x="785" y="281" fill="#e8590c">(new)</text>
+          <!-- Closed -> Reopened -->
+          <path d="M960 228L840 330" stroke="#14804a" stroke-width="2.5" fill="none" marker-end="url(#mg)"/>
+          <text x="912" y="300">within 30 days</text>
+          <!-- Reopened -> In progress -->
+          <path d="M700 320L606 234" stroke="#1d63ed" stroke-width="2.5" fill="none" marker-end="url(#mb)"/>
+          <!-- Pending customer -> Closed day 10 -->
+          <path d="M610 68H1000V168" stroke="#7a8396" stroke-width="2.5" stroke-dasharray="6 4" fill="none" marker-end="url(#ma)"/>
+          <text x="625" y="90">no reply: reminders day 2 and 4,</text><text x="625" y="105">warning day 7, closed day 10</text>
+          <!-- NEW: customer cancels from New / Open -->
+          <path d="M320 172V18H960V168" stroke="#e8590c" stroke-width="3" fill="none" marker-end="url(#mo)"/>
+          <text x="640" y="12" text-anchor="middle" fill="#e8590c" font-weight="700">customer cancels while Received (new)</text>
+          <!-- NEW: staff closes with a reason from any active status -->
+          <path d="M530 376V460H980V232" stroke="#e8590c" stroke-width="3" fill="none" marker-end="url(#mo)"/>
+          <text x="745" y="452" text-anchor="middle" fill="#e8590c" font-weight="700">staff closes with a reason (duplicate, spam, other) from any active status (new)</text>
+          <!-- NEW: pending internal reminder -->
+          <text x="520" y="400" text-anchor="end" fill="#e8590c" font-weight="700">reminder to agent + team leader after 3 days (new)</text>
+        </g>
+        <!-- boxes -->
+        <g font-size="15" font-weight="700" text-anchor="middle">
+          <rect x="40" y="172" width="160" height="56" rx="12" fill="#eef3fd" stroke="#9dbdf2"/><text x="120" y="197" fill="#0f1a2e">New</text><text x="120" y="216" font-size="12" font-weight="500" fill="#1645a8">Received</text>
+          <rect x="240" y="172" width="160" height="56" rx="12" fill="#eef3fd" stroke="#9dbdf2"/><text x="320" y="197" fill="#0f1a2e">Open</text><text x="320" y="216" font-size="12" font-weight="500" fill="#1645a8">Received</text>
+          <rect x="450" y="172" width="160" height="56" rx="12" fill="#fff3dc" stroke="#f0c36d"/><text x="530" y="197" fill="#0f1a2e">In progress</text><text x="530" y="216" font-size="12" font-weight="500" fill="#9a5b00">In progress</text>
+          <rect x="450" y="40" width="160" height="56" rx="12" fill="#fdecea" stroke="#f3a49b"/><text x="530" y="65" fill="#0f1a2e">Pending customer</text><text x="530" y="84" font-size="12" font-weight="500" fill="#b42318">Waiting for you</text>
+          <rect x="450" y="320" width="160" height="56" rx="12" fill="#fff3dc" stroke="#f0c36d"/><text x="530" y="345" fill="#0f1a2e">Pending internal</text><text x="530" y="364" font-size="12" font-weight="500" fill="#9a5b00">In progress</text>
+          <rect x="680" y="172" width="160" height="56" rx="12" fill="#e3f5ea" stroke="#8fd1ab"/><text x="760" y="197" fill="#0f1a2e">Resolved</text><text x="760" y="216" font-size="12" font-weight="500" fill="#14804a">Resolved</text>
+          <rect x="900" y="172" width="160" height="56" rx="12" fill="#eef0f4" stroke="#c3c9d4"/><text x="980" y="197" fill="#0f1a2e">Closed</text><text x="980" y="216" font-size="12" font-weight="500" fill="#3c4658">Closed</text>
+          <rect x="680" y="320" width="160" height="56" rx="12" fill="#fff3dc" stroke="#f0c36d"/><text x="760" y="345" fill="#0f1a2e">Reopened</text><text x="760" y="364" font-size="12" font-weight="500" fill="#9a5b00">Reopened</text>
+        </g>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><i style="border-color:#1d63ed"></i>staff moves it</span>
+      <span><i style="border-color:#14804a"></i>customer moves it</span>
+      <span><i style="border-color:#7a8396;border-top-style:dashed"></i>automatic</span>
+      <span><i style="border-color:#e8590c"></i>new</span>
+    </div>
+  </section>
+
+  <!-- 2. Names -->
+  <section class="s">
+    <h2 class="sec"><span class="num">2</span> What the customer sees</h2>
+    <p class="note">Staff keep all eight statuses. Customers see five names, each with one plain sentence on the ticket page. Only New and Open change: both become "Received", because the difference (assigned or not) means nothing to the customer.</p>
+    <table>
+      <thead><tr><th>Staff status</th><th>Customer sees today</th><th>Customer sees (suggested)</th><th>Sentence under it (customer)</th></tr></thead>
+      <tbody>
+        <tr><td>New</td><td><span class="pill p-blue">Received</span></td><td><span class="pill p-blue">Received</span></td><td>We have your ticket and will start on it soon.</td></tr>
+        <tr><td>Open</td><td><span class="pill p-blue">Open</span></td><td><span class="pill p-blue">Received</span> <span class="tag-new">NEW</span></td><td>We have your ticket and will start on it soon.</td></tr>
+        <tr><td>In progress · Pending internal · Reopened</td><td><span class="pill p-amber">In progress</span> / <span class="pill p-amber">Reopened</span></td><td><span class="pill p-amber">In progress</span> / <span class="pill p-amber">Reopened</span></td><td>We are working on it. You will get an email when we reply.</td></tr>
+        <tr><td>Pending customer</td><td><span class="pill p-red">Waiting for you</span></td><td><span class="pill p-red">Waiting for you</span></td><td>We need your reply. Without one the ticket closes on day 10.</td></tr>
+        <tr><td>Resolved</td><td><span class="pill p-green">Resolved</span></td><td><span class="pill p-green">Resolved</span></td><td>Please confirm, or reply if it is not fixed. It closes by itself on day 5.</td></tr>
+        <tr><td>Closed</td><td><span class="pill p-gray">Closed</span></td><td><span class="pill p-gray">Closed</span></td><td>You can reopen it within 30 days.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 3. Changes -->
+  <section class="s">
+    <h2 class="sec"><span class="num">3</span> The four fixes</h2>
+    <div class="changes">
+
+      <div class="chg">
+        <h3><b>1</b> A customer reply on a Resolved ticket reopens it</h3>
+        <div class="ba">
+          <div class="before"><div class="lbl">Today</div>
+            <p>The customer writes "still not working". The ticket stays Resolved and still closes itself on day 5. Nobody is told.</p>
+          </div>
+          <div class="after"><div class="lbl">Suggested</div>
+            <p>The reply moves the ticket to <b>Reopened</b>, stops the day-5 timer and tells the assigned agent.</p>
+            <div class="mock">
+              <div class="row"><span class="t">CTS-2026-000062</span><span class="pill p-amber">Reopened</span></div>
+              <div class="banner b-blue">Thanks. Your reply has reopened the ticket and we will look at it again.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chg">
+        <h3><b>2</b> Customers can cancel their own ticket while it is "Received"</h3>
+        <div class="ba">
+          <div class="before"><div class="lbl">Today</div>
+            <p>No way to cancel. The customer has to write "please close it" and an agent closes it.</p>
+          </div>
+          <div class="after"><div class="lbl">Suggested</div>
+            <p>A <b>Cancel ticket</b> button on the ticket page while it is New or Open. It asks to confirm, then closes with the reason "Customer cancellation". The customer can reopen it within 30 days.</p>
+            <div class="mock">
+              <div class="row"><span class="t">CTS-2026-000071</span><span class="pill p-blue">Received</span></div>
+              <div class="row" style="margin-top:10px"><span class="muted">Opened today · not started yet</span><span class="btn dan">Cancel ticket</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chg">
+        <h3><b>3</b> Staff can close from any active status, with a reason</h3>
+        <div class="ba">
+          <div class="before"><div class="lbl">Today</div>
+            <p>Staff can close only from New or Waiting for you. A duplicate found while In progress must be marked Resolved first, and the customer gets a "resolved" email that is not true.</p>
+          </div>
+          <div class="after"><div class="lbl">Suggested</div>
+            <p>"Closed" is in the status list for every active status. It needs a closure reason and a note. Still needs the "Close tickets" permission.</p>
+            <div class="mock">
+              <div class="field"><label>New status <span class="req">*</span></label><div class="in">Closed</div></div>
+              <div class="field"><label>Closure reason <span class="req">*</span></label><div class="in">Duplicate</div></div>
+              <div class="field"><label>Note <span class="req">*</span></label><div class="in">Same as CTS-2026-000058</div></div>
+              <div class="row" style="margin-top:10px"><span class="btn pri">Save</span><span class="muted" style="font-size:12px"><span class="req">*</span> Required</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chg">
+        <h3><b>4</b> Pending internal gets a reminder</h3>
+        <div class="ba">
+          <div class="before"><div class="lbl">Today</div>
+            <p>No timer. A ticket can wait on another team forever while the customer sees "In progress".</p>
+          </div>
+          <div class="after"><div class="lbl">Suggested</div>
+            <p>After 3 days in Pending internal, the assigned agent and their team leader get an email. It repeats every 3 days. It never closes by itself. The number of days is set with the other ticket timers in Settings (0 = off).</p>
+            <div class="mock">
+              <div class="field"><label>Remind about "Pending internal" after (days)</label><div class="in">3</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="s">
+    <h2 class="sec"><span class="num">4</span> What stays the same</h2>
+    <div class="stays">
+      <div><b>Staff statuses</b>The same eight, the same colours, and the same queue tabs.</div>
+      <div><b>Timers</b>Waiting for you: days 2, 4, 7 and 10. Resolved: reminder on day 3, closed on day 5. Reopen within 30 days.</div>
+      <div><b>Status flow screen</b>Admins can still change allowed moves under Settings. The new moves are added there as normal rows.</div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

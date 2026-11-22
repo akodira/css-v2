@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign-in brand block</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0f1a2e; --muted:#5b6478; --line:#dfe4ee; --brand:#1d63ed; --brand-ink:#1645a8; --navy:#0b1f4d; --soft:#eef3fd; }
+  * { box-sizing:border-box; } html { scrollbar-gutter:stable; }
+  body { margin:0; font-family:'IBM Plex Sans','IBM Plex Sans Arabic',system-ui,sans-serif; color:var(--ink); background:#f3f5f9; line-height:1.45; }
+  .wrap { max-width:1240px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 4px; } .lead { color:var(--muted); margin:0 0 18px; max-width:85ch; }
+  section.s { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; margin:18px 0; }
+  h2.sec { font-size:20px; margin:0 0 6px; display:flex; gap:10px; align-items:center; }
+  .num { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--brand); color:#fff; font-size:14px; flex:none; }
+  .note { color:var(--muted); font-size:14px; margin:4px 0 14px; max-width:90ch; }
+  ol.issues { margin:6px 0 0; padding-inline-start:22px; } ol.issues li { margin:6px 0; font-size:14px; }
+  .pair { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px; } .pair > div { min-width:0; } .pair > div > p { margin:0 0 6px; font-size:13px; font-weight:700; color:var(--muted); }
+  @media (max-width:900px) { .pair { grid-template-columns:1fr; } }
+  /* page frame: real size 1600x900, scaled to fit */
+  .frame { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; }
+  .scale { width:1600px; height:900px; transform-origin:top left; }
+  .page { display:grid; grid-template-columns:1.05fr 1fr; height:900px; }
+  .page .pic { order:-1; }
+
+  .form-side { background:linear-gradient(160deg,#f3f7fe,#e3ecfb); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px; gap:28px; }
+  .card { width:448px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:28px 32px; box-shadow:0 2px 10px rgba(11,31,77,.06); }
+  .card h3 { margin:0 0 4px; font-size:26px; } .card .sub { color:var(--muted); font-size:14px; margin:0 0 20px; }
+  .fld { margin-bottom:16px; } .fld label { display:block; font-weight:600; font-size:14px; margin-bottom:6px; } .fld .in { height:44px; border:1px solid var(--line); border-radius:10px; }
+  .card .btn { height:46px; border-radius:10px; background:var(--brand); color:#fff; font-weight:700; display:grid; place-items:center; margin-top:8px; }
+  .card .alt { height:44px; border-radius:10px; background:var(--soft); margin-top:14px; }
+  .pic { position:relative; overflow:hidden; background:linear-gradient(180deg,#e7effd,#9dbdf2 55%,#1d4fb8); }
+  .pic svg.art { position:absolute; inset:0; width:100%; height:100%; }
+  .band { position:absolute; inset-inline:0; bottom:0; padding:64px 44px 40px; background:linear-gradient(0deg,rgba(11,31,77,.95),rgba(11,31,77,.6) 70%,transparent); color:#fff; }
+  .band b { display:block; font-size:34px; } .band span { color:#dbe6ff; font-size:17px; }
+  .wm { font-weight:800; font-style:italic; letter-spacing:.06em; color:#1f7fc8; font-size:44px; line-height:1; }
+  .wm.sm { font-size:34px; }
+  /* current: floating card */
+  .cur { position:absolute; top:24px; inset-inline-start:24px; background:rgba(255,255,255,.85); border-radius:12px; padding:12px 16px; box-shadow:0 2px 10px rgba(11,31,77,.08); color:var(--navy); }
+  .cur b { display:block; font-size:16px; margin-top:6px; } .cur span { color:var(--brand-ink); font-size:14px; }
+  /* A: brand above the card */
+  .lockA { display:flex; align-items:center; gap:16px; color:var(--navy); }
+  .lockA .div { width:2px; height:44px; background:#b9cff6; }
+  .lockA b { display:block; font-size:18px; } .lockA span { color:var(--brand-ink); font-size:14px; }
+  /* B: white top strip on the picture */
+  .strip { position:absolute; inset-inline:0; top:0; height:96px; background:#fff; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:16px; padding:0 40px; color:var(--navy); z-index:1; }
+  .strip .div { width:2px; height:40px; background:#b9cff6; } .strip b { display:block; font-size:18px; } .strip span { color:var(--brand-ink); font-size:14px; }
+  /* C: lockup on the picture, no box, drawing pushed down */
+  .lockC { position:absolute; top:40px; inset-inline-start:44px; color:var(--navy); z-index:1; }
+  .lockC b { display:block; font-size:20px; margin-top:10px; } .lockC span { color:var(--brand-ink); font-size:15px; }
+  .rec { display:inline-block; font-size:12px; font-weight:700; color:#14804a; background:#e3f5ea; border-radius:999px; padding:2px 10px; vertical-align:middle; }
+  .same { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+  .same div { border:1px solid var(--line); border-radius:10px; padding:12px; font-size:14px; } .same b { display:block; margin-bottom:2px; }
+  @media (max-width:760px) { .same { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sign-in pages: the logo block</h1>
+  <p class="lead">Today the logo, name and tagline sit in a white box on top of the picture. Three ways to fix it, each shown at a real desktop size (scaled down). The same change applies to every sign-in page: sign in, code, two-step, create account, forgot and new password.</p>
+
+  <section class="s">
+    <h2 class="sec"><span class="num">1</span> What's wrong today</h2>
+    <ol class="issues">
+      <li><b>It covers the drawing</b>: the speech-bubble icon in English and the check mark in Arabic sit right under the box.</li>
+      <li><b>It looks pasted on</b>: a see-through white box floating on a blue picture, with no line to anything else on the page.</li>
+      <li><b>Two brands compete</b>: the box at the top and "We're here to help" at the bottom both shout.</li>
+      <li><b>The picture is cut</b>: it fills the panel by cropping, so the person and the desk change size and position with the window.</li>
+    </ol>
+  </section>
+
+  <!-- Option A -->
+  <section class="s">
+    <h2 class="sec"><span class="num">2</span> Option A: logo above the sign-in card <span class="rec">Recommended</span></h2>
+    <p class="note">The logo, a thin line, and the name and tagline sit centred above the card, so people see them right where they sign in. The picture has only the drawing (shown whole, never cut) and the band. The phone strip goes away because the same block shows above the card on every screen. It matches the home page, where the logo also sits away from the picture.</p>
+    <div class="pair">
+      <div><p>English</p><div class="frame"><div class="scale">
+        <div class="page">
+          <div class="form-side">
+            <div class="lockA"><span class="wm">AZKA</span><span class="div"></span><div><b>Customer Care System</b><span>Always here to help</span></div></div>
+            <div class="card"><h3>Sign in</h3><p class="sub">Welcome back. Sign in to your account.</p><div class="fld"><label>Email or phone</label><div class="in"></div></div><div class="fld"><label>Password</label><div class="in"></div></div><div class="btn">Sign in</div><div class="alt"></div></div>
+          </div>
+          <div class="pic"><svg class="art" viewBox="0 40 400 360" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="band"><b>We're here to help</b><span>Your satisfaction is our priority</span></div></div>
+        </div></div></div></div>
+      <div><p>Arabic</p><div class="frame"><div class="scale">
+        <div class="page" dir="rtl">
+          <div class="form-side">
+            <div class="lockA"><span class="wm">AZKA</span><span class="div"></span><div><b>نظام خدمة العملاء</b><span>دائمًا هنا لمساعدتك</span></div></div>
+            <div class="card"><h3>تسجيل الدخول</h3><p class="sub">مرحبًا بعودتك! سجّل الدخول إلى حسابك.</p><div class="fld"><label>البريد الإلكتروني أو رقم الهاتف</label><div class="in"></div></div><div class="fld"><label>كلمة المرور</label><div class="in"></div></div><div class="btn">تسجيل الدخول</div><div class="alt"></div></div>
+          </div>
+          <div class="pic"><svg class="art" viewBox="0 40 400 360" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="band"><b>نحن هنا لمساعدتك</b><span>رضاك أولويتنا</span></div></div>
+        </div></div></div></div>
+    </div>
+  </section>
+
+  <!-- Option B -->
+  <section class="s">
+    <h2 class="sec"><span class="num">3</span> Option B: a white strip across the top of the picture</h2>
+    <p class="note">The brand stays on the picture side, but in its own white strip from edge to edge, with the logo, a line, and the name and tagline in one row. The drawing starts below the strip, so nothing is covered. It is tidy, but the brand sits far from the form.</p>
+    <div class="pair">
+      <div><p>English</p><div class="frame"><div class="scale">
+        <div class="page">
+          <div class="form-side"><div class="card"><h3>Sign in</h3><p class="sub">Welcome back. Sign in to your account.</p><div class="fld"><label>Email or phone</label><div class="in"></div></div><div class="fld"><label>Password</label><div class="in"></div></div><div class="btn">Sign in</div><div class="alt"></div></div></div>
+          <div class="pic"><div class="strip"><span class="wm sm">AZKA</span><span class="div"></span><div><b>Customer Care System</b><span>Always here to help</span></div></div>
+            <svg class="art" viewBox="0 10 400 390" preserveAspectRatio="xMidYMid meet" style="top:96px;height:calc(100% - 96px)"></svg>
+            <div class="band"><b>We're here to help</b><span>Your satisfaction is our priority</span></div></div>
+        </div></div></div></div>
+      <div><p>Arabic</p><div class="frame"><div class="scale">
+        <div class="page" dir="rtl">
+          <div class="form-side"><div class="card"><h3>تسجيل الدخول</h3><p class="sub">مرحبًا بعودتك! سجّل الدخول إلى حسابك.</p><div class="fld"><label>البريد الإلكتروني أو رقم الهاتف</label><div class="in"></div></div><div class="fld"><label>كلمة المرور</label><div class="in"></div></div><div class="btn">تسجيل الدخول</div><div class="alt"></div></div></div>
+          <div class="pic"><div class="strip"><span class="wm sm">AZKA</span><span class="div"></span><div><b>نظام خدمة العملاء</b><span>دائمًا هنا لمساعدتك</span></div></div>
+            <svg class="art" viewBox="0 10 400 390" preserveAspectRatio="xMidYMid meet" style="top:96px;height:calc(100% - 96px)"></svg>
+            <div class="band"><b>نحن هنا لمساعدتك</b><span>رضاك أولويتنا</span></div></div>
+        </div></div></div></div>
+    </div>
+  </section>
+
+  <!-- Option C -->
+  <section class="s">
+    <h2 class="sec"><span class="num">4</span> Option C: logo on the picture, without the box</h2>
+    <p class="note">The logo, name and tagline sit straight on the light top of the picture, with no box. The drawing is moved down and made smaller so the top stays clear. It is the closest to today, but it only works while the top of the picture is light. An uploaded dark picture would hide the logo.</p>
+    <div class="pair">
+      <div><p>English</p><div class="frame"><div class="scale">
+        <div class="page">
+          <div class="form-side"><div class="card"><h3>Sign in</h3><p class="sub">Welcome back. Sign in to your account.</p><div class="fld"><label>Email or phone</label><div class="in"></div></div><div class="fld"><label>Password</label><div class="in"></div></div><div class="btn">Sign in</div><div class="alt"></div></div></div>
+          <div class="pic"><div class="lockC"><span class="wm">AZKA</span><b>Customer Care System</b><span>Always here to help</span></div>
+            <svg class="art" viewBox="0 -60 400 460" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="band"><b>We're here to help</b><span>Your satisfaction is our priority</span></div></div>
+        </div></div></div></div>
+      <div><p>Today (for comparison)</p><div class="frame"><div class="scale">
+        <div class="page">
+          <div class="form-side"><div class="card"><h3>Sign in</h3><p class="sub">Welcome back. Sign in to your account.</p><div class="fld"><label>Email or phone</label><div class="in"></div></div><div class="fld"><label>Password</label><div class="in"></div></div><div class="btn">Sign in</div><div class="alt"></div></div></div>
+          <div class="pic"><svg class="art" viewBox="40 60 330 300" preserveAspectRatio="xMidYMid slice"></svg>
+            <div class="cur"><span class="wm sm">AZKA</span><b>Customer Care System</b><span>Always here to help</span></div>
+            <div class="band"><b>We're here to help</b><span>Your satisfaction is our priority</span></div></div>
+        </div></div></div></div>
+    </div>
+  </section>
+
+  <section class="s">
+    <h2 class="sec"><span class="num">5</span> Same for every option</h2>
+    <div class="same">
+      <div><b>Your logo</b>Uses the wide logo from Settings → Branding, or the square logo when there is no wide one.</div>
+      <div><b>Arabic</b>Mirrors fully. The name and tagline read right to left next to the logo.</div>
+      <div><b>Phones</b>The picture is hidden as today. The logo block shows above the card (A) or in the top strip (B and C).</div>
+    </div>
+  </section>
+</div>
+
+<svg id="art" style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="200" cy="215" r="150" fill="#fff" opacity=".25"/>
+  <rect x="190" y="233" width="130" height="84" rx="8" fill="#1d63e0"/><rect x="198" y="241" width="114" height="68" rx="4" fill="#e7effd"/><rect x="208" y="253" width="60" height="7" rx="3.5" fill="#1d63e0"/><rect x="208" y="267" width="88" height="5" rx="2.5" fill="#9dbdf2"/><rect x="208" y="279" width="74" height="5" rx="2.5" fill="#9dbdf2"/>
+  <rect x="40" y="315" width="320" height="14" rx="7" fill="#0b1f4d" opacity=".85"/>
+  <path d="M70 315c0-60 30-92 70-92s70 32 70 92z" fill="#0b1f4d"/><path d="M118 227l22 30 22-30" fill="#fff"/>
+  <circle cx="140" cy="179" r="38" fill="#f2c9a6"/><path d="M102 173c0-26 18-42 40-42s38 16 38 40c-8-10-22-16-40-16-16 0-30 8-38 18z" fill="#2b1d16"/>
+  <path d="M100 179a40 40 0 0 1 80 0" fill="none" stroke="#0b1f4d" stroke-width="6"/><rect x="94" y="171" width="12" height="22" rx="6" fill="#0b1f4d"/><rect x="174" y="171" width="12" height="22" rx="6" fill="#0b1f4d"/>
+  <path d="M180 191c0 14-10 22-24 22" fill="none" stroke="#0b1f4d" stroke-width="4"/><circle cx="154" cy="213" r="5" fill="#0b1f4d"/><path d="M126 193q14 10 28 0" fill="none" stroke="#7a4b32" stroke-width="3" stroke-linecap="round"/>
+  <path d="M162 265l40 24" stroke="#0b1f4d" stroke-width="16" stroke-linecap="round"/>
+  <rect x="246" y="115" width="108" height="56" rx="14" fill="#fff"/><path d="M262 171l-6 16 22-16z" fill="#fff"/><rect x="262" y="131" width="60" height="7" rx="3.5" fill="#1d63e0"/><rect x="262" y="147" width="78" height="6" rx="3" fill="#9dbdf2"/>
+  <circle cx="300" cy="69" r="26" fill="#1d63e0"/><path d="M289 69l8 8 15-16" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="76" cy="95" r="22" fill="#fff"/><path d="M66 89h20M66 97h14" stroke="#1d63e0" stroke-width="4" stroke-linecap="round"/>
+</svg>
+<script>
+  // Same drawing in every frame; each page is 1600x900, scaled to its frame.
+  const art = document.getElementById('art').innerHTML;
+  document.querySelectorAll('svg.art').forEach((s) => { s.innerHTML = art; });
+  function fit() {
+    document.querySelectorAll('.scale').forEach((el) => {
+      const k = el.parentElement.clientWidth / 1600;
+      el.style.transform = 'scale(' + k + ')'; el.parentElement.style.height = (900 * k) + 'px';
+    });
+  }
+  addEventListener('resize', fit); addEventListener('load', fit); fit();
+</script>
+</body>
+</html>

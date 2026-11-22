@@ -18,8 +18,8 @@ export class AuthLogo {
 
 /**
  * Frame of every sign-in page (sign in, code, two-step, create account, forgot / new password).
- * New look (Settings → Branding → Home and sign-in look): the picture panel with the logo and two lines on one side,
- * the card on the other; on phones the panel becomes a slim logo strip. Classic look: the earlier centred card.
+ * New look (Settings → Branding → Home and sign-in look): the picture panel on one side, topped by a white strip with the
+ * logo, name and tagline; the card on the other. On phones only the white strip shows, above the card. Classic look: the earlier centred card.
  * The page's card goes inside (one ng-content, so the same markup serves both looks).
  */
 @Component({
@@ -31,13 +31,16 @@ export class AuthLogo {
   template: `
     <div [class]="nl() ? 'grid min-h-dvh lg:grid-cols-[1.05fr_1fr]' : ''">
       @if (nl()) {
-        <aside class="relative hidden overflow-hidden lg:block" aria-hidden="true">
-          @if (site.signinPictureUrl(); as pic) { <img [src]="pic" alt="" class="absolute inset-0 h-full w-full object-cover" /> } @else { <app-auth-art [kind]="d().picture" /> }
-          <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.6)_0%,rgba(255,255,255,0)_24%)]"></div>
-          <div class="absolute start-6 top-6 inline-flex max-w-[calc(100%-3rem)] flex-col items-start gap-1.5 rounded-xl bg-white/85 px-4 py-3 leading-tight text-[#0b1f4d] shadow-[0_2px_10px_rgba(11,31,77,.08)]" dir="auto">
-            @if (site.wordmarkUrl(); as w) { <img [src]="w" alt="" class="h-10 w-auto max-w-[12rem] object-contain" /> }
-            @else if (site.logoUrl(); as l) { <img [src]="l" alt="" class="h-10 w-10 object-contain" /> }
-            <b class="block">{{ name() }}</b><span class="text-sm text-brand-ink">{{ tag() }}</span>
+        <!-- Picture side: a white strip with the brand (logo, line, name and tagline in one row), the picture below it, so nothing covers the drawing. -->
+        <aside class="relative hidden flex-col overflow-hidden lg:sticky lg:top-0 lg:flex lg:h-dvh lg:self-start" aria-hidden="true">
+          <div class="flex h-24 flex-none items-center gap-4 border-b border-line bg-surface px-10 text-[#0b1f4d]">
+            @if (site.wordmarkUrl(); as w) { <img [src]="w" alt="" class="h-10 w-auto max-w-[12rem] flex-none object-contain" /> }
+            @else if (site.logoUrl(); as l) { <img [src]="l" alt="" class="h-10 w-auto flex-none object-contain" /> }
+            @if (site.wordmarkUrl() || site.logoUrl()) { <span class="h-10 w-0.5 flex-none rounded bg-[#b9cff6]"></span> }
+            <span class="min-w-0 leading-tight"><b class="block truncate">{{ name() }}</b><span class="block truncate text-sm text-brand-ink">{{ tag() }}</span></span>
+          </div>
+          <div class="relative flex-1">
+            @if (site.signinPictureUrl(); as pic) { <img [src]="pic" alt="" class="absolute inset-0 h-full w-full object-cover" /> } @else { <app-auth-art [kind]="d().picture" /> }
           </div>
           @if (d().band) {
             <div class="absolute inset-x-0 bottom-0 bg-[linear-gradient(0deg,rgba(11,31,77,.95),rgba(11,31,77,.6)_70%,transparent)] px-8 pb-8 pt-16 text-white" dir="auto">
@@ -48,10 +51,12 @@ export class AuthLogo {
       }
       <div [class]="nl() ? 'flex min-w-0 flex-col bg-[linear-gradient(160deg,#f3f7fe,#e3ecfb)]' : ''">
         @if (nl()) {
-          <div class="flex flex-col items-start gap-1 bg-[linear-gradient(135deg,#dfe9fc,#9dbdf2)] px-4 py-3 text-[#0b1f4d] lg:hidden">
-            @if (site.wordmarkUrl(); as w) { <img [src]="w" alt="" class="h-8 w-auto max-w-[9rem] object-contain" /> }
-            @else if (site.logoUrl(); as l) { <img [src]="l" alt="" class="h-8 w-8 object-contain" /> }
-            <b class="min-w-0 max-w-full truncate text-sm" dir="auto">{{ name() }}</b>
+          <!-- Phones: the same white brand strip as on the picture side. -->
+          <div class="flex items-center gap-3 border-b border-line bg-surface px-4 py-3 text-[#0b1f4d] lg:hidden">
+            @if (site.wordmarkUrl(); as w) { <img [src]="w" alt="" class="h-8 w-auto max-w-[8rem] flex-none object-contain" /> }
+            @else if (site.logoUrl(); as l) { <img [src]="l" alt="" class="h-8 w-auto flex-none object-contain" /> }
+            @if (site.wordmarkUrl() || site.logoUrl()) { <span class="h-10 w-0.5 flex-none rounded bg-[#b9cff6]"></span> }
+            <span class="min-w-0 leading-tight"><b class="block truncate">{{ name() }}</b><span class="block truncate text-sm text-brand-ink">{{ tag() }}</span></span>
           </div>
         }
         <main [class]="nl() ? 'flex flex-1 items-center justify-center px-4 py-8 sm:px-8' : 'px-4 py-12'">
