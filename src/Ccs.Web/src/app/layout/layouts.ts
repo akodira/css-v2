@@ -166,8 +166,8 @@ export class Footer {
       </div>
     </header>
     }
-    <div data-outlet class="flex-1"><router-outlet /></div>
-    @if (!bare()) { <app-footer /> }`,
+    <div data-outlet [class]="guestHome() ? 'flex flex-1 flex-col' : 'flex-1'"><router-outlet /></div>
+    @if (!bare()) { <app-footer [slim]="guestHome()" /> }`,
   host: { class: 'flex flex-1 flex-col' },
   changeDetection: ChangeDetectionStrategy.Default,
 })
@@ -179,6 +179,8 @@ export class PublicLayout {
   private readonly url = signal(this.router.url);
   /** Sign-in pages in the new look have their own frame (picture panel + card): no site header or footer there. */
   protected readonly bare = computed(() => this.site.newLook() && /^\/(en|ar)\/(login|login\/code|mfa|register|forgot-password|reset-password)(?=[/?#]|$)/.test(this.url()));
+  /** Guest home in the new look: the slim footer, so the whole page fits the first screen. */
+  protected readonly guestHome = computed(() => this.site.newLook() && !this.auth.signedIn() && /^\/(en|ar)\/?(?=[?#]|$)/.test(this.url()));
   constructor() {
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd), takeUntilDestroyed()).subscribe(() => { this.open.set(false); this.url.set(this.router.url); });
   }

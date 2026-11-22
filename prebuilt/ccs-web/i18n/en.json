@@ -36,6 +36,15 @@
     "createTitle": "Create a new ticket",
     "createBody": "Need help? Submit a new ticket and we will get back to you shortly.",
     "createCta": "Create ticket",
+    "guest": {
+      "point1": "Track every ticket",
+      "point2": "Replies by email",
+      "point3": "English and Arabic",
+      "card1": "Ticket resolved",
+      "card1Sub": "You are told at every step",
+      "card2": "New reply from support",
+      "card2Sub": "Answer it from your ticket"
+    },
     "myTicketsTitle": "My tickets",
     "myTicketsBody": "View and track the status of your support requests.",
     "viewAll": "View all",

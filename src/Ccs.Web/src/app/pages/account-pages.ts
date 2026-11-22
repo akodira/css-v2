@@ -70,28 +70,15 @@ const HOME_ICON = { plus: 'M12 5v14M5 12h14', list: 'M4 6h16M4 12h16M4 18h10' };
         </div>
       </main>
     } @else if (site.newLook() && !auth.signedIn()) {
-      <!-- New look (Settings → Branding → Home and sign-in look): the same layout as the sign-in page. Picture (built-in
-           drawing or the uploaded one) with the brand and the band on one side; title, one line and two buttons on the other. -->
-      <main data-home class="grid flex-1 lg:grid-cols-[1.05fr_1fr]">
-        <aside class="relative hidden min-h-[32rem] overflow-hidden lg:block" aria-hidden="true">
-          @if (site.signinPictureUrl(); as pic) { <img [src]="pic" alt="" class="absolute inset-0 h-full w-full object-cover" /> } @else { <app-auth-art [kind]="look().picture" /> }
-          <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.6)_0%,rgba(255,255,255,0)_24%)]"></div>
-          <div class="absolute start-6 top-6 inline-flex max-w-[calc(100%-3rem)] flex-col items-start gap-1.5 rounded-xl bg-white/85 px-4 py-3 leading-tight text-[#0b1f4d] shadow-[0_2px_10px_rgba(11,31,77,.08)]" dir="auto">
-            @if (site.wordmarkUrl(); as w) { <img [src]="w" alt="" class="h-10 w-auto max-w-[12rem] object-contain" /> }
-            @else if (site.logoUrl(); as l) { <img [src]="l" alt="" class="h-10 w-10 object-contain" /> }
-            <b class="block">{{ name() }}</b><span class="text-sm text-brand-ink">{{ tag() }}</span>
-          </div>
-          @if (look().band) {
-            <div class="absolute inset-x-0 bottom-0 bg-[linear-gradient(0deg,rgba(11,31,77,.95),rgba(11,31,77,.6)_70%,transparent)] px-8 pb-8 pt-16 text-white" dir="auto">
-              <p class="text-3xl font-bold">{{ bandTitle() }}</p><p class="mt-1 text-[#dbe6ff]">{{ bandSub() }}</p>
-            </div>
-          }
-        </aside>
-        <div class="flex min-w-0 flex-col justify-center bg-[linear-gradient(160deg,#f3f7fe,#e3ecfb)] px-6 py-14 sm:px-12">
-          <div class="flex w-full max-w-xl flex-col gap-4">
-            <h1 class="text-4xl font-extrabold leading-tight tracking-tight md:text-5xl" dir="auto">{{ title() }}</h1>
-            <p class="text-pretty text-lg text-ink/80" dir="auto">{{ intro() }}</p>
-            <div class="mt-3 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+      <!-- New look (Settings → Branding → Home and sign-in look), guest home: everything inside the page width (same column
+           as the header and footer). Text, two buttons and three points on one side; the picture whole in a rounded frame on the other. -->
+      <main data-home class="flex flex-1 flex-col bg-[linear-gradient(180deg,#f5f8ff_0%,#e8effc_100%)]">
+        <div class="mx-auto grid w-full max-w-6xl flex-1 items-center gap-10 px-4 py-10 lg:grid-cols-[1.05fr_.95fr] lg:gap-14 lg:py-12">
+          <div class="flex min-w-0 flex-col items-start gap-5">
+            <span class="inline-flex items-center gap-2 rounded-full bg-brand-soft px-3 py-1.5 text-sm font-bold text-brand-ink" dir="auto"><span class="h-2 w-2 rounded-full bg-brand" aria-hidden="true"></span>{{ tag() }}</span>
+            <h1 class="text-4xl font-extrabold leading-[1.1] tracking-tight md:text-5xl lg:text-[3.5rem]" dir="auto">{{ title() }}</h1>
+            <p class="max-w-[34ch] text-pretty text-lg text-ink/80 md:text-xl" dir="auto">{{ intro() }}</p>
+            <div class="mt-1 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
               <a [routerLink]="link('/tickets/new')" class="flex min-h-13 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-lg font-bold text-white hover:bg-brand-ink">
                 <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path [attr.d]="icon.plus" /></svg>{{ 'Home.createCta' | t }}</a>
               <a [routerLink]="link('/login')" class="flex min-h-13 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-6 text-lg font-bold text-brand-ink hover:bg-bg">
@@ -100,6 +87,24 @@ const HOME_ICON = { plus: 'M12 5v14M5 12h14', list: 'M4 6h16M4 12h16M4 18h10' };
             @if (site.info()?.site?.registrationMode !== 'closed') {
               <p class="text-sm text-muted">{{ 'Auth.login.noAccount' | t }} <a [routerLink]="link('/register')" class="font-bold text-brand-ink underline">{{ 'Auth.login.register' | t }}</a></p>
             }
+            <ul class="mt-1 flex flex-wrap gap-2.5">
+              @for (k of ['point1', 'point2', 'point3']; track k) {
+                <li class="flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-sm font-semibold text-ink/85"><span class="grid h-5 w-5 flex-none place-items-center rounded-full bg-ok-soft text-ok"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>{{ 'Home.guest.' + k | t }}</li>
+              }
+            </ul>
+          </div>
+          <div class="relative mx-auto w-full max-w-md sm:max-w-lg lg:max-w-none" aria-hidden="true">
+            <div class="relative aspect-square max-h-[30rem] w-full overflow-hidden rounded-[1.75rem] bg-[linear-gradient(180deg,#e7effd,#9dbdf2_60%,#1d4fb8)] shadow-[0_24px_60px_rgba(11,31,77,.18)] lg:mx-auto lg:max-w-[30rem]">
+              @if (site.signinPictureUrl(); as pic) { <img [src]="pic" alt="" class="absolute inset-0 h-full w-full object-contain" /> } @else { <app-auth-art [kind]="look().picture" /> }
+            </div>
+            <div class="absolute -start-3 bottom-10 hidden items-center gap-3 rounded-2xl bg-surface px-4 py-3 shadow-[0_10px_26px_rgba(11,31,77,.16)] sm:flex lg:-start-8">
+              <span class="grid h-9 w-9 place-items-center rounded-xl bg-ok-soft text-ok"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-10"/></svg></span>
+              <span class="text-sm font-semibold leading-tight">{{ 'Home.guest.card1' | t }}<small class="mt-0.5 block text-xs font-normal text-muted">{{ 'Home.guest.card1Sub' | t }}</small></span>
+            </div>
+            <div class="absolute -end-2 -top-7 hidden items-center gap-3 rounded-2xl bg-surface px-4 py-3 shadow-[0_10px_26px_rgba(11,31,77,.16)] sm:flex lg:-end-4">
+              <span class="grid h-9 w-9 place-items-center rounded-xl bg-brand-soft text-brand"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></span>
+              <span class="text-sm font-semibold leading-tight">{{ 'Home.guest.card2' | t }}<small class="mt-0.5 block text-xs font-normal text-muted">{{ 'Home.guest.card2Sub' | t }}</small></span>
+            </div>
           </div>
         </div>
       </main>
@@ -161,13 +166,10 @@ export class HomePage {
   protected readonly outline = this.base + ' border border-line bg-surface text-ink hover:bg-bg';
   protected readonly customer = computed(() => this.auth.isCustomer() && !this.auth.isStaff());
   protected readonly counts = signal<TicketSummary | null>(null);
-  // Guest home in the new look: the same picture, brand and band texts as the sign-in page.
+  // Guest home in the new look: the same picture and tag as the sign-in page.
   protected readonly look = this.site.authDesign;
   private readonly pickLook = (en: string, ar: string, key: string) => ((this.i18n.locale() === 'ar' ? ar : en) || '').trim() || this.i18n.t(key);
-  protected readonly name = computed(() => this.i18n.pick(this.site.info()?.site?.headerSubEn, this.site.info()?.site?.headerSubAr) || this.i18n.t('Brand.tagline'));
   protected readonly tag = computed(() => this.pickLook(this.look().tagEn, this.look().tagAr, 'AuthLook.tag'));
-  protected readonly bandTitle = computed(() => this.pickLook(this.look().titleEn, this.look().titleAr, 'AuthLook.title'));
-  protected readonly bandSub = computed(() => this.pickLook(this.look().subEn, this.look().subAr, 'AuthLook.sub'));
   /** A card opens My tickets on that list ("Total tickets" = all). */
   protected openList(k: string): void { void this.router.navigate([this.link('/tickets')], { queryParams: { filter: k === 'total' ? null : k } }); }
   protected readonly recent = signal<TicketListItem[] | null>(null);

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home page redesign</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#0f1a2e; --muted:#5b6478; --line:#dfe4ee; --brand:#1d63ed; --brand-ink:#1645a8; --navy:#0b1f4d; --soft:#eef3fd; }
+  * { box-sizing:border-box; } html { scrollbar-gutter:stable; }
+  body { margin:0; font-family:'IBM Plex Sans',system-ui,sans-serif; color:var(--ink); background:#f3f5f9; line-height:1.45; }
+  .wrap { max-width:1240px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:28px; margin:0 0 4px; } .lead { color:var(--muted); margin:0 0 18px; max-width:80ch; }
+  section.s { background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px; margin:18px 0; }
+  h2.sec { font-size:20px; margin:0 0 6px; display:flex; gap:10px; align-items:center; }
+  .num { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--brand); color:#fff; font-size:14px; flex:none; }
+  .note { color:var(--muted); font-size:14px; margin:4px 0 14px; max-width:85ch; }
+  ol.issues { margin:6px 0 0; padding-inline-start:22px; } ol.issues li { margin:6px 0; font-size:14px; }
+  /* browser frame: the real page at desktop size, scaled down */
+  .frame { border:1px solid var(--line); border-radius:12px; overflow:hidden; background:#fff; }
+  .frame .scale { width:1600px; transform-origin:top left; }
+  .viewport { position:relative; overflow:hidden; }
+  .hdr { height:68px; border-bottom:1px solid var(--line); background:#fff; display:flex; align-items:center; }
+  .hdr .in, .ftr .in, .container { width:100%; max-width:1180px; margin:0 auto; padding:0 24px; }
+  .hdr .in { display:flex; align-items:center; justify-content:space-between; }
+  .logo { display:flex; align-items:center; gap:10px; color:var(--brand); } .logo b { font-size:20px; display:block; letter-spacing:.02em; } .logo small { font-size:11px; color:var(--brand-ink); font-weight:600; }
+  .hdr .nav { display:flex; gap:14px; align-items:center; font-weight:600; font-size:14px; color:var(--brand-ink); }
+  .lang { display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; } .lang span { padding:8px 12px; } .lang span:first-child { background:var(--soft); }
+  .btn { display:inline-flex; align-items:center; gap:8px; min-height:52px; padding:0 24px; border-radius:12px; background:var(--brand); color:#fff; font-weight:700; font-size:17px; }
+  .btn2 { display:inline-flex; align-items:center; gap:8px; min-height:52px; padding:0 24px; border-radius:12px; background:#fff; color:var(--brand-ink); font-weight:700; font-size:17px; border:1px solid var(--line); }
+  .btn.sm { min-height:40px; padding:0 16px; font-size:14px; border-radius:8px; }
+  .ftr { border-top:1px solid var(--line); background:#fff; }
+  .ftr .in { display:flex; justify-content:space-between; align-items:center; height:56px; font-size:13px; color:var(--muted); } .ftr a { color:var(--brand-ink); font-weight:600; margin-inline-start:16px; }
+  .t-title { font-size:56px; line-height:1.08; font-weight:800; letter-spacing:-.02em; margin:0; }
+  .t-intro { font-size:19px; color:#3c4658; margin:0; max-width:34ch; }
+  .points { display:flex; flex-wrap:wrap; gap:10px; margin:0; padding:0; list-style:none; }
+  .points li { display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; background:#fff; border:1px solid var(--line); font-size:14px; font-weight:600; color:#2b3548; }
+  .points li i { width:22px; height:22px; border-radius:50%; background:#e3f5ea; color:#14804a; display:grid; place-items:center; font-style:normal; font-size:13px; }
+  /* option A */
+  .heroA { background:linear-gradient(180deg,#f5f8ff 0%,#e8effc 100%); }
+  .heroA .grid { display:grid; grid-template-columns:1.05fr .95fr; gap:56px; align-items:center; padding:56px 24px; }
+  .art-card { position:relative; border-radius:28px; overflow:hidden; aspect-ratio:4/3.6; box-shadow:0 24px 60px rgba(11,31,77,.18); background:linear-gradient(180deg,#e7effd,#9dbdf2 60%,#1d4fb8); }
+  .art-card svg { position:absolute; inset:0; width:100%; height:100%; }
+  .float { position:absolute; display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:14px; background:#fff; box-shadow:0 10px 26px rgba(11,31,77,.16); font-size:14px; font-weight:600; }
+  .float i { width:32px; height:32px; border-radius:10px; display:grid; place-items:center; font-style:normal; }
+  .float small { display:block; font-weight:500; color:var(--muted); font-size:12px; }
+  /* option B */
+  .heroB { position:relative; display:grid; grid-template-columns:1fr 1fr; min-height:720px; }
+  .heroB .txt { display:flex; flex-direction:column; justify-content:center; gap:22px; padding:0 64px 0 max(24px, calc((1600px - 1180px)/2 + 24px)); background:#fff; }
+  .heroB .pic { position:relative; background:linear-gradient(160deg,#dfe9fc,#9dbdf2 55%,#1d4fb8); overflow:hidden; }
+  .heroB .pic svg { position:absolute; left:50%; bottom:0; transform:translateX(-50%); height:88%; width:auto; }
+  .tag { display:inline-flex; align-items:center; gap:8px; align-self:flex-start; padding:6px 12px; border-radius:999px; background:var(--soft); color:var(--brand-ink); font-weight:700; font-size:13px; }
+  .label { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:14px 0 8px; }
+  .why { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:12px; }
+  .why div { border:1px solid var(--line); border-radius:10px; padding:12px; font-size:14px; } .why b { display:block; margin-bottom:2px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Home page (not signed in): a better design</h1>
+  <p class="lead">What's wrong with the page now, and two cleaner options. Both are shown at a real desktop size (scaled down) with the header and the footer, so you see the whole first screen.</p>
+
+  <section class="s">
+    <h2 class="sec"><span class="num">1</span> What's wrong today</h2>
+    <ol class="issues">
+      <li><b>The logo three times</b>: in the header, on the picture panel, and in the footer.</li>
+      <li><b>The title twice</b>: "We're here to help" on the picture band and again as the big title.</li>
+      <li><b>The picture is cut</b>: the check mark is cut at the top, the person is cropped, and the white panel covers part of the drawing.</li>
+      <li><b>Nothing lines up</b>: the picture runs to the screen edge while the header, the text and the footer sit in a narrower column, so the page looks pushed to one side.</li>
+      <li><b>Empty space and weak right side</b>: the text floats in a big empty area; the footer starts below the first screen.</li>
+    </ol>
+  </section>
+
+  <!-- Option A -->
+  <section class="s">
+    <h2 class="sec"><span class="num">2</span> Option A: text and a framed picture, inside the page width (recommended)</h2>
+    <p class="note">Everything sits in the same column as the header and footer. The drawing is shown whole in a rounded frame, with two small floating cards that say what the portal does. One title, one line, two buttons, three short points. The slim footer is visible on the first screen.</p>
+    <div class="frame"><div class="scale" id="sa">
+      <div class="hdr"><div class="in"><div class="logo"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="21" stroke="#1f64e6" stroke-width="4"/><path d="M14 26v-3a10 10 0 0 1 20 0v3" stroke="#1f64e6" stroke-width="3.5" stroke-linecap="round"/><rect x="11" y="25" width="6" height="9" rx="3" fill="#1f64e6"/><rect x="31" y="25" width="6" height="9" rx="3" fill="#1f64e6"/></svg><div><b>AZKA Technology</b><small>Customer Care System</small></div></div>
+        <div class="nav"><div class="lang"><span>English</span><span>العربية</span></div><span>Create account</span><span class="btn sm">Sign in</span></div></div></div>
+      <div class="heroA"><div class="container grid">
+        <div style="display:flex;flex-direction:column;gap:22px">
+          <span class="tag">● Support open 24/7</span>
+          <p class="t-title">We're here<br>to help</p>
+          <p class="t-intro">Submit a ticket, track its progress, and get the support you need.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap"><span class="btn">＋ Create ticket</span><span class="btn2">→ Sign in</span></div>
+          <p style="margin:0;font-size:15px;color:var(--muted)">New here? <b style="color:var(--brand-ink);text-decoration:underline">Create an account</b></p>
+          <ul class="points"><li><i>✓</i>Track every ticket</li><li><i>✓</i>Replies by email</li><li><i>✓</i>English and Arabic</li></ul>
+        </div>
+        <div style="position:relative">
+          <div class="art-card">
+            <svg viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet"><circle cx="200" cy="215" r="150" fill="#fff" opacity=".25"/><rect x="40" y="315" width="320" height="14" rx="7" fill="#0b1f4d" opacity=".85"/><rect x="190" y="233" width="130" height="84" rx="8" fill="#1d63e0"/><rect x="198" y="241" width="114" height="68" rx="4" fill="#e7effd"/><rect x="208" y="253" width="60" height="7" rx="3.5" fill="#1d63e0"/><rect x="208" y="267" width="88" height="5" rx="2.5" fill="#9dbdf2"/><rect x="208" y="279" width="74" height="5" rx="2.5" fill="#9dbdf2"/><path d="M176 317h168l-10 -6H186z" fill="#0b1f4d"/><path d="M70 315c0-60 30-92 70-92s70 32 70 92z" fill="#0b1f4d"/><path d="M118 227l22 30 22-30" fill="#fff"/><circle cx="140" cy="179" r="38" fill="#f2c9a6"/><path d="M102 173c0-26 18-42 40-42s38 16 38 40c-8-10-22-16-40-16-16 0-30 8-38 18z" fill="#2b1d16"/><path d="M100 179a40 40 0 0 1 80 0" fill="none" stroke="#0b1f4d" stroke-width="6"/><rect x="94" y="171" width="12" height="22" rx="6" fill="#0b1f4d"/><rect x="174" y="171" width="12" height="22" rx="6" fill="#0b1f4d"/><path d="M180 191c0 14-10 22-24 22" fill="none" stroke="#0b1f4d" stroke-width="4"/><circle cx="154" cy="213" r="5" fill="#0b1f4d"/><path d="M126 193q14 10 28 0" fill="none" stroke="#7a4b32" stroke-width="3" stroke-linecap="round"/><path d="M162 265l40 24" stroke="#0b1f4d" stroke-width="16" stroke-linecap="round"/><rect x="246" y="115" width="108" height="56" rx="14" fill="#fff"/><path d="M262 171l-6 16 22-16z" fill="#fff"/><rect x="262" y="131" width="60" height="7" rx="3.5" fill="#1d63e0"/><rect x="262" y="147" width="78" height="6" rx="3" fill="#9dbdf2"/><circle cx="300" cy="69" r="26" fill="#1d63e0"/><path d="M289 69l8 8 15-16" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="76" cy="95" r="22" fill="#fff"/><path d="M66 89h20M66 97h14" stroke="#1d63e0" stroke-width="4" stroke-linecap="round"/></svg>
+          </div>
+          <div class="float" style="left:-36px;bottom:70px"><i style="background:#e3f5ea;color:#14804a">✓</i><span>Ticket resolved<small>CTS-2026-000062 · 2 min ago</small></span></div>
+          <div class="float" style="right:-20px;top:40px"><i style="background:#e6efff;color:#1d63ed">✉</i><span>New reply from support<small>Usually within a few hours</small></span></div>
+        </div>
+      </div></div>
+      <div class="ftr"><div class="in"><span>© 2026 AZKA Technology. All rights reserved.</span><span><a>Help Center</a><a>Submit a ticket</a><a>support@example.com</a><a>+20 2 0000 0000</a></span></div></div>
+    </div></div>
+  </section>
+
+  <!-- Option B -->
+  <section class="s">
+    <h2 class="sec"><span class="num">3</span> Option B: split screen, cleaned up</h2>
+    <p class="note">Keeps the half-and-half idea of today, fixed: the text half lines up with the header, the picture half has no panel and no second title, and the drawing stands on the bottom edge uncut. Bolder, but heavier than A.</p>
+    <div class="frame"><div class="scale" id="sb">
+      <div class="hdr"><div class="in"><div class="logo"><svg width="40" height="40" viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="21" stroke="#1f64e6" stroke-width="4"/><path d="M14 26v-3a10 10 0 0 1 20 0v3" stroke="#1f64e6" stroke-width="3.5" stroke-linecap="round"/><rect x="11" y="25" width="6" height="9" rx="3" fill="#1f64e6"/><rect x="31" y="25" width="6" height="9" rx="3" fill="#1f64e6"/></svg><div><b>AZKA Technology</b><small>Customer Care System</small></div></div>
+        <div class="nav"><div class="lang"><span>English</span><span>العربية</span></div><span>Create account</span><span class="btn sm">Sign in</span></div></div></div>
+      <div class="heroB">
+        <div class="txt">
+          <span class="tag">● Customer Care System</span>
+          <p class="t-title">We're here<br>to help</p>
+          <p class="t-intro">Submit a ticket, track its progress, and get the support you need.</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap"><span class="btn">＋ Create ticket</span><span class="btn2">→ Sign in</span></div>
+          <p style="margin:0;font-size:15px;color:var(--muted)">New here? <b style="color:var(--brand-ink);text-decoration:underline">Create an account</b></p>
+        </div>
+        <div class="pic"><svg viewBox="40 60 330 270"><circle cx="200" cy="215" r="150" fill="#fff" opacity=".22"/><rect x="40" y="315" width="320" height="14" rx="7" fill="#0b1f4d" opacity=".85"/><rect x="190" y="233" width="130" height="84" rx="8" fill="#1d63e0"/><rect x="198" y="241" width="114" height="68" rx="4" fill="#e7effd"/><rect x="208" y="253" width="60" height="7" rx="3.5" fill="#1d63e0"/><rect x="208" y="267" width="88" height="5" rx="2.5" fill="#9dbdf2"/><path d="M176 317h168l-10 -6H186z" fill="#0b1f4d"/><path d="M70 315c0-60 30-92 70-92s70 32 70 92z" fill="#0b1f4d"/><path d="M118 227l22 30 22-30" fill="#fff"/><circle cx="140" cy="179" r="38" fill="#f2c9a6"/><path d="M102 173c0-26 18-42 40-42s38 16 38 40c-8-10-22-16-40-16-16 0-30 8-38 18z" fill="#2b1d16"/><path d="M100 179a40 40 0 0 1 80 0" fill="none" stroke="#0b1f4d" stroke-width="6"/><rect x="94" y="171" width="12" height="22" rx="6" fill="#0b1f4d"/><rect x="174" y="171" width="12" height="22" rx="6" fill="#0b1f4d"/><path d="M162 265l40 24" stroke="#0b1f4d" stroke-width="16" stroke-linecap="round"/><rect x="246" y="115" width="108" height="56" rx="14" fill="#fff"/><path d="M262 171l-6 16 22-16z" fill="#fff"/><rect x="262" y="131" width="60" height="7" rx="3.5" fill="#1d63e0"/><circle cx="300" cy="69" r="26" fill="#1d63e0"/><path d="M289 69l8 8 15-16" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      </div>
+      <div class="ftr"><div class="in"><span>© 2026 AZKA Technology. All rights reserved.</span><span><a>Help Center</a><a>Submit a ticket</a><a>support@example.com</a><a>+20 2 0000 0000</a></span></div></div>
+    </div></div>
+  </section>
+
+  <section class="s">
+    <h2 class="sec"><span class="num">4</span> Same for both options</h2>
+    <div class="why">
+      <div><b>Arabic</b>Everything mirrors: text on the right, picture on the left, the same sizes.</div>
+      <div><b>Phones</b>Text and buttons first, then the picture smaller below; no picture cut.</div>
+      <div><b>Your picture</b>An uploaded picture under Settings → Branding takes the drawing's place, shown whole (not cropped) in A.</div>
+    </div>
+  </section>
+</div>
+<script>
+  // Show each 1600px-wide page scaled to the width of its frame.
+  function fit() {
+    for (const id of ['sa', 'sb']) {
+      const el = document.getElementById(id), w = el.parentElement.clientWidth, k = w / 1600;
+      el.style.transform = 'scale(' + k + ')';
+      el.parentElement.style.height = (el.scrollHeight * k) + 'px';
+    }
+  }
+  addEventListener('resize', fit); addEventListener('load', fit); fit();
+</script>
+</body>
+</html>
