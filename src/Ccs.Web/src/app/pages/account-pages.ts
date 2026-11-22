@@ -8,12 +8,13 @@ import { I18n, TPipe } from '../core/i18n';
 import { SiteService, TicketListItem, TicketsApi, TicketSummary } from '../core/api';
 import { Alert, NewPasswordFields, StatusBadge, Submit, TextField } from '../shared/ui';
 import { CustomerKpis } from '../shared/customer-kpis';
+import { AuthArt } from '../shared/auth-art';
 
 const HOME_ICON = { plus: 'M12 5v14M5 12h14', list: 'M4 6h16M4 12h16M4 18h10' };
 /** Home, same as v1: guest hero with two action cards and the illustration; signed-in customers get their dashboard; staff go to the console. */
 @Component({
   selector: 'app-home',
-  imports: [RouterLink, TPipe, StatusBadge, CustomerKpis],
+  imports: [RouterLink, TPipe, StatusBadge, CustomerKpis, AuthArt],
   template: `
     @if (customer()) {
       <main data-home class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -69,23 +70,37 @@ const HOME_ICON = { plus: 'M12 5v14M5 12h14', list: 'M4 6h16M4 12h16M4 18h10' };
         </div>
       </main>
     } @else if (site.newLook() && !auth.signedIn()) {
-      <!-- New look (Settings → Branding → Home and sign-in look): one title, one line, two buttons. -->
-      <main data-home class="relative flex flex-1 flex-col items-center justify-center overflow-hidden bg-[linear-gradient(180deg,#f4f8ff,#e6effc)] px-4 py-14">
-        <div aria-hidden="true" class="pointer-events-none absolute left-1/2 top-[-260px] h-[720px] w-[720px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(29,99,224,.16),transparent_62%)]"></div>
-        <div class="relative flex w-full max-w-2xl flex-col items-center text-center">
-          <span aria-hidden="true" class="mb-5 grid size-16 place-items-center rounded-2xl bg-surface text-brand shadow-[0_10px_26px_rgba(29,99,224,.18)]">
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="2" y="13" width="5" height="7" rx="2"/><rect x="17" y="13" width="5" height="7" rx="2"/></svg></span>
-          <h1 class="text-4xl font-extrabold leading-tight tracking-tight md:text-6xl" dir="auto">{{ title() }}</h1>
-          <p class="mt-3 text-pretty text-lg text-ink/80" dir="auto">{{ intro() }}</p>
-          <div class="mt-7 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
-            <a [routerLink]="link('/tickets/new')" class="flex min-h-13 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-lg font-bold text-white hover:bg-brand-ink">
-              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path [attr.d]="icon.plus" /></svg>{{ 'Home.createCta' | t }}</a>
-            <a [routerLink]="link('/login')" class="flex min-h-13 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-6 text-lg font-bold text-brand-ink hover:bg-bg">
-              <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="rtl:-scale-x-100"><path d="M10 17l5-5-5-5M15 12H3M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/></svg>{{ 'Nav.signIn' | t }}</a>
+      <!-- New look (Settings → Branding → Home and sign-in look): the same layout as the sign-in page. Picture (built-in
+           drawing or the uploaded one) with the brand and the band on one side; title, one line and two buttons on the other. -->
+      <main data-home class="grid flex-1 lg:grid-cols-[1.05fr_1fr]">
+        <aside class="relative hidden min-h-[32rem] overflow-hidden lg:block" aria-hidden="true">
+          @if (site.signinPictureUrl(); as pic) { <img [src]="pic" alt="" class="absolute inset-0 h-full w-full object-cover" /> } @else { <app-auth-art [kind]="look().picture" /> }
+          <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.6)_0%,rgba(255,255,255,0)_24%)]"></div>
+          <div class="absolute start-6 top-6 inline-flex max-w-[calc(100%-3rem)] flex-col items-start gap-1.5 rounded-xl bg-white/85 px-4 py-3 leading-tight text-[#0b1f4d] shadow-[0_2px_10px_rgba(11,31,77,.08)]" dir="auto">
+            @if (site.wordmarkUrl(); as w) { <img [src]="w" alt="" class="h-10 w-auto max-w-[12rem] object-contain" /> }
+            @else if (site.logoUrl(); as l) { <img [src]="l" alt="" class="h-10 w-10 object-contain" /> }
+            <b class="block">{{ name() }}</b><span class="text-sm text-brand-ink">{{ tag() }}</span>
           </div>
-          @if (site.info()?.site?.registrationMode !== 'closed') {
-            <p class="mt-4 text-sm text-muted">{{ 'Auth.login.noAccount' | t }} <a [routerLink]="link('/register')" class="font-bold text-brand-ink underline">{{ 'Auth.login.register' | t }}</a></p>
+          @if (look().band) {
+            <div class="absolute inset-x-0 bottom-0 bg-[linear-gradient(0deg,rgba(11,31,77,.95),rgba(11,31,77,.6)_70%,transparent)] px-8 pb-8 pt-16 text-white" dir="auto">
+              <p class="text-3xl font-bold">{{ bandTitle() }}</p><p class="mt-1 text-[#dbe6ff]">{{ bandSub() }}</p>
+            </div>
           }
+        </aside>
+        <div class="flex min-w-0 flex-col justify-center bg-[linear-gradient(160deg,#f3f7fe,#e3ecfb)] px-6 py-14 sm:px-12">
+          <div class="flex w-full max-w-xl flex-col gap-4">
+            <h1 class="text-4xl font-extrabold leading-tight tracking-tight md:text-5xl" dir="auto">{{ title() }}</h1>
+            <p class="text-pretty text-lg text-ink/80" dir="auto">{{ intro() }}</p>
+            <div class="mt-3 flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+              <a [routerLink]="link('/tickets/new')" class="flex min-h-13 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-lg font-bold text-white hover:bg-brand-ink">
+                <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path [attr.d]="icon.plus" /></svg>{{ 'Home.createCta' | t }}</a>
+              <a [routerLink]="link('/login')" class="flex min-h-13 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-6 text-lg font-bold text-brand-ink hover:bg-bg">
+                <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="rtl:-scale-x-100"><path d="M10 17l5-5-5-5M15 12H3M14 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-5"/></svg>{{ 'Nav.signIn' | t }}</a>
+            </div>
+            @if (site.info()?.site?.registrationMode !== 'closed') {
+              <p class="text-sm text-muted">{{ 'Auth.login.noAccount' | t }} <a [routerLink]="link('/register')" class="font-bold text-brand-ink underline">{{ 'Auth.login.register' | t }}</a></p>
+            }
+          </div>
         </div>
       </main>
     } @else {
@@ -146,6 +161,13 @@ export class HomePage {
   protected readonly outline = this.base + ' border border-line bg-surface text-ink hover:bg-bg';
   protected readonly customer = computed(() => this.auth.isCustomer() && !this.auth.isStaff());
   protected readonly counts = signal<TicketSummary | null>(null);
+  // Guest home in the new look: the same picture, brand and band texts as the sign-in page.
+  protected readonly look = this.site.authDesign;
+  private readonly pickLook = (en: string, ar: string, key: string) => ((this.i18n.locale() === 'ar' ? ar : en) || '').trim() || this.i18n.t(key);
+  protected readonly name = computed(() => this.i18n.pick(this.site.info()?.site?.headerSubEn, this.site.info()?.site?.headerSubAr) || this.i18n.t('Brand.tagline'));
+  protected readonly tag = computed(() => this.pickLook(this.look().tagEn, this.look().tagAr, 'AuthLook.tag'));
+  protected readonly bandTitle = computed(() => this.pickLook(this.look().titleEn, this.look().titleAr, 'AuthLook.title'));
+  protected readonly bandSub = computed(() => this.pickLook(this.look().subEn, this.look().subAr, 'AuthLook.sub'));
   /** A card opens My tickets on that list ("Total tickets" = all). */
   protected openList(k: string): void { void this.router.navigate([this.link('/tickets')], { queryParams: { filter: k === 'total' ? null : k } }); }
   protected readonly recent = signal<TicketListItem[] | null>(null);

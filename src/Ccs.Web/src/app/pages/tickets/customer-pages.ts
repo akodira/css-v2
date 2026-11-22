@@ -8,7 +8,13 @@ import { I18n, TPipe } from '../../core/i18n';
 import { liveSearch } from '../../shared/live-search';
 import { NewTicketOptions, Paged, SiteService, TicketDetail, TicketListItem, TicketSummary, TicketsApi } from '../../core/api';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
-import { CustomerKpis } from '../../shared/customer-kpis';
+/** My tickets counters: each filters the list (Home has the larger overview cards with the total). */
+const CARD: Record<string, string> = {
+  active: 'border-s-amber-500 bg-warn-soft text-warn-ink',
+  waiting: 'border-s-danger bg-danger-soft text-danger',
+  resolved: 'border-s-ok bg-ok-soft text-ok',
+  closed: 'border-s-brand bg-brand-soft text-brand-ink',
+};
 import { Alert, PRIORITY_TONE, Req, ReqNote, STATUS_STRIPE, SortTh, StatusBadge } from '../../shared/ui';
 
 /** Auto-refresh every N seconds (Settings, System rules; 0 turns it off). */
@@ -57,7 +63,7 @@ export class AutoRefreshBar {
 
 @Component({
   selector: 'app-my-tickets',
-  imports: [RouterLink, TPipe, StatusBadge, SortTh, AutoRefreshBar, CustomerKpis],
+  imports: [RouterLink, TPipe, StatusBadge, SortTh, AutoRefreshBar],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div class="flex flex-wrap items-start justify-between gap-4">
@@ -69,7 +75,16 @@ export class AutoRefreshBar {
       </div>
       <app-auto-refresh (tick)="load()" />
 
-      <app-customer-kpis [counts]="summary()" [selected]="group() === 'all' ? 'total' : group()" (pick)="setGroup($event === 'total' ? 'all' : $event)" />
+      <!-- Smaller cards than Home: they filter the list below (no total here; "All" shows every ticket). -->
+      <ul class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        @for (k of groups; track k) {
+          <li><button type="button" (click)="setGroup(k)" [attr.aria-pressed]="k === group()"
+            class="h-full w-full cursor-pointer rounded-xl border border-line border-s-4 p-4 text-start shadow-card hover:brightness-95" [class]="cards[k] + (k === group() ? ' ring-2 ring-current' : '')">
+            <span class="block text-sm font-semibold">{{ 'Tickets.summary.' + k | t }}</span>
+            <span class="mt-1 block text-3xl font-bold">{{ count(k) }}</span>
+          </button></li>
+        }
+      </ul>
 
       <div class="flex flex-wrap items-end justify-between gap-3">
         <nav [attr.aria-label]="'Tickets.title' | t" class="flex flex-wrap gap-2">
@@ -143,6 +158,7 @@ export class MyTicketsPage {
   protected readonly desc = signal(this.qp.get('dir') !== 'asc');
   protected readonly data = signal<Paged<TicketListItem> | null>(null);
   protected readonly summary = signal<TicketSummary | null>(null);
+  protected readonly cards = CARD;
   protected readonly pages = computed(() => Math.max(1, Math.ceil((this.data()?.total ?? 0) / 25)));
 
   constructor() {

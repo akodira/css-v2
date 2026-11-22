@@ -34,10 +34,10 @@ export class AuthLogo {
         <aside class="relative hidden overflow-hidden lg:block" aria-hidden="true">
           @if (site.signinPictureUrl(); as pic) { <img [src]="pic" alt="" class="absolute inset-0 h-full w-full object-cover" /> } @else { <app-auth-art [kind]="d().picture" /> }
           <div class="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,.6)_0%,rgba(255,255,255,0)_24%)]"></div>
-          <div class="absolute inset-x-8 top-7 flex items-center gap-4 text-[#0b1f4d]">
+          <div class="absolute start-6 top-6 inline-flex max-w-[calc(100%-3rem)] flex-col items-start gap-1.5 rounded-xl bg-white/85 px-4 py-3 leading-tight text-[#0b1f4d] shadow-[0_2px_10px_rgba(11,31,77,.08)]" dir="auto">
             @if (site.wordmarkUrl(); as w) { <img [src]="w" alt="" class="h-10 w-auto max-w-[12rem] object-contain" /> }
             @else if (site.logoUrl(); as l) { <img [src]="l" alt="" class="h-10 w-10 object-contain" /> }
-            <div class="border-s-2 border-[#0b1f4d] ps-4 leading-tight" dir="auto"><b class="block">{{ name() }}</b><span class="text-sm text-brand-ink">{{ tag() }}</span></div>
+            <b class="block">{{ name() }}</b><span class="text-sm text-brand-ink">{{ tag() }}</span>
           </div>
           @if (d().band) {
             <div class="absolute inset-x-0 bottom-0 bg-[linear-gradient(0deg,rgba(11,31,77,.95),rgba(11,31,77,.6)_70%,transparent)] px-8 pb-8 pt-16 text-white" dir="auto">
@@ -48,10 +48,10 @@ export class AuthLogo {
       }
       <div [class]="nl() ? 'flex min-w-0 flex-col bg-[linear-gradient(160deg,#f3f7fe,#e3ecfb)]' : ''">
         @if (nl()) {
-          <div class="flex items-center gap-3 bg-[linear-gradient(135deg,#dfe9fc,#9dbdf2)] px-4 py-4 text-[#0b1f4d] lg:hidden">
+          <div class="flex flex-col items-start gap-1 bg-[linear-gradient(135deg,#dfe9fc,#9dbdf2)] px-4 py-3 text-[#0b1f4d] lg:hidden">
             @if (site.wordmarkUrl(); as w) { <img [src]="w" alt="" class="h-8 w-auto max-w-[9rem] object-contain" /> }
             @else if (site.logoUrl(); as l) { <img [src]="l" alt="" class="h-8 w-8 object-contain" /> }
-            <b class="min-w-0 truncate border-s-2 border-[#0b1f4d] ps-3" dir="auto">{{ name() }}</b>
+            <b class="min-w-0 max-w-full truncate text-sm" dir="auto">{{ name() }}</b>
           </div>
         }
         <main [class]="nl() ? 'flex flex-1 items-center justify-center px-4 py-8 sm:px-8' : 'px-4 py-12'">
