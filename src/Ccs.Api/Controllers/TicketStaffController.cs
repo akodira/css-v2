@@ -36,6 +36,9 @@ public sealed class TicketStaffController(CcsDbContext db, AccessService access)
                              where p.AccountStatus == AccountStatus.Active
                              orderby p.FullName
                              select new { m.TeamId, m.UserId, m.IsLeader, p.FullName }).ToListAsync(ct);
+        // Same rule as assigning (AccessService.UserInScopeAsync): agents whose account type does not cover this customer are shown greyed out.
+        var canServe = new Dictionary<Guid, bool>();
+        foreach (var uid in members.Select(m => m.UserId).Distinct()) canServe[uid] = await access.UserInScopeAsync(uid, t.RequesterId, ct);
         var teams = await db.Teams.AsNoTracking().Where(x => x.IsActive).OrderBy(x => x.NameEn).Select(x => new { x.Id, x.NameEn, x.NameAr }).ToListAsync(ct);
         var leaders = members.Where(m => m.IsLeader && m.TeamId == t.TeamId).Select(m => m.FullName).ToList();
 
@@ -91,7 +94,7 @@ public sealed class TicketStaffController(CcsDbContext db, AccessService access)
             sla = sla is null ? null : new { sla.State, sla.FirstResponseDue, sla.ResolutionDue, sla.FirstRespondedAt, sla.ResolvedAt, sla.PausedAt, sla.PausedTotalSeconds },
             assignments,
             teams,
-            members = members.Select(m => new { m.TeamId, m.UserId, m.FullName }),
+            members = members.Select(m => new { m.TeamId, m.UserId, m.FullName, canServe = canServe[m.UserId] }),
             priorities, fixedPriority,
             canWork, canReassign, canClaim,
             serverNow = DateTimeOffset.UtcNow,

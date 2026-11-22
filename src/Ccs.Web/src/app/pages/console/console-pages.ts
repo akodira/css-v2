@@ -18,7 +18,7 @@ interface StaffExtra {
   requesterPhone: string | null; requesterOrganization?: string | null; requesterBranch?: string | null; teamLeaders: string[];
   sla: { state: string; firstResponseDue: string | null; resolutionDue: string | null; firstRespondedAt: string | null; resolvedAt: string | null; pausedAt: string | null; pausedTotalSeconds: number } | null;
   assignments: { at: string; teamEn: string | null; teamAr: string | null; agent: string | null; by: string | null; reason: string | null }[];
-  teams: { id: string; nameEn: string; nameAr: string }[]; members: { teamId: string; userId: string; fullName: string }[];
+  teams: { id: string; nameEn: string; nameAr: string }[]; members: { teamId: string; userId: string; fullName: string; canServe?: boolean }[];
   priorities: { code: string; nameEn: string; nameAr: string; color: string }[]; fixedPriority: string | null;
   moves: { to: string; requiresReason: boolean }[]; closureReasons: { code: string; nameEn: string; nameAr: string }[];
   canWork: boolean; canReassign: boolean; canClaim: boolean;
@@ -383,8 +383,9 @@ export class ConsoleQueuePage {
                           <div class="flex flex-col gap-1.5"><label for="as-agent" class="text-sm font-semibold">{{ 'Console.assignForm.agent' | t }}</label>
                             <select id="as-agent" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" [value]="asAgent()" (change)="asAgent.set($any($event.target).value)">
                               <option value="" [selected]="!asAgent()">{{ 'Console.assignForm.noAgent' | t }}</option>
-                              @for (m of agentsOf(asTeam()); track m.userId) { <option [value]="m.userId" [selected]="m.userId === asAgent()">{{ m.fullName }}</option> }
-                            </select></div>
+                              @for (m of agentsOf(asTeam()); track m.userId) { <option [value]="m.userId" [selected]="m.userId === asAgent()" [disabled]="m.canServe === false">{{ m.fullName }}@if (m.canServe === false) { ({{ 'Console.assignForm.cannotServe' | t }}) }</option> }
+                            </select>
+                            @if (someCannotServe(asTeam())) { <p class="text-xs text-muted">{{ 'Console.assignForm.cannotServeHint' | t }}</p> }</div>
                           <div class="flex flex-col gap-1.5"><label for="as-reason" class="text-sm font-semibold">{{ 'Console.assignForm.reason' | t }}</label>
                             <input id="as-reason" maxlength="1000" dir="auto" class="min-h-11 rounded-lg border border-line px-3 text-base" [value]="asReason()" (input)="asReason.set($any($event.target).value)" /></div>
                           @if (notice() && where() === 'assign') { <app-alert [tone]="noticeTone()">{{ notice() }}</app-alert> }
@@ -516,7 +517,9 @@ export class ConsoleTicketPage {
   protected readonly needsReason = computed(() => !!this.x()?.moves.find((m) => m.to === this.to())?.requiresReason);
   protected readonly prioOptions = computed(() => { const x = this.x(), cur = this.t()?.priority; return (x?.priorities ?? []).filter((p) => !x?.fixedPriority || p.code === x.fixedPriority || p.code === cur); });
   protected prioName(code: string): string { const p = this.x()?.priorities.find((q) => q.code === code); return p ? this.i18n.pick(p.nameEn, p.nameAr) : code; }
-  protected agentsOf(team: string): { userId: string; fullName: string }[] { return (this.x()?.members ?? []).filter((m) => m.teamId === team); }
+  protected agentsOf(team: string): { userId: string; fullName: string; canServe?: boolean }[] { return (this.x()?.members ?? []).filter((m) => m.teamId === team); }
+  /** Some agents of this team may not serve this customer (their account type covers other organizations or branches). */
+  protected someCannotServe(team: string): boolean { return this.agentsOf(team).some((m) => m.canServe === false); }
   protected initials(n: string | null): string { return (n ?? '').split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?'; }
   /** Activity: status changes and assignments, oldest first (v1). */
   protected readonly activity = computed(() => {
@@ -578,7 +581,11 @@ export class ConsoleTicketPage {
     const p = problemOf(e);
     const map: Record<string, string> = { forbidden: 'notAllowed', not_found: 'notFound' };
     this.noticeTone.set('error');
-    this.notice.set(p.status === 400 && /reason/.test(String((e as { error?: { title?: string } })?.error?.title)) ? this.i18n.t('Console.errors.reasonRequired')
+    const title = String((e as { error?: { title?: string } })?.error?.title ?? '');
+    // Assignment refusals: say why instead of "Something went wrong".
+    const assignErr = /cannot serve this customer/.test(title) ? 'agentScope' : /does not belong to the selected team/.test(title) ? 'agentTeam' : /agent is not active/.test(title) ? 'agentInactive' : '';
+    if (p.status === 400 && assignErr) { this.notice.set(this.i18n.t('Console.errors.' + assignErr)); return; }
+    this.notice.set(p.status === 400 && /reason/.test(title) ? this.i18n.t('Console.errors.reasonRequired')
       : this.i18n.t('Console.errors.' + (map[p.code] ?? (p.status === 403 ? 'transition' : 'generic'))));
   }
 

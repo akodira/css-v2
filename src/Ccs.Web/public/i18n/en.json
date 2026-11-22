@@ -709,7 +709,9 @@
       "submit": "Assign",
       "claim": "Assign to me",
       "done": "Assignment updated.",
-      "onlyClaim": "You can assign this ticket to yourself. Team leaders and admins can reassign it."
+      "onlyClaim": "You can assign this ticket to yourself. Team leaders and admins can reassign it.",
+      "cannotServe": "cannot serve this customer",
+      "cannotServeHint": "Greyed-out agents cannot take this ticket: their account type covers other organizations or branches. An administrator can change that under Permissions."
     },
     "errors": {
       "messageLength": "Message must be 1 to 10000 characters.",
@@ -726,7 +728,10 @@
       "priorityFixed": "The category of this ticket fixes its priority, so it cannot be changed.",
       "ticketClosed": "A closed ticket cannot change category.",
       "categoryInvalid": "Choose a valid category and subcategory.",
-      "closureRequired": "Choose why the ticket is being closed."
+      "closureRequired": "Choose why the ticket is being closed.",
+      "agentScope": "This agent cannot serve this customer: their account type does not cover the customer's organization or branch.",
+      "agentTeam": "This agent is not a member of the selected team.",
+      "agentInactive": "This agent account is not active."
     },
     "escalate": {
       "title": "Escalate",

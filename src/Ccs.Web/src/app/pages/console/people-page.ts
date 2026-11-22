@@ -146,7 +146,8 @@ export class PeoplePage {
   protected readonly cls = CLS;
   protected readonly btn = BTN;
   /** "staff": the Staff page; "customer": only the add box, inside the Customers page. */
-  readonly mode = input<'staff' | 'customer'>('staff');
+  // Routed pages get every input from the address (withComponentInputBinding), and a missing one arrives as undefined: treat that as staff.
+  readonly mode = input<'staff' | 'customer', 'staff' | 'customer' | undefined>('staff', { transform: (v) => v ?? 'staff' });
   readonly created = output<void>();
   protected readonly d = signal<PData | null>(null);
   protected readonly loadError = signal('');

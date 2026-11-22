@@ -101,14 +101,14 @@ interface BModel { organizationId: string; name: string; location: string; phone
                     <td class="px-4 py-3" dir="ltr">{{ b.staff }}</td>
                     <td class="px-4 py-3"><span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="b.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (b.isActive ? 'Branches.active' : 'Branches.inactive') | t }}</span></td>
                     <td class="px-4 py-3">
-                      <div class="flex flex-wrap justify-end gap-2">
-                        <button type="button" [class]="cls.btn2" (click)="startEdit(b)">{{ 'Branches.edit' | t }}</button>
+                      <div class="flex flex-wrap items-center justify-end gap-1">
+                        <button type="button" [class]="row.btn" (click)="startEdit(b)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>{{ 'Branches.edit' | t }}</button>
                         @if (b.canDelete && !b.customers && !b.staff) {
                           @if (asking() === b.id) {
                             <span class="flex flex-wrap items-center gap-2"><span class="text-sm font-semibold">{{ 'Branches.confirmDelete' | t }}</span>
-                              <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="remove(b)">{{ 'Branches.delete' | t }}</button>
-                              <button type="button" [class]="cls.btn2" (click)="asking.set(null)">{{ 'Branches.cancel' | t }}</button></span>
-                          } @else { <button type="button" [class]="cls.danger" (click)="asking.set(b.id)">{{ 'Branches.delete' | t }}</button> }
+                              <button type="button" [class]="row.danger" [disabled]="busy()" (click)="remove(b)">{{ 'Branches.delete' | t }}</button>
+                              <button type="button" [class]="row.btn" (click)="asking.set(null)">{{ 'Branches.cancel' | t }}</button></span>
+                          } @else { <button type="button" [class]="row.danger" (click)="asking.set(b.id)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>{{ 'Branches.delete' | t }}</button> }
                         }
                       </div>
                     </td>
@@ -127,6 +127,11 @@ export class BranchesPage {
   protected readonly i18n = inject(I18n);
   private readonly http = inject(HttpClient);
   protected readonly cls = CLS;
+  /** Small text buttons inside table rows (the full-size buttons are for forms). */
+  protected readonly row = {
+    btn: 'inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold text-brand-ink hover:bg-brand-soft disabled:opacity-60',
+    danger: 'inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold text-danger hover:bg-danger-soft disabled:opacity-60',
+  };
   protected readonly d = signal<BData | null>(null);
   protected readonly loadError = signal('');
   protected readonly msg = signal<Msg>(null);
