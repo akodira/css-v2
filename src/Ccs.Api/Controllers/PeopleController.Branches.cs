@@ -28,8 +28,10 @@ public sealed partial class PeopleController
         var ids = mine.Select(b => b.Id).ToList();
         var orgs = (await db.Organizations.AsNoTracking().OrderBy(o => o.Name).Select(o => new { o.Id, o.Name, o.IsActive }).ToListAsync(ct))
             .Where(o => CanManageOrg(me, o.Id) || mine.Any(b => b.OrganizationId == o.Id)).ToList();
-        var customers = await db.Profiles.AsNoTracking().Where(p => p.BranchId != null && ids.Contains(p.BranchId.Value))
+        var customers = await CustomersOf(ids)
             .GroupBy(p => p.BranchId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, ct);
+        // Any account at all (also staff or customers waiting for approval) keeps the branch from being deleted.
+        var inUse = (await db.Profiles.AsNoTracking().Where(p => p.BranchId != null && ids.Contains(p.BranchId.Value)).Select(p => p.BranchId!.Value).Distinct().ToListAsync(ct)).ToHashSet();
         var staff = await db.StaffPlacements.AsNoTracking().Where(s => s.BranchId != null && ids.Contains(s.BranchId.Value))
             .GroupBy(s => s.BranchId!.Value).Select(g => new { g.Key, N = g.Select(x => x.UserId).Distinct().Count() }).ToDictionaryAsync(x => x.Key, x => x.N, ct);
         // Team leaders this admin can pick: people in their scope with the Team leader role (and the current leaders).
@@ -49,9 +51,32 @@ public sealed partial class PeopleController
                 b.Id, b.OrganizationId, b.Name, b.Location, b.Phone, b.IsActive, b.TeamLeaderId,
                 teamLeader = extra.FirstOrDefault(x => x.Id == b.TeamLeaderId)?.FullName,
                 customers = customers.GetValueOrDefault(b.Id), staff = staff.GetValueOrDefault(b.Id),
-                canDelete = CanManageOrg(me, b.OrganizationId),
+                canDelete = CanManageOrg(me, b.OrganizationId) && !inUse.Contains(b.Id),
             }),
         };
+    }
+
+    /// <summary>Customer accounts placed in these branches (same rule as the Customers list: customer role, not waiting for approval).</summary>
+    private IQueryable<Profile> CustomersOf(List<Guid> branchIds) =>
+        from p in db.Profiles.AsNoTracking()
+        where p.BranchId != null && branchIds.Contains(p.BranchId.Value) && p.AccountStatus != AccountStatus.PendingApproval
+              && db.CcsUserRoles.Any(ur => ur.UserId == p.Id && db.CcsRoles.Any(r => r.Id == ur.RoleId && r.Code == RoleCode.Customer))
+        select p;
+
+    /// <summary>The first customers of one branch, for the list that opens under the branch row (total shows how many there are).</summary>
+    [HttpGet("api/console/branches/{id:guid}/customers")]
+    public async Task<object> BranchCustomers(Guid id, CancellationToken ct)
+    {
+        var me = await MeAsync(ct);
+        var x = await db.Branches.AsNoTracking().FirstOrDefaultAsync(y => y.Id == id, ct) ?? throw new NotFoundException();
+        if (!me.Covers(x.OrganizationId, x.Id)) throw Err("outOfScope", null, 403);
+        var q = CustomersOf([id]);
+        var total = await q.CountAsync(ct);
+        var rows = await q.OrderBy(p => p.FullName).Take(10).Select(p => new { p.Id, p.FullName, p.Email, p.Phone, Status = p.AccountStatus }).ToListAsync(ct);
+        var rowIds = rows.Select(r => r.Id).ToList();
+        var open = await db.Tickets.AsNoTracking().Where(t => rowIds.Contains(t.RequesterId) && t.Status != TicketStatus.Resolved && t.Status != TicketStatus.Closed)
+            .GroupBy(t => t.RequesterId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.N, ct);
+        return new { total, customers = rows.Select(r => new { r.Id, r.FullName, r.Email, r.Phone, r.Status, openTickets = open.GetValueOrDefault(r.Id) }) };
     }
 
     [HttpPost("api/console/branches")]

@@ -1046,7 +1046,9 @@
       "k_branch": "Branch",
       "k_team": "Team",
       "inOrg": "Branch of {org}",
-      "orgNote": "Includes its branches unless a branch has its own"
+      "orgNote": "Includes its branches unless a branch has its own",
+      "add": "Add calendar",
+      "addTitle": "Add a calendar"
     }
   },
   "SlaReport": {
@@ -1200,7 +1202,8 @@
       "socialLink": "Social links must be full web addresses that start with https://",
       "unlockReason": "Write a reason of 5 to 300 characters.",
       "thisDevice": "To sign out this device, use Sign out."
-    }
+    },
+    "cancel": "Cancel"
   },
   "AdminCatalog": {
     "title": "Categories and custom fields",
@@ -4414,6 +4417,21 @@
       "phoneInvalid": "Enter the phone with the country code, for example +20 2 1234 5678.",
       "name": "Enter a branch name of 2 to 120 characters.",
       "locationLong": "The location can be up to 300 characters."
-    }
+    },
+    "showCustomers": "Show the {n} customers of {name}",
+    "customersIn": "Customers in {name} ({n})",
+    "cName": "Name",
+    "cEmail": "Email",
+    "cOpen": "Open tickets",
+    "cStatus": {
+      "active": "Active",
+      "suspended": "Suspended",
+      "pending_verification": "Not verified",
+      "pending_approval": "Waiting for approval"
+    },
+    "showingAll": "Showing all {total}.",
+    "showingSome": "Showing {n} of {total}.",
+    "openCustomers": "Open in Customers →",
+    "loading": "Loading…"
   }
 }

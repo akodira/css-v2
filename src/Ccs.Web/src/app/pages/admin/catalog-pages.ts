@@ -4,8 +4,8 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@a
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
 import { TPipe } from '../../core/i18n';
-import { Alert, PRIORITY_TONE, PrioIcon, Req, ReqNote } from '../../shared/ui';
-import { AdminBase, HEADER, SEARCH } from './admin-pages';
+import { ADD_BTN, AddCard, AddPanel, Alert, PLUS_ICON, PRIORITY_TONE, PrioIcon, Req, ReqNote } from '../../shared/ui';
+import { AdminBase, SEARCH, HEAD_ADD, HEAD_END } from './admin-pages';
 
 // ---- contracts (CatalogAdminController) --------------------------------------------------------
 
@@ -31,10 +31,15 @@ const blankType = (): TypeModel => ({ code: '', nameEn: '', nameAr: '', descript
 
 @Component({
   selector: 'app-admin-ticket-types',
-  imports: [TPipe, Alert, FormsModule, Req, NgTemplateOutlet],
+  imports: [TPipe, Alert, AddPanel, FormsModule, Req, ReqNote, NgTemplateOutlet],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      ${HEADER}
+      ${HEAD_ADD}<app-add #add label="AdminTicketTypes.add">
+        <form class="flex flex-col gap-4" (ngSubmit)="create(add)">
+          <ng-container *ngTemplateOutlet="form; context: { m: nw, id: 'tn' }" />
+          <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.create' | t }}</button><app-req-note /></div>
+        </form>
+      </app-add>${HEAD_END}
       <p class="rounded-lg bg-brand-soft px-4 py-3 text-sm text-brand-ink">{{ 'AdminTicketTypes.rules' | t }}</p>
       <ng-template #form let-m="m" let-id="id">
         <div class="grid gap-4 md:grid-cols-2">
@@ -68,13 +73,6 @@ const blankType = (): TypeModel => ({ code: '', nameEn: '', nameAr: '', descript
         </fieldset>
       </ng-template>
 
-      <details [class]="cls.card" #add>
-        <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'AdminTicketTypes.add' | t }}</span></summary>
-        <form class="flex flex-col gap-4 px-5 pb-5" (ngSubmit)="create(add)">
-          <ng-container *ngTemplateOutlet="form; context: { m: nw, id: 'tn' }" />
-          <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.create' | t }}</button></div>
-        </form>
-      </details>
 
       <ul class="flex flex-col gap-4">
         @for (t of data()?.types ?? []; track t.id) {
@@ -117,7 +115,7 @@ export class AdminTicketTypesPage extends AdminBase implements OnInit {
     } catch (e) { this.fail(e); }
   }
   protected toggle(list: string[], id: string): void { const i = list.indexOf(id); if (i >= 0) list.splice(i, 1); else list.push(id); }
-  protected async create(box: HTMLDetailsElement): Promise<void> {
+  protected async create(box: { open: boolean }): Promise<void> {
     if (await this.run(() => this.api.post('ticket-types', this.nw))) { this.nw = blankType(); box.open = false; }
   }
   protected update(t: TypeRow): void { void this.run(() => this.api.put('ticket-types/' + t.id, this.edit[t.id])); }
@@ -138,7 +136,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
 
 @Component({
   selector: 'app-admin-catalog',
-  imports: [TPipe, Alert, FormsModule, Req, NgTemplateOutlet, RouterLink, PrioIcon],
+  imports: [TPipe, Alert, AddCard, FormsModule, Req, ReqNote, NgTemplateOutlet, RouterLink, PrioIcon],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminCatalog.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminCatalog.subtitle' | t }}</p></div>
@@ -236,7 +234,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
       </ng-template>
 
       <ng-template #typeForm let-m="m" let-id="id" let-row="row">
-        <form [class]="formCls" novalidate (ngSubmit)="row ? updateType(row) : createType()">
+        <form [class]="row ? formCls : 'flex flex-col gap-4'" novalidate (ngSubmit)="row ? updateType(row) : createType()">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminCatalog.nameEn' | t }}<app-req /></span><input [name]="id + 'en'" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameEn" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminCatalog.nameAr' | t }}<app-req /></span><input [name]="id + 'ar'" dir="rtl" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameAr" /></label>
@@ -282,9 +280,9 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
       <section aria-labelledby="types" class="flex flex-col gap-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div><h2 id="types" class="text-xl font-bold">{{ 'AdminTicketTypes.title' | t }}</h2><p class="max-w-prose text-muted">{{ 'AdminTicketTypes.subtitle' | t }}</p></div>
-          <button type="button" [attr.aria-expanded]="typeAdding()" (click)="typeAdding.set(!typeAdding()); typeEdit.set(null)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg">{{ 'AdminTicketTypes.add' | t }}</button>
+          @if (!typeAdding()) { <button type="button" [class]="addBtn" (click)="typeAdding.set(true); typeEdit.set(null)">${PLUS_ICON}{{ 'AdminTicketTypes.add' | t }}</button> }
+          @if (typeAdding()) { <app-add-card title="AdminTicketTypes.add" (cancel)="typeAdding.set(false)"><ng-container *ngTemplateOutlet="typeForm; context: { m: nwType, id: 'nt', row: null }" /></app-add-card> }
         </div>
-        @if (typeAdding()) { <ng-container *ngTemplateOutlet="typeForm; context: { m: nwType, id: 'nt', row: null }" /> }
         <div class="overflow-x-auto rounded-md border border-line bg-surface">
           <table class="w-full min-w-[44rem] border-collapse text-start text-sm">
             <caption class="sr-only">{{ 'AdminTicketTypes.title' | t }}</caption>
@@ -320,27 +318,33 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
       <section aria-labelledby="cats" class="flex flex-col gap-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <h2 id="cats" class="text-xl font-bold">{{ 'AdminCatalog.categories' | t }}</h2>
-          <div class="flex flex-wrap gap-2">
-            <button type="button" [attr.aria-expanded]="addMode() === 'cat'" (click)="addMode.set(addMode() === 'cat' ? null : 'cat')" class="min-h-11 cursor-pointer rounded-lg border px-4 text-sm font-semibold" [class]="addMode() === 'cat' ? on : off">{{ 'AdminCatalog.addCategoryBtn' | t }}</button>
-            <button type="button" [attr.aria-expanded]="addMode() === 'sub'" (click)="addMode.set(addMode() === 'sub' ? null : 'sub')" class="min-h-11 cursor-pointer rounded-lg border px-4 text-sm font-semibold" [class]="addMode() === 'sub' ? on : off">{{ 'AdminCatalog.addSubcategoryBtn' | t }}</button>
-          </div>
+          @if (!addMode()) {
+            <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+              <button type="button" [class]="addBtn + ' flex-1 sm:flex-none'" (click)="addMode.set('cat')">${PLUS_ICON}{{ 'AdminCatalog.addCategoryBtn' | t }}</button>
+              <button type="button" [class]="addBtn + ' flex-1 sm:flex-none'" (click)="addMode.set('sub')">${PLUS_ICON}{{ 'AdminCatalog.addSubcategoryBtn' | t }}</button>
+            </div>
+          }
           @if (addMode() === 'cat') {
-            <form class="basis-full" [class]="formCls" novalidate (ngSubmit)="createCat()">
+            <app-add-card title="AdminCatalog.addCategoryBtn" (cancel)="addMode.set(null)">
+            <form class="flex flex-col gap-4" novalidate (ngSubmit)="createCat()">
               <ng-container *ngTemplateOutlet="catForm; context: { m: nwCat, id: 'nc' }" />
-              <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCatalog.addCategory' | t }}</button></div>
+              <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCatalog.addCategory' | t }}</button><app-req-note /></div>
             </form>
+            </app-add-card>
           }
           @if (addMode() === 'sub') {
-            <div class="flex basis-full flex-col gap-3">
+            <app-add-card title="AdminCatalog.addSubcategoryBtn" (cancel)="addMode.set(null)">
+            <div class="flex flex-col gap-3">
               @if (!(data()?.categories ?? []).length) { <p class="text-muted">{{ 'AdminCatalog.needCategory' | t }}</p> } @else {
                 <div class="max-w-sm"><label for="sub-parent" class="mb-1 block text-sm font-semibold">{{ 'AdminCatalog.parentCategory' | t }}</label>
                   <select id="sub-parent" [class]="cls.input" [ngModel]="subParent()" (ngModelChange)="subParent.set($event)">@for (c of data()!.categories; track c.id) { <option [value]="c.id">{{ i18n.pick(c.nameEn, c.nameAr) }}</option> }</select></div>
-                <form class="flex flex-col gap-3 rounded border border-line bg-bg p-4" novalidate (ngSubmit)="createSub(subParent())">
+                <form class="flex flex-col gap-3" novalidate (ngSubmit)="createSub(subParent())">
                   <ng-container *ngTemplateOutlet="subForm; context: { m: nwSub(subParent()), id: 'ns' }" />
-                  <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCatalog.addSubcategory' | t }}</button></div>
+                  <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCatalog.addSubcategory' | t }}</button><app-req-note /></div>
                 </form>
               }
             </div>
+            </app-add-card>
           }
         </div>
         <div class="overflow-x-auto rounded-md border border-line bg-surface">
@@ -479,8 +483,7 @@ export class AdminCatalogPage extends AdminBase implements OnInit {
   protected readonly formCls = 'flex flex-col gap-4 rounded-md border border-line bg-surface p-5';
   protected readonly small = 'min-h-10 cursor-pointer rounded-lg border border-line bg-surface px-3 text-sm font-semibold hover:bg-bg disabled:opacity-60';
   protected readonly mv = 'flex size-9 cursor-pointer items-center justify-center rounded-lg border border-line bg-surface hover:bg-bg disabled:cursor-not-allowed disabled:opacity-30';
-  protected readonly on = 'border-brand bg-brand text-white hover:bg-brand-ink';
-  protected readonly off = 'border-line bg-surface hover:bg-bg';
+  protected readonly addBtn = ADD_BTN;
   protected readonly typeCols = ['colOrder', 'colName', 'colCategories', 'colTickets', 'colStatus', 'colActions'];
   protected readonly catCols = ['colOrder', 'colName', 'colPriority', 'colTeam', 'colTickets', 'colType', 'colAuto', 'colStatus', 'colActions'];
   protected readonly data = signal<CatalogData | null>(null);
@@ -590,7 +593,7 @@ export class AdminCatalogPage extends AdminBase implements OnInit {
     this.msgAt.set(this.pendingAt); this.pendingAt = null;
     return super.run(fn, okKey, params);
   }
-  protected async createField(box: HTMLDetailsElement): Promise<void> {
+  protected async createField(box: { open: boolean }): Promise<void> {
     this.pendingAt = 'new';
     if (await this.run(() => this.api.post('fields', fieldBody(this.nwField)))) { this.nwField = blankField(); box.open = false; }
   }
@@ -631,10 +634,13 @@ const blankPrio = (): PrioModel => ({ nameEn: '', nameAr: '', color: 'blue', ico
 
 @Component({
   selector: 'app-admin-priorities',
-  imports: [TPipe, Alert, FormsModule, Req, NgTemplateOutlet, PrioIcon],
+  imports: [TPipe, Alert, AddPanel, FormsModule, Req, NgTemplateOutlet, PrioIcon],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminPriorities.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminPriorities.subtitle' | t }}</p></div>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminPriorities.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminPriorities.subtitle' | t }}</p></div>
+        <app-add #add label="AdminPriorities.addTitle"><ng-container *ngTemplateOutlet="form; context: { m: nw, id: 'pn', row: null, box: add }" /></app-add>
+      </div>
       <form class="flex flex-col gap-3 rounded-xl border border-line bg-surface p-5 shadow-card" novalidate (ngSubmit)="setMode(modeIn)">
         <fieldset class="flex flex-col gap-2">
           <legend class="mb-1 text-xl font-bold">{{ 'AdminPriorities.modeTitle' | t }}</legend>
@@ -649,8 +655,8 @@ const blankPrio = (): PrioModel => ({ nameEn: '', nameAr: '', color: 'blue', ico
         <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminCommon.save' | t }}</button></div>
       </form>
 
-      <ng-template #form let-m="m" let-id="id" let-row="row">
-        <form [class]="row ? 'flex flex-col gap-4 border-t border-line pt-4' : 'flex flex-col gap-4 rounded-xl border border-line bg-surface p-5'" novalidate (ngSubmit)="row ? update(row) : create()">
+      <ng-template #form let-m="m" let-id="id" let-row="row" let-box="box">
+        <form [class]="row ? 'flex flex-col gap-4 border-t border-line pt-4' : 'flex flex-col gap-4'" novalidate (ngSubmit)="row ? update(row) : create(box)">
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminPriorities.nameEn' | t }}<app-req /></span><input [name]="id + 'en'" dir="ltr" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameEn" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminPriorities.nameAr' | t }}<app-req /></span><input [name]="id + 'ar'" dir="rtl" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameAr" /></label>
@@ -702,8 +708,6 @@ const blankPrio = (): PrioModel => ({ nameEn: '', nameAr: '', color: 'blue', ico
             </div>
           </details>
         }
-        <details class="rounded-xl border border-line bg-surface shadow-card"><summary class="min-h-11 cursor-pointer px-5 py-3 font-semibold">{{ 'AdminPriorities.addTitle' | t }}</summary>
-          <div class="p-3"><ng-container *ngTemplateOutlet="form; context: { m: nw, id: 'pn', row: null }" /></div></details>
       </section>
     </main>`,
   changeDetection: ChangeDetectionStrategy.Default,
@@ -736,9 +740,9 @@ export class AdminPrioritiesPage extends AdminBase implements OnInit {
     this.modeMsg.set(this.msg()); this.msg.set(null);
     void ok;
   }
-  protected async create(): Promise<void> {
+  protected async create(box?: { open: boolean }): Promise<void> {
     this.msgFor.set('+');
-    if (await this.run(() => this.api.post('priorities', this.nw))) this.nw = { ...blankPrio(), sortOrder: this.nw.sortOrder };
+    if (await this.run(() => this.api.post('priorities', this.nw))) { this.nw = { ...blankPrio(), sortOrder: this.nw.sortOrder }; if (box) box.open = false; }
   }
   protected update(p: PrioRow): void { this.msgFor.set(p.code); void this.run(() => this.api.put('priorities/' + p.code, this.edit[p.code])); }
   protected remove(p: PrioRow): void { this.msgFor.set(p.code); void this.run(() => this.api.del('priorities/' + p.code), 'AdminV2.deleted'); }
@@ -753,7 +757,7 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
 
 @Component({
   selector: 'app-admin-sla',
-  imports: [TPipe, Alert, FormsModule, Req, PrioIcon, ReqNote, PageAbout],
+  imports: [TPipe, Alert, AddPanel, FormsModule, Req, PrioIcon, ReqNote, PageAbout],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminSla.title' | t }}</h1>
@@ -789,7 +793,17 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
       </section>
 
       <section aria-labelledby="cal" class="flex flex-col gap-3">
-        <h2 id="cal" class="text-xl font-bold">{{ 'AdminSla.calendars.title' | t }}</h2>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <h2 id="cal" class="text-xl font-bold">{{ 'AdminSla.calendars.title' | t }}</h2>
+          <app-add #addCal label="AdminSla.calendars.add" title="AdminSla.calendars.addTitle">
+            <form class="flex flex-wrap items-end gap-3" novalidate (ngSubmit)="createHours(addCal)">
+              <label class="flex min-w-56 flex-1 flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.newName' | t }}<app-req /></span><input name="nn" maxlength="80" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="nwCal.name" /></label>
+              <label class="flex min-w-56 flex-1 flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.timezone' | t }}<app-req /></span><input name="nz" dir="ltr" placeholder="Africa/Cairo" [class]="cls.input + ' font-normal'" [(ngModel)]="nwCal.timezone" /></label>
+              <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.calendars.create' | t }}</button>
+              <app-req-note />
+            </form>
+          </app-add>
+        </div>
         <p class="max-w-prose text-muted">{{ 'AdminSla.calendars.help' | t }}</p>
         <form class="flex flex-wrap items-end gap-3" novalidate (ngSubmit)="setDefault()">
           <label class="flex min-w-56 flex-col gap-1.5 text-sm font-semibold">{{ 'AdminSla.calendars.default' | t }}
@@ -907,12 +921,6 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
             }
           </details>
         }
-        <form class="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface p-5 shadow-card" novalidate (ngSubmit)="createHours()">
-          <label class="flex min-w-56 flex-1 flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.newName' | t }}<app-req /></span><input name="nn" maxlength="80" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="nwCal.name" /></label>
-          <label class="flex min-w-56 flex-1 flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.calendars.timezone' | t }}<app-req /></span><input name="nz" dir="ltr" placeholder="Africa/Cairo" [class]="cls.input + ' font-normal'" [(ngModel)]="nwCal.timezone" /></label>
-          <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.calendars.create' | t }}</button>
-          <app-req-note />
-        </form>
       </section>
 
       @if (asg(); as a) {
@@ -1120,8 +1128,8 @@ export class AdminSlaPage extends AdminBase implements OnInit {
     return { name: m.name, timezone: m.timezone, isDefault: m.isDefault, schedule: Object.fromEntries(DAYS.map((d) => [d, m.days[d].open ? [[m.days[d].from, m.days[d].to]] : []])) };
   }
   protected saveHours(h: HoursRow): void { void this.run(() => this.api.put('business-hours/' + h.id, this.hoursBody(this.cal[h.id])), 'AdminSla.saved'); }
-  protected async createHours(): Promise<void> {
-    if (await this.run(() => this.api.post('business-hours', this.hoursBody(this.nwCal)))) this.nwCal = blankHours();
+  protected async createHours(box: { open: boolean }): Promise<void> {
+    if (await this.run(() => this.api.post('business-hours', this.hoursBody(this.nwCal)))) { this.nwCal = blankHours(); box.open = false; }
   }
   /** One holiday per day from From to To (To is optional); days already listed are skipped. At most 31 days at once. */
   protected async addHoliday(h: HoursRow): Promise<void> {

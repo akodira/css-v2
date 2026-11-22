@@ -6,7 +6,8 @@ import { firstValueFrom } from 'rxjs';
 import { adminError } from '../../core/admin-api';
 import { I18n, TPipe } from '../../core/i18n';
 import { feedbackFor } from '../../shared/feedback';
-import { Alert, Req, ReqNote } from '../../shared/ui';
+import { ADD_BTN, Alert, PLUS_ICON, Req, ReqNote } from '../../shared/ui';
+import { RouterLink } from '@angular/router';
 import { CLS, Msg } from '../admin/admin-pages';
 
 interface BOrg { id: string; name: string; canAdd: boolean }
@@ -15,6 +16,7 @@ interface BRow {
   teamLeaderId: string | null; teamLeader: string | null; customers: number; staff: number; canDelete: boolean;
 }
 interface BData { level: string | null; canAdd: boolean; orgs: BOrg[]; leaders: { id: string; fullName: string }[]; branches: BRow[] }
+interface BCustomers { total: number; customers: { id: string; fullName: string; email: string; phone: string | null; status: string; openTickets: number }[] }
 interface BModel { organizationId: string; name: string; location: string; phone: string; teamLeaderId: string; isActive: boolean }
 
 /**
@@ -23,19 +25,19 @@ interface BModel { organizationId: string; name: string; location: string; phone
  */
 @Component({
   selector: 'app-branches',
-  imports: [TPipe, FormsModule, NgTemplateOutlet, Alert, Req, ReqNote],
+  imports: [TPipe, FormsModule, NgTemplateOutlet, RouterLink, Alert, Req, ReqNote],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div><h1 class="text-3xl font-bold tracking-tight">{{ 'Branches.title' | t }}</h1>
           <p class="mt-1 max-w-prose text-muted">{{ (d()?.canAdd ? 'Branches.subtitleOrg' : 'Branches.subtitleBranch') | t }}</p></div>
-        @if (d()?.canAdd && editing() !== 'new') { <button type="button" [class]="cls.btn" (click)="startNew()">{{ 'Branches.add' | t }}</button> }
+        @if (d()?.canAdd && editing() !== 'new') { <button type="button" [class]="addBtn" (click)="startNew()">${PLUS_ICON}{{ 'Branches.add' | t }}</button> }
       </div>
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
 
       <ng-template #formTpl>
-        <form class="flex flex-col gap-4 rounded-xl border border-brand bg-surface p-5 shadow-card" novalidate (ngSubmit)="save()">
+        <form class="flex flex-col gap-4 rounded-xl border bg-surface p-5 shadow-card" [class]="editing() === 'new' ? 'border-line border-t-4 border-t-brand' : 'border-brand'" novalidate (ngSubmit)="save()">
           <h2 class="text-lg font-bold">{{ (editing() === 'new' ? 'Branches.addTitle' : 'Branches.editTitle') | t }}</h2>
           <div class="grid gap-4 md:grid-cols-2">
             @if (orgChoices().length > 1) {
@@ -97,7 +99,15 @@ interface BModel { organizationId: string; name: string; location: string; phone
                     <td class="px-4 py-3" dir="auto">{{ b.location || '-' }}</td>
                     <td class="px-4 py-3" dir="ltr">{{ b.phone || '-' }}</td>
                     <td class="px-4 py-3" dir="auto">{{ b.teamLeader || '-' }}</td>
-                    <td class="px-4 py-3" dir="ltr">{{ b.customers }}</td>
+                    <td class="px-4 py-3">
+                      @if (b.customers) {
+                        <button type="button" class="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-full border px-3 text-sm font-bold tabular-nums" [class]="shown() === b.id ? 'border-brand bg-brand text-white' : 'border-line bg-brand-soft text-brand-ink hover:border-brand'"
+                          [attr.aria-expanded]="shown() === b.id" [attr.aria-controls]="'bc-' + b.id" [attr.aria-label]="'Branches.showCustomers' | t: { n: b.customers, name: b.name }" (click)="toggle(b)">
+                          <span dir="ltr">{{ b.customers }}</span>
+                          <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" class="transition-transform" [class.rotate-180]="shown() === b.id"><path d="M6 9l6 6 6-6"/></svg>
+                        </button>
+                      } @else { <span class="px-3 text-muted" dir="ltr">0</span> }
+                    </td>
                     <td class="px-4 py-3" dir="ltr">{{ b.staff }}</td>
                     <td class="px-4 py-3"><span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="b.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (b.isActive ? 'Branches.active' : 'Branches.inactive') | t }}</span></td>
                     <td class="px-4 py-3">
@@ -113,6 +123,40 @@ interface BModel { organizationId: string; name: string; location: string; phone
                       </div>
                     </td>
                   </tr>
+                  @if (shown() === b.id) {
+                    <tr [id]="'bc-' + b.id"><td [attr.colspan]="d.orgs.length > 1 ? 9 : 8" class="bg-bg px-4 py-3">
+                      <div class="rounded-lg border border-line bg-surface p-4">
+                        <h3 class="mb-2 font-bold" dir="auto">{{ 'Branches.customersIn' | t: { name: b.name, n: b.customers } }}</h3>
+                        @if (list(); as l) {
+                          <div class="overflow-x-auto">
+                            <table class="w-full min-w-[40rem] text-start text-sm">
+                              <thead class="text-xs font-semibold text-muted"><tr>
+                                <th scope="col" class="px-2 py-2 text-start">{{ 'Branches.cName' | t }}</th>
+                                <th scope="col" class="px-2 py-2 text-start">{{ 'Branches.cEmail' | t }}</th>
+                                <th scope="col" class="px-2 py-2 text-start">{{ 'Branches.phone' | t }}</th>
+                                <th scope="col" class="px-2 py-2 text-start">{{ 'Branches.cOpen' | t }}</th>
+                                <th scope="col" class="px-2 py-2 text-start">{{ 'Branches.status' | t }}</th>
+                              </tr></thead>
+                              <tbody>
+                                @for (c of l.customers; track c.id) {
+                                  <tr class="border-t border-line">
+                                    <td class="px-2 py-2"><a [routerLink]="'/' + i18n.locale() + '/console/customers/' + c.id" class="font-semibold text-brand-ink underline" dir="auto">{{ c.fullName || c.email }}</a></td>
+                                    <td class="px-2 py-2" dir="ltr">{{ c.email }}</td>
+                                    <td class="px-2 py-2" dir="ltr">{{ c.phone || '-' }}</td>
+                                    <td class="px-2 py-2" dir="ltr">{{ c.openTickets }}</td>
+                                    <td class="px-2 py-2"><span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="c.status === 'active' ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ 'Branches.cStatus.' + c.status | t }}</span></td>
+                                  </tr>
+                                }
+                              </tbody>
+                            </table>
+                          </div>
+                          <p class="mt-2 text-sm text-muted">{{ (l.total > l.customers.length ? 'Branches.showingSome' : 'Branches.showingAll') | t: { n: l.customers.length, total: l.total } }}
+                            <a [routerLink]="'/' + i18n.locale() + '/console/customers'" class="font-semibold text-brand-ink underline">{{ 'Branches.openCustomers' | t }}</a></p>
+                        } @else if (listError()) { <app-alert tone="error">{{ listError() }}</app-alert> }
+                        @else { <p role="status" class="text-sm text-muted">{{ 'Branches.loading' | t }}</p> }
+                      </div>
+                    </td></tr>
+                  }
                   @if (editing() === b.id) { <tr><td [attr.colspan]="d.orgs.length > 1 ? 9 : 8" class="bg-bg p-3"><ng-container *ngTemplateOutlet="formTpl" /></td></tr> }
                 }
               </tbody>
@@ -127,6 +171,11 @@ export class BranchesPage {
   protected readonly i18n = inject(I18n);
   private readonly http = inject(HttpClient);
   protected readonly cls = CLS;
+  protected readonly addBtn = ADD_BTN;
+  /** The branch whose customer list is open under its row, and that list (null while loading). */
+  protected readonly shown = signal<string | null>(null);
+  protected readonly list = signal<BCustomers | null>(null);
+  protected readonly listError = signal('');
   /** Small text buttons inside table rows (the full-size buttons are for forms). */
   protected readonly row = {
     btn: 'inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold text-brand-ink hover:bg-brand-soft disabled:opacity-60',
@@ -151,6 +200,14 @@ export class BranchesPage {
   private blank(): BModel {
     const org = this.d()?.orgs.find((o) => o.canAdd)?.id ?? '';
     return { organizationId: org, name: '', location: '', phone: '', teamLeaderId: '', isActive: true };
+  }
+  protected async toggle(b: BRow): Promise<void> {
+    if (this.shown() === b.id) { this.shown.set(null); return; }
+    this.shown.set(b.id); this.list.set(null); this.listError.set('');
+    try {
+      const r = await firstValueFrom(this.http.get<BCustomers>('/api/console/branches/' + b.id + '/customers'));
+      if (this.shown() === b.id) this.list.set(r);
+    } catch (e) { if (this.shown() === b.id) this.listError.set(adminError(this.i18n, e)); }
   }
   protected orgName(id: string): string { return this.d()?.orgs.find((o) => o.id === id)?.name ?? '-'; }
   protected startNew(): void { this.m = this.blank(); this.msg.set(null); this.editing.set('new'); }

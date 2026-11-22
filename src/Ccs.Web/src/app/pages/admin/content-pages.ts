@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
 import { TPipe } from '../../core/i18n';
 import { SiteService } from '../../core/api';
-import { Alert, Req, TONE_CLASS, Tone } from '../../shared/ui';
+import { AddPanel, Alert, Req, ReqNote, TONE_CLASS, Tone } from '../../shared/ui';
 import { AdminBase, HEADER, SEARCH } from './admin-pages';
 import { PageAbout } from '../../shared/page-about';
 
@@ -21,7 +21,7 @@ const blankReason = (): ReasonModel => ({ nameEn: '', nameAr: '', customerMayReo
 
 @Component({
   selector: 'app-admin-status',
-  imports: [TPipe, Alert, FormsModule, Req, NgTemplateOutlet, RouterLink],
+  imports: [TPipe, Alert, AddPanel, FormsModule, Req, ReqNote, NgTemplateOutlet, RouterLink],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       ${HEADER}
@@ -99,7 +99,15 @@ const blankReason = (): ReasonModel => ({ nameEn: '', nameAr: '', customerMayReo
       </section>
 
       <section class="flex flex-col gap-3">
-        <h2 class="text-2xl font-bold">{{ 'AdminStatus.closureTitle' | t }}</h2>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <h2 class="text-2xl font-bold">{{ 'AdminStatus.closureTitle' | t }}</h2>
+          <app-add #addr label="AdminStatus.reasonAddTitle">
+            <form class="flex flex-col gap-3" (ngSubmit)="addReason(addr)">
+              <ng-container *ngTemplateOutlet="reasonForm; context: { m: nwReason, id: 'nr', system: false }" />
+              <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminStatus.reasonAdd' | t }}</button><app-req-note /></div>
+            </form>
+          </app-add>
+        </div>
         <p class="text-muted">{{ 'AdminStatus.closureHelp' | t }}</p>
         <ng-template #reasonForm let-m="m" let-id="id" let-system="system">
           <div class="grid gap-4 md:grid-cols-2">
@@ -127,13 +135,6 @@ const blankReason = (): ReasonModel => ({ nameEn: '', nameAr: '', customerMayReo
             </details></li>
           }
         </ul>
-        <details [class]="cls.card" #addr>
-          <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'AdminStatus.reasonAddTitle' | t }}</span></summary>
-          <form class="flex flex-col gap-3 px-5 pb-5" (ngSubmit)="addReason(addr)">
-            <ng-container *ngTemplateOutlet="reasonForm; context: { m: nwReason, id: 'nr', system: false }" />
-            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminStatus.reasonAdd' | t }}</button></div>
-          </form>
-        </details>
       </section>
     </main>`,
   changeDetection: ChangeDetectionStrategy.Default,
@@ -227,7 +228,7 @@ export class AdminStatusPage extends AdminBase implements OnInit {
   protected resetLabel(s: string): void { void this.run(() => this.api.put('status-labels/' + s, {})); }
   protected saveReason(r: ReasonRow): void { void this.run(() => this.api.put('closure-reasons/' + r.code, this.rs[r.code])); }
   protected deleteReason(r: ReasonRow): void { void this.run(() => this.api.del('closure-reasons/' + r.code), 'AdminV2.deleted'); }
-  protected async addReason(box: HTMLDetailsElement): Promise<void> {
+  protected async addReason(box: { open: boolean }): Promise<void> {
     if (await this.run(() => this.api.post('closure-reasons', this.nwReason))) { this.nwReason = blankReason(); box.open = false; }
   }
 }
@@ -462,13 +463,13 @@ const blankArt = (): ArtModel => ({ categoryId: null, slug: '', titleEn: '', tit
 
 @Component({
   selector: 'app-admin-kb',
-  imports: [TPipe, Alert, FormsModule, Req, NgTemplateOutlet],
+  imports: [TPipe, Alert, AddPanel, FormsModule, Req, ReqNote, NgTemplateOutlet],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminKb.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminKb.subtitle' | t }}</p></div>
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
-      <ng-template #catForm let-m="m" let-id="id" let-isNew="isNew">
-        <form [class]="formCls" novalidate (ngSubmit)="isNew ? createCat() : updateCat(id)">
+      <ng-template #catForm let-m="m" let-id="id" let-isNew="isNew" let-box="box">
+        <form [class]="isNew ? 'flex flex-col gap-4' : formCls" novalidate (ngSubmit)="isNew ? createCat(box) : updateCat(id)">
           <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminKb.slug' | t }}<app-req /></span><input name="sl" dir="ltr" maxlength="80" [class]="cls.input + ' font-normal'" [(ngModel)]="m.slug" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.sort' | t }}<input name="so" type="number" min="0" [class]="cls.input + ' font-normal'" [(ngModel)]="m.sortOrder" /></label>
@@ -476,12 +477,12 @@ const blankArt = (): ArtModel => ({ categoryId: null, slug: '', titleEn: '', tit
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminKb.nameAr' | t }}<app-req /></span><input name="ar" dir="rtl" maxlength="120" [class]="cls.input + ' font-normal'" [(ngModel)]="m.nameAr" /></label>
           </div>
           <label class="${CHECK}"><input type="checkbox" name="ac" class="h-5 w-5" [(ngModel)]="m.isActive" /> {{ 'AdminKb.active' | t }}</label>
-          <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ (isNew ? 'AdminKb.addCategory' : 'AdminKb.save') | t }}</button></div>
+          <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ (isNew ? 'AdminKb.addCategory' : 'AdminKb.save') | t }}</button><app-req-note /></div>
         </form>
       </ng-template>
-      <ng-template #artForm let-m="m" let-id="id" let-isNew="isNew">
+      <ng-template #artForm let-m="m" let-id="id" let-isNew="isNew" let-box="box">
         <div class="flex flex-col gap-3">
-          <form [class]="formCls" novalidate (ngSubmit)="isNew ? createArt() : updateArt(id)">
+          <form [class]="isNew ? 'flex flex-col gap-4' : formCls" novalidate (ngSubmit)="isNew ? createArt(box) : updateArt(id)">
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminKb.slug' | t }}<app-req /></span><input name="sl" dir="ltr" maxlength="80" [class]="cls.input + ' font-normal'" [(ngModel)]="m.slug" /></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.category' | t }}
@@ -495,26 +496,28 @@ const blankArt = (): ArtModel => ({ categoryId: null, slug: '', titleEn: '', tit
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.titleAr' | t }}<input name="ta" dir="rtl" maxlength="200" [class]="cls.input + ' font-normal'" [(ngModel)]="m.titleAr" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminKb.bodyEn' | t }}<app-req /></span><textarea name="be" rows="8" dir="ltr" class="rounded-lg border border-line bg-surface p-3 text-base font-normal" [(ngModel)]="m.bodyEn"></textarea></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminKb.bodyAr' | t }}<textarea name="ba" rows="8" dir="rtl" class="rounded-lg border border-line bg-surface p-3 text-base font-normal" [(ngModel)]="m.bodyAr"></textarea></label>
-            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ (isNew ? 'AdminKb.addArticle' : 'AdminKb.save') | t }}</button></div>
+            <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ (isNew ? 'AdminKb.addArticle' : 'AdminKb.save') | t }}</button><app-req-note /></div>
           </form>
           @if (!isNew) { <div><button type="button" [class]="cls.btn" [disabled]="busy()" (click)="del('kb-articles/' + id)">{{ 'AdminKb.delete' | t }}</button></div> }
         </div>
       </ng-template>
 
-      <section aria-labelledby="cats" class="flex flex-col gap-3"><h2 id="cats" class="text-xl font-bold">{{ 'AdminKb.categories' | t }}</h2>
+      <section aria-labelledby="cats" class="flex flex-col gap-3">
+        <div class="flex flex-wrap items-start justify-between gap-3"><h2 id="cats" class="text-xl font-bold">{{ 'AdminKb.categories' | t }}</h2>
+          <app-add #addCat label="AdminKb.addCategory"><ng-container *ngTemplateOutlet="catForm; context: { m: nwCat, id: 'new', isNew: true, box: addCat }" /></app-add></div>
         @for (c of data()?.categories ?? []; track c.id) {
           <details [class]="box"><summary [class]="sum">{{ i18n.pick(c.nameEn, c.nameAr) }} <span dir="ltr" class="text-sm font-normal text-muted">({{ c.slug }}@if (!c.isActive) {, {{ 'AdminKb.inactive' | t }} })</span></summary>
             <div class="p-3"><ng-container *ngTemplateOutlet="catForm; context: { m: ec[c.id], id: c.id, isNew: false }" /></div></details>
         }
-        <details [class]="box"><summary [class]="sum">{{ 'AdminKb.addCategory' | t }}</summary><div class="p-3"><ng-container *ngTemplateOutlet="catForm; context: { m: nwCat, id: 'new', isNew: true }" /></div></details>
       </section>
-      <section aria-labelledby="arts" class="flex flex-col gap-3"><h2 id="arts" class="text-xl font-bold">{{ 'AdminKb.articles' | t }}</h2>
+      <section aria-labelledby="arts" class="flex flex-col gap-3">
+        <div class="flex flex-wrap items-start justify-between gap-3"><h2 id="arts" class="text-xl font-bold">{{ 'AdminKb.articles' | t }}</h2>
+          <app-add #addArt label="AdminKb.addArticle"><ng-container *ngTemplateOutlet="artForm; context: { m: nwArt, id: 'new', isNew: true, box: addArt }" /></app-add></div>
         @if (data() && !data()!.articles.length) { <p class="text-muted">{{ 'AdminKb.noArticles' | t }}</p> }
         @for (a of data()?.articles ?? []; track a.id) {
           <details [class]="box"><summary [class]="sum" dir="auto">{{ a.titleEn }} <span class="text-sm font-normal text-muted">({{ 'AdminKb.status.' + a.status | t }}, {{ a.helpfulCount }}/{{ a.notHelpfulCount }})</span></summary>
             <div class="p-3"><ng-container *ngTemplateOutlet="artForm; context: { m: ea[a.id], id: a.id, isNew: false }" /></div></details>
         }
-        <details [class]="box"><summary [class]="sum">{{ 'AdminKb.addArticle' | t }}</summary><div class="p-3"><ng-container *ngTemplateOutlet="artForm; context: { m: nwArt, id: 'new', isNew: true }" /></div></details>
       </section>
     </main>`,
   changeDetection: ChangeDetectionStrategy.Default,
@@ -539,9 +542,9 @@ export class AdminKbPage extends AdminBase implements OnInit {
       this.data.set(d);
     } catch (e) { this.fail(e); }
   }
-  protected async createArt(): Promise<void> { if (await this.run(() => this.api.post('kb-articles', this.nwArt))) this.nwArt = blankArt(); }
+  protected async createArt(box: { open: boolean }): Promise<void> { if (await this.run(() => this.api.post('kb-articles', this.nwArt))) { this.nwArt = blankArt(); box.open = false; } }
   protected updateArt(id: string): void { void this.run(() => this.api.put('kb-articles/' + id, this.ea[id])); }
-  protected async createCat(): Promise<void> { if (await this.run(() => this.api.post('kb-categories', this.nwCat))) this.nwCat = blankKbCat(); }
+  protected async createCat(box: { open: boolean }): Promise<void> { if (await this.run(() => this.api.post('kb-categories', this.nwCat))) { this.nwCat = blankKbCat(); box.open = false; } }
   protected updateCat(id: string): void { void this.run(() => this.api.put('kb-categories/' + id, this.ec[id])); }
   protected del(path: string): void { void this.run(() => this.api.del(path), 'AdminV2.deleted'); }
 }

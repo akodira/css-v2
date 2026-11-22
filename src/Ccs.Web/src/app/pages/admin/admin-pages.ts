@@ -13,7 +13,7 @@ import {
   AccessRow, AccountTypeRow, AdminApi, AdminUser, BranchRow, Lookups, OrgRow, TeamRow, TeamsResult, TypeBody, UserBody,
   adminError, generatePassword,
 } from '../../core/admin-api';
-import { Alert, PRIORITY_TONE, PrioIcon, Req, StatusBadge } from '../../shared/ui';
+import { AddPanel, Alert, PRIORITY_TONE, PrioIcon, Req, StatusBadge } from '../../shared/ui';
 import { PwEye } from '../../shared/pw-eye';
 import { WhereEditor } from './where-editor';
 import { feedbackFor } from '../../shared/feedback';
@@ -84,6 +84,17 @@ export const HEADER = `
   <div>
     <h1 class="text-3xl font-bold tracking-tight">{{ title | t }}</h1>
     <p class="mt-1 max-w-prose text-muted">{{ subtitle | t }}</p>
+  </div>
+  @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }`;
+
+/** HEADER with the page's "+ Add …" panel (an <app-add>) at the top right of the title row: HEAD_ADD, then the <app-add>, then HEAD_END. */
+export const HEAD_ADD = `
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">{{ title | t }}</h1>
+      <p class="mt-1 max-w-prose text-muted">{{ subtitle | t }}</p>
+    </div>`;
+export const HEAD_END = `
   </div>
   @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }`;
 
@@ -212,23 +223,24 @@ interface CustomerRow { id: string; fullName: string; email: string; phone: stri
 /** Customers screen, same as v1 /console/customers: add form (admins), search, and a table of the customers this person may see. */
 @Component({
   selector: 'app-admin-customers',
-  imports: [TPipe, Alert, PersonForm, RouterLink, FormsModule, PageAbout, forwardRef(() => PeoplePage)],
+  imports: [TPipe, Alert, AddPanel, PersonForm, RouterLink, FormsModule, PageAbout, forwardRef(() => PeoplePage)],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <h1 class="text-3xl font-bold tracking-tight">{{ title | t }}</h1>
+      @if (scoped() && !isAdmin()) {
+        <!-- Organization and branch admins add customers here (the Staff page adds staff only); it shows the title with its Add button. -->
+        <app-people mode="customer" [heading]="title" (created)="reload()" />
+      } @else {
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <h1 class="text-3xl font-bold tracking-tight">{{ title | t }}</h1>
+          @if (isAdmin()) {
+            <app-add #add label="Customers.addCustomer">
+              @if (lk()) { <app-person-form #pf mode="customer" [lk]="lk()" [busy]="busy()" (save)="create($event, pf, add)" /> }
+            </app-add>
+          }
+        </div>
+      }
       @if (isAdmin()) { <app-page-about key="customers" tile="person" [points]="['person', 'building', 'check', 'history']" /> }
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
-      @if (isAdmin()) {
-        <details [class]="cls.card" #add>
-          <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'Customers.addCustomer' | t }}</span></summary>
-          <div class="px-5 pb-5">
-            @if (lk()) { <app-person-form #pf mode="customer" [lk]="lk()" [busy]="busy()" (save)="create($event, pf, add)" /> }
-          </div>
-        </details>
-      } @else if (scoped()) {
-        <!-- Organization and branch admins add customers here (the Staff page adds staff only). -->
-        <app-people mode="customer" (created)="reload()" />
-      }
       <form role="search" class="flex flex-wrap gap-2" (ngSubmit)="search()">
         <label class="sr-only" for="cq">{{ 'Customers.search' | t }}</label>
         <input id="cq" name="q" type="search" dir="auto" autocomplete="off" [placeholder]="'Customers.searchPlaceholder' | t" [(ngModel)]="term" (ngModelChange)="typed()"
@@ -298,7 +310,7 @@ export class AdminCustomersPage extends AdminBase implements OnInit {
   }
   /** Searches now; the text is not kept in the address, so a refresh starts with an empty box. */
   protected search(): void { clearTimeout(this.timer); void this.reload(); }
-  protected async create(body: UserBody, form: PersonForm, box: HTMLDetailsElement): Promise<void> {
+  protected async create(body: UserBody, form: PersonForm, box: { open: boolean }): Promise<void> {
     if (await this.run(() => this.api.post('users', body), 'Directory.createdUser', { email: body.email, password: body.password })) {
       form.reset();
       box.open = false;
@@ -414,14 +426,10 @@ export class TypeEditor implements OnInit {
 
 @Component({
   selector: 'app-admin-types',
-  imports: [TPipe, Alert, TypeEditor],
+  imports: [TPipe, Alert, AddPanel, TypeEditor],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      ${HEADER}
-      <details [class]="cls.card" #add>
-        <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'Permissions.addType' | t }}</span></summary>
-        <div class="px-5 pb-5">@if (lk()) { <app-type-editor #te [lk]="lk()" [busy]="busy()" (save)="create($event, te, add)" /> }</div>
-      </details>
+      ${HEAD_ADD}<app-add #add label="Permissions.addType">@if (lk()) { <app-type-editor #te [lk]="lk()" [busy]="busy()" (save)="create($event, te, add)" /> }</app-add>${HEAD_END}
       <ul class="flex flex-col gap-4">
         @for (t of rows() ?? []; track t.id) {
           <li><details [class]="cls.card">
@@ -455,7 +463,7 @@ export class AdminTypesPage extends AdminBase implements OnInit {
   protected access(t: AccountTypeRow): string {
     return t.access.map((a) => (a.branchId ? `${this.orgName(a.organizationId)} · ${this.branchName(a.branchId)}` : this.orgName(a.organizationId))).join(', ') || '-';
   }
-  protected async create(b: TypeBody, ed: TypeEditor, box: HTMLDetailsElement): Promise<void> {
+  protected async create(b: TypeBody, ed: TypeEditor, box: { open: boolean }): Promise<void> {
     if (await this.run(() => this.api.post('account-types', b))) { ed.reset(); box.open = false; }
   }
   protected update(t: AccountTypeRow, b: TypeBody): void { void this.run(() => this.api.put('account-types/' + t.id, b)); }

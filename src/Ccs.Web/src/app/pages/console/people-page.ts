@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { adminError, generatePassword } from '../../core/admin-api';
 import { I18n, TPipe } from '../../core/i18n';
-import { Alert } from '../../shared/ui';
+import { AddPanel, Alert, Req, ReqNote } from '../../shared/ui';
 import { PwEye } from '../../shared/pw-eye';
 import { CLS, Msg } from '../admin/admin-pages';
 
@@ -23,29 +23,26 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
  */
 @Component({
   selector: 'app-people',
-  imports: [TPipe, FormsModule, Alert, PwEye],
+  imports: [TPipe, FormsModule, Alert, PwEye, AddPanel, Req, ReqNote],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div [class]="mode() === 'staff' ? 'mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8' : 'flex flex-col gap-6'">
-      @if (mode() === 'staff') { <div><h1 class="text-3xl font-bold tracking-tight">{{ 'People.staffTitle' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'People.staffSubtitle' | t }}</p></div> }
-      @if (d(); as d) {
-        @if (d.orgs.length === 0) {
-          <p role="status" class="rounded-lg bg-warn-soft px-4 py-3 text-sm font-semibold text-warn-ink">{{ 'People.noScope' | t }}</p>
-        } @else {
-          <details class="rounded-xl border border-line bg-surface shadow-card">
-            <summary class="cursor-pointer px-5 py-4 text-lg font-bold">{{ (mode() === 'staff' ? 'People.addStaff' : 'People.addCustomer') | t }}</summary>
-            <form class="flex flex-col gap-4 px-5 pb-5" (ngSubmit)="create()">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        @if (headKey(); as h) { <div><h1 class="text-3xl font-bold tracking-tight">{{ h | t }}</h1>@if (mode() === 'staff') { <p class="mt-1 max-w-prose text-muted">{{ 'People.staffSubtitle' | t }}</p> }</div> }
+        @if (d(); as d) { @if (d.orgs.length) {
+          <app-add #add [label]="mode() === 'staff' ? 'People.addStaff' : 'People.addCustomer'">
+            <form class="flex flex-col gap-4" (ngSubmit)="create(add)">
               <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div class="flex flex-col gap-1.5"><label for="pp-n" [class]="cls.label">{{ 'People.name' | t }}</label>
+                <div class="flex flex-col gap-1.5"><label for="pp-n" [class]="cls.label">{{ 'People.name' | t }}<app-req /></label>
                   <input id="pp-n" name="fullName" dir="auto" autocomplete="off" [class]="cls.input" [ngModel]="n().fullName" (ngModelChange)="patch({ fullName: $event })" /></div>
-                <div class="flex flex-col gap-1.5"><label for="pp-e" [class]="cls.label">{{ 'People.email' | t }}</label>
+                <div class="flex flex-col gap-1.5"><label for="pp-e" [class]="cls.label">{{ 'People.email' | t }}<app-req /></label>
                   <input id="pp-e" name="email" type="email" dir="ltr" autocomplete="off" [class]="cls.input" [ngModel]="n().email" (ngModelChange)="patch({ email: $event })" /></div>
                 <div class="flex flex-col gap-1.5"><label for="pp-p" [class]="cls.label">{{ 'People.phone' | t }}</label>
                   <input id="pp-p" name="phone" dir="ltr" placeholder="+20 10 1234 5678" autocomplete="off" [class]="cls.input" [ngModel]="n().phone" (ngModelChange)="patch({ phone: $event })" /></div>
-                <div class="flex flex-col gap-1.5"><label for="pp-w" [class]="cls.label">{{ 'People.tempPassword' | t }}</label>
+                <div class="flex flex-col gap-1.5"><label for="pp-w" [class]="cls.label">{{ 'People.tempPassword' | t }}<app-req /></label>
                   <span class="flex gap-2"><span class="relative min-w-0 flex-1"><input #ppw id="pp-w" name="password" type="password" dir="ltr" autocomplete="new-password" [class]="cls.input + ' w-full pe-11'" [ngModel]="n().password" (ngModelChange)="patch({ password: $event })" /><app-pw-eye [target]="ppw" /></span>
                     <button type="button" [class]="btn + ' shrink-0'" (click)="patch({ password: gen() })">{{ 'People.generate' | t }}</button></span></div>
-                <div class="flex flex-col gap-1.5"><label for="pp-o" [class]="cls.label">{{ 'People.organization' | t }}</label>
+                <div class="flex flex-col gap-1.5"><label for="pp-o" [class]="cls.label">{{ 'People.organization' | t }}<app-req /></label>
                   <select id="pp-o" name="org" [class]="cls.input" [ngModel]="n().organizationId" (ngModelChange)="pickOrg($event)">
                     @for (o of d.orgs; track o.id) { <option [value]="o.id">{{ o.name }}</option> }
                   </select></div>
@@ -55,17 +52,23 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
                     @for (b of myBranches(); track b.id) { <option [value]="b.id">{{ b.name }}</option> }
                   </select></div>
                 @if (n().kind === 'staff') {
-                  <div class="flex flex-col gap-1.5"><label for="pp-t" [class]="cls.label">{{ 'People.accountType' | t }}</label>
+                  <div class="flex flex-col gap-1.5"><label for="pp-t" [class]="cls.label">{{ 'People.accountType' | t }}<app-req /></label>
                     <select id="pp-t" name="type" [class]="cls.input" [ngModel]="n().accountTypeId" (ngModelChange)="patch({ accountTypeId: $event })">
                       <option value="" disabled>{{ 'People.chooseType' | t }}</option>
                       @for (x of d.types; track x.id) { <option [value]="x.id">{{ typeName(x) }}</option> }
                     </select></div>
                 }
               </div>
-              @if (createMsg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
-              <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'People.create' | t }}</button></div>
+              @if (createMsg(); as m) { @if (m.tone === 'error') { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> } }
+              <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'People.create' | t }}</button><app-req-note /></div>
             </form>
-          </details>
+          </app-add>
+        } }
+      </div>
+      @if (createMsg(); as m) { @if (m.tone === 'success') { <app-alert tone="success">{{ m.text }}</app-alert> } }
+      @if (d(); as d) {
+        @if (d.orgs.length === 0) {
+          <p role="status" class="rounded-lg bg-warn-soft px-4 py-3 text-sm font-semibold text-warn-ink">{{ 'People.noScope' | t }}</p>
         }
 
         @if (mode() === 'staff') {
@@ -149,6 +152,9 @@ export class PeoplePage {
   // Routed pages get every input from the address (withComponentInputBinding), and a missing one arrives as undefined: treat that as staff.
   readonly mode = input<'staff' | 'customer', 'staff' | 'customer' | undefined>('staff', { transform: (v) => v ?? 'staff' });
   readonly created = output<void>();
+  /** Page title key when this list is the page (Staff always; Customers passes it for organization and branch admins). */
+  readonly heading = input<string>('');
+  protected readonly headKey = computed(() => (this.mode() === 'staff' ? 'People.staffTitle' : this.heading()));
   protected readonly d = signal<PData | null>(null);
   protected readonly loadError = signal('');
   protected readonly busy = signal(false);
@@ -211,11 +217,11 @@ export class PeoplePage {
     catch (e) { msg.set({ tone: 'error', text: adminError(this.i18n, e) }); return false; }
     finally { this.busy.set(false); }
   }
-  protected async create(): Promise<void> {
+  protected async create(box: { open: boolean }): Promise<void> {
     const v = this.n();
     if (v.kind === 'staff' && !v.accountTypeId) { this.createMsg.set({ tone: 'error', text: this.i18n.t('AdminCommon.errors.typeRequired') }); return; }
     const body = { ...v, phone: v.phone || null, branchId: v.branchId || null, accountTypeId: v.kind === 'staff' ? v.accountTypeId : null };
-    if (await this.run(() => firstValueFrom(this.http.post('/api/console/people', body)), this.createMsg)) { this.resetNew(this.d()!); this.created.emit(); }
+    if (await this.run(() => firstValueFrom(this.http.post('/api/console/people', body)), this.createMsg)) { this.resetNew(this.d()!); this.created.emit(); box.open = false; }
   }
   protected setStatus(p: PRow): void {
     void this.run(() => firstValueFrom(this.http.post(`/api/console/people/${p.id}/status`, { status: p.status === 'suspended' ? 'active' : 'suspended' })), this.rowMsg);

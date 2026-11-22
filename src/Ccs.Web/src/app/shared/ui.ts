@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, InjectionToken, computed, inject, input, model, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, InjectionToken, computed, inject, input, model, output, signal, ElementRef } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { I18n, LOCALES, TPipe } from '../core/i18n';
 import { Router } from '@angular/router';
@@ -453,4 +453,74 @@ export class NewPasswordFields {
   protected readonly level = computed(() => { if (!this.value()) return 0; const m = this.met(); return m === this.rules().length ? 4 : Math.max(1, Math.min(3, m - 1)); });
   /** True when every rule is met and both fields match. */
   ok(): boolean { return this.met() === this.rules().length && this.value() === this.confirm(); }
+}
+
+/**
+ * The one "Add" pattern for every page: a blue "+ Add …" button at the top right, next to the title.
+ * Clicking it opens the form (projected content) in a card under the title; the button hides while it is open.
+ * Put it in the header row (`flex flex-wrap items-start justify-between gap-3`): when open the card takes the whole row.
+ * `open` can be set from code (e.g. `box.open = false` after saving), like a <details> element.
+ */
+@Component({
+  selector: 'app-add',
+  imports: [TPipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'contents' },
+  template: `
+    @if (!isOpen()) {
+      <button type="button" class="inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink sm:w-auto" (click)="show()">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>{{ label() | t }}</button>
+    } @else {
+      <section class="w-full basis-full rounded-xl border border-line border-t-4 border-t-brand bg-surface p-5 shadow-card" (keydown.escape)="hide()">
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <h2 #head tabindex="-1" class="text-lg font-bold outline-none">{{ (title() || label()) | t }}</h2>
+          <button type="button" class="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold text-muted hover:bg-bg hover:text-ink" (click)="hide()">
+            <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>{{ 'AdminCommon.cancel' | t }}</button>
+        </div>
+        <ng-content />
+      </section>
+    }`,
+})
+export class AddPanel {
+  /** i18n key of the button text, e.g. 'Branches.add'. */
+  readonly label = input.required<string>();
+  /** i18n key of the card heading (defaults to the button text). */
+  readonly title = input<string>('');
+  protected readonly isOpen = signal(false);
+  private readonly host = inject(ElementRef<HTMLElement>);
+  get open(): boolean { return this.isOpen(); }
+  set open(v: boolean) { this.isOpen.set(v); }
+  protected show(): void {
+    this.isOpen.set(true);
+    setTimeout(() => (this.host.nativeElement.querySelector('input:not([type=hidden]),select,textarea') as HTMLElement | null)?.focus(), 0);
+  }
+  protected hide(): void {
+    this.isOpen.set(false);
+    setTimeout(() => (this.host.nativeElement.querySelector('button') as HTMLElement | null)?.focus(), 0);
+  }
+}
+
+/** Plus icon and classes for a page's blue "+ Add …" button when the page keeps its own open/closed state (see AddCard). */
+export const PLUS_ICON = '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>';
+export const ADD_BTN = 'inline-flex min-h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink sm:w-auto';
+
+/** The card an "Add" form opens in: blue top edge, heading and a Cancel button (same look as AddPanel). */
+@Component({
+  selector: 'app-add-card',
+  imports: [TPipe],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'block w-full basis-full' },
+  template: `
+    <section class="rounded-xl border border-line border-t-4 border-t-brand bg-surface p-5 shadow-card" (keydown.escape)="cancel.emit()">
+      <div class="mb-4 flex items-start justify-between gap-3">
+        <h2 class="text-lg font-bold">{{ title() | t }}</h2>
+        <button type="button" class="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold text-muted hover:bg-bg hover:text-ink" (click)="cancel.emit()">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>{{ 'AdminCommon.cancel' | t }}</button>
+      </div>
+      <ng-content />
+    </section>`,
+})
+export class AddCard {
+  readonly title = input.required<string>();
+  readonly cancel = output<void>();
 }

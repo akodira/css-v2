@@ -43,7 +43,7 @@ const TAB = 'px-5 py-3 font-semibold';
       @if (tab() === 'types') {
         <div class="flex flex-wrap items-center justify-between gap-3">
           <p class="text-muted">{{ 'Permissions.summaryTypes' | t: { types: types().length, staff: staff().length } }}</p>
-          <a [routerLink]="base + '/types/new'" class="inline-flex min-h-11 items-center rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Permissions.addType' | t }}</a>
+          <a [routerLink]="base + '/types/new'" class="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink sm:w-auto"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>{{ 'Permissions.addType' | t }}</a>
         </div>
         <div class="relative overflow-x-auto rounded-xl border border-line bg-surface shadow-card">
           <table class="w-full min-w-[720px] border-collapse text-start">

@@ -7,7 +7,7 @@ import { Router, RouterLink } from '@angular/router';
 import { Lookups, OrgRow, BranchRow, TeamRow, TeamsResult, generatePassword } from '../../core/admin-api';
 import { Auth } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
-import { Alert, Req, ReqNote } from '../../shared/ui';
+import { AddPanel, Alert, Req, ReqNote } from '../../shared/ui';
 import { PwEye } from '../../shared/pw-eye';
 import { AdminBase, CLS, TurnBack } from './admin-pages';
 import { WhereEditor } from './where-editor';
@@ -287,16 +287,14 @@ export class StaffBody implements OnInit {
 
 @Component({
   selector: 'app-admin-staff',
-  imports: [TPipe, Alert, FormsModule, RoleCards, ScopePicker, StaffBody, Req, PageAbout, PwEye],
+  imports: [TPipe, Alert, AddPanel, FormsModule, RoleCards, ScopePicker, StaffBody, Req, ReqNote, PageAbout, PwEye],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminUsers.title' | t }}</h1>
-      <app-page-about key="staff" tile="badge" [points]="['shield', 'key', 'team', 'lock']" />
-      @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
-      <details class="rounded-xl border border-line bg-surface shadow-card" #add>
-        <summary class="cursor-pointer px-5 py-4 text-lg font-bold">{{ 'Directory.addStaff' | t }}</summary>
-        <div class="flex flex-col gap-3 px-5 pb-5">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminUsers.title' | t }}</h1>
+        <app-add #add label="Directory.addStaff">
+        <div class="flex flex-col gap-3">
           @if (created(); as c) { <app-alert tone="success">{{ 'Directory.createdUser' | t: c }}</app-alert> }
           <form class="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5" novalidate (ngSubmit)="create(add)">
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -319,10 +317,13 @@ export class StaffBody implements OnInit {
                 <app-scope-picker [kind]="nwScoped" [orgs]="data()?.orgs ?? []" [branches]="data()?.branches ?? []" [(picked)]="nwPicked" [error]="scopeError() ? ('AdminCommon.errors.scopeRequired' | t) : null" />
               }
             </fieldset>
-            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.create' | t }}</button></div>
+            <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.create' | t }}</button><app-req-note /></div>
           </form>
         </div>
-      </details>
+        </app-add>
+      </div>
+      <app-page-about key="staff" tile="badge" [points]="['shield', 'key', 'team', 'lock']" />
+      @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       @if (data() && !data()!.staff.length) { <p class="text-muted">{{ 'AdminUsers.empty' | t }}</p> }
       @else if (data()) {
         <div class="flex flex-col gap-4">
@@ -379,7 +380,7 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
   protected async reload(): Promise<void> { try { this.data.set(await this.api.get<StaffData>('staff')); } catch (e) { this.fail(e); } }
   protected roleNames(u: StaffRow): string { return u.roles.map((r) => this.i18n.t('Roles.' + r)).join(', '); }
   protected gen(): string { return generatePassword(); }
-  protected async create(box: HTMLDetailsElement): Promise<void> {
+  protected async create(box: { open: boolean }): Promise<void> {
     this.scopeError.set(!!this.nwScoped && !this.nwPicked.length);
     if (this.scopeError()) return;
     const body = {
@@ -410,17 +411,14 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
 
 @Component({
   selector: 'app-admin-teams',
-  imports: [TPipe, Alert, FormsModule, Req, ReqNote, PageAbout],
+  imports: [TPipe, Alert, AddPanel, FormsModule, Req, ReqNote, PageAbout],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminTeams.title' | t }}</h1>
-      <app-page-about key="teams" tile="users" [points]="['ticket', 'eye', 'swap', 'crown']" />
-      @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
-      <details class="rounded-xl border border-line bg-surface shadow-card" #add>
-        <summary class="cursor-pointer px-5 py-4 text-lg font-bold">{{ 'Directory.addTeam' | t }}</summary>
-        <div class="px-5 pb-5">
-          <form class="flex flex-col gap-4 rounded-xl border border-line bg-surface p-5" novalidate (ngSubmit)="create(add)">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminTeams.title' | t }}</h1>
+        <app-add #add label="Directory.addTeam">
+          <form class="flex flex-col gap-4" novalidate (ngSubmit)="create(add)">
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameEn' | t }}<app-req /></span><input name="en" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.nameEn" /></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameAr' | t }}<app-req /></span><input name="ar" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.nameAr" /></label>
@@ -440,10 +438,12 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
                 </ul>
               }
             </fieldset>
-            <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.create' | t }}</button></div>
+            <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.create' | t }}</button><app-req-note /></div>
           </form>
-        </div>
-      </details>
+        </app-add>
+      </div>
+      <app-page-about key="teams" tile="users" [points]="['ticket', 'eye', 'swap', 'crown']" />
+      @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       @if (data() && !data()!.candidates.length) { <p role="status" class="rounded-lg bg-warn-soft px-4 py-3 text-sm font-medium text-warn-ink">{{ 'AdminTeams.noStaff' | t }}</p> }
       @if (data()) {
         <div class="flex flex-col gap-4">
@@ -605,7 +605,7 @@ export class AdminTeamsPage extends AccordionPage implements OnInit {
     let h = 0; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     return tones[h % tones.length];
   }
-  protected async create(box: HTMLDetailsElement): Promise<void> {
+  protected async create(box: { open: boolean }): Promise<void> {
     const members = [...new Set([...this.nwMembers, ...this.nwLeaders])].map((id) => ({ userId: id, isLeader: this.nwLeaders.has(id) }));
     const ok = await this.run(async () => {
       const r = await this.api.post<{ id: string }>('teams', this.nw);
@@ -684,19 +684,28 @@ export class PlaceForm implements OnInit {
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <header class="flex flex-wrap items-start justify-between gap-3">
         <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminOrgs.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminOrgs.subtitle' | t }}</p></div>
-        <div class="flex flex-wrap gap-2">
-          <button type="button" [attr.aria-expanded]="mode() === 'org'" (click)="mode.set(mode() === 'org' ? null : 'org')" class="min-h-11 cursor-pointer rounded-lg border px-4 text-sm font-semibold" [class]="mode() === 'org' ? on : off">{{ 'AdminOrgs.addOrgBtn' | t }}</button>
-          <button type="button" [attr.aria-expanded]="mode() === 'branch'" (click)="mode.set(mode() === 'branch' ? null : 'branch')" class="min-h-11 cursor-pointer rounded-lg border px-4 text-sm font-semibold" [class]="mode() === 'branch' ? on : off">{{ 'AdminOrgs.addBranchBtn' | t }}</button>
-        </div>
-        @if (mode() === 'org') { <div class="basis-full rounded-xl border border-line bg-surface p-5 shadow-card"><app-place-form [framed]="true" [leaders]="leaderList()" [busy]="busy()" (save)="createOrg($event)" /></div> }
+        @if (!mode()) {
+          <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+            <button type="button" [class]="addBtn" (click)="mode.set('org')"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>{{ 'AdminOrgs.addOrgBtn' | t }}</button>
+            <button type="button" [class]="addBtn" (click)="mode.set('branch')"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>{{ 'AdminOrgs.addBranchBtn' | t }}</button>
+          </div>
+        } @else {
+          <section class="flex basis-full flex-col gap-3 rounded-xl border border-line border-t-4 border-t-brand bg-surface p-5 shadow-card" (keydown.escape)="mode.set(null)">
+            <div class="flex items-start justify-between gap-3">
+              <h2 class="text-lg font-bold">{{ (mode() === 'org' ? 'AdminOrgs.addOrgBtn' : 'AdminOrgs.addBranchBtn') | t }}</h2>
+              <button type="button" class="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold text-muted hover:bg-bg hover:text-ink" (click)="mode.set(null)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>{{ 'AdminCommon.cancel' | t }}</button>
+            </div>
+        @if (mode() === 'org') { <app-place-form [framed]="true" [leaders]="leaderList()" [busy]="busy()" (save)="createOrg($event)" /> }
         @if (mode() === 'branch') {
-          <div class="flex basis-full flex-col gap-3 rounded-xl border border-line bg-surface p-5 shadow-card">
+          <div class="flex flex-col gap-3">
             @if (!activeOrgs().length) { <p class="text-muted">{{ 'AdminOrgs.needOrg' | t }}</p> } @else {
               <div class="max-w-sm"><label for="branch-parent" class="mb-1 block text-sm font-semibold">{{ 'AdminOrgs.parentOrg' | t }}</label>
                 <select id="branch-parent" [class]="cls.input" [(ngModel)]="parent">@for (o of activeOrgs(); track o.id) { <option [value]="o.id">{{ o.name }}</option> }</select></div>
               <app-place-form [branch]="true" [leaders]="leaderList()" [busy]="busy()" (save)="createBranch(parent, $event)" />
             }
           </div>
+        }
+          </section>
         }
       </header>
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
@@ -888,8 +897,7 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
   protected readonly rows = signal<OrgRow[] | null>(null);
   protected readonly people = signal<OrgPerson[]>([]);
   protected readonly mode = signal<'org' | 'branch' | null>(null);
-  protected readonly on = 'border-brand bg-brand text-white hover:bg-brand-ink';
-  protected readonly off = 'border-line bg-surface hover:bg-bg';
+  protected readonly addBtn = 'inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink sm:flex-none';
   protected readonly toggleBtn = 'min-h-10 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg disabled:opacity-60';
   protected parent = '';
   protected readonly leaderList = computed(() => this.lk()?.leaders ?? []);
@@ -960,7 +968,7 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
     return { name: r.name, location: r.location ?? '', phone: r.phone ?? '', teamLeaderId: r.teamLeaderId, isActive: r.isActive, sharedAccessEnabled: (r as OrgRow).sharedAccessEnabled ?? false };
   }
   protected async createOrg(m: PlaceModel): Promise<void> { if (await this.run(() => this.api.post('organizations', { ...m, isActive: true }))) { this.mode.set(null); await this.loadLookups(); } }
-  protected async createBranch(org: string, m: PlaceModel, box?: HTMLDetailsElement): Promise<void> {
+  protected async createBranch(org: string, m: PlaceModel, box?: { open: boolean }): Promise<void> {
     if (await this.run(() => this.api.post('branches', { ...m, isActive: true, organizationId: org }))) { this.mode.set(null); this.addBranchFor = null; if (box) box.open = false; await this.loadLookups(); }
   }
   protected updateOrg(o: OrgRow, m: PlaceModel): void { void this.run(() => this.api.put('organizations/' + o.id, m)); }

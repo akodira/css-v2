@@ -9,7 +9,7 @@ import { Auth } from '../core/auth';
 import { adminError } from '../core/admin-api';
 import { I18n, TPipe } from '../core/i18n';
 import { liveSearch } from '../shared/live-search';
-import { Alert, Req } from '../shared/ui';
+import { ADD_BTN, AddCard, Alert, PLUS_ICON, Req, ReqNote } from '../shared/ui';
 import { CLS } from './admin/admin-pages';
 
 // ================================================================== help center (public)
@@ -180,13 +180,17 @@ export class CannedApi {
 
 @Component({
   selector: 'app-canned',
-  imports: [TPipe, FormsModule, Alert, Req, PlaceholderPicker, NgTemplateOutlet],
+  imports: [TPipe, FormsModule, Alert, AddCard, Req, ReqNote, PlaceholderPicker, NgTemplateOutlet],
   template: `
     <main class="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
-      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'Canned.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'Canned.subtitle' | t }}</p></div>
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div><h1 class="text-3xl font-bold tracking-tight">{{ 'Canned.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'Canned.subtitle' | t }}</p></div>
+        @if (adding()) { <app-add-card title="Canned.add" (cancel)="adding.set(false)"><ng-container *ngTemplateOutlet="form; context: { m: nw, id: null }" /></app-add-card> }
+        @else { <button type="button" (click)="adding.set(true)" [class]="addBtn">${PLUS_ICON}{{ 'Canned.add' | t }}</button> }
+      </div>
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       <ng-template #form let-m="m" let-id="id">
-        <form class="flex flex-col gap-3 rounded-xl border border-line bg-bg p-4" novalidate (ngSubmit)="save(id, m)">
+        <form [class]="id ? 'flex flex-col gap-3 rounded-xl border border-line bg-bg p-4' : 'flex flex-col gap-3'" novalidate (ngSubmit)="save(id, m)">
           <div class="flex flex-col gap-1.5"><label [for]="'cn-title-' + (id ?? 'new')" class="text-sm font-semibold"><span>{{ 'Canned.name' | t }}<app-req /></span></label>
             <input [id]="'cn-title-' + (id ?? 'new')" name="t" maxlength="120" dir="auto" [class]="field" [(ngModel)]="m.title" /></div>
           <div class="flex flex-col gap-1.5"><label [for]="'cn-body-' + (id ?? 'new')" class="text-sm font-semibold"><span>{{ 'Canned.body' | t }}<app-req /></span></label>
@@ -213,17 +217,14 @@ export class CannedApi {
                 <input type="radio" name="sc" value="all" class="mt-1 h-5 w-5" [(ngModel)]="m.scope" /><span><span class="block font-semibold">{{ 'Canned.scopeAll' | t }}</span><span class="block text-sm text-muted">{{ 'Canned.scopeAllHint' | t }}</span></span></label>
             }
           </fieldset>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Canned.save' | t }}</button>
-            <button type="button" (click)="id ? editing.set(null) : adding.set(false)" [class]="quiet">{{ 'Canned.cancel' | t }}</button>
+            @if (id) { <button type="button" (click)="editing.set(null)" [class]="quiet">{{ 'Canned.cancel' | t }}</button> }
+            <app-req-note />
           </div>
         </form>
       </ng-template>
       <div class="flex flex-col gap-8">
-        <div>
-          @if (adding()) { <ng-container *ngTemplateOutlet="form; context: { m: nw, id: null }" /> }
-          @else { <button type="button" (click)="adding.set(true)" class="flex min-h-11 cursor-pointer items-center rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink">{{ 'Canned.add' | t }}</button> }
-        </div>
         @for (group of groups(); track group.title) {
           <section [attr.aria-labelledby]="'cn-' + group.key" class="flex flex-col gap-3">
             <h2 [id]="'cn-' + group.key" class="text-xl font-bold">{{ group.title | t }}</h2>
@@ -280,6 +281,7 @@ export class CannedPage implements OnInit {
   protected readonly adding = signal(false);
   protected readonly editing = signal<string | null>(null);
   protected readonly asking = signal<string | null>(null);
+  protected readonly addBtn = ADD_BTN;
   protected readonly quiet = 'flex min-h-11 cursor-pointer items-center rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg';
   protected readonly field = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base';
   /** v1 CANNED_PLACEHOLDERS: filled in from the ticket when the reply is inserted. */
