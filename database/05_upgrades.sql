@@ -169,3 +169,26 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_canned_team')
     ALTER TABLE ccs.canned_responses ADD CONSTRAINT FK_canned_team FOREIGN KEY (team_id) REFERENCES ccs.teams(id) ON DELETE SET NULL;
 GO
+
+-- Staff and Permissions, Plan B: an account type says WHAT a person can do; each person's Works in says WHERE.
+-- Once: people who got their places only from their account type keep them as their own Works in,
+-- then those types stop limiting places. Types with no places at all are left as they are (their people keep no access).
+IF EXISTS (SELECT 1 FROM ccs.account_types t WHERE t.all_access = 0 AND t.is_builtin = 0 AND t.scope_level IS NULL
+           AND EXISTS (SELECT 1 FROM ccs.account_type_access a WHERE a.account_type_id = t.id))
+BEGIN
+    BEGIN TRAN;
+    INSERT INTO ccs.staff_placement (id, user_id, organization_id, branch_id)
+    SELECT NEWID(), p.id, a.organization_id, a.branch_id
+    FROM ccs.profiles p
+    JOIN ccs.account_types t ON t.id = p.account_type_id
+    JOIN ccs.account_type_access a ON a.account_type_id = t.id
+    WHERE t.all_access = 0 AND t.is_builtin = 0 AND t.scope_level IS NULL
+      AND NOT EXISTS (SELECT 1 FROM ccs.staff_placement s WHERE s.user_id = p.id)
+      AND NOT EXISTS (SELECT 1 FROM ccs.admin_scopes s WHERE s.user_id = p.id);
+    UPDATE t SET all_access = 1
+    FROM ccs.account_types t
+    WHERE t.all_access = 0 AND t.is_builtin = 0 AND t.scope_level IS NULL
+      AND EXISTS (SELECT 1 FROM ccs.account_type_access a WHERE a.account_type_id = t.id);
+    COMMIT;
+END
+GO

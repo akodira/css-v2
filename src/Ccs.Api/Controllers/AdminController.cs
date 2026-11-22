@@ -35,13 +35,18 @@ public sealed class AdminController(
     public sealed record ApproveBody(Guid OrganizationId, Guid? BranchId);
     public sealed record RejectBody(string? Reason);
     public sealed record AccessRow(Guid OrganizationId, Guid? BranchId);
-    public sealed record TypeBody(string NameEn, string NameAr, bool AllAccess, string? ScopeLevel, string[] Permissions, AccessRow[] Access);
+    /// <summary>With <see cref="Kind"/> (the Permissions page): the kind sets the scope level, the permissions must fit it,
+    /// and the type has no places of its own (each person's Works in decides where). Without it: the older shape.</summary>
+    public sealed record TypeBody(string NameEn, string NameAr, bool AllAccess, string? ScopeLevel, string[] Permissions, AccessRow[] Access, string? Kind = null);
     public sealed record OrgBody(string Name, string? Location, string? Phone, Guid? TeamLeaderId, bool IsActive, bool SharedAccessEnabled);
     public sealed record BranchBody(Guid OrganizationId, string Name, string? Location, string? Phone, Guid? TeamLeaderId, bool IsActive);
     public sealed record TeamBody(string NameEn, string NameAr, bool IsActive);
     public sealed record MemberRow(Guid UserId, bool IsLeader);
     public sealed record MembersBody(MemberRow[] Members);
-    public sealed record StaffCreateBody(string FullName, string Email, string? Phone, string Password, string[]? Roles, string? Scoped, Guid[]? Orgs, Guid[]? Branches);
+    /// <summary>With <see cref="AccountTypeId"/> (the Staff page): the type gives the role, Everywhere / Orgs / Branches give Works in.
+    /// Without it: the older roles / scoped shape.</summary>
+    public sealed record StaffCreateBody(string FullName, string Email, string? Phone, string Password, string[]? Roles, string? Scoped, Guid[]? Orgs, Guid[]? Branches,
+        Guid? AccountTypeId = null, bool Everywhere = false);
     public sealed record RolesBody(string[] Roles);
     public sealed record DetailsBody(string FullName, string Email, string? Phone);
 
@@ -351,6 +356,7 @@ public sealed class AdminController(
         return types.Select(t => new
         {
             t.Id, t.NameEn, t.NameAr, t.AllAccess, t.IsBuiltin, t.ScopeLevel,
+            Kind = AccountKinds.Of(t.IsBuiltin, t.ScopeLevel, perms.Where(x => x.AccountTypeId == t.Id).Select(x => x.Permission).ToList()),
             Permissions = t.IsBuiltin ? Permission.Assignable : perms.Where(x => x.AccountTypeId == t.Id).Select(x => x.Permission).ToList(),
             Access = acc.Where(x => x.AccountTypeId == t.Id).Select(x => new AccessRow(x.OrganizationId, x.BranchId)),
             Staff = counts.FirstOrDefault(x => x.Id == t.Id)?.N ?? 0,
@@ -380,14 +386,42 @@ public sealed class AdminController(
         var t = await db.AccountTypes.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
         if (t.IsBuiltin) throw Err("builtinLocked");
         var before = new { t.NameEn, t.NameAr, t.AllAccess, t.ScopeLevel };
+        var oldPerms = await db.AccountTypePermissions.Where(x => x.AccountTypeId == id).Select(x => x.Permission).ToListAsync(ct);
+        var oldKind = AccountKinds.Of(false, t.ScopeLevel, oldPerms);
+        var holders = await db.Profiles.Where(p => p.AccountTypeId == id).Select(p => p.Id).ToListAsync(ct);
+        // Moving a type in use to or from Organization / Branch Admin would change where its people work: not here.
+        if (b.Kind is not null && b.Kind != oldKind && holders.Count > 0
+            && (AccountKinds.ScopeLevelOf(oldKind) is not null || AccountKinds.ScopeLevelOf(b.Kind) is not null))
+            throw Err("kindInUse", "kind", 409);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.AccountTypePermissions.Where(x => x.AccountTypeId == id).ExecuteDeleteAsync(ct);
         await db.AccountTypeAccess.Where(x => x.AccountTypeId == id).ExecuteDeleteAsync(ct);
         (await ApplyTypeAsync(t, b, ct))();
         audit.Write("account_type.update", "account_type", id, before, b);
         await db.SaveChangesAsync(ct);
+        await SyncHoldersAsync(t, holders, ct);
+        await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return NoContent();
+    }
+
+    /// <summary>After a type changes, its people keep the staff role it implies (Agent / Team leader / Viewer),
+    /// and lose team leadership or team places their new role no longer has.</summary>
+    private async Task SyncHoldersAsync(AccountType t, List<Guid> holders, CancellationToken ct)
+    {
+        if (holders.Count == 0 || t.IsBuiltin) return;
+        var role = await PeopleController.StaffRoleForTypeAsync(db, t, ct);
+        var roleId = await RoleIdAsync(role, ct);
+        var customerId = await RoleIdAsync(RoleCode.Customer, ct);
+        await db.CcsUserRoles.Where(x => holders.Contains(x.UserId) && x.RoleId != customerId).ExecuteDeleteAsync(ct);
+        foreach (var h in holders) db.CcsUserRoles.Add(new UserRole { UserId = h, RoleId = roleId });
+        if (role == RoleCode.ManagementViewer)
+        {
+            await db.TeamMembers.Where(m => holders.Contains(m.UserId)).ExecuteDeleteAsync(ct);
+            await db.Profiles.Where(p => holders.Contains(p.Id)).ExecuteUpdateAsync(s => s.SetProperty(p => p.AutoAssign, false), ct);
+        }
+        else if (role != RoleCode.TeamLeader)
+            await db.TeamMembers.Where(m => holders.Contains(m.UserId) && m.IsLeader).ExecuteUpdateAsync(s => s.SetProperty(m => m.IsLeader, false), ct);
     }
 
     [HttpDelete("account-types/{id:guid}")]
@@ -411,6 +445,15 @@ public sealed class AdminController(
         var en = Name(b.NameEn, "nameEn");
         var ar = Name(b.NameAr, "nameAr");
         if (await db.AccountTypes.AnyAsync(x => x.Id != t.Id && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
+        if (b.Kind is not null)
+        {
+            // New shape: the kind decides the scope level, the permissions must fit it, and a type has no places of its own.
+            if (!AccountKinds.Pickable.Contains(b.Kind)) throw Err("kind", "kind");
+            var picked = (b.Permissions ?? []).Distinct().ToList();
+            if (picked.Any(p => !Permission.Assignable.Contains(p))) throw Err("required", "permissions");
+            if (AccountKinds.Check(b.Kind, picked) is string bad) throw Err(bad, "permissions");
+            b = b with { ScopeLevel = AccountKinds.ScopeLevelOf(b.Kind), AllAccess = AccountKinds.ScopeLevelOf(b.Kind) is null, Access = [] };
+        }
         if (b.ScopeLevel is not (null or "" or "branch" or "organization")) throw Err("required", "scopeLevel");
         var acc = (b.Access ?? []).Distinct().ToList();
         // A scoped admin type (Branch / Organization Admin) gets its reach from the per-person scope, not from access rows.
@@ -674,7 +717,7 @@ public sealed class AdminController(
         var scopes = await db.AdminScopes.AsNoTracking().Where(s => staffIds.Contains(s.UserId)).ToListAsync(ct);
         var places = await db.StaffPlacements.AsNoTracking().Where(s => staffIds.Contains(s.UserId)).ToListAsync(ct);
         var teams = await (from m in db.TeamMembers.AsNoTracking() join t in db.Teams on m.TeamId equals t.Id where staffIds.Contains(m.UserId)
-                           select new { m.UserId, t.NameEn, t.NameAr, m.IsLeader }).ToListAsync(ct);
+                           select new { m.UserId, TeamId = t.Id, t.NameEn, t.NameAr, m.IsLeader }).ToListAsync(ct);
         var mfa = (await users.Users.Where(u => u.TwoFactorEnabled && staffIds.Contains(u.Id)).Select(u => u.Id).ToListAsync(ct)).ToHashSet();
         string OrgName(Guid id) => orgs.FirstOrDefault(o => o.Id == id)?.Name ?? "?";
         string BrName(Guid id) => branches.FirstOrDefault(b => b.Id == id)?.Name ?? "?";
@@ -705,8 +748,11 @@ public sealed class AdminController(
                     p.Id, p.FullName, p.Email, p.Phone, Status = p.AccountStatus, Roles = roles, p.CreatedAt, IsSelf = p.Id == c.UserId,
                     Mfa = mfa.Contains(p.Id), TypeNameEn = ty?.NameEn, TypeNameAr = ty?.NameAr, ScopeLevel = ty?.ScopeLevel,
                     AccessKind = kind, Access = access, Leads = leads,
-                    Teams = teams.Where(t => t.UserId == p.Id).Select(t => new { t.NameEn, t.NameAr, t.IsLeader }),
-                    p.AccountTypeId, p.AutoAssign,
+                    Teams = teams.Where(t => t.UserId == p.Id).Select(t => new { t.TeamId, t.NameEn, t.NameAr, t.IsLeader }),
+                    p.AccountTypeId, p.AutoAssign, p.CanCreateForCustomers,
+                    // Raw Works in for the person card: scoped admins edit their scope, everyone else their placement.
+                    Places = (ty?.ScopeLevel is not null ? scopes.Where(s => s.UserId == p.Id).Select(s => new { s.OrganizationId, s.BranchId })
+                        : places.Where(s => s.UserId == p.Id).Select(s => new { s.OrganizationId, s.BranchId })).ToList(),
                 };
             }),
         };
@@ -717,6 +763,7 @@ public sealed class AdminController(
     public async Task<object> CreateStaff(StaffCreateBody b, CancellationToken ct)
     {
         await Need(null, ct);
+        if (b.AccountTypeId is Guid typeIdPicked) return await CreateStaffWithTypeAsync(b, typeIdPicked, ct);
         var scoped = b.Scoped is "organization" or "branch" ? b.Scoped : null;
         string[] roles = scoped is not null ? [RoleCode.Agent] : (b.Roles ?? []).Distinct().ToArray();
         CheckRoles(roles, staffOnly: true);
@@ -756,6 +803,46 @@ public sealed class AdminController(
         try { await db.SaveChangesAsync(ct); }
         catch { await users.DeleteAsync(user); throw; }
         return new { p.Id };
+    }
+
+    /// <summary>Staff page "+ Add staff": account type (what) and Works in (where); the staff role follows the type.</summary>
+    private async Task<object> CreateStaffWithTypeAsync(StaffCreateBody b, Guid typeId, CancellationToken ct)
+    {
+        var type = await db.AccountTypes.AsNoTracking().FirstOrDefaultAsync(t => t.Id == typeId, ct) ?? throw Err("typeRequired", "accountTypeId");
+        var email = (b.Email ?? "").Trim().ToLowerInvariant();
+        if (!email.Contains('@') || email.Length > 254) throw Err("required", "email");
+        var name = Name(b.FullName, "fullName");
+        if (string.IsNullOrEmpty(b.Password)) throw Err("passwordWeak", "password");
+        if (await users.FindByEmailAsync(email) is not null) throw Err("emailTaken", "email", 409);
+        await CheckPhoneAsync(b.Phone, null, ct);
+        // Works in is checked before the account exists, so a missing place never leaves a half-made user.
+        bool scopedType = type.ScopeLevel is not null;
+        int picks = type.ScopeLevel == "organization" ? (b.Orgs ?? []).Length : type.ScopeLevel == "branch" ? (b.Branches ?? []).Length : (b.Orgs ?? []).Length + (b.Branches ?? []).Length;
+        if (!type.IsBuiltin && (scopedType || !b.Everywhere) && picks == 0)
+            throw Err(type.ScopeLevel == "organization" ? "placeOrgRequired" : type.ScopeLevel == "branch" ? "placeBranchRequired" : "placeRequired", "where");
+
+        var user = new AppUser { Id = Guid.NewGuid(), UserName = email, Email = email, EmailConfirmed = true };
+        var r = await users.CreateAsync(user, b.Password);
+        if (!r.Succeeded) throw Err(r.Errors.Any(e => e.Code.StartsWith("password", StringComparison.OrdinalIgnoreCase)) ? "passwordWeak" : "generic", "password");
+        try
+        {
+            var now = clock.UtcNow;
+            var role = await PeopleController.StaffRoleForTypeAsync(db, type, ct);
+            db.Profiles.Add(new Profile { Id = user.Id, FullName = name, Email = email, Phone = Clean(b.Phone), CreatedAt = now, UpdatedAt = now, PasswordChangedAt = now, AccountStatus = AccountStatus.Active, AccountTypeId = type.Id });
+            db.CcsUserRoles.Add(new UserRole { UserId = user.Id, RoleId = await RoleIdAsync(role, ct) });
+            await db.SaveChangesAsync(ct);
+            var where = await PeopleController.ApplyWhereAsync(db, user.Id, type, b.Everywhere, b.Orgs, b.Branches, ct);
+            audit.Write("user.create", "profile", user.Id, null, new { FullName = name, Email = email, accountTypeId = type.Id, role, where.Everywhere, where.Orgs, where.Branches });
+            await db.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            db.ChangeTracker.Clear();
+            await db.Profiles.Where(p => p.Id == user.Id).ExecuteDeleteAsync(CancellationToken.None);
+            await users.DeleteAsync(user);
+            throw;
+        }
+        return new { user.Id };
     }
 
     /// <summary>v1 admin_set_user_roles(): the ticked roles replace the old ones. Customer stays alone; nobody drops their own Administrator role.</summary>

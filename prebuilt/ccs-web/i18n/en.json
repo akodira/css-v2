@@ -1201,7 +1201,16 @@
       "imageSize": "The picture must be 1 MB or smaller.",
       "socialLink": "Social links must be full web addresses that start with https://",
       "unlockReason": "Write a reason of 5 to 300 characters.",
-      "thisDevice": "To sign out this device, use Sign out."
+      "thisDevice": "To sign out this device, use Sign out.",
+      "placeRequired": "Pick at least one place in Works in, or choose Everywhere.",
+      "placeOrgRequired": "Pick at least one organization this admin manages.",
+      "placeBranchRequired": "Pick at least one branch this admin manages.",
+      "kindInUse": "People use this type, so it cannot move to or from an admin kind.",
+      "kindViewerOnly": "A viewer can only look and report. Untick the other permissions.",
+      "kindNeedsReply": "This kind must be able to reply to tickets.",
+      "kindAgentNoAssign": "An agent cannot assign tickets to others. Choose Team leader instead.",
+      "kindLeaderAssigns": "A team leader must be able to assign tickets to others.",
+      "kind": "Pick a kind for this account type."
     },
     "cancel": "Cancel"
   },
@@ -4433,5 +4442,153 @@
     "showingSome": "Showing {n} of {total}.",
     "openCustomers": "Open in Customers →",
     "loading": "Loading…"
+  },
+  "StaffSetup": {
+    "staffSubtitle": "Each person has one account type (what they can do) and Works in (where they work).",
+    "teamsLater": "Teams and ticket switches are set on the person after they are added.",
+    "needsType": "Needs an account type",
+    "filterNeeds": "Needs attention",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "saved": "Saved.",
+    "people": "{n, plural, one {# person} other {# people}}",
+    "guide": {
+      "title": "How to set up your staff: 5 steps",
+      "mini": "Setup guide",
+      "progress": "{done} of 5 done.",
+      "auto": "Ticks appear by themselves as you set things up.",
+      "hide": "Hide guide",
+      "show": "Show guide",
+      "doneSr": "done",
+      "todoSr": "not done yet",
+      "rule": "Remember: the account type says what a person can do. Works in says where they work.",
+      "s1": {
+        "title": "Organizations and branches",
+        "text": "The places where staff work.",
+        "ok": "✓ {orgs, plural, one {# organization} other {# organizations}}, {branches, plural, one {# branch} other {# branches}}",
+        "todo": "Add at least one organization",
+        "go": "Open Organizations"
+      },
+      "s2": {
+        "title": "Teams",
+        "text": "Groups that handle tickets.",
+        "ok": "✓ {n, plural, one {# team} other {# teams}}",
+        "todo": "Add at least one team",
+        "go": "Open Teams"
+      },
+      "s3": {
+        "title": "Account types",
+        "text": "What each kind of staff can do. The built-in types are usually enough.",
+        "ok": "✓ {n, plural, one {# account type} other {# account types}}",
+        "go": "Open Permissions"
+      },
+      "s4": {
+        "title": "Add staff",
+        "text": "Give each person an account type, places in Works in, and teams.",
+        "ok": "✓ {n, plural, one {# staff member} other {# staff members}}, all set",
+        "todoType": "! {n, plural, one {# person has} other {# people have}} no account type",
+        "todoPlace": "! {n, plural, one {# admin has} other {# admins have}} no place",
+        "go": "Show them",
+        "open": "Open Staff"
+      },
+      "s5": {
+        "title": "Check",
+        "text": "Open a person and read what they can do and where. Their branch's Staff list shows them.",
+        "ok": "✓ Ready to check",
+        "wait": "After step 4",
+        "go": "Open Branches"
+      },
+      "everyday": "Everyday changes",
+      "t1": {
+        "title": "Move someone to another branch",
+        "text": "Staff → open the person → Works in → remove the old place, add the new one → Save changes."
+      },
+      "t2": {
+        "title": "Promote someone",
+        "text": "Staff → open the person → change the Account type (for example Agent to Team leader) → Save changes."
+      },
+      "t3": {
+        "title": "Change what all agents can do",
+        "text": "Permissions → Agent → Edit. This changes everyone with that type."
+      },
+      "t4": {
+        "title": "Someone leaves",
+        "text": "Staff → open the person → Suspend. Their tickets stay with the team."
+      }
+    },
+    "kinds": {
+      "administrator": "Administrator",
+      "organization_admin": "Organization admin",
+      "branch_admin": "Branch admin",
+      "team_leader": "Team leader",
+      "agent": "Agent",
+      "viewer": "Viewer"
+    },
+    "kindHint": {
+      "administrator": "Everything, everywhere. Built in and locked.",
+      "organization_admin": "Manages the organizations they work in.",
+      "branch_admin": "Manages the branches they work in.",
+      "team_leader": "An agent who also leads a team and assigns tickets.",
+      "agent": "Works and answers tickets.",
+      "viewer": "Looks and reports only. Cannot change anything."
+    },
+    "type": {
+      "title": "Account type",
+      "hint": "What they can do",
+      "pick": "Pick an account type",
+      "notSet": "Not set: pick one",
+      "self": "You cannot change your own account type.",
+      "tip": "Decides what the person can do. To change what a type allows, go to Permissions.",
+      "change": "Change types →",
+      "more": "and {n} more"
+    },
+    "where": {
+      "title": "Works in",
+      "hint": "Where they work",
+      "everywhere": "Everywhere",
+      "only": "Only these places",
+      "add": "Add place",
+      "search": "Search organization or branch",
+      "whole": "Whole organization",
+      "addOrg": "Add",
+      "addBranch": "Add",
+      "added": "Added",
+      "allOf": "{org} (all branches)",
+      "remove": "Remove {name}",
+      "none": "No places yet.",
+      "noMatch": "No places match.",
+      "adminAll": "Administrator works everywhere.",
+      "pickTypeFirst": "Pick an account type first.",
+      "noAccess": "No places",
+      "orgAdmin": "Pick the organizations this person manages.",
+      "branchAdmin": "Pick the branches this person manages.",
+      "tip": "Decides where. Everywhere means every organization. Picking an organization includes all its branches, now and later."
+    },
+    "teams": {
+      "title": "Teams",
+      "add": "Add to a team",
+      "pick": "Pick a team",
+      "leader": "leader",
+      "none": "Not in a team yet.",
+      "notFor": "Viewers and administrators are not placed in teams."
+    },
+    "tickets": {
+      "title": "Tickets",
+      "auto": "Auto-assign new team tickets to this person",
+      "autoNeedsTeam": "needs a team first",
+      "create": "Can open tickets for customers"
+    },
+    "perm": {
+      "subtitle": "Account types decide what staff can do. Choose where each person works on the Staff page.",
+      "kind": "Kind",
+      "kindHelp": "The kind decides which permissions can be ticked.",
+      "what": "What people with this type can do",
+      "greyed": "Greyed-out permissions do not fit this kind. Some are needed by it and stay ticked.",
+      "needed": "needed for this kind",
+      "kindLocked": "People use this type, so it cannot move to or from an admin kind. Give them another type first.",
+      "adminWhere": "The organizations or branches this admin manages are picked on each person, under Works in.",
+      "noPlaces": "There are no organizations or branches here: each person's Works in on the Staff page decides where they work.",
+      "changes": "Saving changes everyone who has this type ({n})."
+    }
   }
 }

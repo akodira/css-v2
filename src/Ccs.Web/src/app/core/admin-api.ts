@@ -29,7 +29,7 @@ export interface UserBody {
 export interface AccessRow { organizationId: string; branchId: string | null }
 export interface AccountTypeRow {
   id: string; nameEn: string; nameAr: string; allAccess: boolean; isBuiltin: boolean; scopeLevel: string | null;
-  permissions: string[]; access: AccessRow[]; staff: number;
+  permissions: string[]; access: AccessRow[]; staff: number; kind: string;
 }
 export interface TypeBody { nameEn: string; nameAr: string; allAccess: boolean; scopeLevel: string | null; permissions: string[]; access: AccessRow[] }
 

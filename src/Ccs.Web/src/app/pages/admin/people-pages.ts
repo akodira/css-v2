@@ -3,14 +3,14 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, model, output, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { Lookups, OrgRow, BranchRow, TeamRow, TeamsResult, generatePassword } from '../../core/admin-api';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { AccountTypeRow, AdminApi, Lookups, OrgRow, BranchRow, TeamRow, TeamsResult, adminError, generatePassword } from '../../core/admin-api';
 import { Auth } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { AddPanel, Alert, Req, ReqNote } from '../../shared/ui';
 import { PwEye } from '../../shared/pw-eye';
 import { AdminBase, CLS, TurnBack } from './admin-pages';
-import { WhereEditor } from './where-editor';
+import { PlacePicker, SetupGuide, roleOfType } from './staff-setup';
 
 // Batch 4A: Staff, Teams, Organizations and Approvals laid out as in v1 (OrgAccordion rows, role cards, add bars).
 
@@ -179,58 +179,117 @@ export class ScopePicker {
   protected setMany(ids: string[], on: boolean): void { this.picked.update((l) => (on ? [...new Set([...l, ...ids])] : l.filter((x) => !ids.includes(x)))); }
 }
 
-// ================================================================== staff (v1 /admin/users)
+// ================================================================== staff (v1 /admin/users) — Plan B: one card per person, one Save
 
 interface Place { org: string; branch: string | null }
 interface StaffRow {
   id: string; fullName: string; email: string; phone: string | null; status: string; roles: string[]; createdAt: string; isSelf: boolean; mfa: boolean;
   typeNameEn: string | null; typeNameAr: string | null; scopeLevel: string | null; accessKind: 'all' | 'none' | 'list'; access: Place[]; leads: string[];
-  teams: { nameEn: string; nameAr: string }[];
+  teams: { teamId: string; nameEn: string; nameAr: string; isLeader: boolean }[];
+  accountTypeId: string | null; autoAssign: boolean; canCreateForCustomers: boolean;
+  places: { organizationId: string; branchId: string | null }[];
 }
 interface StaffData { me: string; orgs: Pick[]; branches: BranchPick[]; staff: StaffRow[] }
 
-/** The body of one staff row: status, what they reach, roles, turn back and edit details (v1 AdminUserBody). */
+/** One person: account type (what), Works in (where), teams and ticket switches, saved together; then status, details and turn back. */
 @Component({
   selector: 'app-staff-body',
-  imports: [TPipe, FormsModule, RoleCards, WhereEditor, TurnBack, Req],
+  imports: [TPipe, FormsModule, RouterLink, TurnBack, Req, Alert, PlacePicker],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @let u = user();
+    @let t = type();
     <div class="flex flex-col">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
           <p class="font-semibold"><span dir="auto">{{ u.fullName || '-' }}</span> @if (u.isSelf) { <span class="text-sm font-medium text-muted">({{ 'AdminUsers.you' | t }})</span> }</p>
           <p class="break-all text-sm text-muted" dir="ltr">{{ u.email }}</p>
           <p class="mt-1 text-sm text-muted">{{ 'Status.' + u.status | t }} · {{ i18n.day(u.createdAt) }}@if (u.mfa) { · {{ 'Mfa.badge' | t }} }</p>
+          @if (u.leads.length) { <p class="mt-1 text-sm text-muted">{{ 'AdminUsers.leads' | t }}: <b class="text-ink" dir="auto">{{ u.leads.length > 4 ? ('AdminUsers.leadsCount' | t: { n: u.leads.length }) : u.leads.join(' · ') }}</b></p> }
           @if (u.mfa && !u.isSelf) { <button type="button" [class]="quiet + ' mt-2'" [disabled]="busy()" (click)="act.emit({ kind: 'mfa' })">{{ 'Mfa.reset' | t }}</button> }
         </div>
         @if (!u.isSelf && u.status !== 'pending_verification' && u.status !== 'pending_approval') {
           <button type="button" [class]="quiet" [disabled]="busy()" (click)="act.emit({ kind: 'status', value: u.status === 'suspended' ? 'active' : 'suspended' })">{{ (u.status === 'suspended' ? 'AdminUsers.reactivate' : 'AdminUsers.suspend') | t }}</button>
         }
       </div>
-      <div class="mt-4 rounded-lg border border-line bg-bg p-3 text-sm">
-        <p class="font-semibold">{{ 'AdminUsers.scopeTitle' | t }}</p>
-        <ul class="mt-1 flex flex-col gap-1 text-muted">
-          @if (u.typeNameEn) { <li>{{ 'AdminUsers.accountType' | t }}: <b class="text-ink" dir="auto">{{ i18n.pick(u.typeNameEn, u.typeNameAr) }}</b></li> }
-          <li>{{ 'AdminUsers.access' | t }}: <b class="text-ink" dir="auto">{{ accessText() }}</b></li>
-          @if (u.teams.length) { <li>{{ 'AdminUsers.teamLine' | t }}: <b class="text-ink" dir="auto">{{ teamsText() }}</b></li> }
-          @if (u.leads.length > 4) {
-            <li><details><summary class="cursor-pointer">{{ 'AdminUsers.leads' | t }}: <b class="text-ink">{{ 'AdminUsers.leadsCount' | t: { n: u.leads.length } }}</b></summary><p class="mt-1 text-ink" dir="auto">{{ u.leads.join(' · ') }}</p></details></li>
-          } @else if (u.leads.length) { <li>{{ 'AdminUsers.leads' | t }}: <b class="text-ink" dir="auto">{{ u.leads.join(' · ') }}</b></li> }
-        </ul>
-      </div>
-      @if (!u.roles.includes('admin') && (u.scopeLevel || u.roles.includes('agent') || u.roles.includes('team_leader') || u.roles.includes('management_viewer'))) {
-        <div class="mt-4 rounded-lg border border-line bg-bg p-3 [&>div]:mt-0 [&>div]:border-0 [&>div]:pt-0"><app-where-editor [userId]="u.id" [lk]="lk()" /></div>
-      }
-      <form class="mt-4 flex flex-col gap-3" novalidate (ngSubmit)="act.emit({ kind: 'roles', roles: roles })">
-        <fieldset class="flex flex-col gap-2">
-          <legend class="mb-1 text-sm font-semibold">{{ 'AdminUsers.roles' | t }}</legend>
-          <p class="text-sm text-muted">{{ 'RoleGuide.intro' | t }}</p>
-          <app-role-cards [(roles)]="roles" [exclude]="['customer']" />
-          <p class="text-sm text-muted">{{ 'RoleGuide.note' | t }}</p>
-        </fieldset>
-        <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminUsers.save' | t }}</button></div>
+
+      <form class="mt-4 flex flex-col" novalidate (ngSubmit)="save()">
+        <div [class]="row">
+          <div><p class="font-bold"><label [for]="'ty-' + u.id">{{ 'StaffSetup.type.title' | t }}</label><app-req /></p><p class="text-xs text-muted">{{ 'StaffSetup.type.hint' | t }}</p></div>
+          <div class="flex min-w-0 flex-col gap-2">
+            <select [id]="'ty-' + u.id" name="ty" [(ngModel)]="typeId" [disabled]="u.isSelf" class="min-h-11 w-full max-w-sm rounded-lg border border-line bg-surface px-3 text-base">
+              @if (!typeId) { <option value="" disabled>{{ 'StaffSetup.type.notSet' | t }}</option> }
+              @for (x of types(); track x.id) { <option [value]="x.id">{{ i18n.pick(x.nameEn, x.nameAr) }} · {{ 'StaffSetup.kinds.' + x.kind | t }}</option> }
+            </select>
+            @if (u.isSelf) { <p class="text-xs text-muted">{{ 'StaffSetup.type.self' | t }}</p> }
+            @if (t) {
+              <p class="text-sm text-muted">
+                @for (p of canDo(); track p) { <span class="me-2 inline-block"><span aria-hidden="true" class="text-ok">✓</span> {{ 'Permissions.perm.' + p | t }}</span> }
+                @if (more()) { <span class="me-2">{{ 'StaffSetup.type.more' | t: { n: more() } }}</span> }
+                <a [routerLink]="'/' + i18n.locale() + '/admin/permissions/types/' + t.id" class="font-semibold text-brand-ink underline">{{ 'StaffSetup.type.change' | t }}</a>
+              </p>
+            }
+            <p class="flex gap-2 rounded-lg bg-brand-soft px-3 py-2 text-sm text-brand-ink"><span aria-hidden="true" class="font-extrabold">?</span>{{ 'StaffSetup.type.tip' | t }}</p>
+          </div>
+        </div>
+
+        <div [class]="row">
+          <div><p class="font-bold">{{ 'StaffSetup.where.title' | t }}@if (t && !t.isBuiltin) { <app-req /> }</p><p class="text-xs text-muted">{{ 'StaffSetup.where.hint' | t }}</p></div>
+          <div class="flex min-w-0 flex-col gap-2">
+            @if (!t) { <p class="text-sm text-muted">{{ 'StaffSetup.where.pickTypeFirst' | t }}</p> }
+            @else if (t.isBuiltin) { <p class="text-sm">{{ 'StaffSetup.where.adminAll' | t }}</p> }
+            @else {
+              <app-place-picker [mode]="pickMode()" [allOrgs]="orgs()" [allBranches]="branches()" [(everywhere)]="everywhere" [(orgs)]="pOrgs" [(branches)]="pBranches" />
+              <p class="flex gap-2 rounded-lg bg-brand-soft px-3 py-2 text-sm text-brand-ink"><span aria-hidden="true" class="font-extrabold">?</span>{{ 'StaffSetup.where.tip' | t }}</p>
+            }
+          </div>
+        </div>
+
+        <div [class]="row">
+          <div><p class="font-bold">{{ 'StaffSetup.teams.title' | t }}</p></div>
+          <div class="flex min-w-0 flex-col gap-2">
+            @if (!worksTickets()) { <p class="text-sm text-muted">{{ 'StaffSetup.teams.notFor' | t }}</p> }
+            @else {
+              <ul class="flex flex-wrap gap-2">
+                @for (m of teams; track m.teamId) {
+                  <li class="inline-flex min-h-9 items-center gap-2 rounded-full border border-line bg-bg py-0.5 ps-3 pe-1 text-sm">
+                    <span dir="auto">{{ teamName(m.teamId) }}</span>
+                    @if (canLead()) {
+                      <label class="flex cursor-pointer items-center gap-1 text-xs font-semibold"><input type="checkbox" class="size-4" [name]="'ld-' + m.teamId" [(ngModel)]="m.isLeader" />{{ 'StaffSetup.teams.leader' | t }}</label>
+                    }
+                    <button type="button" class="grid size-8 cursor-pointer place-items-center rounded-full text-muted hover:bg-surface hover:text-ink" [attr.aria-label]="'StaffSetup.where.remove' | t: { name: teamName(m.teamId) }" (click)="dropTeam(m.teamId)">✕</button>
+                  </li>
+                } @empty { <li class="text-sm text-muted">{{ 'StaffSetup.teams.none' | t }}</li> }
+              </ul>
+              @if (freeTeams().length) {
+                <label class="flex max-w-sm flex-col gap-1 text-sm font-semibold">{{ 'StaffSetup.teams.add' | t }}
+                  <select name="addTeam" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base font-normal" [ngModel]="''" (ngModelChange)="addTeam($event)">
+                    <option value="">{{ 'StaffSetup.teams.pick' | t }}</option>
+                    @for (x of freeTeams(); track x.id) { <option [value]="x.id">{{ i18n.pick(x.nameEn, x.nameAr) }}</option> }
+                  </select></label>
+              }
+            }
+          </div>
+        </div>
+
+        @if (t && !t.isBuiltin) {
+          <div [class]="row">
+            <div><p class="font-bold">{{ 'StaffSetup.tickets.title' | t }}</p></div>
+            <div class="flex flex-col gap-1">
+              <label class="flex min-h-11 items-center gap-2" [class.text-muted]="!worksTickets() || !teams.length"><input type="checkbox" class="size-5" name="aa" [(ngModel)]="autoAssign" [disabled]="!worksTickets() || !teams.length" />{{ 'StaffSetup.tickets.auto' | t }}
+                @if (worksTickets() && !teams.length) { <span class="text-xs">({{ 'StaffSetup.tickets.autoNeedsTeam' | t }})</span> }</label>
+              <label class="flex min-h-11 items-center gap-2"><input type="checkbox" class="size-5" name="cc" [(ngModel)]="createFor" />{{ 'StaffSetup.tickets.create' | t }}</label>
+            </div>
+          </div>
+        }
+
+        @if (msg(); as m) { <div class="mt-3"><app-alert [tone]="m.tone">{{ m.text }}</app-alert></div> }
+        <div class="mt-3 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-4">
+          <button type="button" [class]="quiet" (click)="reset()">{{ 'StaffSetup.cancel' | t }}</button>
+          <button type="submit" [class]="cls.btn" [disabled]="saving() || !typeId">{{ 'StaffSetup.save' | t }}</button>
+        </div>
       </form>
+
       @if (!u.isSelf) {
         <div class="mt-4 border-t border-line pt-3 [&_.mt-4]:mt-0 [&_.border-t]:border-0 [&_.pt-4]:pt-0">
           <app-turn-back [userId]="u.id" (done)="act.emit({ kind: 'reload' })" />
@@ -261,38 +320,78 @@ interface StaffData { me: string; orgs: Pick[]; branches: BranchPick[]; staff: S
 })
 export class StaffBody implements OnInit {
   protected readonly i18n = inject(I18n);
+  private readonly api = inject(AdminApi);
   protected readonly cls = CLS;
   protected readonly quiet = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg disabled:opacity-60';
+  protected readonly row = 'grid grid-cols-1 gap-2 border-t border-line py-4 first:border-t-0 md:grid-cols-[11rem_1fr] md:gap-4';
   readonly user = input.required<StaffRow>();
+  readonly types = input<AccountTypeRow[]>([]);
   readonly lk = input<Lookups | null>(null);
+  readonly orgs = input<Pick[]>([]);
+  readonly branches = input<BranchPick[]>([]);
   readonly busy = input(false);
-  readonly act = output<{ kind: string; value?: string; roles?: string[]; details?: { fullName: string; email: string; phone: string } }>();
+  readonly act = output<{ kind: string; value?: string; details?: { fullName: string; email: string; phone: string } }>();
   protected readonly asking = signal(false);
-  protected roles: string[] = [];
+  protected readonly saving = signal(false);
+  protected readonly msg = signal<{ tone: 'success' | 'error'; text: string } | null>(null);
+  protected typeIdSig = signal('');
+  protected get typeId(): string { return this.typeIdSig(); }
+  protected set typeId(v: string) { this.typeIdSig.set(v); }
+  protected everywhere = true;
+  protected pOrgs: string[] = [];
+  protected pBranches: string[] = [];
+  protected teams: { teamId: string; isLeader: boolean }[] = [];
+  protected autoAssign = false;
+  protected createFor = false;
   protected d = { fullName: '', email: '', phone: '' };
-  ngOnInit(): void {
+  protected readonly type = computed(() => this.types().find((x) => x.id === this.typeIdSig()) ?? null);
+  protected readonly role = computed(() => roleOfType(this.type()));
+  protected readonly worksTickets = computed(() => this.role() === 'agent' || this.role() === 'team_leader');
+  protected readonly canLead = computed(() => this.role() === 'team_leader');
+  protected readonly pickMode = computed<'any' | 'organization' | 'branch'>(() => (this.type()?.scopeLevel as 'organization' | 'branch' | null) ?? 'any');
+  protected readonly canDo = computed(() => (this.type()?.permissions ?? []).slice(0, 5));
+  protected readonly more = computed(() => Math.max(0, (this.type()?.permissions.length ?? 0) - 5));
+  protected freeTeams() { return (this.lk()?.teams ?? []).filter((x) => x.isActive && !this.teams.some((m) => m.teamId === x.id)); }
+  protected teamName(id: string): string { const x = this.lk()?.teams.find((y) => y.id === id); return x ? this.i18n.pick(x.nameEn, x.nameAr) : '?'; }
+  ngOnInit(): void { this.reset(); }
+  protected reset(): void {
     const u = this.user();
-    this.roles = [...u.roles];
+    this.typeId = u.accountTypeId ?? '';
+    this.pOrgs = u.places.filter((p) => !p.branchId).map((p) => p.organizationId);
+    this.pBranches = u.places.filter((p) => p.branchId).map((p) => p.branchId!);
+    this.everywhere = u.places.length === 0;
+    this.teams = u.teams.map((m) => ({ teamId: m.teamId, isLeader: m.isLeader }));
+    this.autoAssign = u.autoAssign; this.createFor = u.canCreateForCustomers;
     this.d = { fullName: u.fullName, email: u.email, phone: u.phone ?? '' };
+    this.msg.set(null);
   }
-  private place(p: Place): string { return p.branch ? `${p.org} · ${p.branch}` : `${p.org} (${this.i18n.t('Directory.allBranches')})`; }
-  protected accessText(): string {
-    const u = this.user();
-    if (u.accessKind === 'all') return this.i18n.t('Directory.allOrgs');
-    if (u.accessKind === 'none') return this.i18n.t('Directory.noAccess');
-    return u.access.length > 4 ? this.i18n.t('AdminUsers.accessMany', { n: u.access.length }) : u.access.map((p) => this.place(p)).join(' · ');
+  protected addTeam(id: string): void { if (id && !this.teams.some((m) => m.teamId === id)) this.teams = [...this.teams, { teamId: id, isLeader: false }]; }
+  protected dropTeam(id: string): void { this.teams = this.teams.filter((m) => m.teamId !== id); }
+  protected async save(): Promise<void> {
+    const scoped = this.pickMode();
+    const body = {
+      accountTypeId: this.typeId, everywhere: scoped === 'any' && this.everywhere,
+      orgs: scoped === 'branch' ? [] : this.pOrgs, branches: scoped === 'organization' ? [] : this.pBranches,
+      teams: this.worksTickets() ? this.teams : [], autoAssign: this.autoAssign, canCreateForCustomers: this.createFor,
+    };
+    this.saving.set(true); this.msg.set(null);
+    try {
+      await this.api.put(`users/${this.user().id}/setup`, body);
+      this.msg.set({ tone: 'success', text: this.i18n.t('StaffSetup.saved') });
+      this.act.emit({ kind: 'saved' });
+    } catch (e) { this.msg.set({ tone: 'error', text: adminError(this.i18n, e) }); }
+    finally { this.saving.set(false); }
   }
-  protected teamsText(): string { return this.user().teams.map((t) => this.i18n.pick(t.nameEn, t.nameAr)).join(' · '); }
 }
 
 @Component({
   selector: 'app-admin-staff',
-  imports: [TPipe, Alert, AddPanel, FormsModule, RoleCards, ScopePicker, StaffBody, Req, ReqNote, PageAbout, PwEye],
+  imports: [TPipe, Alert, AddPanel, FormsModule, StaffBody, Req, ReqNote, PwEye, SetupGuide, PlacePicker],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div class="flex flex-wrap items-start justify-between gap-3">
-        <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminUsers.title' | t }}</h1>
+        <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminUsers.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'StaffSetup.staffSubtitle' | t }}</p></div>
         <app-add #add label="Directory.addStaff">
         <div class="flex flex-col gap-3">
           @if (created(); as c) { <app-alert tone="success">{{ 'Directory.createdUser' | t: c }}</app-alert> }
@@ -307,55 +406,69 @@ export class StaffBody implements OnInit {
                   <button type="button" (click)="nw.password = gen()" class="min-h-11 shrink-0 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg">{{ 'Directory.generate' | t }}</button></span>
                 <p class="text-sm text-muted">{{ 'Directory.tempPasswordHint' | t }}</p>
               </div>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'StaffSetup.type.title' | t }}<app-req /></span>
+                <select name="ty" [class]="cls.input + ' font-normal'" [ngModel]="nwType()" (ngModelChange)="nwType.set($event)">
+                  <option value="" disabled>{{ 'StaffSetup.type.pick' | t }}</option>
+                  @for (x of types(); track x.id) { <option [value]="x.id">{{ i18n.pick(x.nameEn, x.nameAr) }} · {{ 'StaffSetup.kinds.' + x.kind | t }}</option> }
+                </select>
+                <span class="text-xs font-normal text-muted">{{ 'StaffSetup.type.tip' | t }}</span></label>
             </div>
-            <fieldset class="flex flex-col gap-2">
-              <legend class="text-sm font-semibold">{{ 'Directory.roles' | t }}<app-req /></legend>
-              <p class="text-sm text-muted">{{ 'RoleGuide.intro' | t }}</p>
-              <app-role-cards [(roles)]="nwRoles" [(scoped)]="nwScoped" [exclude]="['customer']" [withScoped]="true" />
-              <p class="flex items-start gap-2 rounded-lg bg-brand-soft p-3 text-sm text-brand-ink">{{ 'RoleGuide.permNote' | t }}</p>
-              @if (nwScoped) {
-                <app-scope-picker [kind]="nwScoped" [orgs]="data()?.orgs ?? []" [branches]="data()?.branches ?? []" [(picked)]="nwPicked" [error]="scopeError() ? ('AdminCommon.errors.scopeRequired' | t) : null" />
-              }
-            </fieldset>
+            @if (nwTypeRow(); as t) {
+              @if (!t.isBuiltin) {
+                <fieldset class="flex flex-col gap-2">
+                  <legend class="text-sm font-semibold">{{ 'StaffSetup.where.title' | t }}<app-req /></legend>
+                  <app-place-picker [mode]="$any(t.scopeLevel ?? 'any')" [allOrgs]="data()?.orgs ?? []" [allBranches]="data()?.branches ?? []" [(everywhere)]="nwEverywhere" [(orgs)]="nwOrgs" [(branches)]="nwBranches" />
+                  <p class="text-xs text-muted">{{ 'StaffSetup.where.tip' | t }}</p>
+                </fieldset>
+              } @else { <p class="text-sm text-muted">{{ 'StaffSetup.where.adminAll' | t }}</p> }
+            }
+            <p class="text-sm text-muted">{{ 'StaffSetup.teamsLater' | t }}</p>
             <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.create' | t }}</button><app-req-note /></div>
+            @if (msg(); as m) { @if (m.tone === 'error') { <app-alert tone="error">{{ m.text }}</app-alert> } }
           </form>
         </div>
         </app-add>
       </div>
-      <app-page-about key="staff" tile="badge" [points]="['shield', 'key', 'team', 'lock']" />
+      <app-setup-guide #guide page="staff" [autoNeeds]="wantNeeds()" (needs)="showNeeds(guide.needIds())" />
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       @if (data() && !data()!.staff.length) { <p class="text-muted">{{ 'AdminUsers.empty' | t }}</p> }
       @else if (data()) {
         <div class="flex flex-col gap-4">
-          
-  <div class="flex flex-wrap items-center gap-3">
-    <label class="sr-only" for="acc-q">{{ 'AdminUsers.searchLabel' | t }}</label>
-    <input id="acc-q" type="search" dir="auto" [placeholder]="'AdminUsers.searchPlaceholder' | t" [value]="q()" (input)="q.set($any($event.target).value)"
-      class="min-h-11 min-w-60 flex-1 rounded-lg border border-line bg-surface px-3 text-sm" />
-    <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="expandAll()">{{ 'AdminOrgs.expandAll' | t }}</button>
-    <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="opened.set([])">{{ 'AdminOrgs.collapseAll' | t }}</button>
-  </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="sr-only" for="acc-q">{{ 'AdminUsers.searchLabel' | t }}</label>
+            <input id="acc-q" type="search" dir="auto" [placeholder]="'AdminUsers.searchPlaceholder' | t" [value]="q()" (input)="q.set($any($event.target).value)"
+              class="min-h-11 min-w-60 flex-1 rounded-lg border border-line bg-surface px-3 text-sm" />
+            <label class="sr-only" for="acc-t">{{ 'Permissions.filterType' | t }}</label>
+            <select id="acc-t" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-sm" [ngModel]="typeFilter()" (ngModelChange)="typeFilter.set($event); needIds.set(null)">
+              <option value="">{{ 'Permissions.allTypes' | t }}</option>
+              @for (x of types(); track x.id) { <option [value]="x.id">{{ i18n.pick(x.nameEn, x.nameAr) }}</option> }
+            </select>
+            @if (needIds()) { <button type="button" class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-full bg-warn-soft px-4 text-sm font-semibold text-warn-ink" (click)="needIds.set(null)">{{ 'StaffSetup.filterNeeds' | t }} ✕</button> }
+            <span class="text-sm text-muted">{{ 'Permissions.staffCount' | t: { n: filtered().length } }}</span>
+            <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="expandAll()">{{ 'AdminOrgs.expandAll' | t }}</button>
+            <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="opened.set([])">{{ 'AdminOrgs.collapseAll' | t }}</button>
+          </div>
           @if (!filtered().length) { <p class="text-muted">{{ 'AdminUsers.noMatch' | t }}</p> }
           <ul class="flex flex-col gap-4">
             @for (u of filtered(); track u.id) {
-              
-  <li class="overflow-hidden rounded-xl border bg-surface shadow-card" [class.border-brand]="isOpen(u.id)" [class.border-line]="!isOpen(u.id)">
-    <h2><button type="button" [attr.aria-expanded]="isOpen(u.id)" [attr.aria-controls]="'acc-' + u.id" (click)="toggle(u.id)"
-      class="flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-start" [class]="isOpen(u.id) ? 'bg-brand-soft' : 'hover:bg-bg'">
-      <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-        class="shrink-0 transition-transform" [class]="isOpen(u.id) ? 'rotate-90' : 'rtl:rotate-180'"><path d="M7 4l6 6-6 6" /></svg>
-      <span class="min-w-0 flex-1">
-                <span class="flex flex-wrap items-center gap-2">
-                  <span class="text-lg font-bold" dir="auto">{{ u.fullName || '-' }}</span>
-                  <span class="text-lg font-bold text-brand-ink">({{ roleNames(u) }})</span>
-                  @if (u.isSelf) { <span class="text-sm font-medium text-muted">({{ 'AdminUsers.you' | t }})</span> }
-                  <span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="u.status === 'active' ? 'bg-ok-soft text-ok' : u.status === 'pending_approval' ? 'bg-warn-soft text-warn-ink' : 'bg-bg text-muted'">{{ 'Status.' + u.status | t }}</span>
-                </span>
-                <span class="mt-0.5 block text-sm text-muted"><span dir="ltr">{{ u.email }}</span>@if (u.typeNameEn) { · <span dir="auto">{{ i18n.pick(u.typeNameEn, u.typeNameAr) }}</span> }</span>
-              </span></button></h2>
-    <div [id]="'acc-' + u.id" [hidden]="!isOpen(u.id)" class="border-t border-line px-5 pb-5 pt-4">
-                @if (isOpen(u.id)) { <app-staff-body [user]="u" [lk]="lk()" [busy]="busy()" (act)="action(u, $event)" /> }
-              </div></li>
+              <li class="overflow-hidden rounded-xl border bg-surface shadow-card" [class.border-brand]="isOpen(u.id)" [class.border-line]="!isOpen(u.id)">
+                <h2><button type="button" [attr.aria-expanded]="isOpen(u.id)" [attr.aria-controls]="'acc-' + u.id" (click)="toggle(u.id)"
+                  class="flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-start" [class]="isOpen(u.id) ? 'bg-brand-soft' : 'hover:bg-bg'">
+                  <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                    class="shrink-0 transition-transform" [class]="isOpen(u.id) ? 'rotate-90' : 'rtl:rotate-180'"><path d="M7 4l6 6-6 6" /></svg>
+                  <span class="min-w-0 flex-1">
+                    <span class="flex flex-wrap items-center gap-2">
+                      <span class="text-lg font-bold" dir="auto">{{ u.fullName || '-' }}</span>
+                      @if (u.typeNameEn) { <span class="rounded-full bg-brand-soft px-2.5 py-0.5 text-xs font-bold text-brand-ink" dir="auto">{{ i18n.pick(u.typeNameEn, u.typeNameAr) }}</span> }
+                      @else if (!u.roles.includes('admin')) { <span class="rounded-full bg-warn-soft px-2.5 py-0.5 text-xs font-bold text-warn-ink">{{ 'StaffSetup.needsType' | t }}</span> }
+                      @if (u.isSelf) { <span class="text-sm font-medium text-muted">({{ 'AdminUsers.you' | t }})</span> }
+                      <span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="u.status === 'active' ? 'bg-ok-soft text-ok' : u.status === 'pending_approval' ? 'bg-warn-soft text-warn-ink' : 'bg-bg text-muted'">{{ 'Status.' + u.status | t }}</span>
+                    </span>
+                    <span class="mt-0.5 block text-sm text-muted"><span dir="ltr">{{ u.email }}</span> · <span dir="auto">{{ whereText(u) }}</span>@if (u.teams.length) { · <span dir="auto">{{ teamsText(u) }}</span> }</span>
+                  </span></button></h2>
+                <div [id]="'acc-' + u.id" [hidden]="!isOpen(u.id)" class="border-t border-line px-5 pb-5 pt-4">
+                  @if (isOpen(u.id)) { <app-staff-body [user]="u" [types]="types()" [lk]="lk()" [orgs]="data()!.orgs" [branches]="data()!.branches" [busy]="busy()" (act)="action(u, $event, guide)" /> }
+                </div></li>
             }
           </ul>
         </div>
@@ -363,47 +476,77 @@ export class StaffBody implements OnInit {
     </main>`,
 })
 export class AdminStaffPage extends AccordionPage implements OnInit {
+  private readonly route = inject(ActivatedRoute);
   protected readonly data = signal<StaffData | null>(null);
+  protected readonly types = signal<AccountTypeRow[]>([]);
   protected readonly created = signal<{ email: string; password: string } | null>(null);
-  protected readonly scopeError = signal(false);
+  protected readonly typeFilter = signal('');
+  protected readonly needIds = signal<string[] | null>(null);
+  protected readonly wantNeeds = signal(false);
   protected nw = { fullName: '', email: '', phone: '', password: '' };
-  protected nwRoles: string[] = ['agent'];
-  protected nwScoped: string | null = null;
-  protected nwPicked: string[] = [];
+  protected readonly nwType = signal('');
+  protected readonly nwTypeRow = computed(() => this.types().find((x) => x.id === this.nwType()) ?? null);
+  protected nwEverywhere = true;
+  protected nwOrgs: string[] = [];
+  protected nwBranches: string[] = [];
   protected readonly filtered = computed(() => {
-    const s = this.q().trim().toLowerCase();
-    return (this.data()?.staff ?? []).filter((u) => !s || [u.fullName, u.email, u.phone ?? '', this.roleNames(u), ...u.teams.flatMap((t) => [t.nameEn, t.nameAr]),
-      ...u.access.map((a) => a.org + ' ' + (a.branch ?? '')), ...u.leads, u.typeNameEn ?? '', u.typeNameAr ?? ''].join(' ').toLowerCase().includes(s));
+    const s = this.q().trim().toLowerCase(), ty = this.typeFilter(), need = this.needIds();
+    return (this.data()?.staff ?? []).filter((u) => (!ty || u.accountTypeId === ty) && (!need || need.includes(u.id)) && (!s || [u.fullName, u.email, u.phone ?? '', ...u.teams.flatMap((t) => [t.nameEn, t.nameAr]),
+      ...u.access.map((a) => a.org + ' ' + (a.branch ?? '')), ...u.leads, u.typeNameEn ?? '', u.typeNameAr ?? ''].join(' ').toLowerCase().includes(s)));
   });
   protected shownIds(): string[] { return this.filtered().map((u) => u.id); }
-  async ngOnInit(): Promise<void> { await Promise.all([this.loadLookups(), this.reload()]); }
-  protected async reload(): Promise<void> { try { this.data.set(await this.api.get<StaffData>('staff')); } catch (e) { this.fail(e); } }
-  protected roleNames(u: StaffRow): string { return u.roles.map((r) => this.i18n.t('Roles.' + r)).join(', '); }
+  async ngOnInit(): Promise<void> {
+    const m = this.route.snapshot.queryParamMap;
+    this.typeFilter.set(m.get('type') ?? '');
+    this.wantNeeds.set(m.get('need') === '1');
+    await Promise.all([this.loadLookups(), this.reload()]);
+  }
+  protected async reload(): Promise<void> {
+    try {
+      const [d, t] = await Promise.all([this.api.get<StaffData>('staff'), this.api.get<AccountTypeRow[]>('account-types')]);
+      this.data.set(d); this.types.set(t);
+    } catch (e) { this.fail(e); }
+  }
+  /** "Show them" in the guide: only the people who still need an account type or a place. */
+  protected showNeeds(ids: string[]): void { this.typeFilter.set(''); this.needIds.set(ids); this.opened.set(ids.slice(0, 1)); }
+  protected whereText(u: StaffRow): string {
+    if (u.roles.includes('admin') || u.accessKind === 'all') return this.i18n.t('StaffSetup.where.everywhere');
+    if (u.accessKind === 'none') return this.i18n.t('StaffSetup.where.noAccess');
+    const line = (p: Place) => (p.branch ? `${p.org} · ${p.branch}` : this.i18n.t('StaffSetup.where.allOf', { org: p.org }));
+    return u.access.length > 3 ? this.i18n.t('AdminUsers.accessMany', { n: u.access.length }) : u.access.map(line).join(' · ');
+  }
+  protected teamsText(u: StaffRow): string { return u.teams.map((t) => this.i18n.pick(t.nameEn, t.nameAr) + (t.isLeader ? ` (${this.i18n.t('StaffSetup.teams.leader')})` : '')).join(', '); }
   protected gen(): string { return generatePassword(); }
   protected async create(box: { open: boolean }): Promise<void> {
-    this.scopeError.set(!!this.nwScoped && !this.nwPicked.length);
-    if (this.scopeError()) return;
+    const t = this.nwTypeRow();
+    const scoped = t?.scopeLevel ?? null;
     const body = {
-      ...this.nw, roles: this.nwScoped ? ['agent'] : this.nwRoles, scoped: this.nwScoped,
-      orgs: this.nwScoped === 'organization' ? this.nwPicked : [], branches: this.nwScoped === 'branch' ? this.nwPicked : [],
+      ...this.nw, accountTypeId: this.nwType() || null, everywhere: !scoped && this.nwEverywhere,
+      orgs: scoped === 'branch' ? [] : this.nwOrgs, branches: scoped === 'organization' ? [] : this.nwBranches,
     };
+    if (!body.accountTypeId) { this.msg.set({ tone: 'error', text: this.i18n.t('AdminCommon.errors.typeRequired') }); return; }
     this.created.set(null);
     if (await this.run(() => this.api.post('staff', body))) {
       this.msg.set(null);
       this.created.set({ email: body.email, password: body.password });
-      this.nw = { fullName: '', email: '', phone: '', password: '' }; this.nwRoles = ['agent']; this.nwScoped = null; this.nwPicked = [];
+      this.nw = { fullName: '', email: '', phone: '', password: '' }; this.nwType.set(''); this.nwEverywhere = true; this.nwOrgs = []; this.nwBranches = [];
       box.open = true;
     }
   }
-  protected action(u: StaffRow, a: { kind: string; value?: string; roles?: string[]; details?: unknown }): void {
+  protected action(u: StaffRow, a: { kind: string; value?: string; details?: unknown }, guide: SetupGuide): void {
     switch (a.kind) {
       case 'mfa': void this.run(() => this.api.post(`users/${u.id}/reset-mfa`, {})); break;
       case 'status': void this.run(() => this.api.post(`users/${u.id}/status`, { status: a.value }), 'AdminUsers.updated'); break;
-      case 'roles': void this.run(() => this.api.put(`users/${u.id}/roles`, { roles: a.roles }), 'AdminUsers.updated'); break;
       case 'details': void this.run(() => this.api.put(`users/${u.id}/details`, a.details)); break;
       case 'delete': void this.run(() => this.api.del('users/' + u.id), 'AdminV2.deleted'); break;
+      case 'saved': void this.refresh(guide); break;
       case 'reload': void this.reload(); break;
     }
+  }
+  /** After a person card saves: new list and guide, the card stays open (its own message says Saved). */
+  private async refresh(guide: SetupGuide): Promise<void> {
+    try { const d = await this.api.get<StaffData>('staff'); this.data.set(d); } catch (e) { this.fail(e); }
+    await guide.reload();
   }
 }
 

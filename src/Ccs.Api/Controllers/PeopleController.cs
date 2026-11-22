@@ -100,12 +100,7 @@ public sealed partial class PeopleController(CcsDbContext db, AccessService acce
     }
 
     /// <summary>Port of account_type_role(): the staff role an account type implies.</summary>
-    private async Task<string> RoleForTypeAsync(AccountType t, CancellationToken ct)
-    {
-        if (t.IsBuiltin) return RoleCode.Admin;
-        var perms = await db.AccountTypePermissions.Where(p => p.AccountTypeId == t.Id).Select(p => p.Permission).ToListAsync(ct);
-        return perms.Contains(Permission.AssignOthers) ? RoleCode.TeamLeader : perms.Contains(Permission.Reply) ? RoleCode.Agent : RoleCode.ManagementViewer;
-    }
+    private Task<string> RoleForTypeAsync(AccountType t, CancellationToken ct) => StaffRoleForTypeAsync(db, t, ct);
 
     private async Task SetStaffRoleAsync(Guid user, string role, CancellationToken ct)
     {

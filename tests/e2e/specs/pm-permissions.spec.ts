@@ -34,16 +34,20 @@ test.describe('PM Permissions, account types', () => {
     const page = await asRole('admin');
     await go(page, '/en/admin/permissions');
     await expect(page.getByRole('heading', { level: 1, name: t('Permissions.title') })).toBeVisible();
-    await expect(page.locator('main').getByRole('link', { name: t('Permissions.tabTypes'), exact: true }).first()).toBeVisible();
-    await expect(page.locator('main').getByRole('link', { name: t('Permissions.tabStaff'), exact: true }).first()).toBeVisible();
-    await expect(page.locator('main').getByRole('link', { name: t('Permissions.view'), exact: true }).or(page.locator('main').getByRole('link', { name: t('Permissions.edit'), exact: true })).first()).toBeVisible();
+    // Plan B: this page only manages account types (cards); people and where they work are on the Staff page.
+    await expect(page.getByRole('heading', { name: t('StaffSetup.guide.title') })).toBeVisible();
+    await expect(page.locator('main').getByRole('link', { name: t('Permissions.tabStaff'), exact: true })).toHaveCount(0);
+    await expect(page.locator('main').getByRole('link', { name: new RegExp(`^(${t('Permissions.view')}|${t('Permissions.edit')})`) }).first()).toBeVisible();
+    await go(page, '/en/admin/permissions?tab=staff');
+    await expect(page).toHaveURL(/\/admin\/users/);
   });
 
   test('TC-PM-002 Create an account type', async ({ asRole, apiAs }) => {
     const page = await asRole('admin');
     await go(page, '/en/admin/permissions');
     await page.getByRole('link', { name: t('Permissions.addType') }).or(page.getByRole('button', { name: t('Permissions.addType') })).first().click();
-    await expect(page.getByText(t('Permissions.chooseAccessFirst'))).toBeVisible();      // permissions locked until access is chosen
+    await page.getByRole('radio', { name: new RegExp(t('StaffSetup.kinds.viewer')) }).check();   // the kind greys out what does not fit it
+    await expect(page.getByRole('checkbox', { name: t('Permissions.perm.reply') })).toBeDisabled();
     const admin = await apiAs('admin');
     const ty = await newType(admin, ['reply', 'resolve']);
     try {
@@ -70,7 +74,7 @@ test.describe('PM Permissions, account types', () => {
     } finally { await cleanup(admin, staff?.id ?? null, ty.id); }
   });
 
-  manual('TC-PM-004', 'Administrator type confirmation', 'the per-person type picker on the Staff tab could not be driven reliably by the browser test; check the confirmation by hand');
+  manual('TC-PM-004', 'Administrator type confirmation', 'the account type is now picked in the person card on the Staff page; check by hand that the last Administrator cannot be moved off');
 
   test('TC-PM-005 Assign a type to staff', async ({ apiAs }) => {
     const admin = await apiAs('admin');
