@@ -6,7 +6,16 @@ using Microsoft.Extensions.Options;
 namespace Ccs.Infrastructure.Identity;
 
 /// <summary>ASP.NET Core Identity user. Id = ccs.profiles.id = the old Supabase auth.users.id.</summary>
-public sealed class AppUser : IdentityUser<Guid>;
+/// <summary>Identity account. AccessFailedCount and LockoutEnd hold the lockout state; the three dates below complete it (Settings → Security).</summary>
+public sealed class AppUser : IdentityUser<Guid>
+{
+    /// <summary>When the current count of failed sign-ins started (for the time window).</summary>
+    public DateTimeOffset? FailedWindowStart { get; set; }
+    /// <summary>Last failed sign-in (for the reset period).</summary>
+    public DateTimeOffset? LastFailedAt { get; set; }
+    /// <summary>When the current lock started; null when not locked.</summary>
+    public DateTimeOffset? LockedAt { get; set; }
+}
 
 /// <summary>
 /// Accepts the bcrypt hashes migrated from Supabase ("$2a$/$2b$...") and asks Identity to re-hash them

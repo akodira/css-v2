@@ -80,4 +80,15 @@ public sealed class SettingsService(ICcsDbContext db)
         Warn1Days: await GetIntAsync("password_warn_1_days", 7, ct),
         Warn2Days: await GetIntAsync("password_warn_2_days", 4, ct),
         Warn3Days: await GetIntAsync("password_warn_3_days", 1, ct));
+
+    /// <summary>Settings → Security → Account lockout policy.</summary>
+    public async Task<LockoutPolicy> GetLockoutPolicyAsync(CancellationToken ct = default) => new(
+        Enabled: await GetBoolAsync("lockout_enabled", true, ct),
+        MaxAttempts: await GetIntAsync("lockout_max_attempts", 5, ct),
+        WindowMinutes: await GetIntAsync("lockout_window_minutes", 15, ct),
+        DurationMinutes: await GetIntAsync("lockout_duration_minutes", 30, ct),
+        ResetMinutes: await GetIntAsync("lockout_reset_minutes", 15, ct),
+        AutoUnlock: await GetBoolAsync("lockout_auto_unlock", true, ct),
+        NotifyUser: await GetBoolAsync("lockout_notify_user", true, ct),
+        NotifyAdmins: await GetBoolAsync("lockout_notify_admins", true, ct));
 }

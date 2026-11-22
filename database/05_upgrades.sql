@@ -131,3 +131,14 @@ GO
 IF COL_LENGTH(N'ccs.site_settings', N'signin_picture_path') IS NULL
     ALTER TABLE ccs.site_settings ADD signin_picture_path nvarchar(200) NULL;
 GO
+
+-- Account lockout (Settings -> Security): the three dates next to Identity's failed count and "locked until".
+IF COL_LENGTH(N'dbo.AspNetUsers', N'FailedWindowStart') IS NULL ALTER TABLE dbo.AspNetUsers ADD FailedWindowStart datetimeoffset(7) NULL;
+GO
+IF COL_LENGTH(N'dbo.AspNetUsers', N'LastFailedAt') IS NULL ALTER TABLE dbo.AspNetUsers ADD LastFailedAt datetimeoffset(7) NULL;
+GO
+IF COL_LENGTH(N'dbo.AspNetUsers', N'LockedAt') IS NULL ALTER TABLE dbo.AspNetUsers ADD LockedAt datetimeoffset(7) NULL;
+GO
+-- Locks made by the old fixed rule (10 tries, 15 minutes) keep their end time; give them a start so the admin page can show them.
+UPDATE dbo.AspNetUsers SET LockedAt = DATEADD(minute, -15, LockoutEnd) WHERE LockoutEnd > SYSUTCDATETIME() AND LockedAt IS NULL;
+GO

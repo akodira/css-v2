@@ -603,9 +603,12 @@ public sealed partial class SettingsController(
         ["pending_reminder_1_day"] = (1, 60), ["pending_reminder_2_day"] = (1, 60), ["pending_final_day"] = (1, 90), ["no_response_close_days"] = (1, 120),
         ["resolved_reminder_day"] = (1, 60), ["auto_refresh_seconds"] = (0, 600), ["idle_timeout_minutes"] = (0, 1440),
         ["password_min_length"] = (8, 128), ["password_expiry_days"] = (7, 730), ["password_warn_1_days"] = (1, 60), ["password_warn_2_days"] = (1, 60), ["password_warn_3_days"] = (1, 60),
+        // Settings → Security → Account lockout policy
+        ["lockout_max_attempts"] = (3, 20), ["lockout_window_minutes"] = (1, 1440), ["lockout_duration_minutes"] = (1, 1440), ["lockout_reset_minutes"] = (1, 1440),
     };
     private static readonly string[] BoolRules =
-        ["email_enabled", "password_require_upper", "password_require_lower", "password_require_number", "password_require_special", "password_expiry_enabled"];
+        ["email_enabled", "password_require_upper", "password_require_lower", "password_require_number", "password_require_special", "password_expiry_enabled",
+         "lockout_enabled", "lockout_auto_unlock", "lockout_notify_user", "lockout_notify_admins"];
 
     [HttpGet("system")]
     public async Task<object> GetSystem([FromServices] CaptchaVerifier captchaCheck, CancellationToken ct)
@@ -651,7 +654,7 @@ public sealed partial class SettingsController(
             before[key] = row.Value;
             row.Value = json;
         }
-        audit.Write("settings.system", "app_settings", null, before, b.Settings);
+        audit.Write(b.Settings is { Count: > 0 } ks && ks.Keys.All(k => k.StartsWith("lockout_")) ? "settings.lockout" : "settings.system", "app_settings", null, before, b.Settings);
         await db.SaveChangesAsync(ct);
         return NoContent();
     }

@@ -19,12 +19,13 @@ import { RichText, varsOf } from '../../shared/rich-text';
 import { CLS, Msg } from './admin-pages';
 import { feedbackFor } from '../../shared/feedback';
 import { RichEditor } from '../../shared/rich-editor';
+import { LockedAccountsPage, LockedCounts, LockoutPolicyPage, SecurityOverview } from './security-pages';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
-const TABS = ['', 'home', 'menus', 'email', 'templates', 'messages', 'uploads', 'system', 'signin-codes', 'handover'];
+const TABS = ['', 'home', 'menus', 'email', 'templates', 'messages', 'uploads', 'system', 'handover', 'security'];
 const TAB_LABEL: Record<string, string> = {
   '': 'tabBranding', home: 'tabHome', menus: 'tabMenus', email: 'tabEmail', templates: 'tabTemplates', messages: 'tabMessages',
-  uploads: 'tabUploads', system: 'tabSystem', 'signin-codes': 'tabSigninCodes', handover: 'tabHandover',
+  uploads: 'tabUploads', system: 'tabSystem', handover: 'tabHandover', security: 'tabSecurity',
 };
 
 /** Shared helpers for every settings tab: the API, the message line and a save wrapper. */
@@ -1264,8 +1265,9 @@ export class UploadsTab extends Tab implements OnInit {
   imports: [TPipe, FormsModule, Alert, Req, ReqNote],
   template: `
     ${MSG}
-    <p class="max-w-prose text-muted">{{ 'AdminSettings.subtitle' | t }}</p>
+    @if (!part()) { <p class="max-w-prose text-muted">{{ 'AdminSettings.subtitle' | t }}</p> }
     @if (loaded()) {
+      @if (!part()) {
       <form [class]="cls.card + ' flex flex-col gap-4 p-5'" (ngSubmit)="saveRules()">
         <div class="grid gap-4 md:grid-cols-2">
           @for (f of basic.slice(0, 2); track f.key) {
@@ -1358,7 +1360,9 @@ export class UploadsTab extends Tab implements OnInit {
         ${SAVE_REQ}
       </form>
       }
+      }
 
+      @if (part() === 'idle') {
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="saveIdle()">
         <h3 class="text-lg font-bold">{{ 'AdminSettings.idleTitle' | t }}</h3>
         <div class="flex max-w-sm flex-col gap-1.5"><label for="idle_timeout_minutes" [class]="cls.label">{{ 'AdminSettings.idleTimeout' | t }}${REQ}</label>
@@ -1366,7 +1370,9 @@ export class UploadsTab extends Tab implements OnInit {
           <p class="text-xs text-muted">{{ 'AdminSettings.idleTimeoutHint' | t }}</p></div>
         ${SAVE_REQ}
       </form>
+      }
 
+      @if (part() === 'reg') {
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="saveReg()">
         <fieldset class="flex flex-col gap-3"><legend class="mb-1 text-lg font-bold">{{ 'AdminSettings.regTitle' | t }}</legend><p class="text-sm text-muted">{{ 'AdminSettings.regHelp' | t }}</p>
         @for (r of modes; track r) {
@@ -1376,7 +1382,9 @@ export class UploadsTab extends Tab implements OnInit {
         <p class="text-sm text-muted">{{ 'AdminSettings.regNote' | t }}</p>
         ${SAVE}
       </form>
+      }
 
+      @if (part() === 'captcha') {
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="saveCaptcha()">
         <h3 class="text-lg font-bold">{{ 'AdminSettings.captchaTitle' | t }}</h3><p class="text-sm text-muted">{{ 'AdminSettings.captchaHelp' | t }} {{ 'AdminSettings.captchaAlso' | t }}</p>
         @if (reg === 'pick_auto') { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminSettings.captchaRecommended' | t }}</p> }
@@ -1390,7 +1398,9 @@ export class UploadsTab extends Tab implements OnInit {
         <p class="text-sm text-muted">{{ 'AdminSettings.captchaKeysHint' | t }}</p>
         ${SAVE}
       </form>
+      }
 
+      @if (part() === 'pw') {
       <form [class]="cls.card + ' flex flex-col gap-3 p-5'" (ngSubmit)="savePw()">
         <h3 class="text-lg font-bold">{{ 'AdminSettings.pwTitle' | t }}</h3><p class="text-sm text-muted">{{ 'AdminSettings.pwHelp' | t }}</p>
         <div class="flex flex-col gap-1.5 md:max-w-xs"><label for="pw-min" [class]="cls.label">{{ 'AdminSettings.pwMinLength' | t }}${REQ}</label><input id="pw-min" name="min" type="number" min="8" max="72" dir="ltr" [class]="cls.input" [(ngModel)]="n['password_min_length']" /></div>
@@ -1409,13 +1419,16 @@ export class UploadsTab extends Tab implements OnInit {
         <p class="text-sm text-muted">{{ 'AdminSettings.pwWarnHint' | t }}</p>
         ${SAVE_REQ}
       </form>
-      <p class="text-sm text-muted">{{ 'AdminSettings.note' | t }}</p>
+      }
+      @if (!part()) { <p class="text-sm text-muted">{{ 'AdminSettings.note' | t }}</p> }
     }`,
   // Space between the boxes (the other tabs wrap theirs in a flex column with a gap).
   host: { class: 'flex flex-col gap-6' },
   changeDetection: ChangeDetectionStrategy.Default,
 })
 export class SystemTab extends Tab implements OnInit {
+  /** '' = rules and ticket number (System rules tab); 'pw' | 'idle' | 'reg' | 'captcha' = one part, shown under Security. */
+  readonly part = input<'' | 'pw' | 'idle' | 'reg' | 'captcha'>('');
   protected readonly basic = [
     { key: 'reopen_window_days', label: 'reopen', hint: 'reopenHint' }, { key: 'auto_close_days', label: 'autoClose', hint: 'autoCloseHint' },
     { key: 'min_reply_chars', label: 'minReply', hint: '' }, { key: 'auto_refresh_seconds', label: 'autoRefresh', hint: 'autoRefreshHint' },
@@ -1443,6 +1456,7 @@ export class SystemTab extends Tab implements OnInit {
     this.reg = d.registrationMode;
     this.cap = { ...d.captcha, secret: '' };
     this.loaded.set(true);
+    if (this.part()) return;
     const t = await this.get<TicketNumberData>('ticket-number');
     this.tn = { parts: [...t.parts], separator: t.separator, prefix: t.prefix, digits: t.digits, reset: t.reset };
     this.tnNext = t.next; this.tnNow = new Date(t.now); this.tnTypes = t.types;
@@ -1686,11 +1700,69 @@ export class HandoverTab extends Tab implements OnInit {
   }
 }
 
+// ================================================================== security (side menu; ?p= picks the part)
+
+const SEC_GROUPS = [
+  ['', ['overview']],
+  ['grpSignin', ['password', 'lockout', 'locked', 'codes', 'sessions']],
+  ['grpSignup', ['signup', 'bots']],
+] as const;
+const SEC_PARTS: string[] = SEC_GROUPS.flatMap((g) => [...g[1]]);
+
+@Component({
+  selector: 'app-set-security',
+  imports: [TPipe, RouterLink, SystemTab, SigninCodesTab, LockoutPolicyPage, LockedAccountsPage, SecurityOverview],
+  template: `
+    <div class="grid items-start gap-6 md:grid-cols-[15rem_1fr]">
+      <nav [attr.aria-label]="'AdminSecurity.menu' | t" [class]="cls.card + ' flex flex-col gap-1 p-2 md:sticky md:top-20'">
+        @for (g of groups; track g[0]) {
+          @if (g[0]) { <p class="px-3 pt-3 pb-1 text-xs font-bold uppercase tracking-wide text-muted">{{ 'AdminSecurity.' + g[0] | t }}</p> }
+          @for (x of g[1]; track x) {
+            <a [routerLink]="base()" [queryParams]="{ p: x === 'overview' ? null : x }" [attr.aria-current]="x === cur() ? 'page' : null"
+              class="flex min-h-11 items-center justify-between gap-2 rounded-lg px-3 text-sm font-semibold" [class]="x === cur() ? 'bg-brand-soft text-brand-ink' : 'text-ink hover:bg-bg'">
+              <span>{{ 'AdminSecurity.nav_' + x | t }}</span>
+              @if (x === 'locked' && lockedNow()) { <span class="rounded-full bg-danger px-2 text-xs font-bold text-white">{{ lockedNow() }}</span> }
+            </a>
+          }
+        }
+      </nav>
+      <section class="flex min-w-0 flex-col gap-5" aria-labelledby="sec-title">
+        <div><h2 id="sec-title" class="text-2xl font-bold">{{ 'AdminSecurity.nav_' + cur() | t }}</h2>
+          <p class="mt-1 max-w-prose text-muted">{{ 'AdminSecurity.intro_' + cur() | t }}</p></div>
+        @switch (cur()) {
+          @case ('overview') { <app-sec-overview /> }
+          @case ('password') { <app-set-system part="pw" /> }
+          @case ('lockout') { <app-sec-lockout /> }
+          @case ('locked') { <app-sec-locked (changed)="counts($event)" /> }
+          @case ('codes') { <app-set-signin-codes /> }
+          @case ('sessions') { <app-set-system part="idle" /> }
+          @case ('signup') { <app-set-system part="reg" /> }
+          @case ('bots') { <app-set-system part="captcha" /> }
+        }
+      </section>
+    </div>`,
+  changeDetection: ChangeDetectionStrategy.Default,
+})
+export class SecurityTab implements OnInit {
+  protected readonly i18n = inject(I18n);
+  private readonly http = inject(HttpClient);
+  protected readonly cls = CLS;
+  protected readonly groups = SEC_GROUPS;
+  readonly part = input<string>();
+  protected readonly cur = computed(() => { const p = this.part() ?? ''; return SEC_PARTS.includes(p) ? p : 'overview'; });
+  protected readonly base = computed(() => '/' + this.i18n.locale() + '/admin/general/settings/security');
+  protected readonly lockedNow = signal(0);
+  async ngOnInit(): Promise<void> {
+    try { this.counts((await firstValueFrom(this.http.get<{ counts: LockedCounts }>('/api/admin/settings/security/locked'))).counts); } catch { /* the badge is optional */ }
+  }
+  protected counts(c: LockedCounts): void { this.lockedNow.set(c.locked); }
+}
+
 // ================================================================== the page with its tabs
 
 @Component({
   selector: 'app-settings-page',
-  imports: [TPipe, RouterLink, BrandingTab, HomeTab, MenusTab, EmailTab, TemplatesTab, MessagesTab, UploadsTab, SystemTab, SigninCodesTab, HandoverTab],
+  imports: [TPipe, RouterLink, BrandingTab, HomeTab, MenusTab, EmailTab, TemplatesTab, MessagesTab, UploadsTab, SystemTab, HandoverTab, SecurityTab],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminGeneral.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminGeneral.subtitle' | t }}</p></div>
@@ -1709,8 +1781,8 @@ export class HandoverTab extends Tab implements OnInit {
         @case ('messages') { <app-set-messages /> }
         @case ('uploads') { <app-set-uploads /> }
         @case ('system') { <app-set-system /> }
-        @case ('signin-codes') { <app-set-signin-codes /> }
         @case ('handover') { <app-set-handover /> }
+        @case ('security') { <app-set-security [part]="secPart()" /> }
       }
     </main>`,
   host: { class: 'contents' },
@@ -1720,8 +1792,11 @@ export class SettingsPage {
   protected readonly i18n = inject(I18n);
   private readonly auth = inject(Auth);
   readonly tab = input<string>();
+  /** Security part from the address (?p=locked); the old Sign-in codes address opens Security → Sign-in codes. */
+  readonly p = input<string>();
+  protected readonly secPart = computed(() => this.p() ?? (this.tab() === 'signin-codes' ? 'codes' : ''));
   protected readonly label = TAB_LABEL;
   protected readonly tabs = computed(() => TABS.filter((x) => x !== 'handover' || !!this.auth.me()?.roles.includes('admin')));
-  protected readonly cur = computed(() => { const t = this.tab() ?? ''; return this.tabs().includes(t) ? t : ''; });
+  protected readonly cur = computed(() => { const t = this.tab() === 'signin-codes' ? 'security' : this.tab() ?? ''; return this.tabs().includes(t) ? t : ''; });
   constructor() { effect(() => { this.cur(); untracked(() => window.scrollTo({ top: 0 })); }); }
 }

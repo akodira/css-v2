@@ -15,9 +15,19 @@ using Microsoft.Extensions.Logging;
 namespace Ccs.Infrastructure.Identity;
 
 /// <summary>Error codes are the same strings the current app uses, so the Angular messages map 1:1.</summary>
-public sealed class AuthError(string code, int status = 400, string? field = null) : AppException(code, status, code)
+public sealed class AuthError(string code, int status = 400, string? field = null, IReadOnlyDictionary<string, object?>? extra = null) : AppException(code, status, code)
 {
     public string? Field { get; } = field;
+    /// <summary>Extra values for the message, e.g. attempts left or "locked until" (never anything secret).</summary>
+    public IReadOnlyDictionary<string, object?>? Extra { get; } = extra;
+
+    /// <summary>Wrong email/phone or password, with the attempts left when 2 or fewer remain.</summary>
+    public static AuthError Invalid(LockState s, string code = "invalidCredentials", int status = 401) =>
+        new(code, status, null, s.Remaining is int r ? new Dictionary<string, object?> { ["remaining"] = r, ["autoUnlock"] = s.AutoUnlock } : null);
+
+    /// <summary>Temporarily locked (until a time) or locked until an admin unlocks it.</summary>
+    public static AuthError Locked(LockState s) =>
+        new("accountLocked", 423, null, new Dictionary<string, object?> { ["until"] = s.Until, ["autoUnlock"] = s.Until is not null });
 }
 
 public sealed record SignInResult(TokenPair? Tokens, bool MfaRequired, string? MfaToken, IReadOnlyList<string> Roles, string Locale);
@@ -32,7 +42,7 @@ public sealed record RegisterRequest(string FullName, string Email, string? Phon
 public sealed class AuthService(
     UserManager<AppUser> users, CcsDbContext db, TokenService tokens, TemplateMailer mailer, IEmailSender sender,
     NotificationService notifications, AuditService audit, IClock clock, ILogger<AuthService> log,
-    Ccs.Application.Settings.SettingsService settings, AccountApprovers approvers)
+    Ccs.Application.Settings.SettingsService settings, AccountApprovers approvers, LockoutService lockout)
 {
     private const int ResetCodeLength = 6, ResetCodeMinutes = 60, ResetCodeAttempts = 5;
     /// <summary>Security audit M-02: at most this many recovery codes per account per 24 hours, and password reset
@@ -44,15 +54,24 @@ public sealed class AuthService(
     /// <param name="identifier">Email, or an Egyptian mobile number (+2 optional), looked up to the account email.</param>
     public async Task<SignInResult> SignInAsync(string identifier, string password, string? userAgent, string? ip, CancellationToken ct = default)
     {
-        var user = await FindByIdentifierAsync(identifier, ct) ?? throw new AuthError("invalidCredentials", 401);
-        if (await users.IsLockedOutAsync(user)) throw new AuthError("rateLimited", 429);
+        var user = await FindByIdentifierAsync(identifier, ct);
+        if (user is null)
+        {
+            // No such account: counted in memory with the same rule, so the answers are the same as for a real one.
+            var ghost = await lockout.GhostStateAsync(identifier, ct);
+            if (ghost.Locked) throw AuthError.Locked(ghost);
+            var g = await lockout.GhostFailAsync(identifier, ct);
+            throw g.Locked ? AuthError.Locked(g) : AuthError.Invalid(g);
+        }
+        // A locked account is refused before the password is checked, so a locked account cannot be used to test passwords.
+        var state = await lockout.StateAsync(user.Id, ct);
+        if (state.Locked) throw AuthError.Locked(state);
         if (!await users.CheckPasswordAsync(user, password))   // re-hashes migrated bcrypt passwords on success
         {
-            await users.AccessFailedAsync(user);
-            log.LogWarning("auth.login_failed {UserId}", user.Id);
-            throw new AuthError("invalidCredentials", 401);
+            var s = await lockout.FailAsync(user.Id, "password", ip, ct);
+            throw s.Locked ? AuthError.Locked(s) : AuthError.Invalid(s);
         }
-        await users.ResetAccessFailedCountAsync(user);
+        await lockout.ResetAsync(user.Id, ct);
         if (!user.EmailConfirmed) throw new AuthError("emailNotConfirmed", 403);
         if (await PasswordExpiredAsync(user.Id, ct))
         {
@@ -88,10 +107,15 @@ public sealed class AuthService(
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthError("notSignedIn", 401);
         // L-02: the lockout that wrong passwords trigger also stops code guessing at this step.
-        if (await users.IsLockedOutAsync(user)) throw new AuthError("rateLimited", 429);
+        var state = await lockout.StateAsync(user.Id, ct);
+        if (state.Locked) throw AuthError.Locked(state);
         var ok = await users.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider, Clean(code));
-        if (!ok) { await users.AccessFailedAsync(user); throw new AuthError("mfaWrong"); }
-        await users.ResetAccessFailedCountAsync(user);
+        if (!ok)
+        {
+            var s = await lockout.FailAsync(user.Id, "two_step", null, ct);
+            throw s.Locked ? AuthError.Locked(s) : AuthError.Invalid(s, "mfaWrong", 400);
+        }
+        await lockout.ResetAsync(user.Id, ct);
         var profile = await db.Profiles.AsNoTracking().FirstAsync(p => p.Id == user.Id, ct);
         EnsureActive(profile);
         var roles = await RolesAsync(user.Id, ct);
@@ -131,6 +155,8 @@ public sealed class AuthService(
 
         var user = await users.FindByEmailAsync(email);
         if (user is null || !user.EmailConfirmed) return;
+        // No code for a locked account; the answer on screen stays the same (the sign-in page explains the lock).
+        if ((await lockout.StateAsync(user.Id, ct)).Locked) return;
         var profile = await db.Profiles.AsNoTracking().FirstAsync(p => p.Id == user.Id, ct);
         var roles = await RolesAsync(user.Id, ct);
         var group = roles.Contains(RoleCode.Admin) ? "admins" : roles.Any(r => r != RoleCode.Customer) ? "staff" : "customers";
@@ -172,6 +198,9 @@ public sealed class AuthService(
         await db.SaveChangesAsync(ct);
 
         var user = await users.FindByEmailAsync(email) ?? throw new AuthError("codeWrong");
+        // A locked account cannot get in with a code either (Settings → Security → Account lockout).
+        var state = await lockout.StateAsync(user.Id, ct);
+        if (state.Locked) throw AuthError.Locked(state);
         // A code is a first factor: staff with an authenticator still pass the TOTP step.
         return await CompleteFirstFactorAsync(user, userAgent, ip, ct);
     }
@@ -269,7 +298,8 @@ public sealed class AuthService(
         await SendCodeAsync(user, "recovery", "auth_recovery", ct);
     }
 
-    public async Task ResetPasswordAsync(string email, string code, string newPassword, CancellationToken ct = default)
+    /// <returns>The lock state after the reset: a new password does not end an active lock (it is reported, not bypassed).</returns>
+    public async Task<LockState> ResetPasswordAsync(string email, string code, string newPassword, CancellationToken ct = default)
     {
         var user = await users.FindByEmailAsync(email.Trim().ToLowerInvariant()) ?? throw new AuthError("codeWrong");
         if (await RecoveryFailuresTodayAsync(user.Id, ct) >= RecoveryFailuresPerDay) throw new AuthError("rateLimited", 429);
@@ -280,6 +310,7 @@ public sealed class AuthService(
         if (!res.Succeeded) throw new AuthError("passwordWeak", 400, "password");
         if (!user.EmailConfirmed) { user.EmailConfirmed = true; await users.UpdateAsync(user); }   // the code proved the mailbox
         await PasswordChangedAsync(user.Id, ct);
+        return await lockout.StateAsync(user.Id, ct);
     }
 
     public async Task ChangePasswordAsync(Guid userId, string current, string next, CancellationToken ct = default)
@@ -336,13 +367,15 @@ public sealed class AuthService(
     {
         var user = await users.FindByIdAsync(userId.ToString()) ?? throw new AuthError("notSignedIn", 401);
         if (!user.TwoFactorEnabled) return;
-        if (await users.IsLockedOutAsync(user)) throw new AuthError("rateLimited", 429);
+        var state = await lockout.StateAsync(user.Id, ct);
+        if (state.Locked) throw AuthError.Locked(state);
         if (!await users.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider, Clean(code ?? "")))
         {
-            await users.AccessFailedAsync(user);
+            var s = await lockout.FailAsync(user.Id, "two_step", null, ct);
+            if (s.Locked) throw AuthError.Locked(s);
             throw new AuthError("mfaWrong", 400, "code");
         }
-        await users.ResetAccessFailedCountAsync(user);
+        await lockout.ResetAsync(user.Id, ct);
         await ResetMfaAsync(userId, ct, self: true);
     }
 

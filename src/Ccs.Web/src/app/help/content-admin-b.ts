@@ -4,7 +4,7 @@ import type { Article, Flow } from "./types";
 export const ADMIN_B_ARTICLES: Article[] = [
   // ---- System rules and security ----
   {
-    id: "reg-modes", kind: "feature", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/system",
+    id: "reg-modes", kind: "feature", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/security?p=signup",
     title: { en: "Registration mode", ar: "وضع التسجيل" },
     summary: { en: "Decides who can create an account and who approves it.", ar: "يحدد من يستطيع إنشاء حساب ومن يوافق عليه." },
     rule: { en: "In every mode, the customer confirms their email first.", ar: "في جميع الأوضاع يؤكد العميل بريده الإلكتروني أولًا." },
@@ -35,11 +35,11 @@ export const ADMIN_B_ARTICLES: Article[] = [
     tips: [{ en: "With no approval, turn on the sign-up captcha: it is then the only filter against bots.", ar: "مع عدم وجود موافقة فعّل كابتشا التسجيل فهي حينها الحاجز الوحيد ضد الروبوتات." }],
   },
   {
-    id: "reg-set", kind: "howto", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/system",
+    id: "reg-set", kind: "howto", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/security?p=signup",
     title: { en: "Choose the registration mode", ar: "اختيار وضع التسجيل" },
     summary: { en: "Open or close sign-up, and decide who approves.", ar: "افتح التسجيل أو أغلقه وحدد من يوافق." },
     steps: [
-      { en: "Open **Settings**, then the **System rules** tab.", ar: "افتح **الإعدادات** ثم تبويب **قواعد النظام**." },
+      { en: "Open **Settings**, the **Security** tab, then **Sign-up and registration**.", ar: "افتح **الإعدادات** ثم تبويب **الأمان** ثم **التسجيل وإنشاء الحسابات**." },
       { en: "Under **Registration**, choose one of the four modes.", ar: "ضمن **التسجيل** اختر أحد الأوضاع الأربعة." },
       { en: "Save the settings.", ar: "احفظ الإعدادات." },
       { en: "If you chose an approval mode, give the right people the **Approve or reject new customer accounts** permission under Permissions. They then see **Account approvals** in their menu.", ar: "إذا اخترت وضعًا بموافقة فامنح الأشخاص المناسبين صلاحية **الموافقة على الحسابات الجديدة أو رفضها** ضمن الصلاحيات. ستظهر لهم **موافقات الحسابات** في القائمة." },
@@ -73,23 +73,23 @@ export const ADMIN_B_ARTICLES: Article[] = [
     tips: [{ en: "Business hours, holidays and SLA targets are on the SLA settings page.", ar: "ساعات العمل والعطلات وأهداف اتفاقية الخدمة في صفحة إعدادات اتفاقية الخدمة." }],
   },
   {
-    id: "captcha-set", kind: "howto", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/system",
+    id: "captcha-set", kind: "howto", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/security?p=bots",
     title: { en: "Turn on the sign-up captcha", ar: "تفعيل كابتشا التسجيل" },
     summary: { en: "A Cloudflare Turnstile check stops bots from creating accounts.", ar: "يمنع اختبار Cloudflare Turnstile الروبوتات من إنشاء الحسابات." },
     steps: [
       { en: "In the Cloudflare dashboard create a free Turnstile widget and copy its **Site key** and **Secret key**.", ar: "في لوحة Cloudflare أنشئ أداة Turnstile مجانية وانسخ **مفتاح الموقع** و**المفتاح السري**." },
-      { en: "Open **Settings**, **System rules**, **Sign-up captcha**.", ar: "افتح **الإعدادات** ثم **قواعد النظام** ثم **كابتشا التسجيل**." },
+      { en: "Open **Settings**, **Security**, **Bot protection (captcha)**.", ar: "افتح **الإعدادات** ثم **الأمان** ثم **الحماية من البرامج الآلية (كابتشا)**." },
       { en: "Paste both keys and tick **Require the captcha on the sign-up form**.", ar: "الصق المفتاحين وحدد **اشتراط الكابتشا في نموذج التسجيل**." },
       { en: "Save.", ar: "احفظ." },
     ],
     tips: [{ en: "The site key is shown on the sign-up page. The secret key stays on the server and is never shown again. The captcha also protects the forgot-password and email-code forms.", ar: "يظهر مفتاح الموقع في صفحة التسجيل أما المفتاح السري فيبقى على الخادم ولا يُعرض مجددًا. وتحمي الكابتشا أيضًا نماذج نسيت كلمة المرور ورمز البريد." }],
   },
   {
-    id: "pw-policy", kind: "howto", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/system",
+    id: "pw-policy", kind: "howto", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/security?p=password",
     title: { en: "Set the password policy", ar: "ضبط سياسة كلمات المرور" },
     summary: { en: "Rules for every new password and optional expiry.", ar: "قواعد لكل كلمة مرور جديدة وانتهاء صلاحية اختياري." },
     steps: [
-      { en: "Open **Settings**, **System rules**, **Password policy**.", ar: "افتح **الإعدادات** ثم **قواعد النظام** ثم **سياسة كلمات المرور**." },
+      { en: "Open **Settings**, **Security**, **Password policy**.", ar: "افتح **الإعدادات** ثم **الأمان** ثم **سياسة كلمات المرور**." },
       { en: "Set the **Minimum length** (8 to 72) and tick the complexity rules: uppercase, lowercase, number, special character.", ar: "حدد **أقل طول** (من 8 إلى 72) وفعّل قواعد التعقيد: حرف كبير وحرف صغير ورقم ورمز خاص." },
       { en: "To make passwords expire, tick **Passwords expire** and set the **Password lifetime** in days.", ar: "لجعل كلمات المرور تنتهي حدد **تنتهي كلمات المرور** وأدخل **عمر كلمة المرور** بالأيام." },
       { en: "Set up to three warning emails in days before expiry (for example 7, 4 and 1). Use 0 to skip one.", ar: "حدد حتى ثلاث رسائل تحذير بالأيام قبل الانتهاء (مثل 7 و4 و1). واستخدم 0 لتخطي إحداها." },
@@ -110,11 +110,11 @@ export const ADMIN_B_ARTICLES: Article[] = [
     tips: [{ en: "Files already attached stay as they are. Programs and scripts (.exe, .bat, .js) can never be allowed.", ar: "تبقى الملفات المرفقة سابقًا كما هي. ولا يمكن السماح بالبرامج والسكربتات (.exe و.bat و.js) أبدًا." }],
   },
   {
-    id: "signin-codes", kind: "howto", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/signin-codes",
+    id: "signin-codes", kind: "howto", area: "system", audience: [], perm: "manage_settings", path: "/admin/general/settings/security?p=codes",
     title: { en: "Allow sign-in with a one-time code", ar: "السماح بالدخول برمز لمرة واحدة" },
     summary: { en: "An email code as an option next to the password.", ar: "رمز بالبريد كخيار بجانب كلمة المرور." },
     steps: [
-      { en: "Open **Settings** and the **Sign-in codes** tab.", ar: "افتح **الإعدادات** وتبويب **رموز الدخول**." },
+      { en: "Open **Settings**, **Security**, **Sign-in codes**.", ar: "افتح **الإعدادات** ثم **الأمان** ثم **رموز الدخول**." },
       { en: "Switch on **Allow sign in with a one-time code**. It is off until you turn it on, and passwords keep working either way.", ar: "فعّل **السماح بالدخول برمز لمرة واحدة**. وهو معطّل حتى تفعّله، وتبقى كلمات المرور تعمل في الحالتين." },
       { en: "Choose **Who can use it**: customers only, or customers and staff. Staff can use it only if they have two-step verification.", ar: "اختر **من يستطيع استخدامه**: العملاء فقط أو العملاء والموظفون. ولا يستخدمه الموظفون إلا إذا فعّلوا التحقق بخطوتين." },
       { en: "Set the **Code rules**: length (4 to 10 digits), valid for (1 to 60 minutes), wrong attempts allowed, wait before a new code, and codes per email per day.", ar: "حدد **قواعد الرمز**: الطول (من 4 إلى 10 أرقام) ومدة الصلاحية (من 1 إلى 60 دقيقة) وعدد المحاولات الخاطئة والانتظار قبل رمز جديد وعدد الرموز لكل بريد يوميًا." },

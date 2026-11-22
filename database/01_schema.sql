@@ -49,7 +49,11 @@ CREATE TABLE dbo.AspNetUsers (
     TwoFactorEnabled      bit NOT NULL CONSTRAINT DF_AspNetUsers_TwoFactor DEFAULT 0,
     LockoutEnd            datetimeoffset(7) NULL,
     LockoutEnabled        bit NOT NULL CONSTRAINT DF_AspNetUsers_LockoutEnabled DEFAULT 1,
-    AccessFailedCount     int NOT NULL CONSTRAINT DF_AspNetUsers_AccessFailed DEFAULT 0
+    AccessFailedCount     int NOT NULL CONSTRAINT DF_AspNetUsers_AccessFailed DEFAULT 0,
+    -- Account lockout (Settings -> Security): when the count started, last failure, when the lock started.
+    FailedWindowStart     datetimeoffset(7) NULL,
+    LastFailedAt          datetimeoffset(7) NULL,
+    LockedAt              datetimeoffset(7) NULL
 );
 CREATE UNIQUE INDEX UserNameIndex ON dbo.AspNetUsers (NormalizedUserName) WHERE NormalizedUserName IS NOT NULL;
 CREATE INDEX EmailIndex ON dbo.AspNetUsers (NormalizedEmail);

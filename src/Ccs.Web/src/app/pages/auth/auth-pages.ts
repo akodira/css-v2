@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { Auth, problemOf } from '../../core/auth';
+import { Auth, problemOf, ApiProblem } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { SiteService } from '../../core/api';
 import { Alert, Card, NewPasswordFields, Req, Submit, TextField } from '../../shared/ui';
@@ -46,7 +46,15 @@ abstract class FormBase {
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly fieldErrors = signal<Record<string, string>>({});
+  /** The last "account locked" answer (its time), shown by errText(). */
+  protected readonly lock = signal<ApiProblem | null>(null);
   protected link(path: string): string { return `/${this.i18n.locale()}${path}`; }
+  /** The error line: the locked message with its time, or the plain message for the code. */
+  protected errText(): string {
+    const c = this.error() ?? 'generic', l = this.lock();
+    if (c !== 'accountLocked' || !l) return this.i18n.t('Auth.errors.' + c);
+    return l.until ? this.i18n.t('Auth.errors.lockedUntil', { time: this.i18n.shortDate(l.until) }) : this.i18n.t('Auth.errors.lockedAdmin');
+  }
 
   /** Turnstile site key when the admin switched the captcha on (and it is usable), else null. */
   protected readonly captchaKey = computed(() => { const c = this.site.info()?.captcha; return c?.enabled && c.siteKey ? c.siteKey : null; });
@@ -64,9 +72,11 @@ abstract class FormBase {
     this.pending.set(true);
     this.error.set(null);
     this.fieldErrors.set({});
+    this.lock.set(null);
     try { await work(); }
     catch (e) {
       const p = problemOf(e);
+      if (p.code === 'accountLocked') this.lock.set(p);
       if (p.field) this.fieldErrors.set({ [p.field]: p.code });
       else this.error.set(this.i18n.has('Auth.errors.' + p.code) ? p.code : 'generic');
     } finally { this.pending.set(false); this.captchaReset.update((n) => n + 1); }
@@ -99,8 +109,9 @@ abstract class FormBase {
             <p class="-mt-2 text-xs text-muted">{{ 'AuthLook.rememberedHere' | t }} <button type="button" class="cursor-pointer font-bold text-brand-ink underline" (click)="forget()">{{ 'AuthLook.notYou' | t }}</button></p>
           }
           <app-text-field name="password" type="password" [label]="'Auth.fields.password' | t" [placeholder]="'Auth.login.passwordPlaceholder' | t" autocomplete="current-password" [required]="true" [(value)]="password" [error]="fieldErrors()['password']" />
+          @if (left(); as n) { <p class="-mt-2 text-sm font-medium text-danger" role="alert">{{ 'Auth.login.attemptsLeft' | t: { n } }}</p> }
           <label class="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" class="h-5 w-5" [checked]="remember()" (change)="remember.set($any($event.target).checked)" /> {{ 'AuthLook.remember' | t }}</label>
-          @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
+          @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.login.submit' | t }}</app-submit>
         </form>
         @if (nl()) {
@@ -156,8 +167,12 @@ export class LoginPage extends FormBase {
   /** "Not you?": forget the remembered address on this device. */
   protected forget(): void { writeRemembered(null); this.remembered.set(''); this.identifier.set(''); this.remember.set(false); }
 
+  /** Attempts left before the lock (sent only when 2 or fewer remain, for any address). */
+  protected readonly left = signal<number | null>(null);
+
   submit(): void {
     this.tried.set(true);
+    this.left.set(null);
     const fe: Record<string, string> = {};
     if (!this.identifier().trim()) fe['identifier'] = 'required';
     if (!this.password()) fe['password'] = 'required';
@@ -176,7 +191,7 @@ export class LoginPage extends FormBase {
           return;
         }
         // Wrong email/phone or password: shown under the password box (same words whether or not the account exists).
-        if (code === 'invalidCredentials') { this.fieldErrors.set({ password: 'invalidCredentials' }); return; }
+        if (code === 'invalidCredentials') { this.fieldErrors.set({ password: 'invalidCredentials' }); this.left.set(problemOf(e).remaining ?? null); return; }
         throw e;
       }
       writeRemembered(this.remember() ? this.identifier().trim() : null);
@@ -194,7 +209,7 @@ export class LoginPage extends FormBase {
       <app-card [heading]="'Auth.mfa.title' | t" [subtitle]="'Auth.mfa.subtitle' | t" icon="shield" [back]="link('/login')">
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-otp-input [label]="'Auth.mfa.label' | t" [hint]="'AuthLook.mfaHint' | t" [(value)]="code" (complete)="submit()" />
-          @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
+          @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.mfa.submit' | t }}</app-submit>
         </form>
       </app-card>
@@ -224,7 +239,7 @@ export class MfaPage extends FormBase {
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); request()">
             <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
             @if (captchaKey(); as k) { <app-turnstile [siteKey]="k" [resetKey]="captchaReset()" [(token)]="captchaToken" /> }
-            @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
+            @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.signinCode.send' | t }}</app-submit>
           </form>
         } @else {
@@ -237,7 +252,7 @@ export class MfaPage extends FormBase {
           </div>
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); verify()">
             <app-otp-input [label]="'Auth.signinCode.codeLabel' | t" [hint]="'Auth.signinCode.codeHint' | t" [(value)]="code" (complete)="verify()" />
-            @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
+            @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.signinCode.submit' | t }}</app-submit>
           </form>
           <button type="button" class="self-start text-sm font-semibold text-brand-ink underline disabled:text-muted disabled:no-underline" [disabled]="wait() > 0 || pending()" (click)="resend()">
@@ -301,7 +316,7 @@ const SELECT = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 te
           <app-alert tone="success">{{ (mode() === 'pick_auto' ? 'V2.confirm.bodyAuto' : 'V2.confirm.body') | t }}</app-alert>
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); confirm()">
             <app-otp-input [label]="'Auth.code.label' | t" [hint]="'V2.confirm.hint' | t" [(value)]="code" (complete)="confirm()" />
-            @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
+            @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
             @if (confirmed()) { <app-alert tone="success">{{ (mode() === 'pick_auto' ? 'V2.confirm.doneAuto' : 'V2.confirm.done') | t }}</app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.code.submit' | t }}</app-submit>
           </form>
@@ -344,7 +359,7 @@ const SELECT = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 te
                 <app-turnstile [siteKey]="k" [resetKey]="captchaReset()" [(token)]="captchaToken" />
               </div>
             }
-            @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
+            @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.register.submit' | t }}</app-submit>
           </form>
           <p class="text-sm text-muted" [class]="nl() ? 'border-t border-line pt-4 text-center' : ''">{{ 'Auth.register.haveAccount' | t }} <a [routerLink]="link('/login')" class="${LINK}">{{ 'Auth.register.login' | t }}</a></p>
@@ -428,7 +443,7 @@ export class RegisterPage extends FormBase {
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
           @if (captchaKey(); as k) { <app-turnstile [siteKey]="k" [resetKey]="captchaReset()" [(token)]="captchaToken" /> }
-          @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
+          @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
           <app-submit [pending]="pending()">{{ 'Auth.forgot.submit' | t }}</app-submit>
         </form>
         <a [routerLink]="link('/login')" class="text-sm ${LINK}">{{ 'Auth.register.login' | t }}</a>
@@ -457,6 +472,7 @@ export class ForgotPage extends FormBase {
         [icon]="done() ? 'check' : 'lock'" [back]="done() ? '' : link('/forgot-password')" [backLabel]="'AuthLook.backShort' | t">
         @if (done()) {
           <app-alert tone="success">{{ 'V2.resetDone' | t }}</app-alert>
+          @if (stillLocked()) { <app-alert>{{ stillLocked() }}</app-alert> }
           @if (nl()) { <a [routerLink]="link('/login')" class="flex min-h-11 items-center justify-center rounded-lg bg-brand px-5 text-base font-semibold text-white hover:bg-brand-ink">{{ 'Auth.login.submit' | t }}</a> }
           @else { <a [routerLink]="link('/login')" class="text-sm ${LINK}">{{ 'Auth.register.login' | t }}</a> }
         } @else {
@@ -465,7 +481,7 @@ export class ForgotPage extends FormBase {
             <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" dir="ltr" [required]="true" [(value)]="email" />
             <app-otp-input [label]="'Auth.code.label' | t" [hint]="'Auth.code.hint' | t" [(value)]="code" />
             <app-new-password [(value)]="password" [(confirm)]="confirmPw" [error]="fieldErrors()['password']" [confirmError]="fieldErrors()['confirm']" />
-            @if (error()) { <app-alert><app-rich [text]="'Auth.errors.' + error() | t" [compact]="true" /></app-alert> }
+            @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
             <app-submit [pending]="pending()">{{ 'Auth.reset.submit' | t }}</app-submit>
           </form>
         }
@@ -480,10 +496,12 @@ export class ResetPage extends FormBase {
   protected readonly password = signal('');
   protected readonly confirmPw = signal('');
   protected readonly done = signal(false);
+  protected readonly stillLocked = signal('');
   submit(): void {
     if (this.password() !== this.confirmPw()) { this.fieldErrors.set({ confirm: 'passwordMismatch' }); return; }
     void this.run(async () => {
-      await firstValueFrom(this.http.post('/api/auth/reset-password', { email: this.email().trim(), code: this.code().trim(), password: this.password() }));
+      const r = await firstValueFrom(this.http.post<{ locked?: boolean; until?: string | null }>('/api/auth/reset-password', { email: this.email().trim(), code: this.code().trim(), password: this.password() }));
+      this.stillLocked.set(r?.locked ? (r.until ? this.i18n.t('Auth.reset.stillLocked', { time: this.i18n.shortDate(r.until) }) : this.i18n.t('Auth.reset.stillLockedAdmin')) : '');
       this.done.set(true);
     });
   }

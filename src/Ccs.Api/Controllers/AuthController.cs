@@ -101,10 +101,11 @@ public sealed class AuthController(AuthService auth, CcsDbContext db, CaptchaVer
     }
 
     [HttpPost("reset-password")]
-    public async Task<IActionResult> ResetPassword(ResetBody body, CancellationToken ct)
+    public async Task<object> ResetPassword(ResetBody body, CancellationToken ct)
     {
-        await auth.ResetPasswordAsync(body.Email, body.Code, body.Password, ct);
-        return NoContent();
+        // The new password is saved; an active lock stays and is reported, so a reset never bypasses it quietly.
+        var lockState = await auth.ResetPasswordAsync(body.Email, body.Code, body.Password, ct);
+        return new { locked = lockState.Locked, until = lockState.Until };
     }
 
     [HttpPost("change-password")]

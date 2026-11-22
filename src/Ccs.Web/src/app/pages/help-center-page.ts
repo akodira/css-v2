@@ -272,7 +272,7 @@ const haystack = (a: Article | Flow, locale: string): string => {
             </p>
           } @else { <span></span> }
           @if (item.path) {
-            <a [routerLink]="link(item.path)" class="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-ink">{{ 'Help.openPage' | t }}
+            <a [routerLink]="link(item.path)" [queryParams]="query(item.path)" class="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-ink">{{ 'Help.openPage' | t }}
               <svg aria-hidden="true" class="rtl:-scale-x-100" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></a>
           }
         </footer>
@@ -343,7 +343,9 @@ export class HelpCenterPage {
     if (a.kind !== 'feature' || !a.path) return [];
     return visible.filter((x) => x.path === a.path).slice(0, 4);
   }
-  protected link(path: string): string { return `/${this.i18n.locale()}${path === '/' ? '' : path}`; }
+  protected link(path: string): string { path = path.split('?')[0]; return `/${this.i18n.locale()}${path === '/' ? '' : path}`; }
+  /** Query part of a help path ("/admin/general/settings/security?p=codes"). */
+  protected query(path: string): Record<string, string> | null { const q = path.split('?')[1]; return q ? Object.fromEntries(new URLSearchParams(q)) : null; }
   /** Current query with some keys replaced; empty values are dropped. */
   protected qp(over: Record<string, string>): Record<string, string | null> {
     const cur = this.p();

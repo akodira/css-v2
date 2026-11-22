@@ -140,4 +140,8 @@ public static class NotificationEvent
     public const string CancellationRequested = "cancellation_requested";
     public const string CancellationRejected = "cancellation_rejected";
     public const string PasswordExpiring = "password_expiring";
+    /// <summary>To the person whose account was locked after too many failed sign-ins.</summary>
+    public const string AccountLocked = "account_locked";
+    /// <summary>To system admins when any account is locked.</summary>
+    public const string AccountLockedAdmin = "account_locked_admin";
 }

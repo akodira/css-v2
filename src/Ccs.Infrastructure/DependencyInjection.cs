@@ -34,8 +34,7 @@ public static class DependencyInjection
             {
                 o.User.RequireUniqueEmail = true;
                 o.SignIn.RequireConfirmedEmail = true;
-                o.Lockout.MaxFailedAccessAttempts = 10;
-                o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+                // Lockout is not done by Identity's fixed rule any more: LockoutService applies Settings → Security → Account lockout.
                 // Length/character rules come from SettingsPasswordValidator (editable in Admin).
                 o.Password.RequiredLength = 1;
                 o.Password.RequireDigit = o.Password.RequireLowercase = o.Password.RequireUppercase = o.Password.RequireNonAlphanumeric = false;
@@ -58,6 +57,8 @@ public static class DependencyInjection
 
         services.AddScoped<TokenService>();
         services.AddScoped<AuthService>();
+        services.AddMemoryCache();
+        services.AddScoped<LockoutService>();
         services.AddScoped<AccountApprovers>();
         services.AddScoped<TemplateMailer>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();

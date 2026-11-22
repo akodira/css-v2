@@ -79,6 +79,7 @@ public sealed class AppExceptionHandler(ILogger<AppExceptionHandler> log) : IExc
             pd = new ProblemDetails { Status = app.Status, Title = app.Message, Extensions = { ["code"] = app.Code } };
             var field = ex switch { ValidationFailedException v => v.Field, AuthError a => a.Field, _ => null };
             if (field is not null) pd.Extensions["field"] = field;
+            if (ex is AuthError { Extra: { } extra }) foreach (var (k, v) in extra) pd.Extensions[k] = v;
         }
         else if (ex is FluentValidation.ValidationException fv)
         {

@@ -96,6 +96,16 @@
         "title": "Your password expires in {days} day(s)",
         "body": "Your password will expire in {days} day(s). Change it now from your account page to avoid being asked to renew it when you sign in.",
         "button": "Change password"
+      },
+      "account_locked": {
+        "title": "Your account is temporarily locked",
+        "body": "To protect your account, we locked it after several failed sign-in attempts. You can sign in again after {until} (Cairo time).\n\nIf this wasn't you, reset your password as soon as you can.",
+        "button": "Reset password"
+      },
+      "account_locked_admin": {
+        "title": "Account locked: {person}",
+        "body": "The account of {person} ({email}) was locked at {at} (Cairo time) after too many failed sign-in attempts. It unlocks after {until}.\n\nYou can see it and unlock it under Settings → Security → Locked accounts.",
+        "button": "Open locked accounts"
       }
     },
     "emailFooter": "You receive this email because of activity on your tickets.",
@@ -199,6 +209,16 @@
         "title": "تنتهي صلاحية كلمة مرورك خلال {days} يوم",
         "body": "ستنتهي صلاحية كلمة مرورك خلال {days} يوم. غيّرها الآن من صفحة حسابك حتى لا يُطلب منك تجديدها عند تسجيل الدخول.",
         "button": "تغيير كلمة المرور"
+      },
+      "account_locked": {
+        "title": "تم إيقاف حسابك مؤقتًا",
+        "body": "حرصًا على حماية حسابك، أوقفناه بعد عدة محاولات دخول غير ناجحة. ويمكنك تسجيل الدخول مرة أخرى بعد {until} (بتوقيت القاهرة).\n\nإن لم تكن أنت من حاول الدخول، فأعد تعيين كلمة المرور في أقرب وقت.",
+        "button": "إعادة تعيين كلمة المرور"
+      },
+      "account_locked_admin": {
+        "title": "تم إيقاف حساب: {person}",
+        "body": "أُوقف حساب {person} ({email}) في {at} (بتوقيت القاهرة) بعد محاولات دخول غير ناجحة كثيرة، ويُفتح بعد {until}.\n\nيمكنك الاطلاع عليه وفتحه من الإعدادات ← الأمان ← الحسابات الموقوفة.",
+        "button": "فتح الحسابات الموقوفة"
       }
     },
     "emailFooter": "تصلك هذه الرسالة بسبب نشاط على تذاكرك.",
@@ -337,6 +357,8 @@
     "account_approved",
     "account_rejected",
     "approval_requested",
-    "password_expiring"
+    "password_expiring",
+    "account_locked",
+    "account_locked_admin"
   ]
 }
