@@ -33,7 +33,7 @@ public static class StatusFlow
     /// <summary>Port of change_ticket_status() validation. Messages match the PostgreSQL ones.</summary>
     public static StatusChangeDecision Evaluate(StatusChangeRequest r, IEnumerable<Transition> flow)
     {
-        if (!TicketStatus.IsValid(r.TargetStatus)) return StatusChangeDecision.Deny("invalid status");
+        if (!TicketStatus.IsValid(r.TargetStatus) && !CustomStatuses.IsCode(r.TargetStatus)) return StatusChangeDecision.Deny("invalid status");
 
         if (r.Actor == StatusActor.Staff && r.TargetStatus == TicketStatus.Resolved && !r.HasResolvePermission)
             return StatusChangeDecision.Deny("not allowed to resolve tickets");

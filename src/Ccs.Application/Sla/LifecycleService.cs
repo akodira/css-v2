@@ -147,9 +147,10 @@ public sealed class LifecycleService(ICcsDbContext db, SettingsService settings,
         t.UpdatedAt = now;
         var h = new TicketStatusHistory
         {
-            Id = Guid.NewGuid(), TicketId = t.Id, FromStatus = from, ToStatus = TicketStatus.Closed, ChangedBy = null,
+            Id = Guid.NewGuid(), TicketId = t.Id, FromStatus = from, ToStatus = TicketStatus.Closed, FromCustom = t.CustomStatus, ChangedBy = null,
             Reason = reason, ClosureReason = closureReason, CreatedAt = now,
         };
+        t.CustomStatus = null;
         db.TicketStatusHistory.Add(h);
         await notifications.OnStatusAsync(h, t, ct);   // trg_notify_status: the customer is told
     }

@@ -30,6 +30,7 @@ public interface ICcsDbContext
     DbSet<TicketStatusHistory> TicketStatusHistory { get; }
     DbSet<TicketStatusTransition> TicketStatusTransitions { get; }
     DbSet<TicketFlow> TicketFlows { get; }
+    DbSet<TicketCustomStatus> TicketCustomStatuses { get; }
     DbSet<TicketAssignment> TicketAssignments { get; }
     DbSet<TicketLink> TicketLinks { get; }
     DbSet<TicketCancellationRequest> TicketCancellationRequests { get; }

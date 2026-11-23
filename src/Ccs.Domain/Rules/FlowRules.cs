@@ -18,12 +18,22 @@ public static class FlowRules
     public static IReadOnlyList<string> Parse(string? csv) =>
         (csv ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct().ToList();
 
-    public static string Join(IEnumerable<string> statuses) => string.Join(',', TicketStatus.All.Where(statuses.Contains));
+    /// <summary>Built-in statuses in their usual order, then the admin's own ones in the order given.</summary>
+    public static string Join(IEnumerable<string> statuses)
+    {
+        var list = statuses.Distinct().ToList();
+        return string.Join(',', TicketStatus.All.Where(list.Contains).Concat(list.Where(s => !TicketStatus.IsValid(s))));
+    }
 
-    public static bool ValidStatuses(IReadOnlyCollection<string> statuses) =>
-        statuses.Count > 0 && statuses.All(TicketStatus.IsValid) && Required.All(statuses.Contains);
+    /// <param name="like">The admin's own statuses (code → the built-in status it behaves like).</param>
+    public static bool ValidStatuses(IReadOnlyCollection<string> statuses, IReadOnlyDictionary<string, string>? like = null) =>
+        statuses.Count > 0 && statuses.All(s => TicketStatus.IsValid(s) || (like?.ContainsKey(s) ?? false)) && Required.All(statuses.Contains);
 
     /// <summary>Assignment moves a New ticket to Open, when the flow has Open.</summary>
+    /// <summary>The built-in status a ticket is stored with when it moves to <paramref name="to"/>, and its custom code if any.</summary>
+    public static (string Status, string? Custom) Target(string to, IReadOnlyDictionary<string, string> like) =>
+        like.TryGetValue(to, out var k) ? (k, to) : (to, null);
+
     public static string? AfterAssign(IReadOnlyCollection<string> statuses) => statuses.Contains(TicketStatus.Open) ? TicketStatus.Open : null;
 
     /// <summary>A customer reply on a Resolved ticket: Reopened when the flow has it, otherwise back to In progress.</summary>
@@ -31,8 +41,14 @@ public static class FlowRules
         statuses.Contains(TicketStatus.Reopened) ? TicketStatus.Reopened : TicketStatus.InProgress;
 
     /// <summary>The moves the system makes by itself, for the checks (from → to).</summary>
-    public static IEnumerable<(string From, string To)> Automatic(IReadOnlyCollection<string> statuses)
+    public static IEnumerable<(string From, string To)> Automatic(IReadOnlyCollection<string> statuses, IReadOnlyDictionary<string, string>? like = null)
     {
+        // The admin's own statuses that behave like Pending customer: the customer's reply and the no-reply timer move them too.
+        foreach (var c in statuses.Where(s => CustomStatuses.KindOf(s, like) == TicketStatus.PendingCustomer && s != TicketStatus.PendingCustomer))
+        {
+            yield return (c, TicketStatus.InProgress);
+            yield return (c, TicketStatus.Closed);
+        }
         if (statuses.Contains(TicketStatus.Open)) { yield return (TicketStatus.New, TicketStatus.Open); yield return (TicketStatus.Open, TicketStatus.InProgress); }
         else yield return (TicketStatus.New, TicketStatus.InProgress);                       // first reply
         if (statuses.Contains(TicketStatus.PendingCustomer))
@@ -48,24 +64,25 @@ public static class FlowRules
     /// Codes shown before a flow is saved: missing:X, outside:A>B, unreachable:X, no_resolve:X (staff cannot get a working
     /// ticket to Resolved), stuck:X (a waiting status with no way out). Empty = the flow is safe to save.
     /// </summary>
-    public static IReadOnlyList<string> Problems(IReadOnlyCollection<string> statuses, IReadOnlyCollection<Transition> moves)
+    public static IReadOnlyList<string> Problems(IReadOnlyCollection<string> statuses, IReadOnlyCollection<Transition> moves, IReadOnlyDictionary<string, string>? like = null)
     {
+        string Kind(string s) => CustomStatuses.KindOf(s, like);
         var p = new List<string>();
         foreach (var r in Required) if (!statuses.Contains(r)) p.Add("missing:" + r);
         foreach (var m in moves)
             if (!statuses.Contains(m.From) || !statuses.Contains(m.To)) p.Add($"outside:{m.From}>{m.To}");
         if (p.Count > 0) return p;
 
-        var auto = Automatic(statuses).ToList();
+        var auto = Automatic(statuses, like).ToList();
         var edges = moves.Select(m => (m.From, m.To)).Concat(auto).ToList();
         foreach (var s in statuses)
             if (s != TicketStatus.New && !edges.Any(e => e.To == s)) p.Add("unreachable:" + s);
 
         // Staff (plus what the system does by itself) must be able to get every working ticket to Resolved.
         var staffEdges = moves.Where(m => m.Actor == "staff").Select(m => (m.From, m.To)).Concat(auto).ToList();
-        foreach (var s in statuses.Where(x => x is TicketStatus.New or TicketStatus.Open or TicketStatus.InProgress or TicketStatus.Reopened))
+        foreach (var s in statuses.Where(x => Kind(x) is TicketStatus.New or TicketStatus.Open or TicketStatus.InProgress or TicketStatus.Reopened))
             if (!Reaches(s, TicketStatus.Resolved, staffEdges)) p.Add("no_resolve:" + s);
-        foreach (var s in statuses.Where(TicketStatus.IsPending))
+        foreach (var s in statuses.Where(x => TicketStatus.IsPending(Kind(x))))
             if (!edges.Any(e => e.From == s)) p.Add("stuck:" + s);
         return p;
     }

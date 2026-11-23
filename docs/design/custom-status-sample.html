@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Custom statuses sample</title>
+<style>
+:root{--brand:#2563eb;--ink:#1e3a8a;--soft:#eff4ff;--line:#e3e8f0;--bg:#f5f7fb;--muted:#5b6578;--text:#111827;--ok:#15803d;--warn:#8a5a00;--warnsoft:#fff4e0;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,Segoe UI,Arial;background:var(--bg);color:var(--text)}
+main{max-width:1100px;margin:0 auto;padding:22px 20px 60px}h1{font-size:28px;margin:0}h3{font-size:16px;margin:0}.sub{color:var(--muted);margin:4px 0 0}
+button{font:inherit;cursor:pointer}
+.banner{background:#fff7d6;color:#6b4e00;border-radius:10px;padding:8px 14px;font-size:13px;margin-bottom:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:42px;padding:0 18px;border-radius:9px;border:0;background:var(--brand);color:#fff;font-weight:600;font-size:14px}
+.q{background:#fff;color:var(--text);border:1px solid var(--line)}.lnk{border:0;background:none;color:var(--ink);font-weight:600;text-decoration:underline;padding:4px 0}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 3px #0000000d;padding:18px;margin-top:14px}.edit{border:2px solid var(--brand)}
+.chip{display:inline-flex;align-items:center;border-radius:99px;padding:3px 11px;font-size:13px;font-weight:700}
+.tabs{display:flex;gap:4px;margin:14px 0 0;border-bottom:2px solid var(--line);flex-wrap:wrap}.tabs button{border:0;background:none;padding:10px 14px;font-weight:600;color:var(--muted);margin-bottom:-2px;border-bottom:3px solid transparent}.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--brand)}
+input[type=text],select{min-height:42px;border:1px solid #cfd6e3;border-radius:8px;padding:0 12px;font:inherit;background:#fff;width:100%}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}.form label{font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px}.full{grid-column:1/-1}
+.picks{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pick{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;font-weight:400!important}
+.pick:has(input:checked){border-color:var(--brand);background:var(--soft)}.pick input{width:18px;height:18px;flex:none;margin-top:3px}.pick small{color:var(--muted);font-size:12px;display:block}
+.say{background:var(--bg);border-radius:10px;padding:10px 14px;font-size:14px;margin-top:10px}
+.note{background:var(--warnsoft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px solid var(--line);padding:10px;text-align:start;vertical-align:middle}th{font-size:12px;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.box{border:1px solid var(--line);border-radius:12px;padding:14px}
+.ok{color:var(--ok);font-weight:600}.req{color:var(--red)}
+.checks label{display:flex;gap:8px;align-items:center;font-weight:400;font-size:14px;min-height:34px}.checks input{width:18px;height:18px}
+svg text{font-family:system-ui,Segoe UI,Arial}
+@media(max-width:860px){.form,.picks,.two{grid-template-columns:1fr}}
+</style></head><body><main>
+<div class="banner"><span><b>Sample only.</b> Nothing is saved. Try: add a status, put it in the Standard flow, then see what staff and customers see.</span><button class="btn q" style="min-height:32px" id="reset">Start again</button></div>
+<h1>Ticket status</h1><p class="sub">Step 2: add your own statuses.</p>
+<nav class="tabs" id="tabs"></nav>
+<div id="body"></div>
+</main>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const TONES={blue:['#eff4ff','#1e3a8a'],amber:['#fff4e0','#8a5a00'],red:['#fdecea','#b42318'],green:['#e8f6ee','#15803d'],grey:['#eef1f5','#475467'],violet:['#f1ecfd','#6d4bd1'],teal:['#e6f6f5','#0f766e']};
+const LIKE={
+ in_progress:{name:'In progress',what:'Staff are working on it.',timer:'SLA timer keeps running.',extra:''},
+ pending_customer:{name:'Pending customer',what:'Waiting for the customer to answer.',timer:'SLA timer pauses (if the priority says so).',extra:'Reminders to the customer on day 2 and 4, closed on day 10 if no reply.'},
+ pending_internal:{name:'Pending internal',what:'Waiting for another team or a supplier.',timer:'SLA timer pauses (if the priority says so).',extra:'Reminders to the agent and team leaders every 3 days. Never closes by itself.'}};
+const BUILTIN=[['new','New','New','blue'],['open','Open','Open','blue'],['in_progress','In progress','In progress','amber'],['pending_customer','Pending customer','Waiting for you','violet'],['pending_internal','Pending internal','In progress','amber'],['resolved','Resolved','Resolved','green'],['reopened','Reopened','Reopened','violet'],['closed','Closed','Closed','grey']];
+const start=()=>({tab:'statuses',adding:false,editing:null,mine:[{code:'visit',en:'Visit scheduled',ar:'تم تحديد موعد الزيارة',cust:'own',cen:'Technician visit booked',car:'تم حجز زيارة الفني',like:'pending_internal',tone:'teal',flow:false}],moves:{}});
+let S=start();
+const chip=(t,tone)=>{const [b,f]=TONES[tone]||TONES.grey;return `<span class="chip" style="background:${b};color:${f}">${esc(t)}</span>`;};
+function tabs(){$('#tabs').innerHTML=[['flow','Flows'],['statuses','Statuses'],['ticket','What people see']].map(([k,v])=>`<button data-t="${k}" ${S.tab===k?'aria-current="page"':''}>${v}</button>`).join('');
+ document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{S.tab=b.dataset.t;render();});}
+function render(){tabs();({statuses:vStatuses,flow:vFlow,ticket:vTicket})[S.tab]();}
+// ---------------- Statuses
+function vStatuses(){const e=S.editing!=null?S.mine[S.editing]:null,show=S.adding||e;
+ const f=e||{en:'',ar:'',cust:'own',cen:'',car:'',like:'pending_internal',tone:'teal'};
+ $('#body').innerHTML=`<section class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><h3>All statuses</h3><p class="sub" style="font-size:13px">The 8 built-in statuses can be renamed but not removed. Your own statuses each <b>behave like</b> one of the working or waiting statuses.</p></div>${show?'':'<button class="btn" id="add">＋ Add status</button>'}</div>
+ ${show?`<form class="card edit" id="f"><h3>${e?'Edit '+esc(e.en):'Add status'}</h3>
+  <div class="form"><label>Name staff see (English) <span class="req">*</span><input type="text" id="en" value="${esc(f.en)}" placeholder="Waiting for spare parts" required></label>
+  <label>Name staff see (Arabic) <span class="req">*</span><input type="text" id="ar" dir="rtl" value="${esc(f.ar)}" placeholder="بانتظار قطع الغيار" required></label>
+  <div class="full"><b style="font-size:13px">Behaves like <span class="req">*</span></b><p class="sub" style="font-size:12px;margin:0 0 6px">This decides the SLA timer, reminders and where it is counted in reports.</p>
+  <div class="picks">${Object.entries(LIKE).map(([k,v])=>`<label class="pick"><input type="radio" name="like" value="${k}" ${f.like===k?'checked':''}><span><b>${v.name}</b><small>${v.what}<br>${v.timer}${v.extra?'<br>'+v.extra:''}</small></span></label>`).join('')}</div></div>
+  <div class="full"><b style="font-size:13px">What customers see</b>
+  <div class="picks" style="grid-template-columns:1fr 1fr;margin-top:6px"><label class="pick"><input type="radio" name="cust" value="like" ${f.cust==='like'?'checked':''}><span><b>The name of the status it behaves like</b><small id="likeName"></small></span></label>
+  <label class="pick"><input type="radio" name="cust" value="own" ${f.cust==='own'?'checked':''}><span><b>Its own name</b><small>Type the customer name below.</small></span></label></div></div>
+  <label id="c1">Name customers see (English)<input type="text" id="cen" value="${esc(f.cen)}" placeholder="Waiting for parts"></label><label id="c2">Name customers see (Arabic)<input type="text" id="car" dir="rtl" value="${esc(f.car)}"></label>
+  <label>Color<select id="tone">${Object.keys(TONES).map(t=>`<option ${f.tone===t?'selected':''}>${t}</option>`).join('')}</select></label></div>
+  <div style="display:flex;gap:8px;margin-top:14px;align-items:center;flex-wrap:wrap"><button class="btn">${e?'Save':'Add status'}</button><button class="btn q" type="button" id="cancel">Cancel</button><span class="sub" style="font-size:12px"><span class="req">*</span> Required</span></div>
+  ${e?'<p class="sub" style="font-size:13px;margin-top:10px">Delete is offered only when no flow and no open ticket uses it.</p>':''}</form>`:''}
+ <table style="margin-top:12px"><thead><tr><th>Staff see</th><th>Customers see</th><th>Behaves like</th><th>Used in flows</th><th></th></tr></thead><tbody>
+ ${BUILTIN.map(([c,s,cu,t])=>`<tr><td>${chip(s,t)}</td><td>${chip(cu,t)}</td><td class="sub" style="font-size:13px">built-in</td><td style="font-size:13px">Standard flow</td><td></td></tr>`).join('')}
+ ${S.mine.map((m,i)=>`<tr><td>${chip(m.en,m.tone)} <small class="sub">(yours)</small></td><td>${chip(m.cust==='own'?(m.cen||m.en):custOf(m.like),m.tone)}</td><td style="font-size:13px">${LIKE[m.like].name}</td><td style="font-size:13px">${m.flow?'Standard flow':'<span class="sub">none yet</span>'}</td><td><button class="lnk" data-e="${i}">Edit</button></td></tr>`).join('')}</tbody></table></section>`;
+ const a=$('#add');if(a)a.onclick=()=>{S.adding=true;render();};
+ document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{S.editing=+b.dataset.e;render();});
+ const fm=$('#f');if(!fm)return;
+ const sync=()=>{const like=fm.like.value,own=fm.cust.value==='own';$('#likeName').textContent='Customers would see "'+custOf(like)+'".';$('#c1').style.display=$('#c2').style.display=own?'':'none';};
+ fm.querySelectorAll('input[type=radio]').forEach(r=>r.onchange=sync);sync();
+ $('#cancel').onclick=()=>{S.adding=false;S.editing=null;render();};
+ fm.onsubmit=ev=>{ev.preventDefault();const v={en:$('#en').value.trim(),ar:$('#ar').value.trim(),like:fm.like.value,cust:fm.cust.value,cen:$('#cen').value.trim(),car:$('#car').value.trim(),tone:$('#tone').value};
+  if(e)Object.assign(e,v);else S.mine.push({...v,code:'c'+Date.now(),flow:false});S.adding=false;S.editing=null;render();};}
+const custOf=like=>BUILTIN.find(b=>b[0]===like)[2];
+// ---------------- Flow
+function vFlow(){const box=(x,y,t,tone,id)=>{const [b,f]=TONES[tone];return `<g ${id?`data-s="${id}" style="cursor:pointer"`:''}><rect x="${x-62}" y="${y-22}" width="124" height="44" rx="10" fill="${b}" stroke="${f}" stroke-width="${id?2:1}"/><text x="${x}" y="${y+5}" text-anchor="middle" font-size="13" font-weight="700" fill="${f}">${esc(t.length>17?t.slice(0,16)+'…':t)}</text></g>`;};
+ const arrow=(d,dash)=>`<path d="${d}" fill="none" stroke="#475467" stroke-width="2" ${dash?'stroke-dasharray="6 5"':''} marker-end="url(#ah)"/>`;
+ const inFlow=S.mine.filter(m=>m.flow),out=S.mine.filter(m=>!m.flow);
+ const spots=[[260,305],[260,65],[75,305]];
+ let svg=`<svg viewBox="0 0 900 380" style="width:100%;max-width:900px"><defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#475467"/></marker></defs>
+  ${arrow('M137 180 H196')}${arrow('M322 180 H381')}${arrow('M430 158 V89')}${arrow('M460 89 V158')}${arrow('M430 202 V281')}${arrow('M460 281 V204')}${arrow('M507 180 H581')}${arrow('M707 180 H771')}
+  ${box(75,180,'New','blue')}${box(260,180,'Open','blue')}${box(445,180,'In progress','amber')}${box(445,65,'Pending customer','violet')}${box(445,305,'Pending internal','amber')}${box(645,180,'Resolved','green')}${box(835,180,'Closed','grey')}`;
+ inFlow.forEach((m,i)=>{const [x,y]=spots[i]||spots[0];const mv=S.moves[m.code]||{in:true,back:true};
+  if(mv.in)svg+=arrow(`M383 ${y<180?170:192} L${x+50} ${y+(y<180?22:-22)}`);if(mv.back)svg+=arrow(`M${x+62} ${y+(y<180?10:-10)} L383 ${y<180?176:186}`,true);svg+=box(x,y,m.en,m.tone,m.code);});
+ svg+='</svg>';
+ $('#body').innerHTML=`<section class="card"><h3>Standard flow</h3><p class="sub" style="font-size:13px">Click a box to change its moves. Your statuses appear on the map once you add them to the flow.</p>${svg}
+  ${out.length?`<div class="say"><b>Add to this flow:</b> ${out.map(m=>`<button class="btn q" style="min-height:36px;margin:4px" data-add="${m.code}">＋ ${esc(m.en)}</button>`).join('')}</div>`:''}
+  ${inFlow.map(m=>{const mv=S.moves[m.code]||{in:true,back:true,res:false};return `<div class="card edit" style="margin-top:12px"><h3>${chip(m.en,m.tone)} in this flow</h3>
+   <div class="two" style="margin-top:10px"><div class="box checks"><b style="font-size:13px">Staff can move a ticket here from</b>
+    <label><input type="checkbox" data-mv="${m.code}:in" ${mv.in?'checked':''}> In progress</label><label><input type="checkbox" disabled> Open</label></div>
+   <div class="box checks"><b style="font-size:13px">From here staff can move it to</b>
+    <label><input type="checkbox" data-mv="${m.code}:back" ${mv.back?'checked':''}> In progress</label><label><input type="checkbox" data-mv="${m.code}:res" ${mv.res?'checked':''}> Resolved</label><label><input type="checkbox" checked disabled> Closed (with a reason)</label></div></div>
+   <div class="say" style="font-size:13px">It behaves like <b>${LIKE[m.like].name}</b>: ${LIKE[m.like].timer} ${LIKE[m.like].extra}</div>
+   <button class="lnk" data-rm="${m.code}">Remove from this flow</button></div>`;}).join('')}
+  <div style="display:flex;gap:8px;margin-top:14px"><button class="btn" id="save">Save flow</button><span id="saved"></span></div></section>`;
+ document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{const m=S.mine.find(x=>x.code===b.dataset.add);m.flow=true;S.moves[m.code]={in:true,back:true,res:false};render();});
+ document.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{S.mine.find(x=>x.code===b.dataset.rm).flow=false;render();});
+ document.querySelectorAll('[data-mv]').forEach(c=>c.onchange=()=>{const [code,k]=c.dataset.mv.split(':');(S.moves[code]??={in:true,back:true,res:false})[k]=c.checked;render();});
+ $('#save').onclick=()=>{$('#saved').innerHTML='<span class="ok">✓ The flow is complete. Saved (sample only).</span>';};}
+// ---------------- Ticket
+function vTicket(){const m=S.mine.find(x=>x.flow)||S.mine[0];
+ if(!m){$('#body').innerHTML='<section class="card">Add a status first.</section>';return;}
+ const cust=m.cust==='own'?(m.cen||m.en):custOf(m.like);
+ $('#body').innerHTML=`<section class="card"><h3>Ticket #1045 is in "${esc(m.en)}"</h3>
+ <div class="two" style="margin-top:12px"><div class="box"><b style="font-size:13px">Staff see</b><p>${chip(m.en,m.tone)}</p><p class="sub" style="font-size:13px">In the ticket list, filters and the ticket page. The list filter "${LIKE[m.like].name}" also finds it.</p></div>
+ <div class="box"><b style="font-size:13px">Customer sees</b><p>${chip(cust,m.cust==='own'?m.tone:BUILTIN.find(b=>b[0]===m.like)[3])}</p><p class="sub" style="font-size:13px">On the portal and in status emails.</p></div></div>
+ <table style="margin-top:14px"><tbody><tr><th style="width:200px">SLA timer</th><td>${LIKE[m.like].timer}</td></tr>
+ <tr><th>Reminders</th><td>${LIKE[m.like].extra||'None'}</td></tr>
+ <tr><th>Dashboard and reports</th><td>Counted under <b>${LIKE[m.like].name}</b>, with "${esc(m.en)}" shown as a line under it.</td></tr>
+ <tr><th>When the customer replies</th><td>${m.like==='pending_customer'?'It moves back to In progress, the same as Pending customer.':'It stays where it is, the same as '+LIKE[m.like].name+'.'}</td></tr></tbody></table>
+ ${S.mine.length>1?`<p class="sub" style="font-size:13px;margin-top:10px">Showing your first status in the flow. Add others to the flow to compare.</p>`:''}</section>`;}
+$('#reset').onclick=()=>{S=start();render();};render();
+</script></body></html>

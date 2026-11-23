@@ -23,6 +23,15 @@ public static class FlowLookup
         return list.Count == 0 ? TicketStatus.All : list;
     }
 
+    /// <summary>The admin's own statuses: code → the built-in status it behaves like.</summary>
+    public static async Task<Dictionary<string, string>> LikesAsync(ICcsDbContext db, CancellationToken ct) =>
+        await db.TicketCustomStatuses.AsNoTracking().ToDictionaryAsync(x => x.Code, x => x.BehavesLike, ct);
+
+    /// <summary>The admin's own statuses that have their own customer name (the others show the name of the status they behave like).</summary>
+    public static async Task<HashSet<string>> OwnCustomerNamesAsync(ICcsDbContext db, CancellationToken ct) =>
+        (await db.SystemMessages.AsNoTracking().Where(m => m.Key.StartsWith("CustomerStatus." + CustomStatuses.Prefix)).Select(m => m.Key).Distinct().ToListAsync(ct))
+            .Select(k => k["CustomerStatus.".Length..]).ToHashSet();
+
     /// <summary>The flow a new ticket starts with: its ticket type's or its category's (Settings: flow_choice), else the default flow.</summary>
     public static async Task<Guid> ForNewTicketAsync(ICcsDbContext db, SettingsService settings, Guid? typeId, Guid categoryId, CancellationToken ct)
     {

@@ -53,9 +53,10 @@ public sealed partial class ContentAdminController(CcsDbContext db, AccessServic
         var labels = await db.SystemMessages.AsNoTracking()
             .Where(m => m.Key.StartsWith("StaffStatus.") || m.Key.StartsWith("CustomerStatus.") || m.Key.StartsWith("StatusInfo."))
             .Select(m => new { m.Key, m.Locale, m.Body }).ToListAsync(ct);
+        var customCodes = await db.TicketCustomStatuses.AsNoTracking().OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt).Select(x => x.Code).ToListAsync(ct);
         return new
         {
-            statuses = TicketStatus.All,
+            statuses = TicketStatus.All.Concat(customCodes),
             transitions = rows.Select(r => new FlowRow(r.FromStatus, r.ToStatus, r.Actor, r.RequiresReason)),
             reasons = reasons.Select(r => new { r.Code, r.NameEn, r.NameAr, r.CustomerMayReopen, r.IsSystem, r.IsActive, r.SortOrder, InUse = used.Contains(r.Code) }),
             labels,
@@ -94,7 +95,18 @@ public sealed partial class ContentAdminController(CcsDbContext db, AccessServic
     public async Task<IActionResult> SaveLabel(string status, LabelBody b, CancellationToken ct)
     {
         var c = await Need(Permission.ManageSettings, ct);
-        if (!TicketStatus.IsValid(status)) throw new NotFoundException();
+        var custom = !TicketStatus.IsValid(status);
+        if (custom && !await db.TicketCustomStatuses.AnyAsync(x => x.Code == status, ct)) throw new NotFoundException();
+        if (custom) await CustomNamesAsync(status, b, ct);
+        await WriteLabelsAsync(status, b, c.UserId, ct);
+        audit.Write("status_label.update", "system_messages", null, null, new { status, b });
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>Status names, description and colour are texts (system messages); an empty value goes back to the standard text.</summary>
+    private async Task WriteLabelsAsync(string status, LabelBody b, Guid by, CancellationToken ct)
+    {
         if (!string.IsNullOrEmpty(b.Tone) && !Tones.Contains(b.Tone)) throw Err("color", "tone");
         var values = new (string Key, string Locale, string? Body)[]
         {
@@ -110,11 +122,8 @@ public sealed partial class ContentAdminController(CcsDbContext db, AccessServic
             var row = await db.SystemMessages.FirstOrDefaultAsync(m => m.Key == key && m.Locale == loc, ct);
             if (text.Length == 0) { if (row is not null) db.SystemMessages.Remove(row); continue; }
             if (row is null) db.SystemMessages.Add(row = new SystemMessage { Key = key, Locale = loc });
-            row.Body = text; row.UpdatedAt = clock.UtcNow; row.UpdatedBy = c.UserId;
+            row.Body = text; row.UpdatedAt = clock.UtcNow; row.UpdatedBy = by;
         }
-        audit.Write("status_label.update", "system_messages", null, null, new { status, b });
-        await db.SaveChangesAsync(ct);
-        return NoContent();
     }
 
     [HttpPost("closure-reasons")]

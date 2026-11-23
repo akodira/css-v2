@@ -1217,7 +1217,10 @@
       "flowStatusInUse": "Open tickets are still in a status you removed. Move them on first, or keep the status.",
       "flowDefault": "The default flow cannot be deleted. Make another flow the default first.",
       "flowInUse": "A ticket type or category uses this flow. Choose another flow for it first.",
-      "flowOpenTickets": "Open tickets follow this flow. It can be deleted after they are closed."
+      "flowOpenTickets": "Open tickets follow this flow. It can be deleted after they are closed.",
+      "customStatusInFlow": "A flow uses this status. Remove it from the flow first.",
+      "customStatusInUse": "Open tickets are in this status. Move them first.",
+      "customStatusLimit": "You can have up to 30 statuses of your own."
     },
     "cancel": "Cancel"
   },
@@ -4736,5 +4739,30 @@
     "whoSaved": "Saved. New tickets will follow these flows.",
     "yes": "Yes",
     "no": "No"
+  },
+  "CustomStatus": {
+    "help": "You can also add your own statuses, for example \"Visit scheduled\" or \"Waiting for spare parts\".",
+    "add": "Add status",
+    "addButton": "Add status",
+    "added": "Status added. Open a flow and use \"Add a status\" to use it there.",
+    "staffEn": "Name staff see (English)",
+    "staffAr": "Name staff see (Arabic)",
+    "customerEn": "Name customers see (English)",
+    "customerAr": "Name customers see (Arabic)",
+    "customerHint": "Leave the customer names empty and customers see \"{name}\".",
+    "behavesLike": "Behaves like",
+    "behavesAs": "behaves like {name}",
+    "behavesHint": "This decides the SLA timer, the reminders and where the status is counted in reports.",
+    "like": {
+      "in_progress": "Staff are working on it. The SLA timer keeps running.",
+      "pending_customer": "Waiting for the customer. The SLA timer pauses (if the priority says so). The customer gets reminders and the ticket closes if there is no reply. A customer reply moves it back to In progress.",
+      "pending_internal": "Waiting for another team or a supplier. The SLA timer pauses (if the priority says so). The agent and team leaders get reminders. It never closes by itself."
+    },
+    "addHint": "A new status is not in any flow yet. Open a flow and add it there to use it.",
+    "yours": "yours",
+    "labelHint": "The staff names are required. Leave the customer names empty to show the name of the status it behaves like.",
+    "likeLocked": "Remove it from every flow to change this.",
+    "cantDelete": "It can be deleted when no flow and no open ticket uses it.",
+    "deleteConfirm": "Delete the status \"{name}\"? Old ticket history keeps its name."
   }
 }

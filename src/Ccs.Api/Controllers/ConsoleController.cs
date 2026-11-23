@@ -199,7 +199,7 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         var recent = await (from t in all
                             join p in db.Profiles on t.RequesterId equals p.Id
                             orderby t.UpdatedAt descending
-                            select new { t.Id, t.Reference, t.Subject, t.Priority, t.Status, t.UpdatedAt, Customer = p.FullName }).Take(5).ToListAsync(ct);
+                            select new { t.Id, t.Reference, t.Subject, t.Priority, t.Status, t.CustomStatus, t.UpdatedAt, Customer = p.FullName }).Take(5).ToListAsync(ct);
 
         return new
         {

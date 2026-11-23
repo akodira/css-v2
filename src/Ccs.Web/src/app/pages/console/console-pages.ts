@@ -103,7 +103,7 @@ const SLA_TONE: Record<string, string> = {
         <ul class="flex flex-col gap-3 md:hidden">
           @for (r of data()?.items ?? []; track r.id) {
             <li class="rounded-md border border-line bg-surface p-4" [class]="pstripe[r.priorityColor ?? 'grey'] ?? ''">
-              <div class="flex flex-wrap items-center justify-between gap-2"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink underline" dir="ltr">{{ r.reference }}</a><app-status-badge [status]="r.status" [staff]="true" /></div>
+              <div class="flex flex-wrap items-center justify-between gap-2"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink underline" dir="ltr">{{ r.reference }}</a><app-status-badge [status]="r.status" [custom]="r.customStatus" [staff]="true" /></div>
               <p class="mt-1 font-semibold [overflow-wrap:anywhere]" dir="auto">{{ r.subject }}</p>
               <p class="mt-1 text-sm text-muted" dir="auto">{{ r.requesterName }} · {{ i18n.pick(r.teamEn, r.teamAr) || ('Console.noTeam' | t) }} · {{ r.assigneeName ?? ('Console.unassignedLabel' | t) }}</p>
               <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
@@ -135,7 +135,7 @@ const SLA_TONE: Record<string, string> = {
                   <td class="px-3 py-3"><p dir="auto">{{ r.requesterName }}</p><p class="text-muted [overflow-wrap:anywhere]" dir="ltr">{{ r.requesterEmail }}</p></td>
                   <td class="px-3 py-3"><p dir="auto">{{ i18n.pick(r.teamEn, r.teamAr) || ('Console.noTeam' | t) }}</p><p class="text-muted" dir="auto">{{ r.assigneeName ?? ('Console.unassignedLabel' | t) }}</p></td>
                   <td class="px-3 py-3"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prio(r.priorityColor)"><app-prio-icon [name]="r.priorityIcon ?? 'minus'" [size]="12" />{{ i18n.pick(r.priorityEn, r.priorityAr) || r.priority }}</span></td>
-                  <td class="px-3 py-3"><app-status-badge [status]="r.status" [staff]="true" /></td>
+                  <td class="px-3 py-3"><app-status-badge [status]="r.status" [custom]="r.customStatus" [staff]="true" /></td>
                   <td class="px-3 py-3">
                     @if (clockOf(r); as ck) { <app-sla-chip [clock]="ck" /> } @else if (r.slaState) { <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-semibold" [class]="sla[r.slaState] ?? ''">{{ 'Sla.' + r.slaState | t }}</span> } @else { - }
                     @if (dueOf(r); as due) { <p class="mt-1 text-xs text-muted">{{ 'Console.due' | t: { when: i18n.shortDate(due) } }}</p> }
@@ -251,7 +251,7 @@ export class ConsoleQueuePage {
             <p dir="ltr" class="font-semibold">{{ tk.reference }}</p>
             <div class="flex flex-wrap gap-2">
               <span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prio(tk.names.priorityColor)"><app-prio-icon [name]="tk.names.priorityIcon ?? 'minus'" [size]="12" />{{ i18n.pick(tk.names.priorityEn, tk.names.priorityAr) }}</span>
-              <app-status-badge [status]="tk.status" [staff]="true" />
+              <app-status-badge [status]="tk.status" [custom]="tk.customStatus" [staff]="true" />
             </div>
           </div>
           <h1 class="text-2xl font-bold leading-snug tracking-tight" dir="auto">{{ tk.subject }}</h1>

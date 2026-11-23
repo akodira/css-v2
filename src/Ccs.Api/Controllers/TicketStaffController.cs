@@ -78,7 +78,7 @@ public sealed class TicketStaffController(CcsDbContext db, AccessService access)
 
         // Status form: the staff moves from here, without Resolved/Closed for people who may not do them (v1).
         var flowId = await FlowLookup.OfTicketAsync(db, t.FlowId, ct);
-        var moves = await db.TicketStatusTransitions.AsNoTracking().Where(x => x.FlowId == flowId && x.FromStatus == t.Status && x.Actor == "staff")
+        var moves = await db.TicketStatusTransitions.AsNoTracking().Where(x => x.FlowId == flowId && x.FromStatus == (t.CustomStatus ?? t.Status) && x.Actor == "staff")
             .Select(x => new { to = x.ToStatus, x.RequiresReason }).ToListAsync(ct);
         moves = moves.Where(m => (m.to != TicketStatus.Resolved || c.Admin || c.Has(Permission.Resolve))
                               && (m.to != TicketStatus.Closed || c.Admin || c.Has(Permission.Close))).ToList();

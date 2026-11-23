@@ -65,6 +65,19 @@ test.describe('PR Priorities, statuses', () => {
     } finally { await admin.delete(`/api/admin/flows/${id}`); }
   });
 
+  test('TC-PR-004c Own status: added, refused while a flow needs its moves, deleted', async ({ apiAs }) => {
+    const admin = await apiAs('admin');
+    const name = stamp('E2E status');
+    const { code } = await ok<{ code: string }>(admin.post('/api/admin/custom-statuses', { data: { staffEn: name, staffAr: name, tone: 'warn', behavesLike: 'pending_internal' } }));
+    try {
+      const d = await ok<{ flows: { id: string; nameEn: string; nameAr: string; isDefault: boolean; statuses: string[]; transitions: { from: string; to: string }[] }[]; custom: { code: string }[] }>(admin.get('/api/admin/flows'));
+      expect(d.custom.map((c) => c.code)).toContain(code);
+      const def = d.flows.find((f) => f.isDefault)!;
+      const bad = await admin.put(`/api/admin/flows/${def.id}`, { data: { nameEn: def.nameEn, nameAr: def.nameAr, statuses: [...def.statuses, code], rows: def.transitions } });
+      expect(bad.status(), 'nothing leads to it and it has no way out: refused').toBe(400);
+    } finally { expect((await admin.delete(`/api/admin/custom-statuses/${code}`)).ok()).toBeTruthy(); }
+  });
+
   test('TC-PR-005 Status guide', async ({ asRole }) => {
     const page = await asRole('admin');
     await go(page, '/en/admin/ticket-status/guide');

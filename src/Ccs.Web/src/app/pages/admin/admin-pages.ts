@@ -474,7 +474,7 @@ export class AdminTypesPage extends AdminBase implements OnInit {
 
 interface CustomerProfile {
   user: AdminUser; organizationName: string | null; branchName: string | null; canEdit: boolean; isAdmin: boolean;
-  tickets: { id: string; reference: string; subject: string; status: string; priority: string; createdAt: string }[];
+  tickets: { id: string; reference: string; subject: string; status: string; customStatus?: string | null; priority: string; createdAt: string }[];
 }
 
 @Component({
@@ -548,7 +548,7 @@ interface CustomerProfile {
               @for (r of histRows(); track r.id) {
                 <li class="flex flex-wrap items-center justify-between gap-2 rounded border border-line bg-surface p-4">
                   <a [routerLink]="'/' + i18n.locale() + '/console/tickets/' + r.id" class="font-semibold text-brand-ink underline" dir="auto"><span dir="ltr">{{ r.reference }}</span> · {{ r.subject }}</a>
-                  <span class="flex items-center gap-2"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prioTone(r.priority)"><app-prio-icon [name]="prioOf(r.priority)?.icon ?? 'minus'" [size]="12" />{{ priorityName(r.priority) }}</span><app-status-badge [status]="r.status" [staff]="true" /></span>
+                  <span class="flex items-center gap-2"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prioTone(r.priority)"><app-prio-icon [name]="prioOf(r.priority)?.icon ?? 'minus'" [size]="12" />{{ priorityName(r.priority) }}</span><app-status-badge [status]="r.status" [custom]="r.customStatus" [staff]="true" /></span>
                 </li>
               }
             </ul>

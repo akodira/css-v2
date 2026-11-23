@@ -15,7 +15,7 @@ interface Dash {
   byOrg: { name: string; total: number; resolved: number }[]; byBranch: { name: string; org: string; total: number; resolved: number }[];
   workload: { name: string; n: number }[];
   satisfaction: { count: number; average: number | null; dist: number[]; resolvedTotal: number };
-  recent: { id: string; reference: string; subject: string; priority: string; status: string; updatedAt: string; customer: string }[];
+  recent: { id: string; reference: string; subject: string; priority: string; status: string; customStatus?: string | null; updatedAt: string; customer: string }[];
   queue: { mine: number; unassigned: number; breached: number };
 }
 
@@ -144,7 +144,7 @@ const STATUSES = ['new', 'open', 'in_progress', 'pending_customer', 'pending_int
                       <td class="py-3 pe-3"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink hover:underline" dir="ltr">{{ r.reference }}</a><p class="max-w-56 truncate text-muted" dir="auto">{{ r.subject }}</p></td>
                       <td class="py-3 pe-3" dir="auto">{{ r.customer }}</td>
                       <td class="py-3 pe-3"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prioTone(r.priority)"><app-prio-icon [name]="prioIcon(r.priority)" [size]="12" />{{ prioName(r.priority) }}</span></td>
-                      <td class="py-3 pe-3"><app-status-badge [status]="r.status" [staff]="true" /></td>
+                      <td class="py-3 pe-3"><app-status-badge [status]="r.status" [custom]="r.customStatus" [staff]="true" /></td>
                       <td class="py-3 text-muted">{{ ago(r.updatedAt) }}</td>
                     </tr>
                   }

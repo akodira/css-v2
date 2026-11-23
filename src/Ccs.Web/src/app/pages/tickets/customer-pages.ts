@@ -119,7 +119,7 @@ export class AutoRefreshBar {
                   <td class="whitespace-nowrap px-4 py-3"><a [routerLink]="link('/tickets/' + r.id)" class="font-semibold text-brand-ink hover:underline" dir="ltr">{{ r.reference }}</a></td>
                   <td class="max-w-72 truncate px-4 py-3" dir="auto">{{ r.subject }}</td>
                   <td class="px-4 py-3 text-muted">{{ i18n.pick(r.categoryEn, r.categoryAr) }}</td>
-                  <td class="px-4 py-3"><app-status-badge [status]="r.status" /></td>
+                  <td class="px-4 py-3"><app-status-badge [status]="r.status" [custom]="r.customStatus" /></td>
                   <td class="whitespace-nowrap px-4 py-3 text-muted">{{ i18n.date(r.createdAt) }}</td>
                   <td class="whitespace-nowrap px-4 py-3 text-muted">{{ i18n.date(r.updatedAt) }}</td>
                 </tr>
@@ -465,7 +465,7 @@ export class NewTicketPage {
         <header class="flex flex-col gap-3 rounded-md border border-line bg-surface p-6">
           <div class="flex flex-wrap items-center justify-between gap-3">
             <p class="text-sm text-muted"><span>{{ 'Ticket.reference' | t }}: </span><span dir="ltr" class="font-semibold text-ink">{{ tk.reference }}</span></p>
-            <app-status-badge [status]="tk.status" />
+            <app-status-badge [status]="tk.status" [custom]="tk.customStatus" />
           </div>
           <h1 class="text-2xl font-bold leading-snug tracking-tight" dir="auto">{{ tk.subject }}</h1>
           <dl class="grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-muted sm:grid-cols-3">

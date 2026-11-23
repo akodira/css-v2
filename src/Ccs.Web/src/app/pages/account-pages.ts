@@ -42,7 +42,7 @@ const HOME_ICON = { plus: 'M12 5v14M5 12h14', list: 'M4 6h16M4 12h16M4 18h10' };
                     <li>
                       <a [routerLink]="link('/tickets/' + r.id)" class="flex min-h-14 flex-wrap items-center justify-between gap-2 py-3 hover:bg-bg">
                         <span class="min-w-0"><span class="block text-sm text-muted" dir="ltr">{{ r.reference }}</span><span class="block truncate font-semibold" dir="auto">{{ r.subject }}</span></span>
-                        <app-status-badge [status]="r.status" />
+                        <app-status-badge [status]="r.status" [custom]="r.customStatus" />
                       </a>
                     </li>
                   }

@@ -114,10 +114,11 @@ public sealed class NotificationService(ICcsDbContext db, IClock clock)
             TicketStatus.Reopened => NotificationEvent.TicketReopened,
             _ => NotificationEvent.StatusChanged,
         };
-        // Customers see pending_internal as "in progress", so that change is not news to them.
-        string Mask(string s) => s == TicketStatus.PendingInternal ? TicketStatus.InProgress : s;
-        var from = Mask(h.FromStatus);
-        var to = Mask(h.ToStatus);
+        // Customers see pending_internal as "in progress", and the admin's own statuses under their customer name (or the name of
+        // the status they behave like), so a change they cannot see is not news to them.
+        IReadOnlySet<string> own = h.FromCustom is null && h.ToCustom is null ? new HashSet<string>() : await Tickets.FlowLookup.OwnCustomerNamesAsync(db, ct);
+        var from = Domain.Rules.CustomStatuses.CustomerView(h.FromStatus, h.FromCustom, own);
+        var to = Domain.Rules.CustomStatuses.CustomerView(h.ToStatus, h.ToCustom, own);
         if (h.ChangedBy != t.RequesterId && (evt != NotificationEvent.StatusChanged || from != to))
             await NotifyAsync(t.RequesterId, evt, t.Id, Payload(t, ("status", to)), h.Id.ToString(), ct);
         if (h.ToStatus == TicketStatus.Reopened)

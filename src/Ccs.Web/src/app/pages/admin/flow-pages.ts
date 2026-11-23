@@ -18,7 +18,10 @@ const KIND: Record<string, string> = { new: 'start', open: 'working', in_progres
 interface FlowRow { from: string; to: string; actor: 'staff' | 'customer'; requiresReason: boolean }
 interface FlowItem { id: string; nameEn: string; nameAr: string; description: string; isDefault: boolean; statuses: string[]; transitions: FlowRow[]; problems: string[]; openTickets: Record<string, number> }
 interface Pickable { id: string; nameEn: string; nameAr: string; code?: string | null; flowId: string | null; isActive: boolean }
-interface FlowsData { choice: 'type' | 'category'; flows: FlowItem[]; types: Pickable[]; categories: Pickable[] }
+interface CustomStatus { code: string; behavesLike: string; sortOrder: number; openTickets: number }
+interface FlowsData { choice: 'type' | 'category'; flows: FlowItem[]; types: Pickable[]; categories: Pickable[]; custom: CustomStatus[] }
+const LIKES = ['in_progress', 'pending_customer', 'pending_internal'];
+const blankStatus = () => ({ staffEn: '', staffAr: '', customerEn: '', customerAr: '', tone: 'brand', behavesLike: 'pending_internal' });
 interface ReasonRow { code: string; nameEn: string; nameAr: string; customerMayReopen: boolean; isSystem: boolean; isActive: boolean; sortOrder: number; inUse: boolean }
 interface StatusData { statuses: string[]; reasons: ReasonRow[]; labels: { key: string; locale: string; body: string }[] }
 interface LabelModel { staffEn: string; staffAr: string; customerEn: string; customerAr: string; descriptionEn: string; descriptionAr: string; tone: string }
@@ -27,26 +30,28 @@ const blankReason = (): ReasonModel => ({ nameEn: '', nameAr: '', customerMayReo
 interface Draft { nameEn: string; nameAr: string; description: string; statuses: string[]; rows: FlowRow[] }
 
 /** The moves the system makes by itself (same as FlowRules.Automatic on the server). */
-function automatic(st: string[]): [string, string, string][] {
+function automatic(st: string[], like: Record<string, string> = {}): [string, string, string][] {
   const a: [string, string, string][] = [];
+  for (const c of st) if (like[c] === 'pending_customer') a.push([c, 'in_progress', 'customerReplies'], [c, 'closed', 'noReply']);
   if (st.includes('open')) a.push(['new', 'open', 'assigned'], ['open', 'in_progress', 'firstReply']); else a.push(['new', 'in_progress', 'firstReply']);
   if (st.includes('pending_customer')) a.push(['pending_customer', 'in_progress', 'customerReplies'], ['pending_customer', 'closed', 'noReply']);
   a.push(['resolved', 'closed', 'afterDays'], ['resolved', st.includes('reopened') ? 'reopened' : 'in_progress', 'customerReplies']);
   return a;
 }
 /** Same checks as FlowRules.Problems on the server: codes like "unreachable:open". */
-function problems(st: string[], rows: FlowRow[]): string[] {
+function problems(st: string[], rows: FlowRow[], like: Record<string, string> = {}): string[] {
+  const base = (s: string) => like[s] ?? s;
   const p: string[] = [];
   for (const r of REQUIRED) if (!st.includes(r)) p.push('missing:' + r);
   for (const m of rows) if (!st.includes(m.from) || !st.includes(m.to)) p.push(`outside:${m.from}`);
   if (p.length) return p;
-  const auto = automatic(st).map(([f, t]) => ({ f, t }));
+  const auto = automatic(st, like).map(([f, t]) => ({ f, t }));
   const edges = [...rows.map((m) => ({ f: m.from, t: m.to })), ...auto];
   for (const s of st) if (s !== 'new' && !edges.some((e) => e.t === s)) p.push('unreachable:' + s);
   const staff = [...rows.filter((m) => m.actor === 'staff').map((m) => ({ f: m.from, t: m.to })), ...auto];
   const reach = (from: string) => { const seen = new Set([from]); const q = [from]; while (q.length) { const x = q.shift()!; if (x === 'resolved') return true; for (const e of staff) if (e.f === x && !seen.has(e.t)) { seen.add(e.t); q.push(e.t); } } return false; };
-  for (const s of st) if (['new', 'open', 'in_progress', 'reopened'].includes(s) && !reach(s)) p.push('no_resolve:' + s);
-  for (const s of st) if (KIND[s] === 'waiting' && !edges.some((e) => e.f === s)) p.push('stuck:' + s);
+  for (const s of st) if (['new', 'open', 'in_progress', 'reopened'].includes(base(s)) && !reach(s)) p.push('no_resolve:' + s);
+  for (const s of st) if (KIND[base(s)] === 'waiting' && !edges.some((e) => e.f === s)) p.push('stuck:' + s);
   return p;
 }
 
@@ -55,6 +60,9 @@ const TONE_SVG: Record<string, [string, string]> = {
   danger: ['var(--color-danger-soft)', 'var(--color-danger)'], muted: ['var(--color-bg)', 'var(--color-muted)'],
 };
 const POS: Record<string, [number, number]> = { new: [75, 180], open: [260, 180], in_progress: [445, 180], pending_customer: [445, 65], pending_internal: [445, 305], resolved: [645, 180], reopened: [650, 305], closed: [835, 180] };
+/** Free places for the admin's own statuses (clear of the usual routes), then extra rows below the map. */
+const FREE: [number, number][] = [[260, 65], [260, 305], [835, 305], [75, 65], [645, 65], [835, 65]];
+function spot(i: number): [number, number] { return i < FREE.length ? FREE[i] : [75 + 190 * ((i - FREE.length) % 5), 470 + 85 * Math.floor((i - FREE.length) / 5)]; }
 /** Hand-drawn routes for the usual moves (the admin's picture); any other move is drawn as a straight line. */
 const ROUTE: Record<string, [string, string, number, number]> = {
   'in_progress>pending_customer': ['M430 155 V99', 'staffAsks', 382, 132], 'pending_customer>in_progress': ['M478 99 V153', '', 0, 0],
@@ -76,7 +84,7 @@ const AUTO_DRAW: Record<string, [string, string, number, number]> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="overflow-x-auto">
-      <svg viewBox="0 0 900 420" class="w-full min-w-[52rem]" role="group" [attr.aria-label]="'Flows.mapLabel' | t">
+      <svg [attr.viewBox]="'0 0 900 ' + height()" class="w-full min-w-[52rem]" role="group" [attr.aria-label]="'Flows.mapLabel' | t">
         <defs>
           <marker id="fm-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-brand)" /></marker>
           <marker id="fm-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-ok)" /></marker>
@@ -109,23 +117,35 @@ export class FlowMap {
   readonly staffName = input.required<(s: string) => string>();
   readonly customerName = input.required<(s: string) => string>();
   readonly tone = input.required<(s: string) => [string, string]>();
+  /** The admin's own statuses: code → the built-in status it behaves like. */
+  readonly like = input<Record<string, string>>({});
   readonly pick = output<string>();
-  protected pos(s: string): [number, number] { return POS[s]; }
+  private readonly places = computed(() => {
+    const m: Record<string, [number, number]> = { ...POS };
+    this.statuses().filter((s) => !POS[s]).forEach((s, i) => (m[s] = spot(i)));
+    return m;
+  });
+  protected readonly height = computed(() => Math.max(420, ...Object.values(this.places()).map(([, y]) => y + 50)));
+  protected pos(s: string): [number, number] { return this.places()[s] ?? [0, 0]; }
+  /** A straight arrow between two boxes, stopping at their edges. */
+  private straight(f: string, t: string, off: number): string {
+    const [x1, y1] = this.pos(f), [x2, y2] = this.pos(t); const dx = x2 - x1, dy = y2 - y1;
+    const k = Math.min(70 / Math.abs(dx || 1e-9), 25 / Math.abs(dy || 1e-9));
+    return `M${x1 + dx * k + off} ${y1 + dy * k + off} L${x2 - dx * k + off} ${y2 - dy * k + off}`;
+  }
   protected readonly lines = computed(() => {
     const st = this.statuses(); const out: { key: string; d: string; color: string; marker: string; auto: boolean; label: string; x: number; y: number; labelColor: string }[] = [];
-    for (const [f, t] of automatic(st)) {
-      const r = AUTO_DRAW[f + '>' + t]; if (!r) continue;
-      const green = f === 'pending_customer' && t === 'in_progress';
-      out.push({ key: 'a' + f + t, d: r[0], color: green ? 'var(--color-ok)' : 'var(--color-muted)', marker: green ? 'fm-g' : 'fm-d', auto: true, label: r[1], x: r[2], y: r[3], labelColor: 'var(--color-muted)' });
+    for (const [f, t] of automatic(st, this.like())) {
+      const r = AUTO_DRAW[f + '>' + t];
+      const green = (f === 'pending_customer' || this.like()[f] === 'pending_customer') && t === 'in_progress';
+      out.push({ key: 'a' + f + t, d: r ? r[0] : this.straight(f, t, -5), color: green ? 'var(--color-ok)' : 'var(--color-muted)', marker: green ? 'fm-g' : 'fm-d', auto: true, label: r ? r[1] : '', x: r ? r[2] : 0, y: r ? r[3] : 0, labelColor: 'var(--color-muted)' });
     }
     const done = new Set<string>();
     for (const m of this.rows()) {
       const k = m.from + '>' + m.to; const c = m.actor === 'staff' ? 'var(--color-brand)' : 'var(--color-ok)'; const mk = m.actor === 'staff' ? 'fm-b' : 'fm-g';
       const r = ROUTE[k];
       if (r) { if (done.has(k)) continue; done.add(k); out.push({ key: 'm' + k, d: r[0], color: c, marker: mk, auto: false, label: r[1], x: r[2], y: r[3], labelColor: r[1] === 'closesReason' ? c : 'var(--color-muted)' }); continue; }
-      const [x1, y1] = POS[m.from], [x2, y2] = POS[m.to]; const dx = x2 - x1, dy = y2 - y1;
-      const k2 = Math.min(70 / Math.abs(dx || 1e-9), 25 / Math.abs(dy || 1e-9)), off = m.actor === 'customer' ? 5 : 0;
-      out.push({ key: 'm' + k + m.actor, d: `M${x1 + dx * k2 + off} ${y1 + dy * k2 + off} L${x2 - dx * k2 + off} ${y2 - dy * k2 + off}`, color: c, marker: mk, auto: false, label: '', x: 0, y: 0, labelColor: c });
+      out.push({ key: 'm' + k + m.actor, d: this.straight(m.from, m.to, m.actor === 'customer' ? 5 : 0), color: c, marker: mk, auto: false, label: '', x: 0, y: 0, labelColor: c });
     }
     return out;
   });
@@ -210,7 +230,7 @@ export class FlowMap {
           <section class="rounded-xl border border-line bg-surface p-5 shadow-card" aria-labelledby="map-h">
             <h3 id="map-h" class="text-lg font-bold">{{ 'Flows.mapTitle' | t }}</h3>
             <p class="text-sm text-muted">{{ 'Flows.mapHelp' | t }}</p>
-            <app-flow-map [statuses]="d.statuses" [rows]="d.rows" [current]="cur()" [staffName]="staffName" [customerName]="customerName" [tone]="svgTone" (pick)="openStatus($event)" />
+            <app-flow-map [statuses]="d.statuses" [rows]="d.rows" [current]="cur()" [staffName]="staffName" [customerName]="customerName" [tone]="svgTone" [like]="like()" (pick)="openStatus($event)" />
             <div class="mt-3 text-sm" aria-live="polite">
               @if (draftProblems().length) { <ul class="flex flex-col gap-1 font-semibold text-danger">@for (p of draftProblems(); track p) { <li>! {{ problemText(p) }}</li> }</ul> }
               @else { <p class="font-semibold text-ok">✓ {{ 'Flows.allGood' | t }}</p> }
@@ -312,27 +332,73 @@ export class FlowMap {
       }
 
       @if (tab() === 'statuses') {
-        <p class="max-w-prose text-muted">{{ 'Flows.statusesHelp' | t }}</p>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <p class="max-w-prose text-muted">{{ 'Flows.statusesHelp' | t }} {{ 'CustomStatus.help' | t }}</p>
+          <app-add #ns label="CustomStatus.add">
+            <form class="flex flex-col gap-4" novalidate (ngSubmit)="addCustom(ns)">
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'CustomStatus.staffEn' | t }}<app-req /></span><input name="sen" dir="ltr" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="nwSt.staffEn" /></label>
+                <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'CustomStatus.staffAr' | t }}<app-req /></span><input name="sar" dir="rtl" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="nwSt.staffAr" /></label>
+              </div>
+              <fieldset>
+                <legend class="text-sm font-semibold">{{ 'CustomStatus.behavesLike' | t }}<app-req /></legend>
+                <p class="text-xs text-muted">{{ 'CustomStatus.behavesHint' | t }}</p>
+                <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-3">
+                  @for (l of likes; track l) {
+                    <label class="flex cursor-pointer items-start gap-3 rounded-xl border-2 border-line p-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+                      <input type="radio" name="like" class="mt-0.5 size-5 shrink-0" [value]="l" [(ngModel)]="nwSt.behavesLike" />
+                      <span><b class="block">{{ staffName(l) }}</b><span class="text-xs text-muted">{{ 'CustomStatus.like.' + l | t }}</span></span>
+                    </label>
+                  }
+                </div>
+              </fieldset>
+              <div class="grid gap-4 md:grid-cols-2">
+                <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'CustomStatus.customerEn' | t }}<input name="cen" dir="ltr" maxlength="60" [class]="cls.input + ' font-normal'" [placeholder]="customerName(nwSt.behavesLike)" [(ngModel)]="nwSt.customerEn" /></label>
+                <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'CustomStatus.customerAr' | t }}<input name="car" dir="rtl" maxlength="60" [class]="cls.input + ' font-normal'" [(ngModel)]="nwSt.customerAr" /></label>
+                <p class="text-xs text-muted md:col-span-2">{{ 'CustomStatus.customerHint' | t: { name: customerName(nwSt.behavesLike) } }}</p>
+                <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminStatus.color' | t }}
+                  <select name="tone" [class]="cls.input + ' font-normal'" [(ngModel)]="nwSt.tone">@for (c of tones; track c) { <option [value]="c">{{ 'AdminStatus.colors.' + c | t }}</option> }</select></label>
+              </div>
+              <p class="text-sm text-muted">{{ 'CustomStatus.addHint' | t }}</p>
+              <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'CustomStatus.addButton' | t }}</button><app-req-note /></div>
+            </form>
+          </app-add>
+        </div>
         <ul class="flex flex-col gap-3">
-          @for (s of statusList; track s) {
+          @for (s of all(); track s) {
             <li><details [class]="cls.card" [open]="openParam() === s">
-              <summary [class]="cls.summary"><span class="flex flex-wrap items-center gap-3"><span [class]="chip(s)">{{ staffName(s) }}</span><span class="text-sm text-muted">{{ 'Flows.customersSee' | t }}</span><span [class]="chip(s)">{{ customerName(s) }}</span>
-                <span class="text-xs text-muted">· {{ 'Flows.kind.' + kind(s) | t }} · {{ 'Flows.inFlows' | t: { list: flowsWith(s) } }}</span></span></summary>
+              <summary [class]="cls.summary"><span class="flex flex-wrap items-center gap-3"><span [class]="chip(s)">{{ staffName(s) }}</span>
+                @if (isCustom(s)) { <span class="text-xs text-muted">({{ 'CustomStatus.yours' | t }})</span> }
+                <span class="text-sm text-muted">{{ 'Flows.customersSee' | t }}</span><span [class]="chip(s)">{{ customerName(s) }}</span>
+                <span class="text-xs text-muted">· @if (isCustom(s)) { {{ 'CustomStatus.behavesAs' | t: { name: staffName(like()[s]) } }} } @else { {{ 'Flows.kind.' + kind(s) | t }} } · {{ 'Flows.inFlows' | t: { list: flowsWith(s) } }}</span></span></summary>
               @if (lab[s]) {
                 <form class="flex flex-col gap-4 px-5 pb-5" (ngSubmit)="saveLabel(s)">
-                  <p class="text-sm text-muted">{{ 'AdminV2.labelHint' | t }}</p>
+                  <p class="text-sm text-muted">{{ (isCustom(s) ? 'CustomStatus.labelHint' : 'AdminV2.labelHint') | t }}</p>
                   <div class="grid gap-4 md:grid-cols-2">
                     @for (fl of labelFields; track fl.key) {
-                      <div class="flex flex-col gap-1.5"><label [for]="s + fl.key" [class]="cls.label">{{ fl.label | t }} ({{ (fl.ar ? 'AdminStatus.arSuffix' : 'AdminStatus.enSuffix') | t }})</label>
-                        <input [id]="s + fl.key" [name]="fl.key" [attr.dir]="fl.ar ? 'rtl' : 'ltr'" maxlength="500" [class]="cls.input" [placeholder]="std(s, fl.key)" [(ngModel)]="$any(lab[s])[fl.key]" /></div>
+                      <div class="flex flex-col gap-1.5"><label [for]="s + fl.key" [class]="cls.label"><span>{{ fl.label | t }} ({{ (fl.ar ? 'AdminStatus.arSuffix' : 'AdminStatus.enSuffix') | t }})@if (isCustom(s) && fl.key.startsWith('staff')) {<app-req />}</span></label>
+                        <input [id]="s + fl.key" [name]="fl.key" [attr.dir]="fl.ar ? 'rtl' : 'ltr'" maxlength="500" [class]="cls.input" [placeholder]="isCustom(s) && fl.key === 'customerEn' ? customerName(like()[s]) : std(s, fl.key)" [(ngModel)]="$any(lab[s])[fl.key]" /></div>
                     }
                     <div class="flex flex-col gap-1.5"><label [for]="s + 'tone'" [class]="cls.label">{{ 'AdminStatus.color' | t }}</label>
                       <select [id]="s + 'tone'" name="tone" [class]="cls.input" [(ngModel)]="lab[s].tone">
-                        <option value="">{{ 'AdminStatus.reset' | t }} ({{ 'AdminStatus.colors.' + std(s, 'tone') | t }})</option>
+                        @if (!isCustom(s)) { <option value="">{{ 'AdminStatus.reset' | t }} ({{ 'AdminStatus.colors.' + std(s, 'tone') | t }})</option> }
                         @for (c of tones; track c) { <option [value]="c">{{ 'AdminStatus.colors.' + c | t }}</option> }
                       </select></div>
+                    @if (custom(s); as cs) {
+                      <div class="flex flex-col gap-1.5"><label [for]="s + 'like'" [class]="cls.label">{{ 'CustomStatus.behavesLike' | t }}</label>
+                        <select [id]="s + 'like'" name="like" [class]="cls.input" [disabled]="flowsWith(s) !== '—'" [ngModel]="cs.behavesLike" (ngModelChange)="setLike(cs, $event)">
+                          @for (l of likes; track l) { <option [value]="l">{{ staffName(l) }}</option> }
+                        </select>
+                        @if (flowsWith(s) !== '—') { <span class="text-xs text-muted">{{ 'CustomStatus.likeLocked' | t }}</span> }</div>
+                    }
                   </div>
-                  <div class="flex flex-wrap gap-2"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminStatus.save' | t }}</button><button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="resetLabel(s)">{{ 'AdminStatus.reset' | t }}</button></div>
+                  @if (custom(s); as cs) { <p class="rounded-lg bg-bg px-4 py-3 text-sm">{{ 'CustomStatus.like.' + cs.behavesLike | t }}</p> }
+                  <div class="flex flex-wrap items-center gap-2"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminStatus.save' | t }}</button>
+                    @if (!isCustom(s)) { <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="resetLabel(s)">{{ 'AdminStatus.reset' | t }}</button> }
+                    @else if (custom(s); as cs) {
+                      @if (flowsWith(s) !== '—' || cs.openTickets) { <span class="text-sm text-muted">{{ 'CustomStatus.cantDelete' | t }}</span> }
+                      @else { <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="deleteCustom(cs)">{{ 'Directory.delete' | t }}</button> }
+                    }</div>
                 </form>
               }
             </details></li>
@@ -424,7 +490,7 @@ export class AdminStatusPage extends AdminBase implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   protected readonly tabs = ['flows', 'statuses', 'who', 'reasons'];
-  protected readonly statusList = STATUSES;
+  protected readonly likes = LIKES;
   protected readonly tones = ['brand', 'warn', 'ok', 'danger', 'muted'];
   protected readonly stepCls = 'grid size-7 shrink-0 place-items-center rounded-full bg-brand text-sm font-bold text-white';
   protected readonly labelFields = [
@@ -455,17 +521,26 @@ export class AdminStatusPage extends AdminBase implements OnInit {
   protected nwReason: ReasonModel = blankReason();
   private std_: Record<string, Record<string, string>> = {};
 
-  protected readonly draftProblems = computed(() => { const d = this.draft(); return d ? problems(d.statuses, d.rows) : []; });
-  protected readonly missing = computed(() => STATUSES.filter((s) => !this.draft()?.statuses.includes(s)));
+  protected readonly draftProblems = computed(() => { const d = this.draft(); return d ? problems(d.statuses, d.rows, this.like()) : []; });
+  protected readonly missing = computed(() => this.all().filter((s) => !this.draft()?.statuses.includes(s)));
   protected readonly tryMoves = computed(() => (this.draft()?.rows ?? []).filter((r) => r.from === this.tryS() && r.actor === this.tryW()));
 
   /** Names everywhere come from the language files plus the admin's overrides (Statuses tab). */
+  /** The admin's own statuses (code → the built-in status it behaves like), listed after the built-in ones. */
+  protected readonly like = computed<Record<string, string>>(() => Object.fromEntries((this.data()?.custom ?? []).map((c) => [c.code, c.behavesLike])));
+  protected readonly all = computed(() => [...STATUSES, ...(this.data()?.custom ?? []).map((c) => c.code)]);
+  protected isCustom(s: string): boolean { return !!this.like()[s]; }
+  protected custom(s: string): CustomStatus | undefined { return this.data()?.custom.find((c) => c.code === s); }
   protected readonly staffName = (s: string): string => this.i18n.t('StaffStatus.' + s);
-  protected readonly customerName = (s: string): string => this.i18n.t('CustomerStatus.' + (s === 'pending_internal' ? 'in_progress' : s));
-  private toneOf(s: string): string { return this.lab[s]?.tone || this.std(s, 'tone') || 'brand'; }
+  protected readonly customerName = (s: string): string => {
+    const l = this.like()[s];
+    if (l) return this.i18n.has('CustomerStatus.' + s) ? this.i18n.t('CustomerStatus.' + s) : this.customerName(l);
+    return this.i18n.t('CustomerStatus.' + (s === 'pending_internal' ? 'in_progress' : s));
+  };
+  private toneOf(s: string): string { return this.lab[s]?.tone || this.std(s, 'tone') || (this.like()[s] ? this.toneOf(this.like()[s]) : 'brand'); }
   protected readonly svgTone = (s: string): [string, string] => TONE_SVG[this.toneOf(s)] ?? TONE_SVG['brand'];
   protected chip(s: string): string { return 'inline-flex rounded-full px-3 py-0.5 text-sm font-semibold ' + (TONE_CLASS[this.toneOf(s) as Tone] ?? TONE_CLASS.brand); }
-  protected kind(s: string): string { return KIND[s]; }
+  protected kind(s: string): string { return KIND[s] ?? KIND[this.like()[s]] ?? 'working'; }
   protected required(s: string): boolean { return REQUIRED.includes(s); }
 
   async ngOnInit(): Promise<void> {
@@ -538,7 +613,7 @@ export class AdminStatusPage extends AdminBase implements OnInit {
     const f = this.editing();
     if (!f) { this.draft.set(null); return; }
     if (keepIfSame && this.draft() && this.dirty()) return;
-    const d: Draft = { nameEn: f.nameEn, nameAr: f.nameAr, description: f.description, statuses: STATUSES.filter((s) => f.statuses.includes(s)), rows: f.transitions.map((r) => ({ ...r })) };
+    const d: Draft = { nameEn: f.nameEn, nameAr: f.nameAr, description: f.description, statuses: this.all().filter((s) => f.statuses.includes(s)), rows: f.transitions.map((r) => ({ ...r })) };
     this.saved = JSON.stringify(d); this.draft.set(d);
   }
   protected resetDraft(): void { this.draft.set(JSON.parse(this.saved)); }
@@ -559,7 +634,7 @@ export class AdminStatusPage extends AdminBase implements OnInit {
     else rows = [...rows, { from: s, to: t, actor: g as 'staff' | 'customer', requiresReason: this.has(s, t, 'reason') }];
     this.patch({ rows });
   }
-  protected addStatus(s: string): void { const d = this.draft(); if (!d || !s) return; this.patch({ statuses: STATUSES.filter((x) => d.statuses.includes(x) || x === s) }); this.openStatus(s); }
+  protected addStatus(s: string): void { const d = this.draft(); if (!d || !s) return; this.patch({ statuses: this.all().filter((x) => d.statuses.includes(x) || x === s) }); this.openStatus(s); }
   protected dropStatus(s: string): void {
     const d = this.draft(); if (!d || this.required(s)) return;
     const n = this.editing()?.openTickets[s] ?? 0;
@@ -571,7 +646,7 @@ export class AdminStatusPage extends AdminBase implements OnInit {
     return (this.draft()?.rows ?? []).filter((r) => r.from === s && r.actor === actor).map((r) => this.staffName(r.to) + (r.requiresReason ? ` (${this.i18n.t('Flows.reasonShort')})` : '')).join(', ');
   }
   protected autoFrom(s: string): string {
-    return automatic(this.draft()?.statuses ?? []).filter(([f]) => f === s).map(([, t, why]) => `${this.staffName(t)} (${this.i18n.t('Flows.lbl.' + why)})`).join(', ');
+    return automatic(this.draft()?.statuses ?? [], this.like()).filter(([f]) => f === s).map(([, t, why]) => `${this.staffName(t)} (${this.i18n.t('Flows.lbl.' + why)})`).join(', ');
   }
   protected summary(s: string): string {
     const list = (a: string) => (this.draft()?.rows ?? []).filter((r) => r.from === s && r.actor === a).map((r) => this.staffName(r.to));
@@ -593,6 +668,19 @@ export class AdminStatusPage extends AdminBase implements OnInit {
     void this.run(() => this.api.put('flow-choice', {
       mode: this.mode, types: this.whoTypes.map((x) => ({ id: x.id, flowId: x.flowId })), categories: this.whoCats.map((x) => ({ id: x.id, flowId: x.flowId })),
     }), 'Flows.whoSaved');
+  }
+  protected nwSt = blankStatus();
+  protected async addCustom(box: { open: boolean }): Promise<void> {
+    let code = '';
+    if (await this.run(async () => { code = (await this.api.post<{ code: string }>('custom-statuses', this.nwSt)).code; }, 'CustomStatus.added')) {
+      box.open = false; this.nwSt = blankStatus();
+      void this.router.navigate([], { queryParams: { tab: 'statuses', open: code } });
+    }
+  }
+  protected setLike(c: CustomStatus, v: string): void { void this.run(() => this.api.put('custom-statuses/' + c.code, { behavesLike: v })); }
+  protected deleteCustom(c: CustomStatus): void {
+    if (!confirm(this.i18n.t('CustomStatus.deleteConfirm', { name: this.staffName(c.code) }))) return;
+    void this.run(() => this.api.del('custom-statuses/' + c.code), 'AdminV2.deleted');
   }
   protected saveLabel(s: string): void { void this.run(() => this.api.put('status-labels/' + s, this.lab[s])); }
   protected resetLabel(s: string): void { void this.run(() => this.api.put('status-labels/' + s, {})); }

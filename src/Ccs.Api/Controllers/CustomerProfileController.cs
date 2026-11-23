@@ -35,7 +35,7 @@ public sealed class CustomerProfileController(CcsDbContext db, AccessService acc
 
         // Security audit L-06: list only tickets this staff member may open (team and permission rules); counts stay totals.
         var tickets = await access.VisibleTickets(db.Tickets.AsNoTracking(), c).Where(t => t.RequesterId == id).OrderByDescending(t => t.CreatedAt).Take(50)
-            .Select(t => new { t.Id, t.Reference, t.Subject, t.Status, t.Priority, t.CreatedAt }).ToListAsync(ct);
+            .Select(t => new { t.Id, t.Reference, t.Subject, t.Status, t.CustomStatus, t.Priority, t.CreatedAt }).ToListAsync(ct);
         var all = await db.Tickets.AsNoTracking().Where(t => t.RequesterId == id).Select(t => t.Status).ToListAsync(ct);
         return new
         {

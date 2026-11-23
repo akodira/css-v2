@@ -79,4 +79,71 @@ public class FlowRulesTests
     [InlineData("new,in_progress,resolved,closed,boss", false)]
     [InlineData("", false)]
     public void Status_list_must_be_known(string csv, bool ok) => Assert.Equal(ok, FlowRules.ValidStatuses(FlowRules.Parse(csv)));
+
+    // ---------------------------------------------------------------- the admin's own statuses
+    static readonly Dictionary<string, string> Like = new() { ["c_visit"] = "pending_internal", ["c_wait"] = "pending_customer", ["c_check"] = "in_progress" };
+
+    [Fact]
+    public void Own_status_is_known_only_when_it_exists()
+    {
+        Assert.True(FlowRules.ValidStatuses(["new", "in_progress", "resolved", "closed", "c_visit"], Like));
+        Assert.False(FlowRules.ValidStatuses(["new", "in_progress", "resolved", "closed", "c_gone"], Like));
+    }
+
+    [Fact]
+    public void Own_waiting_status_with_a_way_back_is_fine()
+    {
+        string[] st = [.. All, "c_visit"];
+        Assert.Empty(FlowRules.Problems(st, [.. Picture, S("in_progress", "c_visit"), S("c_visit", "in_progress")], Like));
+    }
+
+    [Fact]
+    public void Own_waiting_status_without_a_way_out_is_stuck()
+    {
+        string[] st = [.. All, "c_visit"];
+        Assert.Contains("stuck:c_visit", FlowRules.Problems(st, [.. Picture, S("in_progress", "c_visit")], Like));
+        Assert.Contains("unreachable:c_visit", FlowRules.Problems(st, Picture, Like));
+    }
+
+    [Fact]
+    public void Own_status_like_pending_customer_gets_the_automatic_moves()
+    {
+        var auto = FlowRules.Automatic(["new", "in_progress", "resolved", "closed", "c_wait"], Like).ToList();
+        Assert.Contains(("c_wait", "in_progress"), auto);
+        Assert.Contains(("c_wait", "closed"), auto);
+        string[] st = [.. All, "c_wait"];
+        Assert.Empty(FlowRules.Problems(st, [.. Picture, S("in_progress", "c_wait")], Like));   // no way out by hand needed
+    }
+
+    [Fact]
+    public void Own_working_status_must_reach_resolved()
+    {
+        string[] st = [.. All, "c_check"];
+        Assert.Contains("no_resolve:c_check", FlowRules.Problems(st, [.. Picture, S("in_progress", "c_check"), C("c_check", "in_progress")], Like));
+        Assert.Empty(FlowRules.Problems(st, [.. Picture, S("in_progress", "c_check"), S("c_check", "resolved")], Like));
+    }
+
+    [Fact]
+    public void Moving_to_an_own_status_stores_what_it_behaves_like()
+    {
+        Assert.Equal(("pending_internal", "c_visit"), FlowRules.Target("c_visit", Like));
+        Assert.Equal(("resolved", (string?)null), FlowRules.Target("resolved", Like));
+        Assert.Equal("new,in_progress,resolved,closed,c_visit", FlowRules.Join(["c_visit", "closed", "new", "resolved", "in_progress"]));
+    }
+
+    [Theory]
+    [InlineData("c_ab12", true)]
+    [InlineData("c_", false)]
+    [InlineData("c_AB", false)]
+    [InlineData("in_progress", false)]
+    public void Own_status_codes(string code, bool ok) => Assert.Equal(ok, CustomStatuses.IsCode(code));
+
+    [Fact]
+    public void Customers_see_an_own_status_only_with_its_own_name()
+    {
+        var own = new HashSet<string> { "c_visit" };
+        Assert.Equal("c_visit", CustomStatuses.CustomerView("pending_internal", "c_visit", own));
+        Assert.Equal("in_progress", CustomStatuses.CustomerView("pending_internal", "c_other", own));
+        Assert.Equal("pending_customer", CustomStatuses.CustomerView("pending_customer", null, own));
+    }
 }

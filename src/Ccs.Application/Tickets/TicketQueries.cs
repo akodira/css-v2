@@ -23,7 +23,7 @@ public sealed record TicketListItem(
     string CategoryEn, string CategoryAr, string? TeamEn, string? TeamAr, string? AssigneeName, string RequesterName,
     string? SlaState, DateTimeOffset? ResolutionDue, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
     string? RequesterEmail = null, DateTimeOffset? FirstResponseDue = null, DateTimeOffset? FirstRespondedAt = null,
-    DateTimeOffset? PausedAt = null, int PausedTotalSeconds = 0, DateTimeOffset? ResolvedAt = null, string? PriorityIcon = null);
+    DateTimeOffset? PausedAt = null, int PausedTotalSeconds = 0, DateTimeOffset? ResolvedAt = null, string? PriorityIcon = null, string? CustomStatus = null);
 
 public sealed record TicketSummary(int Total, int Active, int Waiting, int Resolved, int Closed, int Unassigned, int Breached);
 
@@ -46,7 +46,7 @@ public sealed record TicketDetail(
     IReadOnlyList<string> AllowedMoves, bool CanSeeInternalNotes, bool CanReply,
     bool CanReopen, bool HasFeedback, bool HasPendingCancellation,
     IReadOnlyDictionary<string, string> CustomValues,
-    Names Names);
+    Names Names, string? CustomStatus = null);
 
 /// <summary>Display names for the header of the ticket page, in both languages.</summary>
 public sealed record Names(string? TypeEn, string? TypeAr, string CategoryEn, string CategoryAr, string? SubcategoryEn, string? SubcategoryAr,
@@ -141,7 +141,8 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
                                sr == null ? null : sr.PausedAt,
                                sr == null ? 0 : sr.PausedTotalSeconds,
                                t.ResolvedAt,
-                               db.Priorities.Where(p => p.Code == t.Priority).Select(p => p.Icon).FirstOrDefault()))
+                               db.Priorities.Where(p => p.Code == t.Priority).Select(p => p.Icon).FirstOrDefault(),
+                               t.CustomStatus))
                           .Skip((page.SafePage - 1) * page.SafeSize).Take(page.SafeSize).ToListAsync(ct);
         return new PagedResult<TicketListItem>(items, total, page.SafePage, page.SafeSize);
     }
@@ -220,18 +221,21 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
         var history = await db.TicketStatusHistory.AsNoTracking().Where(h => h.TicketId == id).OrderBy(h => h.CreatedAt).ToListAsync(ct);
         var changers = history.Where(h => h.ChangedBy != null).Select(h => h.ChangedBy!.Value).Distinct().ToList();
         var changerNames = await db.Profiles.AsNoTracking().Where(p => changers.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+        // The admin's own statuses show by their code (the screens look up its name); customers see one only when it has a customer name.
+        var own = await FlowLookup.OwnCustomerNamesAsync(db, ct);
+        string? Cust(string? s, string? custom) => s is null ? null : CustomStatuses.CustomerView(s, custom, own);
         var timeline = history
-            .Where(h => !isCustomerView || h.FromStatus is null || CustomerStatus(h.FromStatus) != CustomerStatus(h.ToStatus))
+            .Where(h => !isCustomerView || h.FromStatus is null || Cust(h.FromStatus, h.FromCustom) != Cust(h.ToStatus, h.ToCustom))
             .Select(h => isCustomerView
-                ? new TimelineEntry(h.CreatedAt, CustomerStatus(h.FromStatus), CustomerStatus(h.ToStatus)!, null, h.ClosureReason, null)
-                : new TimelineEntry(h.CreatedAt, h.FromStatus, h.ToStatus, h.Reason, h.ClosureReason,
+                ? new TimelineEntry(h.CreatedAt, Cust(h.FromStatus, h.FromCustom), Cust(h.ToStatus, h.ToCustom)!, null, h.ClosureReason, null)
+                : new TimelineEntry(h.CreatedAt, h.FromCustom ?? h.FromStatus, h.ToCustom ?? h.ToStatus, h.Reason, h.ClosureReason,
                     h.ChangedBy is Guid b && changerNames.TryGetValue(b, out var nm) ? nm : null))
             .ToList();
 
         var actor = c.Staff ? "staff" : t.RequesterId == c.UserId ? "customer" : null;
         var flowId = await FlowLookup.OfTicketAsync(db, t.FlowId, ct);
         List<string> moves = actor is null ? [] : await db.TicketStatusTransitions.AsNoTracking()
-            .Where(x => x.FlowId == flowId && x.FromStatus == t.Status && x.Actor == actor).Select(x => x.ToStatus).ToListAsync(ct);
+            .Where(x => x.FlowId == flowId && x.FromStatus == (t.CustomStatus ?? t.Status) && x.Actor == actor).Select(x => x.ToStatus).ToListAsync(ct);
 
         var sla = await db.TicketSlaRecords.AsNoTracking().FirstOrDefaultAsync(r => r.TicketId == id, ct);
         var custom = await (from v in db.TicketCustomFieldValues join f in db.CustomFieldDefinitions on v.FieldId equals f.Id
@@ -249,7 +253,8 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
             HasFeedback: await db.CustomerFeedback.AnyAsync(x => x.TicketId == id, ct),
             HasPendingCancellation: await db.TicketCancellationRequests.AnyAsync(x => x.TicketId == id && x.Status == "pending", ct),
             CustomValues: custom.ToDictionary(x => x.Key, x => x.Value),
-            Names: await NamesAsync(t, ct));
+            Names: await NamesAsync(t, ct),
+            CustomStatus: isCustomerView ? (t.CustomStatus is string cs && own.Contains(cs) ? cs : null) : t.CustomStatus);
     }
 
     private async Task<Names> NamesAsync(Ticket t, CancellationToken ct)

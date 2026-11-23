@@ -199,44 +199,49 @@ public sealed class TicketService(
         bool? mayReopen = t.ClosureReason is null ? null
             : await db.ClosureReasons.Where(r => r.Code == t.ClosureReason).Select(r => (bool?)r.CustomerMayReopen).FirstOrDefaultAsync(ct);
 
+        var like = await FlowLookup.LikesAsync(db, ct);
         var decision = StatusFlow.Evaluate(new StatusChangeRequest(
-            t.Status, cmd.To, actor, cmd.Reason, cmd.Resolution, cmd.ClosureReason,
+            t.CustomStatus ?? t.Status, cmd.To, actor, cmd.Reason, cmd.Resolution, cmd.ClosureReason,
             c.Has(Permission.Resolve), c.Has(Permission.Close), t.ClosedAt, mayReopen,
             await settings.GetIntAsync("reopen_window_days", 30, ct), clock.UtcNow, activeReasons), flow);
         if (!decision.Allowed)
             throw decision.Error!.StartsWith("not allowed") || decision.Error.StartsWith("transition") || decision.Error.StartsWith("this ticket") || decision.Error.StartsWith("the reopen")
                 ? (AppException)new ForbiddenException(decision.Error) : new ValidationFailedException(decision.Error);
 
+        // A custom status is stored as the built-in status it behaves like, plus its own code.
+        var (to, toCustom) = FlowRules.Target(cmd.To, like);
         var from = t.Status;
+        var fromCustom = t.CustomStatus;
         var now = clock.UtcNow;
-        var before = new { status = t.Status, closure_reason = t.ClosureReason };
-        t.Status = cmd.To;
+        var before = new { status = t.Status, custom_status = t.CustomStatus, closure_reason = t.ClosureReason };
+        t.Status = to;
+        t.CustomStatus = toCustom;
         t.UpdatedAt = now;
-        if (cmd.To == TicketStatus.Resolved) { t.ResolutionSummary = decision.Resolution; t.ResolvedAt = now; t.ResolvedBy = c.UserId; }
-        if (cmd.To == TicketStatus.Closed) { t.ClosedAt = now; t.ClosureReason = decision.ClosureReasonToStore; t.ClosedBy = c.UserId; }
-        if (cmd.To == TicketStatus.Reopened) { t.ClosedAt = null; t.ClosureReason = null; t.ClosedBy = null; t.ReopenedCount++; }
+        if (to == TicketStatus.Resolved) { t.ResolutionSummary = decision.Resolution; t.ResolvedAt = now; t.ResolvedBy = c.UserId; }
+        if (to == TicketStatus.Closed) { t.ClosedAt = now; t.ClosureReason = decision.ClosureReasonToStore; t.ClosedBy = c.UserId; }
+        if (to == TicketStatus.Reopened) { t.ClosedAt = null; t.ClosureReason = null; t.ClosedBy = null; t.ReopenedCount++; }
 
         var h = new TicketStatusHistory
         {
-            Id = Guid.NewGuid(), TicketId = t.Id, FromStatus = from, ToStatus = cmd.To, ChangedBy = c.UserId,
+            Id = Guid.NewGuid(), TicketId = t.Id, FromStatus = from, ToStatus = to, FromCustom = fromCustom, ToCustom = toCustom, ChangedBy = c.UserId,
             Reason = decision.Reason, ClosureReason = decision.ClosureReasonToStore, CreatedAt = now,
         };
         db.TicketStatusHistory.Add(h);
 
         if (TicketStatus.IsPending(from)) await sla.ResumeAsync(t.Id, ct);
-        if (TicketStatus.IsPending(cmd.To))
+        if (TicketStatus.IsPending(to))
         {
             var pol = await (from r in db.TicketSlaRecords join p in db.SlaPolicies on r.PolicyId equals p.Id
                              where r.TicketId == t.Id select p).AsNoTracking().FirstOrDefaultAsync(ct);
-            if (pol is not null && ((cmd.To == TicketStatus.PendingCustomer && pol.PauseOnPendingCustomer)
-                                 || (cmd.To == TicketStatus.PendingInternal && pol.PauseOnPendingInternal)))
+            if (pol is not null && ((to == TicketStatus.PendingCustomer && pol.PauseOnPendingCustomer)
+                                 || (to == TicketStatus.PendingInternal && pol.PauseOnPendingInternal)))
                 await sla.PauseAsync(t.Id, ct);
         }
-        if (cmd.To == TicketStatus.Resolved) await sla.CompleteAsync(t.Id, ct);
-        else if (cmd.To == TicketStatus.Reopened) await sla.StartReopenCycleAsync(t.Id, ct);
+        if (to == TicketStatus.Resolved) await sla.CompleteAsync(t.Id, ct);
+        else if (to == TicketStatus.Reopened) await sla.StartReopenCycleAsync(t.Id, ct);
 
         audit.Write("ticket.status_changed", "ticket", t.Id, before,
-            new { status = cmd.To, reason = decision.Reason, closure_reason = decision.ClosureReasonToStore });
+            new { status = to, custom_status = toCustom, reason = decision.Reason, closure_reason = decision.ClosureReasonToStore });
         await notifications.OnStatusAsync(h, t, ct);
         await SaveAsync(ct);
         await tx.CommitAsync(ct);
@@ -447,11 +452,12 @@ public sealed class TicketService(
     {
         var h = new TicketStatusHistory
         {
-            Id = Guid.NewGuid(), TicketId = t.Id, FromStatus = t.Status, ToStatus = to, ChangedBy = by, Reason = reason, CreatedAt = now,
+            Id = Guid.NewGuid(), TicketId = t.Id, FromStatus = t.Status, ToStatus = to, FromCustom = t.CustomStatus, ChangedBy = by, Reason = reason, CreatedAt = now,
         };
         db.TicketStatusHistory.Add(h);
         _autoMoves.Add((h, t));
         t.Status = to;
+        t.CustomStatus = null;
     }
 
     private async Task SaveAsync(CancellationToken ct)

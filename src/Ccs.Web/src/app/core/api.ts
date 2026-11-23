@@ -9,7 +9,7 @@ import { apiUrl } from './api-base';
 export interface Paged<T> { items: T[]; total: number; page: number; pageSize: number }
 
 export interface TicketListItem {
-  id: string; reference: string; subject: string; status: string; priority: string; priorityColor: string | null; priorityIcon?: string | null;
+  id: string; reference: string; subject: string; status: string; customStatus?: string | null; priority: string; priorityColor: string | null; priorityIcon?: string | null;
   priorityEn: string | null; priorityAr: string | null; categoryEn: string; categoryAr: string; teamEn: string | null; teamAr: string | null; assigneeName: string | null;
   requesterName: string; slaState: string | null; resolutionDue: string | null; createdAt: string; updatedAt: string;
   requesterEmail?: string | null; firstResponseDue?: string | null; firstRespondedAt?: string | null; pausedAt?: string | null;
@@ -30,7 +30,7 @@ export interface Names {
   closureEn: string | null; closureAr: string | null; closureAllowsReopen: boolean;
 }
 export interface TicketDetail {
-  id: string; reference: string; subject: string; description: string; status: string; priority: string;
+  id: string; reference: string; subject: string; description: string; status: string; customStatus?: string | null; priority: string;
   typeId: string | null; categoryId: string; subcategoryId: string | null; teamId: string | null; assignedAgentId: string | null;
   requesterName: string; requesterEmail: string; requesterId: string; resolutionSummary: string | null; closureReason: string | null;
   reopenedCount: number; createdAt: string; updatedAt: string; resolvedAt: string | null; closedAt: string | null;

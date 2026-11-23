@@ -215,8 +215,8 @@ public sealed class TicketLifecycleService(
     {
         if (t.Status == TicketStatus.Closed) return;
         var now = clock.UtcNow;
-        var h = new TicketStatusHistory { Id = Guid.NewGuid(), TicketId = t.Id, FromStatus = t.Status, ToStatus = TicketStatus.Closed, ChangedBy = by, Reason = note, ClosureReason = code, CreatedAt = now };
-        t.Status = TicketStatus.Closed; t.ClosedAt = now; t.ClosureReason = code; t.ClosedBy = by; t.UpdatedAt = now;
+        var h = new TicketStatusHistory { Id = Guid.NewGuid(), TicketId = t.Id, FromStatus = t.Status, ToStatus = TicketStatus.Closed, FromCustom = t.CustomStatus, ChangedBy = by, Reason = note, ClosureReason = code, CreatedAt = now };
+        t.Status = TicketStatus.Closed; t.CustomStatus = null; t.ClosedAt = now; t.ClosureReason = code; t.ClosedBy = by; t.UpdatedAt = now;
         db.TicketStatusHistory.Add(h);
         await sla.CompleteAsync(t.Id, ct);
         await notifications.OnStatusAsync(h, t, ct);

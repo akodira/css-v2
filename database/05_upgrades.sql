@@ -251,3 +251,30 @@ GO
 -- Tickets that are still open keep working exactly as before: they follow the Standard flow.
 UPDATE ccs.tickets SET flow_id = 'f1000000-0000-4000-8000-000000000001' WHERE flow_id IS NULL AND status <> N'closed';
 GO
+
+-- The admin's own statuses. Each behaves like a built-in working or waiting status: tickets.status holds that built-in status
+-- (SLA timer, reminders, reports unchanged) and tickets.custom_status the admin's code. Names and colour are system messages.
+IF OBJECT_ID(N'ccs.ticket_custom_statuses') IS NULL
+    CREATE TABLE ccs.ticket_custom_statuses (
+        code         nvarchar(20) NOT NULL CONSTRAINT PK_ticket_custom_statuses PRIMARY KEY,
+        behaves_like nvarchar(20) NOT NULL CONSTRAINT CK_custom_statuses_like CHECK (behaves_like IN ('in_progress','pending_customer','pending_internal')),
+        sort_order   int NOT NULL CONSTRAINT DF_custom_statuses_sort DEFAULT 0,
+        created_at   datetimeoffset(7) NOT NULL CONSTRAINT DF_custom_statuses_created DEFAULT SYSUTCDATETIME()
+    );
+GO
+IF COL_LENGTH(N'ccs.tickets', N'custom_status') IS NULL ALTER TABLE ccs.tickets ADD custom_status nvarchar(20) NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_tickets_custom_status')
+    ALTER TABLE ccs.tickets ADD CONSTRAINT FK_tickets_custom_status FOREIGN KEY (custom_status) REFERENCES ccs.ticket_custom_statuses(code);
+GO
+IF COL_LENGTH(N'ccs.ticket_status_history', N'from_custom') IS NULL ALTER TABLE ccs.ticket_status_history ADD from_custom nvarchar(20) NULL;
+GO
+IF COL_LENGTH(N'ccs.ticket_status_history', N'to_custom') IS NULL ALTER TABLE ccs.ticket_status_history ADD to_custom nvarchar(20) NULL;
+GO
+-- Moves may now use the admin's own statuses (the API checks the codes).
+IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_transitions_statuses')
+    ALTER TABLE ccs.ticket_status_transitions DROP CONSTRAINT CK_transitions_statuses;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_transitions_not_same')
+    ALTER TABLE ccs.ticket_status_transitions ADD CONSTRAINT CK_transitions_not_same CHECK (from_status <> to_status);
+GO

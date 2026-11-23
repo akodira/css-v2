@@ -26,11 +26,14 @@ public sealed partial class ContentAdminController
         var rows = await db.TicketStatusTransitions.AsNoTracking().ToListAsync(ct);
         var defaultId = flows.FirstOrDefault(f => f.IsDefault)?.Id ?? FlowRules.StandardId;
         var open = await db.Tickets.AsNoTracking().Where(t => t.Status != TicketStatus.Closed)
-            .GroupBy(t => new { t.FlowId, t.Status }).Select(g => new { g.Key.FlowId, g.Key.Status, N = g.Count() }).ToListAsync(ct);
+            .GroupBy(t => new { t.FlowId, Status = t.CustomStatus ?? t.Status }).Select(g => new { g.Key.FlowId, g.Key.Status, N = g.Count() }).ToListAsync(ct);
+        var like = await Ccs.Application.Tickets.FlowLookup.LikesAsync(db, ct);
         var choice = await db.AppSettings.AsNoTracking().Where(s => s.Key == FlowRules.ChoiceKey).Select(s => s.Value).FirstOrDefaultAsync(ct);
         return new
         {
             choice = (choice ?? "").Contains("category") ? "category" : "type",
+            custom = (await db.TicketCustomStatuses.AsNoTracking().OrderBy(x => x.SortOrder).ThenBy(x => x.CreatedAt).ToListAsync(ct))
+                .Select(x => new { x.Code, x.BehavesLike, x.SortOrder, OpenTickets = open.Where(o => o.Status == x.Code).Sum(o => o.N) }),
             flows = flows.Select(f =>
             {
                 var mine = rows.Where(r => r.FlowId == f.Id).Select(r => new FlowRow(r.FromStatus, r.ToStatus, r.Actor, r.RequiresReason)).ToList();
@@ -38,7 +41,7 @@ public sealed partial class ContentAdminController
                 return new
                 {
                     f.Id, f.NameEn, f.NameAr, f.Description, f.IsDefault, Statuses = statuses, Transitions = mine,
-                    Problems = FlowRules.Problems(statuses, mine.Select(r => new Transition(r.From, r.To, r.Actor, r.RequiresReason)).ToList()),
+                    Problems = FlowRules.Problems(statuses, mine.Select(r => new Transition(r.From, r.To, r.Actor, r.RequiresReason)).ToList(), like),
                     OpenTickets = open.Where(o => (o.FlowId ?? defaultId) == f.Id).ToDictionary(o => o.Status, o => o.N),
                 };
             }),
@@ -82,19 +85,21 @@ public sealed partial class ContentAdminController
         var flow = await db.TicketFlows.FirstOrDefaultAsync(f => f.Id == id, ct) ?? throw new NotFoundException();
         var (en, ar) = await FlowNamesAsync(id, b.NameEn, b.NameAr, ct);
         var statuses = (b.Statuses ?? []).Distinct().ToList();
-        if (!FlowRules.ValidStatuses(statuses)) throw Err("flowStatuses", "statuses");
+        var like = await Ccs.Application.Tickets.FlowLookup.LikesAsync(db, ct);
+        if (!FlowRules.ValidStatuses(statuses, like)) throw Err("flowStatuses", "statuses");
+        bool Known(string s) => TicketStatus.IsValid(s) || like.ContainsKey(s);
         var rows = (b.Rows ?? []).DistinctBy(r => (r.From, r.To, r.Actor)).ToList();
         foreach (var r in rows)
-            if (!TicketStatus.IsValid(r.From) || !TicketStatus.IsValid(r.To) || r.From == r.To || r.To == TicketStatus.New || r.Actor is not ("staff" or "customer"))
+            if (!Known(r.From) || !Known(r.To) || r.From == r.To || r.To == TicketStatus.New || r.Actor is not ("staff" or "customer"))
                 throw Err("status", "rows");
-        var problems = FlowRules.Problems(statuses, rows.Select(r => new Transition(r.From, r.To, r.Actor, r.RequiresReason)).ToList());
+        var problems = FlowRules.Problems(statuses, rows.Select(r => new Transition(r.From, r.To, r.Actor, r.RequiresReason)).ToList(), like);
         if (problems.Count > 0) throw new Ccs.Infrastructure.Identity.AuthError("flowProblems", 400, "rows", new Dictionary<string, object?> { ["problems"] = problems });
 
         var removed = FlowRules.Parse(flow.Statuses).Except(statuses).ToList();
         if (removed.Count > 0)
         {
             var defaultId = await db.TicketFlows.Where(f => f.IsDefault).Select(f => (Guid?)f.Id).FirstOrDefaultAsync(ct) ?? FlowRules.StandardId;
-            var stuck = await db.Tickets.CountAsync(t => (t.FlowId ?? defaultId) == id && removed.Contains(t.Status) && t.Status != TicketStatus.Closed, ct);
+            var stuck = await db.Tickets.CountAsync(t => (t.FlowId ?? defaultId) == id && removed.Contains(t.CustomStatus ?? t.Status) && t.Status != TicketStatus.Closed, ct);
             if (stuck > 0) throw new Ccs.Infrastructure.Identity.AuthError("flowStatusInUse", 409, "statuses", new Dictionary<string, object?> { ["count"] = stuck });
         }
 

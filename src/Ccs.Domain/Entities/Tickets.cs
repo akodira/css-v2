@@ -24,6 +24,8 @@ public class Ticket
     public int ReopenedCount { get; set; }
     /// <summary>The flow the ticket started with (kept until it is closed); null = the default flow.</summary>
     public Guid? FlowId { get; set; }
+    /// <summary>The admin's own status the ticket is in (Status is the one it behaves like); null = a built-in status.</summary>
+    public string? CustomStatus { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
@@ -68,6 +70,9 @@ public class TicketStatusHistory
     public Guid TicketId { get; set; }
     public string? FromStatus { get; set; }
     public string ToStatus { get; set; } = "";
+    /// <summary>The admin's own statuses before and after the move, when there were any.</summary>
+    public string? FromCustom { get; set; }
+    public string? ToCustom { get; set; }
     public Guid? ChangedBy { get; set; }
     public string? Reason { get; set; }
     public string? ClosureReason { get; set; }
@@ -85,6 +90,16 @@ public class TicketFlow
     public string Statuses { get; set; } = "";
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>A status the admin added. Its names and colour are texts (StaffStatus.code, CustomerStatus.code, StatusInfo.code_tone);
+/// it behaves like In progress, Pending customer or Pending internal (SLA timer, reminders, reports).</summary>
+public class TicketCustomStatus
+{
+    public string Code { get; set; } = "";
+    public string BehavesLike { get; set; } = "";
+    public int SortOrder { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
 public class TicketStatusTransition

@@ -235,9 +235,18 @@ export class StatusBadge {
   private readonly i18n = inject(I18n);
   readonly status = input.required<string>();
   readonly staff = input(false);
-  protected readonly key = computed(() => (!this.staff() && this.status() === 'pending_internal' ? 'in_progress' : this.status()));
-  protected readonly label = computed(() => this.staff() && this.i18n.has('StaffStatus.' + this.status()) ? this.i18n.t('StaffStatus.' + this.status()) : this.i18n.t('CustomerStatus.' + this.key()));
-  protected readonly tone = computed(() => TONE_CLASS[(this.i18n.t(`StatusInfo.${this.key()}_tone`) as Tone)] ?? TONE_CLASS.brand);
+  /** The admin's own status the ticket is in; customers see it only when it has its own customer name. */
+  readonly custom = input<string | null | undefined>(null);
+  private readonly base = computed(() => (!this.staff() && this.status() === 'pending_internal' ? 'in_progress' : this.status()));
+  protected readonly key = computed(() => {
+    const c = this.custom();
+    return c && (this.staff() ? this.i18n.has('StaffStatus.' + c) : this.i18n.has('CustomerStatus.' + c)) ? c : this.base();
+  });
+  protected readonly label = computed(() => this.staff() && this.i18n.has('StaffStatus.' + this.key()) ? this.i18n.t('StaffStatus.' + this.key()) : this.i18n.t('CustomerStatus.' + this.key()));
+  protected readonly tone = computed(() => {
+    const k = this.i18n.has(`StatusInfo.${this.key()}_tone`) ? this.key() : this.base();
+    return TONE_CLASS[(this.i18n.t(`StatusInfo.${k}_tone`) as Tone)] ?? TONE_CLASS.brand;
+  });
 }
 
 export type Tone = 'brand' | 'warn' | 'ok' | 'danger' | 'muted';
