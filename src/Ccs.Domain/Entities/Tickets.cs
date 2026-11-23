@@ -22,6 +22,8 @@ public class Ticket
     public Guid? ClosedBy { get; set; }
     public string? ClosureReason { get; set; }
     public int ReopenedCount { get; set; }
+    /// <summary>The flow the ticket started with (kept until it is closed); null = the default flow.</summary>
+    public Guid? FlowId { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
@@ -72,8 +74,22 @@ public class TicketStatusHistory
     public DateTimeOffset CreatedAt { get; set; }
 }
 
+/// <summary>One named flow: its statuses (comma list, always New, In progress, Resolved, Closed) and, through its transitions, the button moves.</summary>
+public class TicketFlow
+{
+    public Guid Id { get; set; }
+    public string NameEn { get; set; } = "";
+    public string NameAr { get; set; } = "";
+    public string Description { get; set; } = "";
+    public bool IsDefault { get; set; }
+    public string Statuses { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
 public class TicketStatusTransition
 {
+    public Guid FlowId { get; set; }
     public string FromStatus { get; set; } = "";
     public string ToStatus { get; set; } = "";
     public string Actor { get; set; } = "";

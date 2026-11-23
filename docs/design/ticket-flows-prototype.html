@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ticket flows prototype</title>
+<style>
+:root{--brand:#2563eb;--ink:#1e3a8a;--soft:#eff4ff;--line:#e3e8f0;--bg:#f5f7fb;--muted:#5b6578;--text:#111827;--ok:#15803d;--oksoft:#e8f6ee;--warn:#8a5a00;--warnsoft:#fff4e0;--red:#b42318;--redsoft:#fdecea}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,Segoe UI,Arial;background:var(--bg);color:var(--text)}
+main{max-width:1100px;margin:0 auto;padding:22px 20px 60px}h1{font-size:28px;margin:0}h2{font-size:20px;margin:0}h3{font-size:16px;margin:0}.sub{color:var(--muted);margin:4px 0 0}
+button{font:inherit;cursor:pointer}
+.banner{background:#fff7d6;color:#6b4e00;border-radius:10px;padding:8px 14px;font-size:13px;margin-bottom:14px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;padding:0 18px;border-radius:9px;border:0;background:var(--brand);color:#fff;font-weight:600;font-size:14px}
+.btn:disabled{opacity:.5;cursor:not-allowed}.q{background:#fff;color:var(--text);border:1px solid var(--line)}.danger{background:#fff;color:var(--red);border:1px solid #f3b8b2}
+.lnk{border:0;background:none;color:var(--ink);font-weight:600;font-size:14px;text-decoration:underline;padding:6px 0;min-height:36px}.lnk:disabled{color:var(--muted);text-decoration:none;cursor:not-allowed}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 3px #0000000d;padding:18px;margin-top:14px}
+.chip{display:inline-flex;align-items:center;border-radius:99px;padding:3px 11px;font-size:13px;font-weight:700}
+.tabs{display:flex;gap:4px;margin:14px 0 0;border-bottom:2px solid var(--line);flex-wrap:wrap}.tabs button{border:0;background:none;padding:10px 14px;font-weight:600;color:var(--muted);margin-bottom:-2px;border-bottom:3px solid transparent}.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--brand)}
+.flows{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+.flow{display:flex;flex-direction:column;gap:6px;margin-top:0}.flow.def{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand)}
+.foot{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid var(--line);margin-top:auto;padding-top:6px}
+.list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.st{display:grid;grid-template-columns:1.1fr 1fr 1.6fr auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 14px;background:#fff}
+.st.head{background:var(--bg);font-size:12px;font-weight:700;color:var(--muted);border:0;padding:4px 14px;grid-template-columns:1.1fr 1fr 2fr 150px}
+.st small{display:block;color:var(--muted);font-size:12px}.goes{font-size:13px;color:var(--muted)}
+input[type=text],input[type=search],select{min-height:42px;border:1px solid #cfd6e3;border-radius:8px;padding:0 12px;font:inherit;background:#fff;width:100%}
+.edit{border:2px solid var(--brand)}
+.step{border-top:1px solid var(--line);padding:16px 0}.step:first-of-type{border-top:0;padding-top:4px}
+.step .h{display:flex;gap:10px;align-items:center;margin-bottom:8px}.num{width:28px;height:28px;border-radius:99px;background:var(--brand);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;flex:none}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:12px}.form label{font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px}.full{grid-column:1/-1}
+.picks{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.pick{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-height:48px;cursor:pointer}
+.pick:has(input:checked){border-color:var(--brand);background:var(--soft)}.pick input{width:20px;height:20px;flex:none}.pick small{color:var(--muted);font-size:12px;display:block}
+.say{background:var(--bg);border-radius:10px;padding:10px 14px;font-size:14px;margin-top:10px}
+.ok{color:var(--ok)}.bad{color:var(--red)}.msg{font-weight:600;font-size:14px}
+.legend{display:flex;flex-wrap:wrap;gap:18px;font-size:13px;color:var(--muted);margin-top:6px}.legend i{display:inline-block;width:26px;vertical-align:middle;margin-inline-end:6px;border-top:3px solid}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px solid var(--line);padding:10px;text-align:start;vertical-align:top}th{font-size:12px;color:var(--muted)}
+.note{background:var(--warnsoft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:8px}
+.try{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.try select{width:auto}
+svg text{font-family:system-ui,Segoe UI,Arial}
+@media(max-width:860px){.flows,.form,.picks{grid-template-columns:1fr}.st{grid-template-columns:1fr}.st.head{display:none}}
+</style></head><body><main>
+<div class="banner"><span><b>Clickable prototype.</b> Everything works here, but nothing is saved to the system. Try: open Standard flow, copy it, edit a status, give a ticket type another flow.</span><button class="btn q" style="min-height:32px" id="resetAll">Start again</button></div>
+<div id="app"></div>
+</main>
+<script>
+const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])), clone=o=>JSON.parse(JSON.stringify(o));
+const TONES={blue:['#eff4ff','#1e3a8a'],amber:['#fff4e0','#8a5a00'],red:['#fdecea','#b42318'],green:['#e8f6ee','#15803d'],grey:['#eef1f5','#475467'],violet:['#f1ecfd','#6d4bd1']};
+const STAGES={start:'Start: where tickets begin',working:'Working: SLA timer runs',waiting:'Waiting: SLA timer pauses',resolved:'Resolved: solved, waiting to close',closed:'Closed: finished'};
+const POS={new:[75,180],open:[260,180],in_progress:[445,180],pending_customer:[445,65],pending_internal:[445,305],resolved:[645,180],reopened:[650,305],closed:[835,180]};
+const FREE=[[260,65],[260,305],[835,305],[75,305],[645,65],[75,65]];
+const ROUTE={'in_progress>pending_customer':['M430 155 V99','staff asks',382,132],'pending_customer>in_progress':['M478 99 V153','',0,0],
+ 'in_progress>pending_internal':['M430 205 V283','other team',380,252],'pending_internal>in_progress':['M455 283 V207','',0,0],
+ 'in_progress>resolved':['M515 180 H571','fixed',543,172],'resolved>closed':['M715 172 H776','confirms',745,164],'resolved>reopened':['M630 205 V283','reopens',600,252],
+ 'reopened>in_progress':['M595 285 L522 225','',0,0],'closed>reopened':['M830 205 L724 300','within 30 days',805,270],
+ 'new>closed':['M130 205 V392 H845 V209','staff closes with a reason',480,385],'pending_customer>closed':['M500 99 C540 140 740 120 800 153','staff closes with a reason',690,118]};
+const AUTO=[['new','open','M145 180 H186','assigned',165,214,0],['open','in_progress','M330 180 H371','1st reply',350,214,0],['pending_customer','closed','M515 60 H865 V151','no reply: reminders day 2 and 4, warning day 7, closed day 10',690,52,0],['resolved','closed','M715 192 H776','day 5',745,210,0],['pending_customer','in_progress','M455 99 V153','customer replies',410,182,1]];
+const BUILTIN={
+ new:{sEn:'New',sAr:'جديدة',cEn:'Received',cAr:'تم الاستلام',d:'Just arrived; nobody has picked it up yet.',tone:'blue',stage:'start'},
+ open:{sEn:'Open',sAr:'مفتوحة',cEn:'Received',cAr:'تم الاستلام',d:'Given to someone; work has not started.',tone:'blue',stage:'working'},
+ in_progress:{sEn:'In progress',sAr:'قيد المعالجة',cEn:'In progress',cAr:'قيد المعالجة',d:'Someone is working on it.',tone:'amber',stage:'working'},
+ pending_customer:{sEn:'Pending customer',sAr:'بانتظار العميل',cEn:'Waiting for you',cAr:'بانتظار ردك',d:'Waiting for the customer to reply.',tone:'red',stage:'waiting'},
+ pending_internal:{sEn:'Pending internal',sAr:'بانتظار جهة داخلية',cEn:'In progress',cAr:'قيد المعالجة',d:'Waiting for another team.',tone:'amber',stage:'waiting'},
+ resolved:{sEn:'Resolved',sAr:'تم الحل',cEn:'Resolved',cAr:'تم الحل',d:'Solved; waiting for the customer to confirm.',tone:'green',stage:'resolved'},
+ reopened:{sEn:'Reopened',sAr:'أعيد فتحها',cEn:'Reopened',cAr:'أعيد فتحها',d:'Came back after being solved or closed.',tone:'amber',stage:'working'},
+ closed:{sEn:'Closed',sAr:'مغلقة',cEn:'Closed',cAr:'مغلقة',d:'Finished.',tone:'grey',stage:'closed'}};
+const PIC=[['in_progress','pending_customer','staff',0],['in_progress','pending_internal','staff',0],['pending_internal','in_progress','staff',0],['in_progress','resolved','staff',0],['reopened','in_progress','staff',0],['new','closed','staff',1],['pending_customer','closed','staff',1],['resolved','closed','customer',0],['resolved','reopened','customer',1],['closed','reopened','customer',1]];
+const mv=a=>a.map(m=>({f:m[0],t:m[1],a:m[2],r:!!m[3]}));
+let S;
+function init(){S={view:'flows',flowId:null,status:null,msg:'',
+ statuses:Object.fromEntries(Object.entries(BUILTIN).map(([k,v])=>[k,{...v,builtin:true}])),
+ flows:[
+  {id:'std',name:'Standard flow',desc:'Your picture: New → Open → In progress → Resolved → Closed, with waiting and reopen.',isDefault:true,draft:false,statuses:Object.keys(BUILTIN),moves:mv(PIC)},
+  {id:'quick',name:'Quick inquiry',desc:'Short flow with no waiting steps.',isDefault:false,draft:false,statuses:['new','open','in_progress','resolved','closed'],moves:mv([['in_progress','resolved','staff',0],['new','closed','staff',1],['resolved','closed','customer',0]])}],
+ mode:'type',
+ types:[{name:'Report a Problem',ar:'الإبلاغ عن مشكلة',code:'PRB',flow:'std'},{name:'Request a Service',ar:'طلب خدمة',code:'REQ',flow:'std'},{name:'Inquiry',ar:'استفسار',code:'INQ',flow:'quick'},{name:'Suggestion / Feedback',ar:'اقتراح / ملاحظات',code:'SUG',flow:'quick'},{name:'Complaint',ar:'شكوى',code:'CMP',flow:'std'}],
+ cats:[{name:'Technical issue',ar:'مشكلة تقنية',flow:'std'},{name:'Billing',ar:'الفواتير',flow:'std'},{name:'Account',ar:'الحساب',flow:'std'},{name:'Access',ar:'الوصول',flow:'std'},{name:'Sales',ar:'المبيعات',flow:'quick'},{name:'Metering',ar:'العدادات',flow:'std'}],
+ reasons:[{en:'Resolved and confirmed',ar:'تم الحل وتأكيده',reopen:true,active:true,sys:true},{en:'Closed automatically after resolution',ar:'أُغلقت تلقائيًا بعد الحل',reopen:true,active:true,sys:true},{en:'No customer response',ar:'لا يوجد رد من العميل',reopen:true,active:true,sys:true},{en:'Duplicate',ar:'مكررة',reopen:false,active:true,sys:true},{en:'Spam',ar:'مزعجة (سبام)',reopen:false,active:true,sys:true},{en:'Customer cancellation',ar:'إلغاء من العميل',reopen:true,active:true,sys:true},{en:'Other',ar:'أخرى',reopen:true,active:true,sys:true}],
+ pending:null};}
+const st=c=>S.statuses[c], sn=c=>st(c).sEn, cn=c=>st(c).cEn;
+const chip=(c,txt)=>{const t=TONES[st(c).tone]||TONES.blue;return `<span class="chip" style="background:${t[0]};color:${t[1]}">${esc(txt)}</span>`;};
+const flow=()=>S.flows.find(f=>f.id===S.flowId);
+const pool=()=>S.mode==='type'?S.types:S.cats;
+const usedBy=id=>pool().filter(t=>t.flow===id).map(t=>t.name);
+function autoIn(f){return AUTO.filter(a=>f.statuses.includes(a[0])&&f.statuses.includes(a[1]));}
+function problems(f){const out=[],ms=f.moves,edges=[...ms.map(m=>[m.f,m.t,m.a]),...autoIn(f).map(a=>[a[0],a[1],'auto'])];
+ for(const r of ['new','resolved','closed']) if(!f.statuses.includes(r)) out.push(`A flow must include "${sn(r)}".`);
+ for(const s of f.statuses) if(s!=='new'&&!edges.some(e=>e[1]===s)) out.push(`Nothing leads to "${sn(s)}".`);
+ const reach=(a,b)=>{const seen=new Set([a]),q=[a];while(q.length){const x=q.shift();if(x===b)return true;for(const e of edges)if(e[0]===x&&e[2]!=='customer'&&!seen.has(e[1])){seen.add(e[1]);q.push(e[1]);}}return false;};
+ for(const s of f.statuses) if(['start','working'].includes(st(s).stage)&&f.statuses.includes('resolved')&&!reach(s,'resolved')) out.push(`Staff could never get a "${sn(s)}" ticket to Resolved.`);
+ for(const s of f.statuses) if(st(s).stage==='waiting'&&!edges.some(e=>e[0]===s)) out.push(`"${sn(s)}" has no way out.`);
+ return out;}
+function render(){const a=$('#app');
+ a.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start"><div><h1>Ticket status</h1><p class="sub">A flow is the set of statuses a ticket goes through and who can move it. You choose which flow each ticket type (or each category) uses.</p></div>
+ ${S.view==='flows'?'<button class="btn" id="newFlow">＋ New flow</button>':''}</div>
+ <nav class="tabs" aria-label="Ticket status sections">${[['flows','Flows'],['statuses','Statuses'],['types','Who uses which flow'],['reasons','Closure reasons']].map(([v,l])=>`<button data-view="${v}" ${(S.view===v||(v==='flows'&&S.view==='edit'))?'aria-current="page"':''}>${l}</button>`).join('')}</nav>
+ <div id="body"></div>`;
+ a.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{S.view=b.dataset.view;S.status=null;S.msg='';render();});
+ const nb=$('#newFlow');if(nb)nb.onclick=()=>{S.pending='new';render();};
+ ({flows:vFlows,edit:vEdit,statuses:vStatuses,types:vTypes,reasons:vReasons})[S.view]();}
+// ------------------------------------------------ Flows
+function vFlows(){const b=$('#body');
+ b.innerHTML=`${S.msg?`<p class="msg ok" style="margin-top:14px">${esc(S.msg)}</p>`:''}
+ ${S.pending==='new'?`<form class="card edit" id="nf"><h2>New flow</h2><div class="form" style="margin-top:10px"><label>Name *<input type="text" id="nfName" required placeholder="For example: Field visit"></label><label>Start from a copy of<select id="nfFrom">${S.flows.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')}</select></label></div>
+  <div style="display:flex;gap:8px;margin-top:12px"><button class="btn" type="submit">Create and edit</button><button class="btn q" type="button" id="nfCancel">Cancel</button></div><p class="sub" style="font-size:13px">Nothing uses it until you choose it under "Who uses which flow".</p></form>`:''}
+ <div class="flows">${S.flows.map(f=>{const p=problems(f),u=usedBy(f.id);return `<article class="card flow ${f.isDefault?'def':''}">
+  <span>${f.isDefault?'<span class="chip" style="background:var(--soft);color:var(--ink)">Default</span>':u.length?'<span class="chip" style="background:#eef1f5;color:#475467">In use</span>':'<span class="chip" style="background:var(--warnsoft);color:var(--warn)">Not used yet</span>'}</span>
+  <h2>${esc(f.name)}</h2><p class="sub" style="font-size:13px">${esc(f.desc)}</p>
+  <p style="font-size:13px;margin:0">${f.statuses.length} statuses · ${f.moves.length} button moves · ${p.length?`<span class="bad">! ${p.length} problem${p.length>1?'s':''}</span>`:'<span class="ok">✓ no problems</span>'}</p>
+  <p style="font-size:13px;margin:0">Used by: <b>${u.length?esc(u.join(', ')):'nothing yet'}</b></p>
+  <div class="foot"><button class="lnk" data-edit="${f.id}">Edit</button><button class="lnk" data-copy="${f.id}">Copy</button>
+   ${f.isDefault?'':`<button class="lnk" data-def="${f.id}">Make default</button>`}
+   ${f.isDefault?'':(u.length?`<button class="lnk" disabled title="Still used: choose another flow under Who uses which flow first">Delete</button>`:`<button class="lnk" style="color:var(--red)" data-del="${f.id}">Delete</button>`)}</div></article>`;}).join('')}</div>
+ <p class="sub" style="font-size:13px;margin-top:12px">The default flow is used by new ticket types. A flow can be deleted only when nothing uses it.</p>`;
+ b.querySelectorAll('[data-edit]').forEach(x=>x.onclick=()=>openFlow(x.dataset.edit));
+ b.querySelectorAll('[data-copy]').forEach(x=>x.onclick=()=>copyFlow(x.dataset.copy,'Copy of '+S.flows.find(f=>f.id===x.dataset.copy).name));
+ b.querySelectorAll('[data-def]').forEach(x=>x.onclick=()=>{S.flows.forEach(f=>f.isDefault=f.id===x.dataset.def);S.msg='Default flow changed.';render();});
+ b.querySelectorAll('[data-del]').forEach(x=>x.onclick=()=>{if(!confirm('Delete this flow?'))return;S.flows=S.flows.filter(f=>f.id!==x.dataset.del);S.msg='Flow deleted.';render();});
+ const nf=$('#nf');if(nf){$('#nfName').focus();nf.onsubmit=e=>{e.preventDefault();const n=$('#nfName').value.trim();if(!n){$('#nfName').focus();return;}S.pending=null;copyFlow($('#nfFrom').value,n);};$('#nfCancel').onclick=()=>{S.pending=null;render();};}}
+function copyFlow(from,name){const src=S.flows.find(f=>f.id===from);const f={...clone(src),id:'f'+Date.now(),name,isDefault:false,desc:'Copy of '+src.name+'. Change it as you need.'};S.flows.push(f);openFlow(f.id);}
+function openFlow(id){S.flowId=id;S.view='edit';S.status=null;S.msg='';render();}
+// ------------------------------------------------ Edit a flow
+function vEdit(){const f=flow(),b=$('#body'),p=problems(f),u=usedBy(f.id);
+ b.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-top:16px">
+  <div><button class="lnk" id="back">← All flows</button><h2 style="font-size:24px">Edit flow: <span id="fname">${esc(f.name)}</span></h2><p class="sub">Used by: ${u.length?esc(u.join(', ')):'no ticket type yet'}. Changes apply at once (in the real page: after Save).</p></div>
+  <label style="font-size:13px;font-weight:600;min-width:260px">Flow name<input type="text" id="fn" value="${esc(f.name)}"></label></div>
+ <section class="card"><h3>The whole flow on one page</h3><p class="sub" style="font-size:13px">Boxes show the staff name; the small line is what the customer sees. Click a box to edit it.</p>
+  <div style="overflow-x:auto"><svg id="map" viewBox="0 0 900 420" width="100%" style="min-width:860px" role="img" aria-label="Flow map"></svg></div>
+  <div class="legend"><span><i style="border-color:#2563eb"></i>staff button</span><span><i style="border-color:#15803d"></i>customer button</span><span><i style="border-color:#7b8496;border-top-style:dashed"></i>automatic (the system does it)</span></div>
+  <p style="font-size:14px;margin:10px 0 0">${p.length?p.map(x=>`<span class="bad">! ${esc(x)}</span>`).join('<br>'):'<span class="ok">✓ The flow is complete: every status can be reached and staff can always resolve.</span>'}</p></section>
+ <section class="card" id="panel" ${S.status?'':'hidden'}></section>
+ <section class="card"><h3>Statuses in this flow</h3>
+  <div class="list"><div class="st head"><span>Status</span><span>Customers see</span><span>Where it goes next</span><span></span></div>
+  ${f.statuses.map(s=>{const by=a=>f.moves.filter(m=>m.f===s&&m.a===a).map(m=>sn(m.t)+(m.r?' (reason)':''));
+   const au=autoIn(f).filter(a=>a[0]===s).map(a=>sn(a[1])+' ('+a[3].split(':')[0]+')');
+   const line=(ic,col,lbl,arr)=>arr.length?`<span style="display:block"><b style="color:${col}">${ic} ${lbl}:</b> ${esc(arr.join(', '))}</span>`:'';
+   const nxt=line('●','#2563eb','Staff',by('staff'))+line('●','#15803d','Customer',by('customer'))+line('○','#5b6578','Automatic',au);
+   const kind=STAGES[st(s).stage].split(':')[0];
+   return `<div class="st" style="grid-template-columns:1.1fr 1fr 2fr 150px"><span>${chip(s,sn(s))}<small style="margin-top:4px"><span class="chip" style="background:#eef1f5;color:#475467;font-size:11px;padding:1px 8px">${esc(kind)}</span></small></span><span>${chip(s,cn(s))}</span>
+   <span class="goes">${nxt||(st(s).stage==='closed'?'<span>End of the flow.</span>':'<span class="bad">Nothing: tickets would get stuck here.</span>')}</span>
+   <span style="display:flex;gap:10px;align-items:center;justify-content:flex-end"><button class="btn q" data-st="${s}">Edit</button>${['new','resolved','closed'].includes(s)?'<span class="lnk" style="font-size:13px;visibility:hidden" aria-hidden="true">Remove</span>':`<button class="lnk" style="font-size:13px;color:var(--muted)" data-rm="${s}" aria-label="Remove ${esc(sn(s))} from this flow">Remove</button>`}</span></div>`;}).join('')}</div>
+  ${Object.keys(S.statuses).filter(s=>!f.statuses.includes(s)).length?`<div class="try" style="margin-top:12px"><select id="addSt" aria-label="Status to add">${Object.keys(S.statuses).filter(s=>!f.statuses.includes(s)).map(s=>`<option value="${s}">${esc(sn(s))}</option>`).join('')}</select><button class="btn q" id="addStB">＋ Add to this flow</button><span class="sub" style="font-size:13px">New statuses are made under the Statuses tab.</span></div>`:''}</section>
+ <section class="card"><h3>Try it</h3><p class="sub" style="font-size:13px">Which buttons does a person get on the ticket page?</p>
+  <div class="try" style="margin-top:8px"><select id="tS" aria-label="Status">${f.statuses.map(s=>`<option value="${s}">${esc(sn(s))}</option>`).join('')}</select><select id="tW" aria-label="Who"><option value="staff">Staff</option><option value="customer">Customer</option></select><span id="tOut"></span></div></section>`;
+ drawMap(f);
+ $('#back').onclick=()=>{S.view='flows';render();};
+ $('#fn').oninput=e=>{f.name=e.target.value;$('#fname').textContent=f.name;};
+ b.querySelectorAll('[data-st]').forEach(x=>x.onclick=()=>openStatus(x.dataset.st));
+ b.querySelectorAll('[data-rm]').forEach(x=>x.onclick=()=>{const s=x.dataset.rm;if(!confirm(`Remove "${sn(s)}" from this flow? Its moves are removed too. Open tickets in it will be asked where to go.`))return;f.statuses=f.statuses.filter(y=>y!==s);f.moves=f.moves.filter(m=>m.f!==s&&m.t!==s);if(S.status===s)S.status=null;render();});
+ const ab=$('#addStB');if(ab)ab.onclick=()=>{const s=$('#addSt').value;f.statuses.push(s);render();openStatus(s);};
+ const tr=()=>{const s=$('#tS').value,w=$('#tW').value,bs=f.moves.filter(m=>m.f===s&&m.a===w);$('#tOut').innerHTML=bs.length?'Buttons: '+bs.map(m=>`<span class="chip" style="background:var(--soft);color:var(--ink);margin-inline-end:4px">${esc(w==='customer'?cn(m.t):sn(m.t))}${m.r?' (reason)':''}</span>`).join(''):'<span class="sub">No buttons here.</span>';};
+ $('#tS').onchange=tr;$('#tW').onchange=tr;tr();
+ if(S.status)drawPanel();}
+function drawMap(f){const mk=(id,c)=>`<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="${c}"/></marker>`;
+ const pos={...POS};let fi=0;for(const s of f.statuses)if(!pos[s])pos[s]=FREE[fi++%FREE.length];
+ let s=`<defs>${mk('mb','#2563eb')}${mk('mg','#15803d')}${mk('md','#7b8496')}</defs>`;
+ const lab=(t,x,y,c)=>t?`<text x="${x}" y="${y}" font-size="11" text-anchor="middle" fill="${c||'#5b6578'}">${esc(t)}</text>`:'';
+ for(const a of autoIn(f))s+=`<path d="${a[2]}" fill="none" stroke="${a[6]?'#15803d':'#7b8496'}" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#${a[6]?'mg':'md'})"/>`+lab(a[3],a[4],a[5]);
+ const done=new Set();
+ for(const m of f.moves){const k=m.f+'>'+m.t,c=m.a==='staff'?'#2563eb':'#15803d',mid=m.a==='staff'?'mb':'mg';
+  if(ROUTE[k]&&POS[m.f]&&POS[m.t]){if(done.has(k))continue;done.add(k);const [d,t,x,y]=ROUTE[k];s+=`<path d="${d}" fill="none" stroke="${c}" stroke-width="2.4" marker-end="url(#${mid})"/>`+lab(t,x,y,t.includes('reason')?c:null);}
+  else{const [x1,y1]=pos[m.f],[x2,y2]=pos[m.t],dx=x2-x1,dy=y2-y1,K=Math.min(70/Math.abs(dx||1e-9),25/Math.abs(dy||1e-9)),off=m.a==='customer'?5:0;
+   s+=`<path d="M${x1+dx*K+off} ${y1+dy*K+off} L${x2-dx*K+off} ${y2-dy*K+off}" fill="none" stroke="${c}" stroke-width="2.2" marker-end="url(#${mid})"/>`;}}
+ for(const c of f.statuses){const [x,y]=pos[c],t=TONES[st(c).tone]||TONES.blue,on=c===S.status;
+  s+=`<g class="bx" data-s="${c}" tabindex="0" role="button" aria-label="Edit ${esc(sn(c))}" style="cursor:pointer"><rect x="${x-70}" y="${y-25}" width="140" height="50" rx="10" fill="${t[0]}" stroke="${on?'#2563eb':'#cfd6e3'}" stroke-width="${on?4:1.5}"/><text x="${x}" y="${y-3}" font-size="13" font-weight="700" text-anchor="middle">${esc(sn(c))}</text><text x="${x}" y="${y+14}" font-size="11" text-anchor="middle" fill="${t[1]}">${esc(cn(c))}</text></g>`;}
+ const svg=$('#map');svg.innerHTML=s;svg.querySelectorAll('.bx').forEach(g=>{g.onclick=()=>openStatus(g.dataset.s);g.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openStatus(g.dataset.s);}};});}
+let D=null;
+function openStatus(s){const f=flow();S.status=s;D={n:clone(st(s)),staff:f.moves.filter(m=>m.f===s&&m.a==='staff').map(m=>m.t),cust:f.moves.filter(m=>m.f===s&&m.a==='customer').map(m=>m.t),reason:f.moves.filter(m=>m.f===s&&m.r).map(m=>m.t),msg:''};
+ render();$('#panel').scrollIntoView({behavior:'smooth',block:'start'});}
+function drawPanel(){const f=flow(),s=S.status,n=D.n,P=$('#panel');P.hidden=false;P.className='card edit';
+ const others=f.statuses.filter(t=>t!==s&&t!=='new');const any=[...new Set([...D.staff,...D.cust])];
+ const pick=(g,t)=>`<label class="pick"><input type="checkbox" data-g="${g}" value="${t}" ${D[g].includes(t)?'checked':''}><span><b>${esc(sn(t))}</b><small>Customer sees: ${esc(cn(t))}</small></span></label>`;
+ const sen=(arr,w)=>arr.length?`${w} can move it to <b>${arr.map(t=>esc(sn(t))).join('</b>, <b>')}</b>.`:`${w} cannot change this status.`;
+ const tc=TONES[n.tone]||TONES.blue,ch=txt=>`<span class="chip" style="background:${tc[0]};color:${tc[1]}">${esc(txt)}</span>`;
+ const auto=autoIn(f).filter(a=>a[0]===s).map(a=>`${a[3]} → ${sn(a[1])}`);
+ P.innerHTML=`<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center"><h2>Edit status: ${ch(n.sEn)}</h2><button class="btn q" id="pc">Close</button></div>
+ ${auto.length?`<p class="sub" style="font-size:13px">Automatic: ${esc(auto.join('; '))}.</p>`:''}
+ <div class="step"><div class="h"><span class="num">1</span><h3>Names <span class="sub" style="font-size:12px;font-weight:400">(shared by every flow)</span></h3></div>
+  <div class="form"><label>Staff see (English)<input type="text" data-k="sEn" value="${esc(n.sEn)}"></label><label>Staff see (Arabic)<input type="text" data-k="sAr" dir="rtl" value="${esc(n.sAr)}"></label>
+  <label>Customers see (English)<input type="text" data-k="cEn" value="${esc(n.cEn)}"></label><label>Customers see (Arabic)<input type="text" data-k="cAr" dir="rtl" value="${esc(n.cAr)}"></label>
+  <label>Color<select data-k="tone">${Object.keys(TONES).map(t=>`<option value="${t}" ${n.tone===t?'selected':''}>${t[0].toUpperCase()+t.slice(1)}</option>`).join('')}</select></label></div>
+  <p style="font-size:13px;margin:10px 0 0">Preview: staff see ${ch(n.sEn)} · customers see ${ch(n.cEn)}</p></div>
+ <div class="step"><div class="h"><span class="num">2</span><h3>From "${esc(n.sEn)}", where can <u>staff</u> move the ticket?</h3></div>${s==='closed'&&false?'':`<div class="picks">${others.map(t=>pick('staff',t)).join('')}</div>`}</div>
+ <div class="step"><div class="h"><span class="num">3</span><h3>Where can the <u>customer</u> move it?</h3></div><p class="sub" style="font-size:13px;margin:0 0 8px">Usually nothing, except confirming or reopening a solved ticket.</p><div class="picks">${others.map(t=>pick('cust',t)).join('')}</div></div>
+ <div class="step"><div class="h"><span class="num">4</span><h3>Which moves need a typed reason?</h3></div>${any.length?`<div class="picks">${any.map(t=>pick('reason',t)).join('')}</div>`:'<p class="sub">Tick a move in step 2 or 3 first.</p>'}</div>
+ <div class="say"><b>In short:</b> ${sen(D.staff,'Staff')} ${sen(D.cust,'The customer')}${D.reason.filter(t=>any.includes(t)).length?` A reason is needed to go to <b>${D.reason.filter(t=>any.includes(t)).map(t=>esc(sn(t))).join('</b>, <b>')}</b>.`:''}</div>
+ <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:14px"><button class="btn" id="ps">Save</button><button class="btn q" id="px">Cancel</button><span class="msg">${D.msg}</span></div>`;
+ P.querySelectorAll('[data-k]').forEach(i=>i.oninput=i.onchange=()=>{D.n[i.dataset.k]=i.value;const k=i.dataset.k,pos=i.selectionStart;drawPanel();const j=P.querySelector(`[data-k="${k}"]`);j.focus();try{j.setSelectionRange(pos,pos);}catch(e){}});
+ P.querySelectorAll('[data-g]').forEach(c=>c.onchange=()=>{const g=c.dataset.g;D[g]=c.checked?[...D[g],c.value]:D[g].filter(x=>x!==c.value);D.msg='';drawPanel();});
+ $('#pc').onclick=$('#px').onclick=()=>{S.status=null;render();};
+ $('#ps').onclick=()=>{const next=f.moves.filter(m=>m.f!==s);for(const t of D.staff)next.push({f:s,t,a:'staff',r:D.reason.includes(t)});for(const t of D.cust)next.push({f:s,t,a:'customer',r:D.reason.includes(t)});
+  const p=problems({...f,moves:next});if(p.length){D.msg=`<span class="bad">Not saved: ${esc(p[0])}</span>`;drawPanel();return;}
+  f.moves=next;S.statuses[s]={...st(s),...D.n};D.msg='<span class="ok">✓ Saved (sample only).</span>';render();};}
+// ------------------------------------------------ Statuses
+function vStatuses(){const b=$('#body');const inFlows=s=>S.flows.filter(f=>f.statuses.includes(s)).map(f=>f.name);
+ b.innerHTML=`${S.msg?`<p class="msg ok" style="margin-top:14px">${esc(S.msg)}</p>`:''}
+ <section class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><h3>All statuses</h3><p class="sub" style="font-size:13px">The names are shared by every flow. Each flow picks which statuses it uses.</p></div>${S.pending==='status'?'':'<button class="btn" id="ns">＋ Add status</button>'}</div>
+ ${S.pending==='status'?`<form class="card edit" id="nsf" style="margin-top:12px"><h3>Add status</h3><div class="form" style="margin-top:10px">
+  <label>Staff see (English) *<input type="text" id="a1" required placeholder="Visit scheduled"></label><label>Staff see (Arabic) *<input type="text" id="a2" dir="rtl" required placeholder="تم تحديد موعد الزيارة"></label>
+  <label>Customers see (English)<input type="text" id="a3" placeholder="Technician visit booked"></label><label>Customers see (Arabic)<input type="text" id="a4" dir="rtl"></label>
+  <label class="full">Behaves like *<select id="a5">${Object.entries(STAGES).filter(([k])=>k==='working'||k==='waiting').map(([k,v])=>`<option value="${k}">${esc(v)}</option>`).join('')}</select></label>
+  <label>Color<select id="a6">${Object.keys(TONES).map(t=>`<option value="${t}">${t[0].toUpperCase()+t.slice(1)}</option>`).join('')}</select></label></div>
+  <p class="sub" style="font-size:13px">"Behaves like" tells the system how to treat it: SLA timer, reports and waiting reminders.</p>
+  <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" type="submit">Add status</button><button class="btn q" type="button" id="nsc">Cancel</button></div></form>`:''}
+ <table style="margin-top:12px"><thead><tr><th>Staff see</th><th>Customers see</th><th>Behaves like</th><th>Used in flows</th></tr></thead><tbody>
+ ${Object.keys(S.statuses).map(s=>`<tr><td>${chip(s,sn(s))}${st(s).builtin?'':' <span class="sub" style="font-size:12px">(yours)</span>'}</td><td>${chip(s,cn(s))}</td><td style="font-size:13px">${esc(STAGES[st(s).stage].split(':')[0])}</td><td style="font-size:13px">${esc(inFlows(s).join(', ')||'none yet')}</td></tr>`).join('')}</tbody></table></section>`;
+ const ns=$('#ns');if(ns)ns.onclick=()=>{S.pending='status';render();};
+ const f=$('#nsf');if(f){$('#a1').focus();$('#nsc').onclick=()=>{S.pending=null;render();};f.onsubmit=e=>{e.preventDefault();const en=$('#a1').value.trim(),ar=$('#a2').value.trim();if(!en||!ar)return;
+  const code='c'+Date.now();S.statuses[code]={sEn:en,sAr:ar,cEn:$('#a3').value.trim()||en,cAr:$('#a4').value.trim()||ar,d:'',tone:$('#a6').value,stage:$('#a5').value,builtin:false};
+  S.pending=null;S.msg=`"${en}" added. Open a flow and use "Add to this flow" to use it.`;render();};}}
+// ------------------------------------------------ Ticket types
+function vTypes(){const b=$('#body');const list=pool(),isType=S.mode==='type';
+ const opt=(cur)=>S.flows.map(f=>'<option value="'+f.id+'" '+(f.id===cur?'selected':'')+'>'+esc(f.name)+'</option>').join('');
+ b.innerHTML='<section class="card"><h3>Choose the flow by</h3><p class="sub" style="font-size:13px">One rule for the whole system. Every ticket has both a type and a category; this decides which one picks its flow.</p>'+
+ '<div class="picks" style="margin-top:10px">'+
+ '<label class="pick"><input type="radio" name="mode" value="type" '+(isType?'checked':'')+'><span><b>Ticket type</b><small>5 types: Report a Problem, Request a Service, Inquiry… The type is chosen by the customer and does not change.</small></span></label>'+
+ '<label class="pick"><input type="radio" name="mode" value="category" '+(!isType?'checked':'')+'><span><b>Category</b><small>6 categories: Technical issue, Billing, Metering… Staff can change a ticket\'s category later.</small></span></label></div>'+
+ '<p class="say" style="font-size:13px">Either way, <b>a ticket keeps the flow it started with</b> until it is closed. Changes here only affect new tickets, so open tickets are never disturbed.</p></section>'+
+ '<section class="card"><h3>Which flow each '+(isType?'ticket type':'category')+' uses</h3>'+
+ '<table style="margin-top:10px"><thead><tr><th>'+(isType?'Ticket type':'Category')+'</th><th>Arabic</th><th>Flow</th></tr></thead><tbody>'+
+ list.map((t,i)=>'<tr><td><b>'+esc(t.name)+'</b>'+(t.code?' <span class="chip" style="background:var(--soft);color:var(--ink);font-size:11px;padding:1px 7px">'+t.code+'</span>':'')+'</td><td dir="rtl">'+esc(t.ar)+'</td><td><select data-ty="'+i+'" aria-label="Flow for '+esc(t.name)+'">'+opt(t.flow)+'</select></td></tr>').join('')+
+ '</tbody></table><p class="sub" style="font-size:13px;margin-top:8px">New '+(isType?'ticket types':'categories')+' start with the default flow ('+esc(S.flows.find(f=>f.isDefault).name)+').</p><p id="tmsg" class="msg ok"></p></section>';
+ b.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{S.mode=r.value;render();$('#tmsg').textContent='Now the '+(S.mode==='type'?'ticket type':'category')+' decides the flow of new tickets.';});
+ b.querySelectorAll('[data-ty]').forEach(sel=>sel.onchange=()=>{const t=list[sel.dataset.ty];t.flow=sel.value;$('#tmsg').textContent='✓ New "'+t.name+'" tickets will use "'+S.flows.find(f=>f.id===t.flow).name+'". Open ones finish in their current flow.';});}
+// ------------------------------------------------ Closure reasons (same as today: rename, may reopen, on/off, add)
+function vReasons(){const b=$('#body');
+ b.innerHTML='<section class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><h3>Closure reasons</h3><p class="sub" style="font-size:13px">Staff pick one when they close a ticket. Built-in reasons can be renamed or switched off, not deleted.</p></div>'+
+ (S.pending==='reason'?'':'<button class="btn" id="nr">＋ Add reason</button>')+'</div>'+
+ (S.pending==='reason'?'<form class="card edit" id="nrf"><h3>Add reason</h3><div class="form" style="margin-top:10px"><label>Name (English) *<input type="text" id="r1" required></label><label>Name (Arabic) *<input type="text" id="r2" dir="rtl" required></label></div><label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px"><input type="checkbox" id="r3" checked style="width:20px;height:20px"> Customer may reopen tickets closed with this reason</label><div style="display:flex;gap:8px;margin-top:10px"><button class="btn" type="submit">Add reason</button><button class="btn q" type="button" id="nrc">Cancel</button></div></form>':'')+
+ '<div class="list">'+S.reasons.map((r,i)=>S.editR===i?
+  '<form class="st edit" data-rf="'+i+'" style="grid-template-columns:1fr 1fr 1fr auto"><label style="font-size:12px;font-weight:600">English<input type="text" data-f="en" value="'+esc(r.en)+'"></label><label style="font-size:12px;font-weight:600">Arabic<input type="text" data-f="ar" dir="rtl" value="'+esc(r.ar)+'"></label><span style="font-size:13px"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-f="reopen" '+(r.reopen?'checked':'')+' style="width:18px;height:18px"> Customer may reopen</label><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-f="active" '+(r.active?'checked':'')+' style="width:18px;height:18px"> In use</label></span><span style="display:flex;gap:6px"><button class="btn" type="submit">Save</button><button class="btn q" type="button" data-rc>Cancel</button></span></form>':
+  '<div class="st" style="grid-template-columns:1.3fr 1fr 1fr auto"><span><b>'+esc(r.en)+'</b>'+(r.sys?' <span class="chip" style="background:#eef1f5;color:#475467;font-size:11px;padding:1px 8px">Built in</span>':'')+(r.active?'':' <span class="chip" style="background:var(--warnsoft);color:var(--warn);font-size:11px;padding:1px 8px">Off</span>')+'</span><span dir="rtl">'+esc(r.ar)+'</span><span class="goes">Customer may reopen: <b>'+(r.reopen?'Yes':'No')+'</b></span><span style="display:flex;gap:8px;align-items:center"><button class="btn q" data-re="'+i+'">Edit</button>'+(r.sys?'':'<button class="lnk" style="font-size:13px;color:var(--muted)" data-rd="'+i+'">Delete</button>')+'</span></div>').join('')+'</div></section>';
+ const nr=$('#nr');if(nr)nr.onclick=()=>{S.pending='reason';render();};
+ const nrf=$('#nrf');if(nrf){$('#r1').focus();$('#nrc').onclick=()=>{S.pending=null;render();};nrf.onsubmit=e=>{e.preventDefault();const en=$('#r1').value.trim(),ar=$('#r2').value.trim();if(!en||!ar)return;S.reasons.push({en,ar,reopen:$('#r3').checked,active:true,sys:false});S.pending=null;render();};}
+ b.querySelectorAll('[data-re]').forEach(x=>x.onclick=()=>{S.editR=+x.dataset.re;render();});
+ b.querySelectorAll('[data-rd]').forEach(x=>x.onclick=()=>{if(confirm('Delete this reason?')){S.reasons.splice(+x.dataset.rd,1);render();}});
+ b.querySelectorAll('[data-rc]').forEach(x=>x.onclick=()=>{S.editR=null;render();});
+ b.querySelectorAll('[data-rf]').forEach(fm=>fm.onsubmit=e=>{e.preventDefault();const r=S.reasons[+fm.dataset.rf];fm.querySelectorAll('[data-f]').forEach(i=>{r[i.dataset.f]=i.type==='checkbox'?i.checked:i.value.trim();});S.editR=null;render();});}
+$('#resetAll').onclick=()=>{init();render();window.scrollTo(0,0);};
+init();render();
+</script>
+</body></html>

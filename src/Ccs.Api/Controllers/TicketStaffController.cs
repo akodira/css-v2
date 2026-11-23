@@ -1,3 +1,4 @@
+using Ccs.Application.Tickets;
 using Ccs.Application.Access;
 using Ccs.Application.Common;
 using Ccs.Domain;
@@ -76,7 +77,8 @@ public sealed class TicketStaffController(CcsDbContext db, AccessService access)
                         && await access.UserInScopeAsync(c.UserId, t.RequesterId, ct);   // same rule as assigning: the agent must be able to serve this customer
 
         // Status form: the staff moves from here, without Resolved/Closed for people who may not do them (v1).
-        var moves = await db.TicketStatusTransitions.AsNoTracking().Where(x => x.FromStatus == t.Status && x.Actor == "staff")
+        var flowId = await FlowLookup.OfTicketAsync(db, t.FlowId, ct);
+        var moves = await db.TicketStatusTransitions.AsNoTracking().Where(x => x.FlowId == flowId && x.FromStatus == t.Status && x.Actor == "staff")
             .Select(x => new { to = x.ToStatus, x.RequiresReason }).ToListAsync(ct);
         moves = moves.Where(m => (m.to != TicketStatus.Resolved || c.Admin || c.Has(Permission.Resolve))
                               && (m.to != TicketStatus.Closed || c.Admin || c.Has(Permission.Close))).ToList();

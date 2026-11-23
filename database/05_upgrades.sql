@@ -192,3 +192,62 @@ BEGIN
     COMMIT;
 END
 GO
+
+-- (Arabic text in this block is written as UTF-16 bytes so it reads the same whatever code page sqlcmd uses.)
+-- Ticket flows: several named flows. The old single table becomes the "Standard flow"; every move belongs to a flow;
+-- each ticket keeps the flow it started with; a ticket type or a category (Settings: flow_choice) picks the flow of new tickets.
+IF OBJECT_ID(N'ccs.ticket_flows') IS NULL
+BEGIN
+    CREATE TABLE ccs.ticket_flows (
+        id          uniqueidentifier NOT NULL CONSTRAINT PK_ticket_flows PRIMARY KEY,
+        name_en     nvarchar(80) NOT NULL,
+        name_ar     nvarchar(80) NOT NULL,
+        description nvarchar(300) NOT NULL CONSTRAINT DF_ticket_flows_desc DEFAULT N'',
+        is_default  bit NOT NULL CONSTRAINT DF_ticket_flows_default DEFAULT 0,
+        statuses    nvarchar(300) NOT NULL,
+        created_at  datetimeoffset(7) NOT NULL CONSTRAINT DF_ticket_flows_created DEFAULT SYSUTCDATETIME(),
+        updated_at  datetimeoffset(7) NOT NULL CONSTRAINT DF_ticket_flows_updated DEFAULT SYSUTCDATETIME()
+    );
+    CREATE UNIQUE INDEX UX_ticket_flows_name_en ON ccs.ticket_flows (name_en);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM ccs.ticket_flows WHERE id = 'f1000000-0000-4000-8000-000000000001')
+    INSERT INTO ccs.ticket_flows (id, name_en, name_ar, description, is_default, statuses)
+    VALUES ('f1000000-0000-4000-8000-000000000001', N'Standard flow', CAST(0x27064406450633062706310620002706440642064A06270633064A06 AS nvarchar(80)),
+            N'New, Open, In progress, Resolved, Closed, with waiting and reopen.', 1,
+            N'new,open,in_progress,pending_customer,pending_internal,resolved,closed,reopened');
+GO
+-- Every move belongs to a flow; existing moves (and any the seed adds) go to the Standard flow.
+IF COL_LENGTH(N'ccs.ticket_status_transitions', N'flow_id') IS NULL
+    ALTER TABLE ccs.ticket_status_transitions ADD flow_id uniqueidentifier NOT NULL
+        CONSTRAINT DF_transitions_flow DEFAULT 'f1000000-0000-4000-8000-000000000001';
+GO
+IF EXISTS (SELECT 1 FROM sys.key_constraints WHERE name = N'PK_ticket_status_transitions'
+           AND NOT EXISTS (SELECT 1 FROM sys.index_columns ic JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+                           WHERE ic.object_id = OBJECT_ID(N'ccs.ticket_status_transitions') AND ic.index_id = sys.key_constraints.unique_index_id AND c.name = N'flow_id'))
+BEGIN
+    ALTER TABLE ccs.ticket_status_transitions DROP CONSTRAINT PK_ticket_status_transitions;
+    ALTER TABLE ccs.ticket_status_transitions ADD CONSTRAINT PK_ticket_status_transitions PRIMARY KEY (flow_id, from_status, to_status, actor);
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_transitions_flow')
+    ALTER TABLE ccs.ticket_status_transitions ADD CONSTRAINT FK_transitions_flow FOREIGN KEY (flow_id) REFERENCES ccs.ticket_flows(id) ON DELETE CASCADE;
+GO
+IF COL_LENGTH(N'ccs.tickets', N'flow_id') IS NULL ALTER TABLE ccs.tickets ADD flow_id uniqueidentifier NULL;
+GO
+IF COL_LENGTH(N'ccs.ticket_types', N'flow_id') IS NULL ALTER TABLE ccs.ticket_types ADD flow_id uniqueidentifier NULL;
+GO
+IF COL_LENGTH(N'ccs.ticket_categories', N'flow_id') IS NULL ALTER TABLE ccs.ticket_categories ADD flow_id uniqueidentifier NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_tickets_flow')
+    ALTER TABLE ccs.tickets ADD CONSTRAINT FK_tickets_flow FOREIGN KEY (flow_id) REFERENCES ccs.ticket_flows(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_ticket_types_flow')
+    ALTER TABLE ccs.ticket_types ADD CONSTRAINT FK_ticket_types_flow FOREIGN KEY (flow_id) REFERENCES ccs.ticket_flows(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_ticket_categories_flow')
+    ALTER TABLE ccs.ticket_categories ADD CONSTRAINT FK_ticket_categories_flow FOREIGN KEY (flow_id) REFERENCES ccs.ticket_flows(id);
+GO
+-- Tickets that are still open keep working exactly as before: they follow the Standard flow.
+UPDATE ccs.tickets SET flow_id = 'f1000000-0000-4000-8000-000000000001' WHERE flow_id IS NULL AND status <> N'closed';
+GO

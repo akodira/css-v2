@@ -46,7 +46,8 @@ public sealed partial class ContentAdminController(CcsDbContext db, AccessServic
     public async Task<object> Flow(CancellationToken ct)
     {
         await Need(Permission.ManageSettings, ct);
-        var rows = await db.TicketStatusTransitions.AsNoTracking().OrderBy(r => r.Actor).ThenBy(r => r.FromStatus).ThenBy(r => r.ToStatus).ToListAsync(ct);
+        var defaultFlow = await Ccs.Application.Tickets.FlowLookup.DefaultIdAsync(db, ct);
+        var rows = await db.TicketStatusTransitions.AsNoTracking().Where(r => r.FlowId == defaultFlow).OrderBy(r => r.Actor).ThenBy(r => r.FromStatus).ThenBy(r => r.ToStatus).ToListAsync(ct);
         var reasons = await db.ClosureReasons.AsNoTracking().OrderBy(r => r.SortOrder).ThenBy(r => r.NameEn).ToListAsync(ct);
         var used = await db.Tickets.AsNoTracking().Where(t => t.ClosureReason != null).Select(t => t.ClosureReason!).Distinct().ToListAsync(ct);
         var labels = await db.SystemMessages.AsNoTracking()
@@ -77,10 +78,11 @@ public sealed partial class ContentAdminController(CcsDbContext db, AccessServic
         if (!rows.Any(r => r.Actor == "staff" && r.From == TicketStatus.New)) throw Err("flowNewStuck", "rows");
         if (!rows.Any(r => r.Actor == "staff" && r.To == TicketStatus.Resolved)) throw Err("flowNoResolve", "rows");
 
-        var before = await db.TicketStatusTransitions.AsNoTracking().Select(r => new FlowRow(r.FromStatus, r.ToStatus, r.Actor, r.RequiresReason)).ToListAsync(ct);
+        var flowId = await Ccs.Application.Tickets.FlowLookup.DefaultIdAsync(db, ct);
+        var before = await db.TicketStatusTransitions.AsNoTracking().Where(r => r.FlowId == flowId).Select(r => new FlowRow(r.FromStatus, r.ToStatus, r.Actor, r.RequiresReason)).ToListAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await db.TicketStatusTransitions.ExecuteDeleteAsync(ct);
-        foreach (var r in rows) db.TicketStatusTransitions.Add(new TicketStatusTransition { FromStatus = r.From, ToStatus = r.To, Actor = r.Actor, RequiresReason = r.RequiresReason });
+        await db.TicketStatusTransitions.Where(r => r.FlowId == flowId).ExecuteDeleteAsync(ct);
+        foreach (var r in rows) db.TicketStatusTransitions.Add(new TicketStatusTransition { FlowId = flowId, FromStatus = r.From, ToStatus = r.To, Actor = r.Actor, RequiresReason = r.RequiresReason });
         audit.Write("status_flow.update", "ticket_status_transitions", null, before, rows);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);

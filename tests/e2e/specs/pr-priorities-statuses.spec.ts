@@ -42,8 +42,27 @@ test.describe('PR Priorities, statuses', () => {
     const page = await asRole('admin');
     await go(page, '/en/admin/ticket-status');
     await expect(page.getByRole('heading', { level: 1, name: t('AdminStatus.title') })).toBeVisible();
-    for (const s of ['new', 'open', 'resolved', 'closed']) await expect(page.locator('main').getByText(t(`StaffStatus.${s}`), { exact: true }).first()).toBeVisible();
     await expect(page.locator('main').getByRole('link', { name: /guide/i }).first(), 'link to the lifecycle guide').toBeVisible();
+    // Flows tab: the default flow and its map; Statuses tab: every status name.
+    await expect(page.locator('main').getByText(t('Flows.default'), { exact: true }).first()).toBeVisible();
+    await go(page, '/en/admin/ticket-status?tab=statuses');
+    for (const s of ['new', 'open', 'resolved', 'closed']) await expect(page.locator('main').getByText(t(`StaffStatus.${s}`), { exact: true }).first()).toBeVisible();
+  });
+
+  test('TC-PR-004b Flows: a copy can be saved and deleted; a broken flow is refused', async ({ apiAs }) => {
+    const admin = await apiAs('admin');
+    type Flow = { id: string; nameEn: string; isDefault: boolean; statuses: string[]; transitions: { from: string; to: string; actor: string; requiresReason: boolean }[]; problems: string[] };
+    const d = await ok<{ flows: Flow[] }>(admin.get('/api/admin/flows'));
+    const def = d.flows.find((f) => f.isDefault)!;
+    expect(def.problems, 'default flow is complete').toEqual([]);
+    const name = stamp('E2E flow');
+    const { id } = await ok<{ id: string }>(admin.post('/api/admin/flows', { data: { nameEn: name, nameAr: name, copyFrom: def.id } }));
+    try {
+      const body = { nameEn: name, nameAr: name, description: '', statuses: def.statuses, rows: def.transitions.filter((r) => r.to !== 'resolved') };
+      const bad = await admin.put(`/api/admin/flows/${id}`, { data: body });
+      expect(bad.status(), 'staff could never resolve: refused').toBe(400);
+      await ok(admin.put(`/api/admin/flows/${id}`, { data: { ...body, rows: def.transitions } }));
+    } finally { await admin.delete(`/api/admin/flows/${id}`); }
   });
 
   test('TC-PR-005 Status guide', async ({ asRole }) => {

@@ -41,6 +41,7 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
     public DbSet<TicketAttachment> TicketAttachments => Set<TicketAttachment>();
     public DbSet<TicketStatusHistory> TicketStatusHistory => Set<TicketStatusHistory>();
     public DbSet<TicketStatusTransition> TicketStatusTransitions => Set<TicketStatusTransition>();
+    public DbSet<TicketFlow> TicketFlows => Set<TicketFlow>();
     public DbSet<TicketAssignment> TicketAssignments => Set<TicketAssignment>();
     public DbSet<TicketLink> TicketLinks => Set<TicketLink>();
     public DbSet<TicketCancellationRequest> TicketCancellationRequests => Set<TicketCancellationRequest>();
@@ -86,7 +87,7 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
         [typeof(AuthCode)] = "auth_codes", [typeof(RefreshToken)] = "refresh_tokens", [typeof(PasswordHistory)] = "password_history",
         [typeof(Ticket)] = "tickets", [typeof(TicketCounter)] = "ticket_counters", [typeof(TicketMessage)] = "ticket_messages",
         [typeof(TicketAttachment)] = "ticket_attachments", [typeof(TicketStatusHistory)] = "ticket_status_history",
-        [typeof(TicketStatusTransition)] = "ticket_status_transitions", [typeof(TicketAssignment)] = "ticket_assignments",
+        [typeof(TicketStatusTransition)] = "ticket_status_transitions", [typeof(TicketFlow)] = "ticket_flows", [typeof(TicketAssignment)] = "ticket_assignments",
         [typeof(TicketLink)] = "ticket_links", [typeof(TicketCancellationRequest)] = "ticket_cancellation_requests",
         [typeof(CustomerFeedback)] = "customer_feedback", [typeof(TicketCustomFieldValue)] = "ticket_custom_field_values",
         [typeof(TicketSlaRecord)] = "ticket_sla_records", [typeof(TicketSlaCycle)] = "ticket_sla_cycles",
@@ -119,7 +120,7 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
         b.Entity<AccountTypePermission>().HasKey(x => new { x.AccountTypeId, x.Permission });
         b.Entity<TeamMember>().HasKey(x => new { x.TeamId, x.UserId });
         b.Entity<TicketCounter>().HasKey(x => x.Year);
-        b.Entity<TicketStatusTransition>().HasKey(x => new { x.FromStatus, x.ToStatus, x.Actor });
+        b.Entity<TicketStatusTransition>().HasKey(x => new { x.FlowId, x.FromStatus, x.ToStatus, x.Actor });
         b.Entity<CustomerFeedback>().HasKey(x => x.TicketId);
         b.Entity<TicketCustomFieldValue>().HasKey(x => new { x.TicketId, x.FieldId });
         b.Entity<TicketSlaRecord>().HasKey(x => x.TicketId);

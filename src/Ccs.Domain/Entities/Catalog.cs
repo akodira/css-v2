@@ -36,6 +36,8 @@ public class TicketType
     public string ExamplesEn { get; set; } = "";
     public string ExamplesAr { get; set; } = "";
     public int SortOrder { get; set; }
+    /// <summary>Flow for new tickets of this type when flows are chosen by ticket type; null = the default flow.</summary>
+    public Guid? FlowId { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; }
 }
@@ -57,6 +59,8 @@ public class TicketCategory
     public string? PriorityCode { get; set; }
     public bool IsPrivate { get; set; }
     public bool AutoAssign { get; set; } = true;
+    /// <summary>Flow for new tickets of this category when flows are chosen by category; null = the default flow.</summary>
+    public Guid? FlowId { get; set; }
 }
 
 public class TicketSubcategory

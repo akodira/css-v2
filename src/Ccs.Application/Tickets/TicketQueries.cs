@@ -229,8 +229,9 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
             .ToList();
 
         var actor = c.Staff ? "staff" : t.RequesterId == c.UserId ? "customer" : null;
+        var flowId = await FlowLookup.OfTicketAsync(db, t.FlowId, ct);
         List<string> moves = actor is null ? [] : await db.TicketStatusTransitions.AsNoTracking()
-            .Where(x => x.FromStatus == t.Status && x.Actor == actor).Select(x => x.ToStatus).ToListAsync(ct);
+            .Where(x => x.FlowId == flowId && x.FromStatus == t.Status && x.Actor == actor).Select(x => x.ToStatus).ToListAsync(ct);
 
         var sla = await db.TicketSlaRecords.AsNoTracking().FirstOrDefaultAsync(r => r.TicketId == id, ct);
         var custom = await (from v in db.TicketCustomFieldValues join f in db.CustomFieldDefinitions on v.FieldId equals f.Id

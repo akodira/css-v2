@@ -135,6 +135,7 @@ public sealed class TicketService(
             reference = format.Render(typeCode, now, await db.NextTicketNumberAsync(format.PeriodKey(now), ct));
             if (!await db.Tickets.AnyAsync(x => x.Reference == reference, ct)) break;
         }
+        var flowId = await FlowLookup.ForNewTicketAsync(db, settings, cmd.TypeId, category.Id, ct);
         var ticket = new Ticket
         {
             Id = Guid.NewGuid(),
@@ -147,6 +148,7 @@ public sealed class TicketService(
             SubcategoryId = sub?.Id,
             Priority = priority,
             Status = TicketStatus.New,
+            FlowId = flowId,
             TeamId = category.DefaultTeamId,
             CreatedBy = c.UserId,
             CreatedAt = now,
@@ -190,7 +192,8 @@ public sealed class TicketService(
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         var t = await db.Tickets.FirstAsync(x => x.Id == ticketId, ct);
-        var flow = await db.TicketStatusTransitions.AsNoTracking()
+        var flowId = await FlowLookup.OfTicketAsync(db, t.FlowId, ct);
+        var flow = await db.TicketStatusTransitions.AsNoTracking().Where(x => x.FlowId == flowId)
             .Select(x => new Transition(x.FromStatus, x.ToStatus, x.Actor, x.RequiresReason)).ToListAsync(ct);
         var activeReasons = await db.ClosureReasons.Where(r => r.IsActive).Select(r => r.Code).ToListAsync(ct);
         bool? mayReopen = t.ClosureReason is null ? null
@@ -283,11 +286,13 @@ public sealed class TicketService(
         else if (autoMove == TicketStatus.Reopened)
         {
             // Settings → System rules: a reply on a Resolved ticket reopens it, so the automatic close stops and the team is told.
-            AddHistory(t, TicketStatus.Reopened, c.UserId, "Customer replied after the ticket was resolved", now);
+            // A flow without Reopened sends it back to In progress instead.
+            var back = FlowRules.AfterResolvedReply(await FlowLookup.StatusesAsync(db, await FlowLookup.OfTicketAsync(db, t.FlowId, ct), ct));
+            AddHistory(t, back, c.UserId, "Customer replied after the ticket was resolved", now);
             t.ReopenedCount++;
             await sla.StartReopenCycleAsync(t.Id, ct);
             audit.Write("ticket.status_changed", "ticket", t.Id, new { status = TicketStatus.Resolved },
-                new { status = TicketStatus.Reopened, reason = "Customer replied after the ticket was resolved" });
+                new { status = back, reason = "Customer replied after the ticket was resolved" });
         }
 
         var minReply = await settings.GetIntAsync("min_reply_chars", 20, ct);
@@ -343,7 +348,8 @@ public sealed class TicketService(
         t.TeamId = cmd.TeamId;
         t.AssignedAgentId = cmd.AgentId;
         t.UpdatedAt = now;
-        if (t.Status == TicketStatus.New) AddHistory(t, TicketStatus.Open, c.UserId, "Assigned", now);
+        if (t.Status == TicketStatus.New && FlowRules.AfterAssign(await FlowLookup.StatusesAsync(db, await FlowLookup.OfTicketAsync(db, t.FlowId, ct), ct)) is string toOpen)
+            AddHistory(t, toOpen, c.UserId, "Assigned", now);
 
         await notifications.OnAssignmentAsync(a, t, ct);
         audit.Write("ticket.assigned", "ticket", t.Id, before, new { team_id = cmd.TeamId, agent_id = cmd.AgentId });
@@ -393,7 +399,8 @@ public sealed class TicketService(
             AssignedBy = by, Reason = "Auto-assigned", CreatedAt = now,
         };
         db.TicketAssignments.Add(a);
-        if (t.Status == TicketStatus.New) AddHistory(t, TicketStatus.Open, null, "Auto-assigned", now);
+        if (t.Status == TicketStatus.New && FlowRules.AfterAssign(await FlowLookup.StatusesAsync(db, await FlowLookup.OfTicketAsync(db, t.FlowId, ct), ct)) is string toOpen)
+            AddHistory(t, toOpen, null, "Auto-assigned", now);
         await notifications.OnAssignmentAsync(a, t, ct);
         return agent;
     }

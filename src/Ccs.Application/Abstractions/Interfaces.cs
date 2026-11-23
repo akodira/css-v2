@@ -29,6 +29,7 @@ public interface ICcsDbContext
     DbSet<TicketAttachment> TicketAttachments { get; }
     DbSet<TicketStatusHistory> TicketStatusHistory { get; }
     DbSet<TicketStatusTransition> TicketStatusTransitions { get; }
+    DbSet<TicketFlow> TicketFlows { get; }
     DbSet<TicketAssignment> TicketAssignments { get; }
     DbSet<TicketLink> TicketLinks { get; }
     DbSet<TicketCancellationRequest> TicketCancellationRequests { get; }

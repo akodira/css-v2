@@ -106,7 +106,7 @@ export const routes: Routes = [
           { path: 'admin/catalog', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/catalog-pages').then((m) => m.AdminCatalogPage) },
           { path: 'admin/priorities', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/catalog-pages').then((m) => m.AdminPrioritiesPage) },
           { path: 'admin/sla', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/catalog-pages').then((m) => m.AdminSlaPage) },
-          { path: 'admin/ticket-status', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/content-pages').then((m) => m.AdminStatusPage) },
+          { path: 'admin/ticket-status', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/flow-pages').then((m) => m.AdminStatusPage) },
           { path: 'admin/escalation', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/content-pages').then((m) => m.AdminEscalationPage) },
           { path: 'admin/general/settings', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/settings-pages').then((m) => m.SettingsPage) },
           { path: 'admin/general/settings/:tab', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/settings-pages').then((m) => m.SettingsPage) },
