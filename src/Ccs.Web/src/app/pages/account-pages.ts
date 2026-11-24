@@ -7,6 +7,7 @@ import { Auth, problemOf } from '../core/auth';
 import { I18n, TPipe } from '../core/i18n';
 import { SiteService, TicketListItem, TicketsApi, TicketSummary } from '../core/api';
 import { Alert, NewPasswordFields, StatusBadge, Submit, TextField } from '../shared/ui';
+import { phoneDigits } from '../shared/phone';
 import { CustomerKpis } from '../shared/customer-kpis';
 import { AuthArt } from '../shared/auth-art';
 
@@ -383,7 +384,7 @@ export class AccountPage {
   protected readonly confirmNext = signal('');
   // Profile form (v1 ProfileForm): name, phone and language.
   protected readonly fullName = signal(this.auth.me()?.fullName ?? '');
-  protected readonly phone = signal(this.auth.me()?.phone ?? '');
+  protected readonly phone = signal(phoneDigits(this.auth.me()?.phone));
   protected readonly lang = signal<string>(this.auth.me()?.preferredLocale ?? this.i18n.locale());
   protected readonly pfErrors = signal<Record<string, string>>({});
   protected readonly pfMsg = signal<string | null>(null);

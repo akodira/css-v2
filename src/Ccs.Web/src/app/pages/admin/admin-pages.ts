@@ -14,6 +14,7 @@ import {
   adminError, generatePassword,
 } from '../../core/admin-api';
 import { AddPanel, Alert, PRIORITY_TONE, PrioIcon, Req, StatusBadge } from '../../shared/ui';
+import { PhoneInput, phoneDigits } from '../../shared/phone';
 import { PwEye } from '../../shared/pw-eye';
 import { WhereEditor } from './where-editor';
 import { feedbackFor } from '../../shared/feedback';
@@ -108,7 +109,7 @@ export const SEARCH = `
 
 @Component({
   selector: 'app-person-form',
-  imports: [FormsModule, TPipe, Req, WhereEditor, forwardRef(() => TurnBack), PwEye],
+  imports: [FormsModule, TPipe, Req, PhoneInput, WhereEditor, forwardRef(() => TurnBack), PwEye],
   template: `
     <form class="flex flex-col gap-4" (ngSubmit)="submit()">
       <div class="grid gap-4 md:grid-cols-2">
@@ -117,7 +118,7 @@ export const SEARCH = `
         <div class="flex flex-col gap-1.5"><label [for]="id + 'e'" [class]="cls.label"><span>{{ 'Directory.email' | t }}<app-req /></span></label>
           <input [id]="id + 'e'" name="email" type="email" dir="ltr" required maxlength="254" [class]="cls.input" [(ngModel)]="m.email" /></div>
         <div class="flex flex-col gap-1.5"><label [for]="id + 'p'" [class]="cls.label">{{ 'Directory.phone' | t }}</label>
-          <input [id]="id + 'p'" name="phone" type="tel" dir="ltr" maxlength="24" [class]="cls.input" [(ngModel)]="m.phone" /></div>
+          <input [id]="id + 'p'" name="phone" appPhone dir="ltr" placeholder="01012345678" [class]="cls.input" [(ngModel)]="m.phone" /></div>
         @if (!user()) {
           <div class="flex flex-col gap-1.5"><label [for]="id + 'w'" [class]="cls.label"><span>{{ 'Directory.tempPassword' | t }}<app-req /></span></label>
             <div class="flex gap-2"><span class="relative min-w-0 flex-1"><input #pfw [id]="id + 'w'" name="password" type="password" dir="ltr" required [class]="cls.input + ' w-full pe-11'" [(ngModel)]="m.password" autocomplete="new-password" /><app-pw-eye [target]="pfw" /></span>
@@ -199,7 +200,7 @@ export class PersonForm implements OnInit {
     const u = this.user();
     if (u) {
       this.m = {
-        fullName: u.fullName, email: u.email, phone: u.phone ?? '', password: '', role: u.role ?? 'agent', accountTypeId: u.accountTypeId,
+        fullName: u.fullName, email: u.email, phone: phoneDigits(u.phone), password: '', role: u.role ?? 'agent', accountTypeId: u.accountTypeId,
         organizationId: u.organizationId, branchId: u.branchId, autoAssign: u.autoAssign, canCreateForCustomers: u.canCreateForCustomers,
       };
     }

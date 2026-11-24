@@ -8,6 +8,7 @@ import { AccountTypeRow, AdminApi, Lookups, OrgRow, BranchRow, TeamRow, TeamsRes
 import { Auth } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { AddPanel, Alert, Req, ReqNote } from '../../shared/ui';
+import { PhoneInput, phoneDigits } from '../../shared/phone';
 import { PwEye } from '../../shared/pw-eye';
 import { AdminBase, CLS, TurnBack } from './admin-pages';
 import { PlacePicker, SetupGuide, roleOfType } from './staff-setup';
@@ -194,7 +195,7 @@ interface StaffData { me: string; orgs: Pick[]; branches: BranchPick[]; staff: S
 /** One person: account type (what), Works in (where), teams and ticket switches, saved together; then status, details and turn back. */
 @Component({
   selector: 'app-staff-body',
-  imports: [TPipe, FormsModule, RouterLink, TurnBack, Req, Alert, PlacePicker],
+  imports: [TPipe, FormsModule, RouterLink, TurnBack, Req, Alert, PlacePicker, PhoneInput],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @let u = user();
@@ -301,7 +302,7 @@ interface StaffData { me: string; orgs: Pick[]; branches: BranchPick[]; staff: S
           <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.name' | t }}<app-req /></span><input name="n" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="d.fullName" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.email' | t }}<app-req /></span><input name="e" type="email" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="d.email" /></label>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" dir="ltr" placeholder="+20 10 1234 5678" [class]="cls.input + ' font-normal'" [(ngModel)]="d.phone" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" appPhone dir="ltr" placeholder="01012345678" [class]="cls.input + ' font-normal'" [(ngModel)]="d.phone" /></label>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.saveChanges' | t }}</button>
@@ -362,7 +363,7 @@ export class StaffBody implements OnInit {
     this.everywhere = u.places.length === 0;
     this.teams = u.teams.map((m) => ({ teamId: m.teamId, isLeader: m.isLeader }));
     this.autoAssign = u.autoAssign; this.createFor = u.canCreateForCustomers;
-    this.d = { fullName: u.fullName, email: u.email, phone: u.phone ?? '' };
+    this.d = { fullName: u.fullName, email: u.email, phone: phoneDigits(u.phone) };
     this.msg.set(null);
   }
   protected addTeam(id: string): void { if (id && !this.teams.some((m) => m.teamId === id)) this.teams = [...this.teams, { teamId: id, isLeader: false }]; }
@@ -386,7 +387,7 @@ export class StaffBody implements OnInit {
 
 @Component({
   selector: 'app-admin-staff',
-  imports: [TPipe, Alert, AddPanel, FormsModule, StaffBody, Req, ReqNote, PwEye, SetupGuide, PlacePicker],
+  imports: [TPipe, Alert, AddPanel, FormsModule, PhoneInput, StaffBody, Req, ReqNote, PwEye, SetupGuide, PlacePicker],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -399,7 +400,7 @@ export class StaffBody implements OnInit {
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.name' | t }}<app-req /></span><input name="n" dir="auto" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.fullName" /></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.email' | t }}<app-req /></span><input name="e" type="email" dir="ltr" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.email" /></label>
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" dir="ltr" placeholder="+20 10 1234 5678" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.phone" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" appPhone dir="ltr" placeholder="01012345678" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.phone" /></label>
               <div class="flex flex-col gap-1.5">
                 <label for="nw-pw" class="text-sm font-semibold">{{ 'Directory.tempPassword' | t }}<app-req /></label>
                 <span class="flex gap-2"><span class="relative min-w-0 flex-1"><input #nwpw id="nw-pw" name="w" type="password" dir="ltr" autocomplete="new-password" [class]="cls.input + ' w-full pe-11'" [(ngModel)]="nw.password" /><app-pw-eye [target]="nwpw" /></span>

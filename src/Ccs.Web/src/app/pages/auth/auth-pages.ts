@@ -13,13 +13,8 @@ import { AuthShell } from './auth-shell';
 
 export { AuthLogo } from './auth-shell';
 
-/** Egyptian mobile as typed (spaces, dashes, +20 / 0020) -> plain digits starting with 0, e.g. "01012345678". */
-export function normPhone(v: string): string {
-  let d = v.replace(/\D/g, '');
-  if (d.startsWith('0020') && d.length === 14) d = '0' + d.slice(4);
-  else if (d.startsWith('20') && d.length === 12) d = '0' + d.slice(2);
-  return d;
-}
+export { normPhone } from '../../shared/phone';
+import { normPhone } from '../../shared/phone';
 const PHONE_OK = /^01[0-9]{9}$/;
 /** Email or phone remembered on this device (only when "Remember" is ticked; never the password). */
 const REMEMBER_KEY = 'ccs.signin.remember';

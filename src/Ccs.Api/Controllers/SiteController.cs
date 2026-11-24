@@ -164,9 +164,8 @@ public sealed class MeController(AccessService access, CcsDbContext db, Settings
         if (name.Length is < 2 or > 120) throw new Ccs.Infrastructure.Identity.AuthError("nameRequired", 400, "fullName");
         var raw = (b.Phone ?? "").Trim();
         if (raw.Length == 0) throw new Ccs.Infrastructure.Identity.AuthError("phoneRequired", 400, "phone");
-        var phone = System.Text.RegularExpressions.Regex.Replace(raw, @"[\s().-]", "");
-        if (phone.StartsWith("00")) phone = "+" + phone[2..];
-        if (raw.Length > 40 || !System.Text.RegularExpressions.Regex.IsMatch(phone, @"^\+[0-9]{8,15}$")) throw new Ccs.Infrastructure.Identity.AuthError("phoneInvalid", 400, "phone");
+        // Egyptian mobile (11 digits starting 01), stored as +201xxxxxxxxx like at registration.
+        var phone = Ccs.Domain.Rules.EgyptPhone.Normalize(raw) ?? throw new Ccs.Infrastructure.Identity.AuthError("phoneInvalid", 400, "phone");
         if (b.PreferredLocale is not ("en" or "ar")) throw new Ccs.Infrastructure.Identity.AuthError("generic", 400, "preferredLocale");
         if (await db.Profiles.AnyAsync(x => x.Phone == phone && x.Id != c.UserId, ct)) throw new Ccs.Infrastructure.Identity.AuthError("phoneTaken", 400, "phone");
         var p = await db.Profiles.FirstAsync(x => x.Id == c.UserId, ct);

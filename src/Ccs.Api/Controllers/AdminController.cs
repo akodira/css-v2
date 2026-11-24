@@ -164,7 +164,7 @@ public sealed class AdminController(
         var name = Name(b.FullName, "fullName");
         if (string.IsNullOrEmpty(b.Password)) throw Err("passwordWeak", "password");
         if (await users.FindByEmailAsync(email) is not null) throw Err("emailTaken", "email", 409);
-        await CheckPhoneAsync(b.Phone, null, ct);
+        var phone = await CheckPhoneAsync(b.Phone, null, ct);
         await CheckPlacementAsync(b.OrganizationId, b.BranchId, ct);
         RequirePlacementInScope(c, b.OrganizationId, b.BranchId);
         if (b.Role != RoleCode.Customer) await CheckTypeAsync(b.AccountTypeId, ct);
@@ -176,7 +176,7 @@ public sealed class AdminController(
         var now = clock.UtcNow;
         var p = new Profile
         {
-            Id = user.Id, FullName = name, Email = email, Phone = Clean(b.Phone), CreatedAt = now, UpdatedAt = now, PasswordChangedAt = now,
+            Id = user.Id, FullName = name, Email = email, Phone = phone, CreatedAt = now, UpdatedAt = now, PasswordChangedAt = now,
             AccountStatus = AccountStatus.Active, OrganizationId = b.OrganizationId, BranchId = b.BranchId,
             AccountTypeId = b.Role == RoleCode.Customer ? null : b.AccountTypeId,
             AutoAssign = b.Role != RoleCode.Customer && b.AutoAssign,
@@ -202,8 +202,7 @@ public sealed class AdminController(
         if (oldRole == RoleCode.Admin && b.Role != RoleCode.Admin) await GuardLastAdminAsync(id, ct);
 
         p.FullName = Name(b.FullName, "fullName");
-        await CheckPhoneAsync(b.Phone, id, ct);
-        p.Phone = Clean(b.Phone);
+        p.Phone = await CheckPhoneAsync(b.Phone, id, ct);
         var email = (b.Email ?? "").Trim().ToLowerInvariant();
         if (email != p.Email)
         {
@@ -774,7 +773,7 @@ public sealed class AdminController(
         var name = Name(b.FullName, "fullName");
         if (string.IsNullOrEmpty(b.Password)) throw Err("passwordWeak", "password");
         if (await users.FindByEmailAsync(email) is not null) throw Err("emailTaken", "email", 409);
-        await CheckPhoneAsync(b.Phone, null, ct);
+        var phone = await CheckPhoneAsync(b.Phone, null, ct);
         Guid? typeId = null;
         if (scoped is not null)
         {
@@ -785,7 +784,7 @@ public sealed class AdminController(
         var r = await users.CreateAsync(user, b.Password);
         if (!r.Succeeded) throw Err(r.Errors.Any(e => e.Code.StartsWith("password", StringComparison.OrdinalIgnoreCase)) ? "passwordWeak" : "generic", "password");
         var now = clock.UtcNow;
-        var p = new Profile { Id = user.Id, FullName = name, Email = email, Phone = Clean(b.Phone), CreatedAt = now, UpdatedAt = now, PasswordChangedAt = now, AccountStatus = AccountStatus.Active, AccountTypeId = typeId };
+        var p = new Profile { Id = user.Id, FullName = name, Email = email, Phone = phone, CreatedAt = now, UpdatedAt = now, PasswordChangedAt = now, AccountStatus = AccountStatus.Active, AccountTypeId = typeId };
         db.Profiles.Add(p);
         foreach (var code in roles) db.CcsUserRoles.Add(new UserRole { UserId = user.Id, RoleId = await RoleIdAsync(code, ct) });
         if (scoped is not null)
@@ -814,7 +813,7 @@ public sealed class AdminController(
         var name = Name(b.FullName, "fullName");
         if (string.IsNullOrEmpty(b.Password)) throw Err("passwordWeak", "password");
         if (await users.FindByEmailAsync(email) is not null) throw Err("emailTaken", "email", 409);
-        await CheckPhoneAsync(b.Phone, null, ct);
+        var phone = await CheckPhoneAsync(b.Phone, null, ct);
         // Works in is checked before the account exists, so a missing place never leaves a half-made user.
         bool scopedType = type.ScopeLevel is not null;
         int picks = type.ScopeLevel == "organization" ? (b.Orgs ?? []).Length : type.ScopeLevel == "branch" ? (b.Branches ?? []).Length : (b.Orgs ?? []).Length + (b.Branches ?? []).Length;
@@ -828,7 +827,7 @@ public sealed class AdminController(
         {
             var now = clock.UtcNow;
             var role = await PeopleController.StaffRoleForTypeAsync(db, type, ct);
-            db.Profiles.Add(new Profile { Id = user.Id, FullName = name, Email = email, Phone = Clean(b.Phone), CreatedAt = now, UpdatedAt = now, PasswordChangedAt = now, AccountStatus = AccountStatus.Active, AccountTypeId = type.Id });
+            db.Profiles.Add(new Profile { Id = user.Id, FullName = name, Email = email, Phone = phone, CreatedAt = now, UpdatedAt = now, PasswordChangedAt = now, AccountStatus = AccountStatus.Active, AccountTypeId = type.Id });
             db.CcsUserRoles.Add(new UserRole { UserId = user.Id, RoleId = await RoleIdAsync(role, ct) });
             await db.SaveChangesAsync(ct);
             var where = await PeopleController.ApplyWhereAsync(db, user.Id, type, b.Everywhere, b.Orgs, b.Branches, ct);
@@ -874,8 +873,7 @@ public sealed class AdminController(
         var (_, p, _) = await TargetAsync(id, ct);
         var before = new { p.FullName, p.Email, p.Phone };
         p.FullName = Name(b.FullName, "fullName");
-        await CheckPhoneAsync(b.Phone, id, ct);
-        p.Phone = Clean(b.Phone);
+        p.Phone = await CheckPhoneAsync(b.Phone, id, ct);
         var email = (b.Email ?? "").Trim().ToLowerInvariant();
         if (email != p.Email)
         {
@@ -1013,12 +1011,13 @@ public sealed class AdminController(
             throw Err("leaderRole", "teamLeaderId");
     }
 
-    private async Task CheckPhoneAsync(string? phone, Guid? self, CancellationToken ct)
+    /// <summary>A person's phone: optional; when given, an Egyptian mobile (11 digits starting 01), stored as +201xxxxxxxxx like at registration.</summary>
+    private async Task<string?> CheckPhoneAsync(string? phone, Guid? self, CancellationToken ct)
     {
-        var p = Clean(phone);
-        if (p is null) return;
-        if (!System.Text.RegularExpressions.Regex.IsMatch(p, @"^\+?[0-9 ()\-]{6,24}$")) throw Err("phoneInvalid", "phone");
+        if (Clean(phone) is null) return null;
+        var p = EgyptPhone.Normalize(phone) ?? throw Err("phoneInvalid", "phone");
         if (await db.Profiles.AnyAsync(x => x.Phone == p && x.Id != self, ct)) throw Err("phoneTaken", "phone", 409);
+        return p;
     }
 
     private static string Name(string? v, string field)

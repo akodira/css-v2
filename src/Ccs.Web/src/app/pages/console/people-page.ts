@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { adminError, generatePassword } from '../../core/admin-api';
 import { I18n, TPipe } from '../../core/i18n';
 import { AddPanel, Alert, Req, ReqNote } from '../../shared/ui';
+import { PhoneInput, phoneDigits } from '../../shared/phone';
 import { PwEye } from '../../shared/pw-eye';
 import { CLS, Msg } from '../admin/admin-pages';
 
@@ -23,7 +24,7 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
  */
 @Component({
   selector: 'app-people',
-  imports: [TPipe, FormsModule, Alert, PwEye, AddPanel, Req, ReqNote],
+  imports: [TPipe, FormsModule, Alert, PwEye, AddPanel, Req, ReqNote, PhoneInput],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div [class]="mode() === 'staff' ? 'mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8' : 'flex flex-col gap-6'">
@@ -38,7 +39,7 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
                 <div class="flex flex-col gap-1.5"><label for="pp-e" [class]="cls.label">{{ 'People.email' | t }}<app-req /></label>
                   <input id="pp-e" name="email" type="email" dir="ltr" autocomplete="off" [class]="cls.input" [ngModel]="n().email" (ngModelChange)="patch({ email: $event })" /></div>
                 <div class="flex flex-col gap-1.5"><label for="pp-p" [class]="cls.label">{{ 'People.phone' | t }}</label>
-                  <input id="pp-p" name="phone" dir="ltr" placeholder="+20 10 1234 5678" autocomplete="off" [class]="cls.input" [ngModel]="n().phone" (ngModelChange)="patch({ phone: $event })" /></div>
+                  <input id="pp-p" name="phone" appPhone dir="ltr" placeholder="01012345678" autocomplete="off" [class]="cls.input" [ngModel]="n().phone" (ngModelChange)="patch({ phone: $event })" /></div>
                 <div class="flex flex-col gap-1.5"><label for="pp-w" [class]="cls.label">{{ 'People.tempPassword' | t }}<app-req /></label>
                   <span class="flex gap-2"><span class="relative min-w-0 flex-1"><input #ppw id="pp-w" name="password" type="password" dir="ltr" autocomplete="new-password" [class]="cls.input + ' w-full pe-11'" [ngModel]="n().password" (ngModelChange)="patch({ password: $event })" /><app-pw-eye [target]="ppw" /></span>
                     <button type="button" [class]="btn + ' shrink-0'" (click)="patch({ password: gen() })">{{ 'People.generate' | t }}</button></span></div>
@@ -124,7 +125,7 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
                             <div class="flex flex-col gap-1.5"><label [for]="'pe-' + p.id" [class]="cls.label">{{ 'People.email' | t }}</label>
                               <input [id]="'pe-' + p.id" name="email" type="email" dir="ltr" [class]="cls.input" [(ngModel)]="ed.email" /></div>
                             <div class="flex flex-col gap-1.5"><label [for]="'pp-' + p.id" [class]="cls.label">{{ 'People.phone' | t }}</label>
-                              <input [id]="'pp-' + p.id" name="phone" dir="ltr" [class]="cls.input" [(ngModel)]="ed.phone" /></div>
+                              <input [id]="'pp-' + p.id" name="phone" appPhone dir="ltr" placeholder="01012345678" [class]="cls.input" [(ngModel)]="ed.phone" /></div>
                           </div>
                           <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'People.save' | t }}</button></div>
                         </form>
@@ -206,7 +207,7 @@ export class PeoplePage {
   protected toggle(p: PRow): void {
     this.rowMsg.set(null);
     if (this.open() === p.id) { this.open.set(null); return; }
-    this.ed = { fullName: p.fullName, email: p.email, phone: p.phone ?? '', type: this.d()?.types.some((t) => t.id === p.accountTypeId) ? (p.accountTypeId ?? '') : '',
+    this.ed = { fullName: p.fullName, email: p.email, phone: phoneDigits(p.phone), type: this.d()?.types.some((t) => t.id === p.accountTypeId) ? (p.accountTypeId ?? '') : '',
       leads: this.br()?.branches.find((b) => b.teamLeaderId === p.id)?.id ?? '' };
     this.open.set(p.id);
   }

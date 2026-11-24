@@ -4,6 +4,7 @@ import { I18n, LOCALES, TPipe } from '../core/i18n';
 import { Router } from '@angular/router';
 import { SiteService } from '../core/api';
 import { RichText } from './rich-text';
+import { phoneDigits } from './phone';
 
 /** Red asterisk after a mandatory label; the "* Required" legend appears by itself (styles.css). */
 @Component({
@@ -100,7 +101,7 @@ let fieldSeq = 0;
       <label [for]="id" class="text-sm font-semibold">{{ label() }}@if (required()) {<app-req />}</label>
       <div class="relative">
         <input [id]="id" [name]="name()" [type]="type() === 'password' && shown() ? 'text' : type()" [attr.autocomplete]="autocomplete()" [attr.dir]="type() === 'password' ? 'ltr' : dir()"
-          [attr.maxlength]="maxLength()" [attr.placeholder]="placeholder() || null" [required]="required()" [value]="value()" (input)="value.set($any($event.target).value)" (keyup)="caps($event)" (keydown)="caps($event)" (blur)="capsOn.set(false)"
+          [attr.maxlength]="type() === 'tel' ? null : maxLength()" [attr.inputmode]="type() === 'tel' ? 'numeric' : null" [attr.placeholder]="placeholder() || null" [required]="required()" [value]="value()" (input)="onInput($any($event.target))" (keyup)="caps($event)" (keydown)="caps($event)" (blur)="capsOn.set(false)"
           [attr.aria-invalid]="error() ? true : null" [attr.aria-describedby]="error() ? id + '-err' : hint() ? id + '-hint' : null"
           class="min-h-11 w-full rounded-lg border border-line bg-surface text-base placeholder:text-muted read-only:bg-bg read-only:text-muted aria-[invalid=true]:border-danger" [class]="inputLayout()" />
         @if (type() === 'password') {
@@ -151,6 +152,11 @@ export class TextField {
   readonly error = input<string | undefined>();
   readonly value = model('');
   protected readonly shown = signal(false);
+  /** Phone boxes (type tel): digits only, at most 11; letters never stay on screen. */
+  protected onInput(el: HTMLInputElement): void {
+    if (this.type() === 'tel') { const v = phoneDigits(el.value); if (v !== el.value) el.value = v; }
+    this.value.set(el.value);
+  }
 }
 
 /** Primary submit button, min 44 px, with the "* Required" legend after it. */
