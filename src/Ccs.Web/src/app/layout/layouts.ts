@@ -33,7 +33,7 @@ const ICONS: Record<string, string> = {
 const GROUP_OF: Record<string, string> = {
   dashboard: 'top', tickets: 'top',
   customers: 'people', admin_customers: 'people', people: 'people', branches: 'people', approvals: 'people', users: 'people', admin_teams: 'people', team: 'people', permissions: 'people', organizations: 'people', hierarchy: 'people',
-  catalog: 'rules', ticket_types: 'rules', priorities: 'rules', ticket_status: 'rules', sla_settings: 'rules', escalation: 'rules',
+  catalog: 'rules', place_catalog: 'rules', ticket_types: 'rules', priorities: 'rules', ticket_status: 'rules', sla_settings: 'rules', escalation: 'rules',
   kb_admin: 'content', kb_console: 'content', canned: 'content',
   reports: 'insights', sla: 'insights', audit: 'insights',
   settings: 'system', help_center: 'system', help: 'system',
@@ -46,7 +46,7 @@ const GROUP_STYLE: Record<string, { color: string; icon: string }> = {
 const ITEM_ICON: Record<string, string> = {
   dashboard: 'dashboard', tickets: 'tickets', canned: 'kb', team: 'teams', customers: 'customers', people: 'users', branches: 'customers', approvals: 'users', sla: 'clock',
   reports: 'reports', kb_console: 'kb', users: 'users', hierarchy: 'teams', escalation: 'flag', admin_customers: 'customers', admin_teams: 'teams',
-  permissions: 'users', organizations: 'customers', catalog: 'catalog', ticket_types: 'tickets', priorities: 'flag', ticket_status: 'tickets', kb_admin: 'kb',
+  permissions: 'users', organizations: 'customers', catalog: 'catalog', place_catalog: 'catalog', ticket_types: 'tickets', priorities: 'flag', ticket_status: 'tickets', kb_admin: 'kb',
   sla_settings: 'clock', audit: 'audit', settings: 'settings', help: 'kb', help_center: 'kb',
 };
 /** Where each menu address lives in this version. Screens not built yet are left out of the menu. */
@@ -54,7 +54,7 @@ const ROUTE: Record<string, string> = {
   '/console/dashboard': '/console/dashboard', '/console': '/console', '/console/canned': '/console/canned', '/console/approvals': '/console/approvals',
   '/console/customers': '/console/customers', '/kb': '/console/kb', '/console/kb': '/console/kb',
   '/admin/users': '/admin/users', '/admin/customers': '/console/customers', '/admin/teams': '/admin/teams', '/admin/permissions': '/admin/permissions',
-  '/admin/organizations': '/admin/organizations', '/admin/escalation': '/admin/escalation', '/admin/catalog': '/admin/catalog', '/admin/ticket-types': '/admin/ticket-types',
+  '/admin/organizations': '/admin/organizations', '/admin/escalation': '/admin/escalation', '/admin/catalog': '/admin/catalog', '/admin/place-catalog': '/admin/place-catalog', '/admin/ticket-types': '/admin/ticket-types',
   '/admin/priorities': '/admin/priorities', '/admin/ticket-status': '/admin/ticket-status', '/admin/kb': '/admin/kb', '/admin/sla': '/admin/sla',
   '/admin/general/settings': '/admin/general/settings', '/admin/general/help': '/admin/general/help', '/console/help': '/console/help', '/console/people': '/console/people', '/console/branches': '/console/branches',
   '/console/reports': '/console/reports', '/console/sla': '/console/sla', '/console/team': '/console/team', '/admin/audit': '/admin/audit',
@@ -393,7 +393,7 @@ export class Shell {
     const can: Record<string, boolean> = {
       canned: admin || has('reply'), team: !!me?.leadsTeam || !!me?.teams?.length, reports: has('reports_own') || has('reports_all'), kb_console: !(admin || canKb),
       users: admin, people: !admin && !!me?.scopeLevel, branches: !admin && !!me?.scopeLevel, hierarchy: false, escalation: admin, admin_customers: admin, customers: !admin, admin_teams: admin || !!me?.scopeLevel,
-      permissions: admin, organizations: admin, catalog: canCatalog, priorities: canCatalog, ticket_status: canSettings,
+      permissions: admin, organizations: admin, catalog: canCatalog, place_catalog: admin || !!me?.scopeLevel, priorities: canCatalog, ticket_status: canSettings,
       approvals: admin || has('approve_customers'), help: !canSettings, help_center: canSettings, kb_admin: canKb, sla_settings: canSettings,
       audit: admin || roles.includes('management_viewer'), settings: canSettings,
     };
@@ -406,6 +406,7 @@ export class Shell {
     add('branches', 'console', '/console/branches', 'Branches', 'الفروع', 44);
     add('help', 'console', '/console/help', 'Help', 'المساعدة', 90);
     add('help_center', 'general', '/admin/general/help', 'Help Center', 'مركز المساعدة', 20);
+    add('place_catalog', 'admin', '/admin/place-catalog', 'Catalog for my places', 'التصنيفات الخاصة بأماكني', 31);
     const badge: Record<string, number> = { tickets: this.badges().tickets, approvals: this.badges().approvals };
     const seen = new Set<string>();
     const by = new Map<string, { order: number; item: SideItem }[]>();

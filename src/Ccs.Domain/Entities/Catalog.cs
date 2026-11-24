@@ -40,6 +40,9 @@ public class TicketType
     public Guid? FlowId { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; }
+    /// <summary>The place that made it (organization, and branch for a branch); both empty = the system's.</summary>
+    public Guid? OrganizationId { get; set; }
+    public Guid? BranchId { get; set; }
 }
 
 public class TicketTypeCategory
@@ -64,6 +67,9 @@ public class TicketCategory
     public bool AutoAssign { get; set; } = true;
     /// <summary>Flow for new tickets of this category when flows are chosen by category; null = the default flow.</summary>
     public Guid? FlowId { get; set; }
+    /// <summary>The place that made it (organization, and branch for a branch); both empty = the system's.</summary>
+    public Guid? OrganizationId { get; set; }
+    public Guid? BranchId { get; set; }
 }
 
 public class TicketSubcategory
@@ -75,6 +81,40 @@ public class TicketSubcategory
     public bool IsActive { get; set; } = true;
     public int SortOrder { get; set; }
     public string? PriorityCode { get; set; }
+    /// <summary>The place that made it (organization, and branch for a branch); both empty = the system's.</summary>
+    public Guid? OrganizationId { get; set; }
+    public Guid? BranchId { get; set; }
+}
+
+/// <summary>An item a place uses (its own, or chosen from the system or its organization). Kind: kind, type, cat, sub.</summary>
+public class PlaceCatalogItem
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string ItemKind { get; set; } = "";
+    public Guid ItemId { get; set; }
+}
+
+/// <summary>Which categories a ticket type shows in one place (that place's own "which categories each type shows").</summary>
+public class PlaceTypeCategory
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid? BranchId { get; set; }
+    public Guid TypeId { get; set; }
+    public Guid CategoryId { get; set; }
+}
+
+/// <summary>What a place's customers see on the new ticket form; no row = all three.</summary>
+public class PlaceCustomerView
+{
+    public Guid Id { get; set; }
+    public Guid OrganizationId { get; set; }
+    public Guid? BranchId { get; set; }
+    public bool ShowOrganization { get; set; } = true;
+    public bool ShowBranch { get; set; } = true;
+    public bool ShowSystem { get; set; } = true;
 }
 
 public class CustomFieldDefinition

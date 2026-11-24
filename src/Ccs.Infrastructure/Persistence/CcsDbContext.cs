@@ -33,6 +33,9 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<TeamKind> TeamKinds => Set<TeamKind>();
     public DbSet<CategoryPerson> CategoryPeople => Set<CategoryPerson>();
+    public DbSet<PlaceCatalogItem> PlaceCatalog => Set<PlaceCatalogItem>();
+    public DbSet<PlaceTypeCategory> PlaceTypeCategories => Set<PlaceTypeCategory>();
+    public DbSet<PlaceCustomerView> PlaceCustomerViews => Set<PlaceCustomerView>();
     public DbSet<SigninCode> SigninCodes => Set<SigninCode>();
     public DbSet<AuthCode> AuthCodes => Set<AuthCode>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -95,7 +98,7 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
         [typeof(CustomerFeedback)] = "customer_feedback", [typeof(TicketCustomFieldValue)] = "ticket_custom_field_values",
         [typeof(TicketSlaRecord)] = "ticket_sla_records", [typeof(TicketSlaCycle)] = "ticket_sla_cycles",
         [typeof(TicketSlaEvent)] = "ticket_sla_events", [typeof(Priority)] = "priorities", [typeof(ClosureReason)] = "closure_reasons",
-        [typeof(TicketType)] = "ticket_types", [typeof(TicketTypeCategory)] = "ticket_type_categories",
+        [typeof(TicketType)] = "ticket_types", [typeof(TicketTypeCategory)] = "ticket_type_categories", [typeof(PlaceCatalogItem)] = "place_catalog", [typeof(PlaceTypeCategory)] = "place_type_categories", [typeof(PlaceCustomerView)] = "place_customer_view",
         [typeof(TicketCategory)] = "ticket_categories", [typeof(TicketSubcategory)] = "ticket_subcategories",
         [typeof(CustomFieldDefinition)] = "custom_field_definitions", [typeof(CannedResponse)] = "canned_responses",
         [typeof(SlaPolicy)] = "sla_policies", [typeof(BusinessHours)] = "business_hours", [typeof(Holiday)] = "holidays",

@@ -34,7 +34,7 @@ public sealed record AssignCommand(Guid TeamId, Guid? AgentId, string? Reason);
 /// </summary>
 public sealed class TicketService(
     ICcsDbContext db, AccessService access, SlaService sla, NotificationService notifications,
-    AuditService audit, SettingsService settings, IClock clock)
+    AuditService audit, SettingsService settings, IClock clock, PlaceCatalog places)
 {
     public const int MaxTicketsPerHour = 15;
     public const int MaxMessagesPerMinute = 20;
@@ -84,10 +84,11 @@ public sealed class TicketService(
             sub = await db.TicketSubcategories.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sid && s.CategoryId == category.Id && s.IsActive, ct)
                   ?? throw new ValidationFailedException("invalid subcategory", "subcategoryId");
 
-        // Type is required on every new ticket and must offer the chosen category (trg_ticket_types_guard).
-        var typeOk = await (from y in db.TicketTypes join l in db.TicketTypeCategories on y.Id equals l.TypeId
-                            where y.Id == cmd.TypeId && y.IsActive && l.CategoryId == category.Id select 1).AnyAsync(ct);
-        if (!typeOk) throw new ValidationFailedException("invalid ticket type", "typeId");
+        // Type is required on every new ticket and must offer the chosen category, in what the customer's place shows them.
+        var allowed = await places.ForUserAsync(requester, ct);
+        if (!allowed.Categories.Contains(category.Id)) throw new ValidationFailedException("invalid category", "categoryId");
+        if (sub is not null && !allowed.Subcategories.Contains(sub.Id)) throw new ValidationFailedException("invalid subcategory", "subcategoryId");
+        if (!allowed.Links.Contains((cmd.TypeId, category.Id))) throw new ValidationFailedException("invalid ticket type", "typeId");
 
         // Priority: the customer picks only in "customer" mode; otherwise the category/subcategory may fix it.
         var site = await db.SiteSettings.AsNoTracking().FirstOrDefaultAsync(ct);

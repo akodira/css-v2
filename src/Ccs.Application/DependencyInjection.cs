@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddScoped<TicketLifecycleService>();
         services.AddScoped<TicketQueries>();
         services.AddScoped<CatalogQueries>();
+        services.AddScoped<PlaceCatalog>();
         return services;
     }
 }

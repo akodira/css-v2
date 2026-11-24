@@ -16,6 +16,7 @@ const CARD: Record<string, string> = {
   closed: 'border-s-brand bg-brand-soft text-brand-ink',
 };
 import { Alert, PRIORITY_TONE, Req, ReqNote, STATUS_STRIPE, SortTh, StatusBadge } from '../../shared/ui';
+import { TILE_CAT_SM, TILE_SUB_SM, TILE_TYPE_SM } from '../../shared/tiles';
 
 /** Auto-refresh every N seconds (Settings, System rules; 0 turns it off). */
 export function autoRefresh(load: () => void): void {
@@ -229,7 +230,7 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
             <div class="flex flex-col gap-1.5">
               <label for="st-customer" class="text-sm font-semibold">{{ 'StaffTicket.customer' | t }}<app-req /></label>
               <select id="st-customer" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base disabled:bg-bg" [value]="customerId()" [disabled]="!branchReady()"
-                (change)="customerId.set($any($event.target).value)" [attr.aria-invalid]="err()['customerId'] ? true : null">
+                (change)="pickCustomer($any($event.target).value)" [attr.aria-invalid]="err()['customerId'] ? true : null">
                 <option value="">{{ 'StaffTicket.selectCustomer' | t }}</option>
                 @for (x of dirCustomers(); track x.id) { <option [value]="x.id">{{ x.fullName }} ({{ x.email }})</option> }
               </select>
@@ -237,7 +238,7 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
             </div>
           }
           <div class="flex flex-col gap-1.5">
-            <label for="typeId" class="text-sm font-semibold">{{ 'TicketTypes.label' | t }}<app-req /></label>
+            <label for="typeId" class="inline-flex items-center gap-2 text-sm font-semibold">${TILE_TYPE_SM}{{ 'TicketTypes.label' | t }}<app-req /></label>
             <select id="typeId" class="min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base aria-[invalid=true]:border-danger" [value]="typeId()" (change)="pickType($any($event.target).value)"
               [attr.aria-invalid]="err()['typeId'] ? true : null">
               <option value="">{{ 'TicketTypes.select' | t }}</option>
@@ -255,7 +256,7 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <label for="cat" class="text-sm font-semibold">{{ 'NewTicket.category' | t }}<app-req /></label>
+            <label for="cat" class="inline-flex items-center gap-2 text-sm font-semibold">${TILE_CAT_SM}{{ 'NewTicket.category' | t }}<app-req /></label>
             <select id="cat" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base disabled:bg-bg" [disabled]="!typeId()" [value]="categoryId()" (change)="categoryId.set($any($event.target).value); subcategoryId.set('')"
               [attr.aria-invalid]="err()['categoryId'] ? true : null">
               <option value="">{{ (typeId() ? 'NewTicket.selectCategory' : 'TicketTypes.chooseTypeFirst') | t }}</option>
@@ -265,7 +266,7 @@ interface DirRow { id: string; fullName: string; email: string; organizationId: 
           </div>
 
           <div class="flex flex-col gap-1.5">
-            <label for="sub" class="text-sm font-semibold">{{ (staff ? 'StaffTicket.subcategory' : 'NewTicket.subcategory') | t }}</label>
+            <label for="sub" class="inline-flex items-center gap-2 text-sm font-semibold">${TILE_SUB_SM}{{ (staff ? 'StaffTicket.subcategory' : 'NewTicket.subcategory') | t }}</label>
             <select id="sub" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base disabled:bg-bg" [disabled]="!subcategories().length" [value]="subcategoryId()" (change)="subcategoryId.set($any($event.target).value)">
               <option value="">{{ 'NewTicket.noSubcategory' | t }}</option>
               @for (s of subcategories(); track s.id) { <option [value]="s.id" [selected]="s.id === subcategoryId()">{{ i18n.pick(s.nameEn, s.nameAr) }}</option> }
@@ -395,6 +396,11 @@ export class NewTicketPage {
     const fu = inject(ActivatedRoute).snapshot.queryParamMap.get('followUp');
     if (!this.staff && fu && /^[0-9a-f-]{36}$/.test(fu)) void this.api.get(fu).then((t) => this.followUp.set({ id: t.id, reference: t.reference })).catch(() => undefined);
     if (this.staff) void firstValueFrom(this.http.get<DirRow[]>('/api/tickets/customers')).then((d) => this.dir.set(d)).catch(() => this.error.set('notAllowed'));
+  }
+  /** The customer's own list: their place decides which types and categories they may use. */
+  protected pickCustomer(v: string): void {
+    this.customerId.set(v); this.typeId.set(''); this.categoryId.set(''); this.subcategoryId.set('');
+    void this.api.options(v || undefined).then((o) => this.opts.set(o));
   }
   protected pickOrg(v: string): void {
     this.orgId.set(v); this.customerId.set('');

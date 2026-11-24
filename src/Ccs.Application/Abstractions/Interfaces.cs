@@ -21,6 +21,9 @@ public interface ICcsDbContext
     DbSet<TeamMember> TeamMembers { get; }
     DbSet<TeamKind> TeamKinds { get; }
     DbSet<CategoryPerson> CategoryPeople { get; }
+    DbSet<PlaceCatalogItem> PlaceCatalog { get; }
+    DbSet<PlaceTypeCategory> PlaceTypeCategories { get; }
+    DbSet<PlaceCustomerView> PlaceCustomerViews { get; }
     DbSet<SigninCode> SigninCodes { get; }
     DbSet<AuthCode> AuthCodes { get; }
     DbSet<RefreshToken> RefreshTokens { get; }

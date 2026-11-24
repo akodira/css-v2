@@ -31,7 +31,7 @@ public sealed class TicketsController(TicketService tickets, TicketQueries queri
     public Task<TicketSummary> Summary([FromQuery] bool mine, CancellationToken ct) => queries.SummaryAsync(mine, ct);
 
     [HttpGet("options")]
-    public Task<NewTicketOptions> Options(CancellationToken ct) => catalog.NewTicketOptionsAsync(ct);
+    public Task<NewTicketOptions> Options([FromQuery] Guid? requesterId, CancellationToken ct) => catalog.NewTicketOptionsAsync(requesterId, ct);
 
     [HttpGet("{id:guid}")]
     public Task<TicketDetail> Get(Guid id, CancellationToken ct) => queries.GetAsync(id, ct);

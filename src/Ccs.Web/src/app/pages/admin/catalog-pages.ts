@@ -6,6 +6,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { TPipe } from '../../core/i18n';
 import { ADD_BTN, AddCard, AddPanel, Alert, PLUS_ICON, PRIORITY_TONE, PrioIcon, Req, ReqNote } from '../../shared/ui';
 import { AdminBase, SEARCH, HEAD_ADD, HEAD_END } from './admin-pages';
+import { TILE_CAT_LG, TILE_CAT_MD, TILE_SUB_SM, TILE_TYPE_LG, TILE_TYPE_MD } from '../../shared/tiles';
 
 // ---- contracts (CatalogAdminController) --------------------------------------------------------
 
@@ -280,7 +281,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
       <!-- ticket types (v1 TicketTypesSection) -->
       <section aria-labelledby="types" class="flex flex-col gap-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <div><h2 id="types" class="text-xl font-bold">{{ 'AdminTicketTypes.title' | t }}</h2><p class="max-w-prose text-muted">{{ 'AdminTicketTypes.subtitle' | t }}</p></div>
+          <div class="flex items-start gap-3">${TILE_TYPE_LG}<div><h2 id="types" class="text-xl font-bold">{{ 'AdminTicketTypes.title' | t }}</h2><p class="max-w-prose text-muted">{{ 'AdminTicketTypes.subtitle' | t }}</p></div></div>
           @if (!typeAdding()) { <button type="button" [class]="addBtn" (click)="typeAdding.set(true); typeEdit.set(null)">${PLUS_ICON}{{ 'AdminTicketTypes.add' | t }}</button> }
           @if (typeAdding()) { <app-add-card title="AdminTicketTypes.add" (cancel)="typeAdding.set(false)"><ng-container *ngTemplateOutlet="typeForm; context: { m: nwType, id: 'nt', row: null }" /></app-add-card> }
         </div>
@@ -293,7 +294,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
                 <tr class="border-t border-line" [class.bg-brand-soft]="typeEdit() === r.id" [class.opacity-70]="!r.isActive">
                   <td class="px-2 py-3"><div class="flex items-center gap-2"><span class="w-5 text-muted" dir="ltr">{{ i + 1 }}</span>
                     <ng-container *ngTemplateOutlet="moveBtns; context: { first, last, up: moveType(r, -1), down: moveType(r, 1) }" /></div></td>
-                  <td class="px-2 py-3 font-semibold" dir="auto">{{ i18n.pick(r.nameEn, r.nameAr) }}@if (r.code) { <span class="ms-2 rounded-md bg-brand-soft px-1.5 py-0.5 font-mono text-xs font-bold text-brand-ink" dir="ltr">{{ r.code }}</span> }<span class="block text-xs font-normal text-muted" [attr.dir]="i18n.locale() === 'ar' ? 'ltr' : 'rtl'">{{ i18n.locale() === 'ar' ? r.nameEn : r.nameAr }}</span></td>
+                  <td class="px-2 py-3 font-semibold" dir="auto"><div class="flex items-center gap-3">${TILE_TYPE_MD}<div>{{ i18n.pick(r.nameEn, r.nameAr) }}@if (r.code) { <span class="ms-2 rounded-md bg-brand-soft px-1.5 py-0.5 font-mono text-xs font-bold text-brand-ink" dir="ltr">{{ r.code }}</span> }<span class="block text-xs font-normal text-muted" [attr.dir]="i18n.locale() === 'ar' ? 'ltr' : 'rtl'">{{ i18n.locale() === 'ar' ? r.nameEn : r.nameAr }}</span></div></div></td>
                   <td class="px-2 py-3">{{ 'AdminTicketTypes.linked' | t: { n: r.categoryIds.length } }}</td>
                   <td class="px-2 py-3">{{ r.tickets }}</td>
                   <td class="px-2 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-semibold" [class]="r.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (r.isActive ? 'AdminTicketTypes.visible' : 'AdminTicketTypes.hidden') | t }}</span></td>
@@ -318,7 +319,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
       <!-- categories (v1 overview table) -->
       <section aria-labelledby="cats" class="flex flex-col gap-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="cats" class="text-xl font-bold">{{ 'AdminCatalog.categories' | t }}</h2>
+          <div class="flex items-center gap-3">${TILE_CAT_LG}<h2 id="cats" class="text-xl font-bold">{{ 'AdminCatalog.categories' | t }}</h2></div>
           @if (!addMode()) {
             <div class="flex w-full flex-wrap gap-2 sm:w-auto">
               <button type="button" [class]="addBtn + ' flex-1 sm:flex-none'" (click)="addMode.set('cat')">${PLUS_ICON}{{ 'AdminCatalog.addCategoryBtn' | t }}</button>
@@ -363,7 +364,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
                         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="transition-transform" [class]="openCats().includes(c.id) ? 'rotate-90' : 'rtl:rotate-180'"><path d="M9 6l6 6-6 6" /></svg></button>
                     } @else { <span class="size-9 shrink-0"></span> }
                     <span class="text-muted" dir="ltr">{{ i + 1 }}</span></div></td>
-                  <td class="px-2 py-3 font-semibold" dir="auto">{{ i18n.pick(c.nameEn, c.nameAr) }}@if (c.subcategories.length) { <span class="ms-2 text-xs font-normal text-muted">{{ 'AdminCatalog.subcategories' | t }}: {{ c.subcategories.length }}</span> }</td>
+                  <td class="px-2 py-3 font-semibold" dir="auto"><div class="flex items-center gap-3">${TILE_CAT_MD}<div>{{ i18n.pick(c.nameEn, c.nameAr) }}@if (c.subcategories.length) { <span class="block text-xs font-normal text-muted">{{ 'AdminCatalog.subcategories' | t }}: {{ c.subcategories.length }}</span> }</div></div></td>
                   <td class="px-2 py-3">@if (prio(c.priorityCode); as p) { <span class="inline-flex items-center gap-1.5"><app-prio-icon [name]="p.icon" [color]="p.color" />{{ i18n.pick(p.nameEn, p.nameAr) }}</span> } @else { <span class="text-muted">{{ 'AdminCatalog.noFixedPriorityShort' | t }}</span> }</td>
                   <td class="px-2 py-3">@if (kindName(c.teamKindId) || teamName2(c.defaultTeamId); as tn) { {{ tn }} } @else { <span class="text-muted">{{ 'AdminCatalog.noTeam' | t }}</span> }</td>
                   <td class="px-2 py-3">@if (n > 0) { <a [routerLink]="'/' + i18n.locale() + '/console'" [queryParams]="{ view: 'all', status: 'any', category: c.id }" class="font-semibold text-brand-ink underline">{{ n }} ({{ pct(n) }}%)</a> } @else { <span class="text-muted">0</span> }</td>
@@ -378,7 +379,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
                   @for (x of c.subcategories; track x.id) {
                     <tr class="border-t border-line bg-bg text-sm">
                       <td class="px-2 py-2"></td>
-                      <td class="py-2 ps-8 pe-3 font-medium" dir="auto"><span class="me-2 text-muted" aria-hidden="true">↳</span>{{ i18n.pick(x.nameEn, x.nameAr) }}</td>
+                      <td class="py-2 ps-8 pe-3 font-medium" dir="auto"><span class="flex items-center gap-2">${TILE_SUB_SM}{{ i18n.pick(x.nameEn, x.nameAr) }}</span></td>
                       <td class="px-2 py-2">@if (prio(x.priorityCode); as p) { <span class="inline-flex items-center gap-1.5"><app-prio-icon [name]="p.icon" [color]="p.color" />{{ i18n.pick(p.nameEn, p.nameAr) }}</span> } @else { <span class="text-muted">{{ 'AdminCatalog.inheritsPriority' | t }}</span> }</td>
                       <td class="px-2 py-2 text-muted">-</td><td class="px-2 py-2 text-muted">-</td><td class="px-2 py-2 text-muted">-</td><td class="px-2 py-2 text-muted">-</td>
                       <td class="px-2 py-2">{{ (x.isActive ? 'AdminCatalog.active' : 'AdminCatalog.inactive') | t }}</td>

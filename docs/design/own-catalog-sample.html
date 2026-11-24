@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Own catalog per place</title>
+<style>
+:root{--brand:#2563eb;--ink:#1e3a8a;--soft:#eff4ff;--line:#e3e8f0;--bg:#f5f7fb;--muted:#5b6578;--text:#111827;--ok:#15803d;--oksoft:#e8f6ee;--warn:#8a5a00;--warnsoft:#fff4e0;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,Segoe UI,Arial;background:var(--bg);color:var(--text)}
+main{max-width:1180px;margin:0 auto;padding:22px 16px 60px}h1{font-size:26px;margin:0}h2{font-size:20px;margin:0}h3{font-size:16px;margin:0}.sub{color:var(--muted);margin:4px 0 0;font-size:14px}
+button{font:inherit;cursor:pointer}
+.banner{background:#fff7d6;color:#6b4e00;border-radius:10px;padding:8px 14px;font-size:13px;margin-bottom:14px}
+.tabs{display:flex;gap:4px;margin:16px 0 0;border-bottom:2px solid var(--line);flex-wrap:wrap}.tabs button{border:0;background:none;padding:10px 14px;font-weight:600;color:var(--muted);margin-bottom:-2px;border-bottom:3px solid transparent}.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--brand)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 3px #0000000d;padding:18px;margin-top:14px}
+.card.form{border-top:3px solid var(--brand)}
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 16px;border-radius:9px;border:0;background:var(--brand);color:#fff;font-weight:600;font-size:14px}.q{background:#fff;color:var(--text);border:1px solid var(--line)}.sm{min-height:32px;padding:0 11px;font-size:13px}
+.ghost{background:var(--soft);color:var(--ink)}
+select,input[type=text],input[type=number],textarea{min-height:40px;border:1px solid #cfd6e3;border-radius:8px;padding:8px 10px;font:inherit;background:#fff;width:100%}textarea{min-height:70px}
+label.f{font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px}
+.hint{font-size:12.5px;color:var(--muted);margin:2px 0 0}
+.req{color:var(--red)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.chip{display:inline-flex;align-items:center;border-radius:99px;padding:2px 9px;font-size:11.5px;font-weight:700;white-space:nowrap}
+.chip.sys{background:#eef1f5;color:#475467}.chip.org{background:#f1ecfd;color:#6d4bd1}.chip.own{background:var(--oksoft);color:var(--ok)}
+.code{display:inline-block;background:var(--soft);color:var(--ink);font-size:11px;font-weight:700;border-radius:5px;padding:1px 6px;margin-inline-start:6px}
+.vis{background:var(--oksoft);color:var(--ok);border-radius:99px;padding:2px 10px;font-size:12px;font-weight:700}
+.tbl{border:1px solid var(--line);border-radius:12px;overflow-x:auto;margin-top:12px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}th,td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:start;vertical-align:middle}th{font-size:12px;color:var(--muted);background:#fafbfd;white-space:nowrap}tr:last-child td{border-bottom:0}
+td .ar{display:block;color:var(--muted);font-size:12px;text-align:end}
+tr.subrow td{background:#fbfcfe;font-size:13px}
+.link{color:var(--brand);text-decoration:underline;font-weight:600}
+.arrows button{width:26px;height:26px;border:1px solid var(--line);background:#fff;border-radius:6px;font-size:11px;color:var(--muted)}
+.ro{color:var(--muted);font-size:12.5px}
+.say{background:var(--bg);border-radius:10px;padding:10px 14px;font-size:14px;margin-top:10px}
+.note{background:var(--warnsoft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
+.sec{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}.sec button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 14px;font-weight:600;font-size:14px}.sec button[aria-pressed="true"]{background:var(--soft);border-color:var(--brand);color:var(--ink)}
+.opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;cursor:pointer}
+.opt input{width:18px;height:18px;margin-top:3px;flex:none}.opt small{display:block;color:var(--muted);font-size:12.5px}
+.tick{display:flex;gap:8px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:14px}.tick input{width:18px;height:18px}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;margin-top:6px}.chk input{width:18px;height:18px}
+.pick{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}.pick b{display:block}.pick .subs{color:var(--muted);font-size:13px}
+ul.rules{margin:8px 0 0;padding-inline-start:20px}ul.rules li{margin:5px 0}
+.ico{width:40px;height:40px;border-radius:11px;display:inline-flex;align-items:center;justify-content:center;flex:none}.ico svg{width:22px;height:22px}
+.ico.sm{width:32px;height:32px;border-radius:9px}.ico.sm svg{width:18px;height:18px}.ico.xs{width:22px;height:22px;border-radius:6px}.ico.xs svg{width:14px;height:14px}
+.nm{display:flex;gap:10px;align-items:center}
+.head>.row:first-child{flex-wrap:nowrap;flex:1 1 320px;min-width:0}.head>.row:first-child>div{min-width:0}
+.subchip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:99px;padding:2px 9px 2px 3px;margin:4px 6px 0 0;font-size:12.5px;color:var(--text)}
+.ghead{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.05em;text-transform:uppercase;margin:18px 0 6px}
+.tcard{border:1px solid var(--line);border-radius:12px;margin-top:8px;background:#fff}
+.thead{display:flex;gap:12px;align-items:center;padding:12px 14px;cursor:pointer;flex-wrap:wrap}
+.chev{width:16px;color:var(--muted);font-size:16px}.ticon{width:36px;height:36px;border-radius:9px;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:16px;flex:none}
+.pill{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:11.5px;color:var(--muted)}.pill b{color:var(--text)}
+.pill.meth{background:var(--soft);border-color:var(--soft);color:var(--ink);font-weight:600}
+.avs{display:flex;gap:3px}.av{width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;border:2px solid #fff}
+.borrow{border-top:1px dashed var(--line);padding:10px 14px 12px 64px;font-size:13.5px;color:var(--muted)}
+.tbody{border-top:1px solid var(--line);padding:10px 14px 12px 64px}
+.mrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;font-size:14px;border-bottom:1px dashed var(--line)}
+.mbox{border:1px solid var(--line);border-radius:10px;padding:4px 12px;margin-top:8px;max-height:220px;overflow:auto;display:grid;grid-template-columns:1fr 1fr;column-gap:24px}
+.grid3c{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 16px}
+.newkind{margin-top:12px;background:var(--soft);border-radius:10px;padding:12px}
+@media(max-width:760px){.grid2,.grid3,.grid3c,.mbox{grid-template-columns:1fr}.borrow,.tbody{padding-inline-start:14px}}
+</style></head><body><main>
+<div class="banner"><b>Sample only.</b> Nothing is saved. Switch <b>Signed in as</b>, open <b>Ticket types</b> or <b>Categories and sub-categories</b>, then check <b>What the customer sees</b>.</div>
+<h1>Each place picks or creates its own</h1>
+<p class="sub">Organization and branch admins choose from what already exists or create their own: kinds of team, teams, ticket types, categories and sub-categories. Customers see only what their own place uses.</p>
+<nav class="tabs" id="tabs"></nav>
+<div id="body"></div>
+</main>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const PLACES=[{id:'sys',name:'System',org:null},{id:'akorg',name:'Ahmed Kodira',org:null},{id:'lr',name:'Living Room',org:'akorg'},{id:'kit',name:'Kitchen',org:'akorg'},
+ {id:'cai',name:'Cairo',org:null},{id:'nc',name:'Nasr City',org:'cai'}];
+const P=id=>PLACES.find(p=>p.id===id);
+const pname=id=>P(id).name;
+const PRIOS=['Low','Medium','High','Urgent'];
+let uid=100;
+// Your current system items (from the Ticket types and Categories screens), plus a few made by places.
+let KINDS=[{id:1,name:'Technical support',owner:'sys'},{id:2,name:'Billing support',owner:'sys'},{id:3,name:'Account team',owner:'sys'},{id:4,name:'Sales desk',owner:'sys'},{id:5,name:'Installation team',owner:'akorg'}];
+let TYPES=[{id:21,name:'Report a Problem',ar:'الإبلاغ عن مشكلة',code:'PRB',owner:'sys'},{id:22,name:'Request a Service',ar:'طلب خدمة',code:'REQ',owner:'sys'},
+ {id:23,name:'Inquiry',ar:'استفسار',code:'INQ',owner:'sys'},{id:24,name:'Suggestion / Feedback',ar:'اقتراح / ملاحظات',code:'SUG',owner:'sys'},{id:25,name:'Complaint',ar:'شكوى',code:'CMP',owner:'sys'},
+ {id:26,name:'Home visit',ar:'زيارة منزلية',code:'HV',owner:'akorg'}];
+let CATS=[{id:11,name:'Technical issue',kind:1,owner:'sys'},{id:12,name:'Billing',kind:2,owner:'sys'},{id:13,name:'Account',kind:3,owner:'sys'},{id:14,name:'Access',kind:1,owner:'sys'},
+ {id:15,name:'Sales',kind:4,owner:'sys'},{id:16,name:'Metering',kind:null,owner:'sys'},
+ {id:17,name:'Installation',kind:5,owner:'akorg'},{id:18,name:'Smart TV setup',kind:1,owner:'lr'},{id:19,name:'Network cabling',kind:1,owner:'nc'}];
+let SUBS=[{id:31,cat:11,name:'test',owner:'sys'},{id:35,cat:17,name:'New device',owner:'akorg'},{id:36,cat:17,name:'Move a device',owner:'akorg'},
+ {id:37,cat:11,name:'Router reset',owner:'lr'},{id:38,cat:19,name:'New point',owner:'nc'}];
+const ALL=[11,12,13,14,15,16];
+// What each place uses. typeCats = the "which categories each type shows" ticks of that place. The system row is today's screen.
+const USE={
+ sys:{kinds:[1,2,3,4],types:[21,22,23,24,25],cats:[11,12,13,14,15,16],subs:[31],typeCats:{21:ALL,22:[11,12,13,14],23:ALL,24:ALL,25:ALL}},
+ akorg:{kinds:[1,2,5],types:[21,22,25,26],cats:[11,12,17],subs:[31,35,36],typeCats:{21:[11,12],22:[17],25:[11,12],26:[17]}},
+ lr:{kinds:[1,5],types:[21,26],cats:[11,17,18],subs:[35,36,37],typeCats:{21:[11,18],26:[17,18]}},
+ kit:{kinds:[5],types:[26],cats:[17],subs:[35],typeCats:{26:[17]}},
+ cai:{kinds:[1],types:[21,23],cats:[11,14],subs:[31],typeCats:{21:[11,14],23:[11]}},
+ nc:{kinds:[1],types:[21],cats:[19],subs:[38],typeCats:{21:[19]}}};
+// Staff who work in each place (Works in). Only these can join that place's teams.
+const STAFF={central:['Mostafa Kamel','Dalia Younis','Karim Adel','Omar Fathy','Amira Sobhy','Fady Nabil','Hany Mourad','Ehab Lotfy','Sameh Ibrahim','Agent Alex','Agent Banha','Agent Qalyubia','Mona Reda'],
+ akorg:['Ahmed Kodira Home Branch TL','Rania Saad','Walid Hassan','Nada Fouad'],lr:['Mona Ali','Omar Khaled','Karim Samir','Hany Adel'],kit:['Sara Mahmoud','Youssef Tarek'],
+ cai:['Nour Hassan','Laila Amin','Cairo Organization Admin'],nc:['Tarek Wahba','Mahmoud Gaber']};
+let TEAMS=[
+ {id:1,kind:3,place:'central',members:['Mostafa Kamel','Dalia Younis','Karim Adel'],leader:'Mostafa Kamel',auto:1,open:30,method:'default',active:true},
+ {id:2,kind:2,place:'central',members:['Omar Fathy','Amira Sobhy','Fady Nabil','Hany Mourad'],leader:'Amira Sobhy',auto:2,open:5,method:'default',active:true},
+ {id:3,kind:4,place:'central',members:['Omar Fathy','Ehab Lotfy','Sameh Ibrahim'],leader:'Ehab Lotfy',auto:0,open:7,method:'default',active:true},
+ {id:4,kind:1,place:'central',members:['Mostafa Kamel','Agent Alex','Agent Banha','Agent Qalyubia','Mona Reda','Amira Sobhy','Dalia Younis','Karim Adel'],leader:'Agent Alex',auto:2,open:30,method:'default',active:true},
+ {id:5,kind:1,place:'akorg',members:['Ahmed Kodira Home Branch TL','Rania Saad','Walid Hassan','Nada Fouad'],leader:'Ahmed Kodira Home Branch TL',auto:4,open:6,method:'turns',active:true},
+ {id:6,kind:5,place:'akorg',members:['Rania Saad','Walid Hassan'],leader:'Walid Hassan',auto:2,open:3,method:'leader',active:true},
+ {id:7,kind:1,place:'lr',members:['Mona Ali','Omar Khaled','Karim Samir'],leader:'Mona Ali',auto:3,open:4,method:'default',active:true},
+ {id:8,kind:1,place:'nc',members:['Tarek Wahba'],leader:'Tarek Wahba',auto:1,open:2,method:'shared',active:true}];
+const METHODS={fewest:'Fewest open tickets',turns:'Take turns',shared:'Shared with the team',leader:'Team leader chooses'};
+const SHOW={akorg:['org'],lr:['org','branch'],kit:['branch'],cai:['org','sys'],nc:['branch','sys']};
+// Ticket counts as on today's screen (system); smaller made-up numbers for places.
+const TK={sys:{t:{21:5,22:1},c:{11:35,12:10,13:15,14:6,15:11}}};
+const tk=(v,kind,id)=>v==='sys'?(TK.sys[kind][id]??0):((id*7+v.length*3)%9);
+const VIEWERS={sys:'System admin (today\'s screen)',akorg:'Organization admin · Ahmed Kodira',lr:'Branch admin · Living Room',kit:'Branch admin · Kitchen',cai:'Organization admin · Cairo',nc:'Branch admin · Nasr City'};
+let tab='admin',viewer='lr',sec='types',panel=null,cust='lr';
+
+const K=id=>KINDS.find(x=>x.id===id),T=id=>TYPES.find(x=>x.id===id),C=id=>CATS.find(x=>x.id===id),SB=id=>SUBS.find(x=>x.id===id);
+const team=(k,pl)=>TEAMS.find(t=>t.kind===k&&t.place===pl);
+const isSys=()=>viewer==='sys';
+/** An organization chooses from the system; a branch from the system and its organization. */
+const sources=v=>v==='sys'?[]:P(v).org?['sys',P(v).org]:['sys'];
+const offered=(list,what,v)=>list.filter(x=>sources(v).includes(x.owner)&&!USE[v][what].includes(x.id)&&USE[x.owner][what].includes(x.id));
+const offeredSub=s=>sources(viewer).includes(s.owner)&&USE[s.owner].subs.includes(s.id);
+const chip=(owner,v)=>owner===v?(v==='sys'?'<span class="chip sys">System</span>':'<span class="chip own">Your own</span>'):owner==='sys'?'<span class="chip sys">From the system</span>':`<span class="chip org">From ${esc(pname(owner))}</span>`;
+function handler(k,v){
+ if(k==null)return {txt:'No team',none:true};
+ const n=t=>t.members.length;
+ if(v==='sys')return team(k,'central')?{txt:`Central team · ${n(team(k,'central'))} people`,own:true,t:team(k,'central')}:{txt:'No team yet',none:true};
+ if(team(k,v))return {txt:`Your own team · ${n(team(k,v))} people`,own:true,t:team(k,v)};
+ const o=P(v).org;if(o&&team(k,o))return {txt:`${pname(o)}'s team · ${n(team(k,o))} people`,t:team(k,o),at:o};
+ if(K(k).owner==='sys'&&team(k,'central'))return {txt:`Central team · ${n(team(k,'central'))} people`,t:team(k,'central'),at:'central'};
+ return {txt:'No team yet',none:true};
+}
+
+/** One icon set for the whole system: a rounded tile with a line icon, a colour per thing. */
+const ICONS={
+ team:['#eff4ff','#2563eb','<circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2A4.5 4.5 0 0 1 21 18.5"/>'],
+ type:['#fff4e0','#b45309','<path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4z"/><path d="M14 6v12" stroke-dasharray="2 2"/>'],
+ cat:['#f1ecfd','#6d4bd1','<path d="M3.5 7A1.5 1.5 0 0 1 5 5.5h4l2 2.5h8A1.5 1.5 0 0 1 20.5 9.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z"/>'],
+ sub:['#e8f6ee','#15803d','<path d="M6 4v9a3 3 0 0 0 3 3h9"/><path d="M15 13l3 3-3 3"/>'],
+ eye:['#e0f2fe','#0369a1','<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>'],
+ ticket:['#eff4ff','#2563eb','<path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8.5 12h7M8.5 15.5h5"/>']};
+const ico=(n,size='')=>{const [bg,fg,p]=ICONS[n];return `<span class="ico ${size}" style="background:${bg};color:${fg}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg></span>`};
+
+function render(){
+ $('#tabs').innerHTML=[['admin','Admin screen'],['cust','What the customer sees'],['rules','The rules']].map(([k,l])=>`<button aria-current="${tab===k?'page':'false'}" onclick="tab='${k}';render()">${l}</button>`).join('');
+ $('#body').innerHTML=tab==='admin'?adminView():tab==='cust'?custView():rulesView();
+}
+const go=s=>{sec=s;panel=null;render();};
+function adminView(){
+ const secs=[['teams','Teams','team'],['types','Ticket types','type'],['cats','Categories and sub-categories','cat'],...(isSys()?[]:[['show','What your customers see','eye']])];
+ return `<div class="card"><label class="f" style="max-width:380px">Signed in as
+  <select onchange="viewer=this.value;go(sec==='show'&&this.value==='sys'?'types':sec)">${Object.entries(VIEWERS).map(([k,l])=>`<option value="${k}" ${k===viewer?'selected':''}>${l}</option>`).join('')}</select></label>
+  ${isSys()?'<p class="hint" style="margin-top:8px">The system admin keeps today\'s screens. What is made here is what organizations and branches can choose from.</p>':''}
+  <div class="sec">${secs.map(([k,l,i])=>`<button aria-pressed="${sec===k}" onclick="go('${k}')" class="row" style="gap:8px">${ico(i,'xs')}${l}</button>`).join('')}</div>
+ </div>${({teams:teamsSec,types:typesSec,cats:catsSec,show:showSec})[sec]()}`;
+}
+const where=()=>isSys()?'':` in ${esc(pname(viewer))}`;
+const chooseBtn=()=>isSys()?'':`<button class="btn ghost" onclick="panel='use';render()">+ Choose from current</button>`;
+const arrows=(i,n)=>`<span class="arrows row" style="gap:4px"><button ${i?'':'disabled'}>▲</button><button ${i<n-1?'':'disabled'}>▼</button></span>`;
+/** Actions: own items can be edited; anything can be hidden for this place (Stop using) — the system admin's Hide is today's Hide. */
+const acts=(owner,what,id)=>`<span class="row" style="gap:6px">${owner===viewer?'<button class="btn q sm">Edit</button>':''}<button class="btn q sm" onclick="drop('${what}',${id})">${isSys()?'Hide':'Stop using'}</button></span>`;
+function drop(what,id){if(isSys())return;USE[viewer][what]=USE[viewer][what].filter(x=>x!==id);render();}
+function choose(what,sel){const u=USE[viewer];$$(sel+':checked').forEach(x=>{const id=+x.value;u[what].push(id);
+  if(what==='types'){u.typeCats[id]=(USE[T(id).owner].typeCats[id]??[]).filter(c=>u.cats.includes(c));}
+  if(what==='cats'){const k=C(id).kind;if(k&&!u.kinds.includes(k))u.kinds.push(k);SUBS.filter(s=>s.cat===id&&offeredSub(s)&&!u.subs.includes(s.id)).forEach(s=>u.subs.push(s.id));}
+ });panel=null;render();}
+const closeBtn=`<button class="btn q sm" onclick="panel=null;render()">✕ Cancel</button>`;
+function choosePanel(title,list,cls,what,line){
+ return `<div class="card form"><div class="head"><h3>${title}</h3>${closeBtn}</div>
+  ${list.length?list.map(x=>`<label class="opt"><input type="checkbox" value="${x.id}" class="${cls}"><span>${line(x)}</span></label>`).join('')+`<button class="btn" style="margin-top:12px" onclick="choose('${what}','.${cls}')">Use selected</button>`:'<p class="ro" style="margin-top:8px">You already use everything available.</p>'}</div>`;
+}
+const from=o=>o==='sys'?'System':'From '+esc(pname(o));
+
+// ---------------- kinds of team and teams
+/** Places whose teams this admin manages: system = central + every place; organization = itself + its branches; branch = itself. */
+const teamPlaces=v=>v==='sys'?['central',...PLACES.filter(p=>p.id!=='sys').map(p=>p.id)]:P(v).org?[v]:[v,...PLACES.filter(p=>p.org===v).map(p=>p.id)];
+const placeLabel=p=>p==='central'?'Central (every place)':P(p).org?`${pname(P(p).org)} · ${pname(p)}`:`${pname(p)} (whole organization)`;
+const teamName=t=>t.place==='central'?K(t.kind).name:`${K(t.kind).name} (${pname(t.place)})`;
+const COLORS=[['#e8f6ee','#15803d'],['#eff4ff','#1e3a8a'],['#fff4e0','#8a5a00'],['#f1ecfd','#6d4bd1'],['#fde8e8','#b42318']];
+const ini=n=>n.split(' ').filter(w=>/^[A-Z]/.test(w)).slice(0,2).map(w=>w[0]).join('');
+const avatars=ms=>`<span class="avs">${ms.slice(0,5).map((m,i)=>`<span class="av" title="${esc(m)}" style="background:${COLORS[i%5][0]};color:${COLORS[i%5][1]}">${ini(m)}</span>`).join('')}${ms.length>5?`<span class="av" style="background:#eef1f5;color:#475467">+${ms.length-5}</span>`:''}</span>`;
+let open=new Set(),fKind='',fPlace='',search='';
+function teamCard(t,{borrowed=false,kindId}={}){
+ const m=t.method==='default'?`Default · ${METHODS.fewest}`:METHODS[t.method],isOpen=open.has(t.id+(borrowed?'b':''));
+ return `<div class="tcard"><div class="thead" onclick="tog('${t.id+(borrowed?'b':'')}')"><span class="chev">${isOpen?'⌄':'›'}</span>${ico('team')}
+  <div style="flex:1;min-width:0"><div class="row" style="gap:8px"><b>${esc(teamName(t))}</b><span class="chip own" style="font-size:11px">Active</span>${isSys()?'':chip(K(t.kind).owner,viewer).replace('From the system','Kind from the system').replace('Your own','Your own kind')}</div>
+   <div class="row" style="gap:6px;margin-top:6px"><span class="pill"><b>${t.members.length}</b> members</span><span class="pill"><b>1</b> leaders</span><span class="pill"><b>${t.auto}</b> on automatic assignment</span><span class="pill"><b>${t.open}</b> open tickets</span><span class="pill meth">${m}</span></div></div>
+  ${avatars(t.members)}</div>
+  ${borrowed?`<div class="borrow">Your customers' <b>${esc(K(t.kind).name)}</b> tickets go to this team${t.place==='central'?' (central)':` (${esc(pname(t.place))})`}. You can see it but not change it.
+   <span class="row" style="margin-top:8px"><button class="btn sm" onclick="panel='new';fKind='${t.kind}';fPlace='${viewer}';render()">Create our own team</button><button class="btn q sm" onclick="drop('kinds',${t.kind})">Stop using</button></span></div>`:''}
+  ${isOpen?`<div class="tbody">${t.members.map(x=>`<div class="mrow"><span>${esc(x)}</span>${x===t.leader?'<span class="pill meth">★ Team leader</span>':''}</div>`).join('')}${borrowed?'':`<div class="row" style="margin-top:10px"><button class="btn q sm">Edit</button><button class="btn q sm">Members</button></div>`}</div>`:''}
+ </div>`;
+}
+function tog(id){open.has(id)?open.delete(id):open.add(id);render();}
+function teamsSec(){
+ const u=USE[viewer],places=teamPlaces(viewer),q=search.toLowerCase();
+ const hit=t=>!q||teamName(t).toLowerCase().includes(q)||t.members.some(m=>m.toLowerCase().includes(q));
+ const own=places.map(p=>({p,list:TEAMS.filter(t=>t.place===p&&hit(t))})).filter(g=>g.list.length||!isSys());
+ const borrowed=isSys()?[]:u.kinds.map(k=>({k,h:handler(k,viewer)})).filter(x=>!x.h.own);
+ return `${panel==='use'?chooseKindsPanel():''}${panel==='new'?teamForm():''}
+ <div class="card"><div class="head"><div class="row" style="gap:12px;align-items:flex-start">${ico('team')}<div><h2>Teams${where()}</h2><p class="sub">${isSys()?'Central teams handle tickets from every place that has no team of that kind.':'Use an existing team for a kind of work, or create your own team. Only staff who work in your places can join your teams.'}</p></div></div>
+  <div class="row">${chooseBtn()}<button class="btn" onclick="panel='new';fKind='';fPlace='';render()">+ Add a team</button></div></div>
+  <div class="row" style="margin-top:12px"><input type="text" placeholder="Search teams or members" value="${esc(search)}" onchange="search=this.value;render()" style="flex:1;min-width:200px"><button class="btn q sm" onclick="TEAMS.forEach(t=>{open.add(t.id+'');open.add(t.id+'b')});render()">Expand all</button><button class="btn q sm" onclick="open.clear();render()">Collapse all</button></div>
+  ${own.map(g=>`<p class="ghead">${esc(placeLabel(g.p))}</p>${g.list.map(t=>teamCard(t)).join('')||`<p class="ro">No teams of your own here yet.</p>`}`).join('')}
+  ${borrowed.length?`<p class="ghead">Used from other places</p>${borrowed.map(({k,h})=>h.none?`<div class="tcard"><div class="thead"><b style="flex:1">${esc(K(k).name)}</b><span style="color:var(--warn);font-size:13px">No team yet. Tickets of this kind wait with no team.</span><button class="btn sm" onclick="panel='new';fKind='${k}';fPlace='${viewer}';render()">Create our own team</button></div></div>`:teamCard(h.t,{borrowed:true})).join('')}`:''}
+ </div>`;
+}
+function chooseKindsPanel(){
+ const list=offered(KINDS,'kinds',viewer);
+ return `<div class="card form"><div class="head"><h3>Choose from current</h3>${closeBtn}</div><p class="hint">Use a kind of team that already exists. Its tickets go to the team shown, until you create your own team for it.</p>
+  ${list.length?list.map(k=>{const h=handler(k.id,viewer);return `<label class="opt"><input type="checkbox" value="${k.id}" class="pickK"><span><b>${esc(k.name)}</b><small>${from(k.owner)} · handled by ${esc(h.txt)}</small></span></label>`}).join('')+`<button class="btn" style="margin-top:12px" onclick="choose('kinds','.pickK')">Use selected</button>`:'<p class="ro" style="margin-top:8px">You already use every kind available.</p>'}</div>`;
+}
+/** Add a team: the kind list has the kinds you use, the ones you can choose, and "create a new kind". Members are only staff of the chosen place. */
+function teamForm(){
+ const u=USE[viewer],places=teamPlaces(viewer),place=fPlace||places[0];
+ const used=isSys()?KINDS.filter(k=>k.owner==='sys').map(k=>k.id):u.kinds,avail=isSys()?[]:offered(KINDS,'kinds',viewer).map(k=>k.id);
+ return `<div class="card form"><div class="head"><h3>Add a team</h3>${closeBtn}</div>
+  <div class="grid3c" style="margin-top:12px">
+   <label class="f">Kind of team <span class="req">*</span><select id="fKind" onchange="fKind=this.value;fPlace=$('#fPlace').value;render()"><option value="">Pick a kind</option>
+    <optgroup label="${isSys()?'System kinds':'Kinds you use'}">${used.map(k=>`<option value="${k}" ${fKind==k?'selected':''}>${esc(K(k).name)}</option>`).join('')}</optgroup>
+    ${avail.length?`<optgroup label="Choose from current">${avail.map(k=>`<option value="${k}" ${fKind==k?'selected':''}>${esc(K(k).name)} · ${from(K(k).owner).toLowerCase()}</option>`).join('')}</optgroup>`:''}
+    <option value="new" ${fKind==='new'?'selected':''}>+ Create a new kind…</option></select></label>
+   <label class="f">Place <span class="req">*</span><select id="fPlace" onchange="fPlace=this.value;fKind=$('#fKind').value;render()">${places.map(p=>`<option value="${p}" ${p===place?'selected':''}>${esc(placeLabel(p))}</option>`).join('')}</select></label>
+   <label class="f">Gives out tickets by<select id="fMeth"><option value="default">Default (Fewest open tickets)</option>${Object.entries(METHODS).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select></label>
+  </div>
+  ${fKind==='new'?`<div class="grid2 newkind"><label class="f">New kind · name (English) <span class="req">*</span><input type="text" id="nKind" placeholder="e.g. Field visits"></label><label class="f">New kind · name (Arabic) <span class="req">*</span><input type="text" dir="rtl"></label>
+   <p class="hint" style="grid-column:1/-1">${isSys()?'Every place can choose this kind.':`Only ${esc(pname(viewer))}${P(viewer).org?'':' and its branches'} can use this kind.`}</p></div>`:''}
+  <p class="hint" style="margin-top:8px">The name is made for you, e.g. "Billing (Kitchen)". You can change it later under Settings.</p>
+  <p style="margin:12px 0 0;font-weight:600;font-size:14px">Members (optional)</p><p class="hint">Only staff who work in ${esc(placeLabel(place))} are listed.</p>
+  <div class="mbox">${(STAFF[place]??[]).map(s=>`<div class="mrow"><label class="chk" style="margin:0"><input type="checkbox" class="fm" value="${esc(s)}">${esc(s)}</label><button class="pill meth" style="border:0">★ Team leader</button></div>`).join('')||'<p class="ro">No staff work here yet.</p>'}</div>
+  <div class="row" style="margin-top:14px"><button class="btn" onclick="addTeam()">Create</button><span class="ro"><span class="req">*</span> Required</span><span id="fErr" style="color:var(--red);font-size:13px"></span></div></div>`;
+}
+function addTeam(){
+ let k=$('#fKind').value;const place=$('#fPlace').value,u=USE[viewer];
+ if(!k){$('#fErr').textContent='Pick a kind.';return;}
+ if(k==='new'){const n=$('#nKind').value.trim();if(!n){$('#fErr').textContent='Type the new kind\'s name.';return;}k=++uid;KINDS.push({id:k,name:n,owner:viewer});}
+ k=+k;if(team(k,place)){$('#fErr').textContent=`${placeLabel(place)} already has a ${K(k).name} team.`;return;}
+ if(!isSys()&&!u.kinds.includes(k))u.kinds.push(k);
+ const ms=$$('.fm:checked').map(x=>x.value);
+ TEAMS.push({id:++uid,kind:k,place,members:ms,leader:ms[0],auto:ms.length,open:0,method:$('#fMeth').value,active:true});
+ panel=null;fKind='';fPlace='';render();
+}
+
+// ---------------- ticket types
+function typesSec(){
+ const u=USE[viewer];
+ return `${panel==='use'?choosePanel('Choose ticket types',offered(TYPES,'types',viewer),'pickT','types',t=>`<b>${esc(t.name)}<span class="code">${esc(t.code)}</span></b><small>${from(t.owner)} · the categories you also use are ticked for you</small>`):''}
+ ${panel==='new'?typeForm():''}
+ <div class="card"><div class="head"><div class="row" style="gap:12px;align-items:flex-start">${ico('type')}<div><h2>Ticket types${where()}</h2><p class="sub">Customers pick a type first. It decides which categories they see.</p></div></div><div class="row">${chooseBtn()}<button class="btn" onclick="panel='new';render()">+ Add ticket type</button></div></div>
+  ${u.types.length?'':'<div class="note">You use no ticket types yet, so your customers cannot open a ticket.</div>'}
+  <div class="tbl"><table><thead><tr><th>Order</th><th>Name</th><th>Categories</th><th>Tickets</th><th>Shown to customers</th>${isSys()?'':'<th>Comes from</th>'}<th>Actions</th></tr></thead><tbody>
+  ${u.types.map((id,i)=>{const t=T(id),n=(u.typeCats[id]??[]).length;return `<tr><td><span class="row" style="gap:8px">${i+1} ${arrows(i,u.types.length)}</span></td><td><div class="nm">${ico('type','sm')}<div style="flex:1"><b>${esc(t.name)}</b><span class="code">${esc(t.code)}</span><span class="ar">${esc(t.ar)}</span></div></div></td>
+   <td>${n?`<span class="link">${n} linked</span>`:'<span style="color:var(--red)">0 linked</span>'}</td><td>${tk(viewer,'t',id)}</td><td><span class="vis">Visible</span></td>${isSys()?'':`<td>${chip(t.owner,viewer)}</td>`}<td>${acts(t.owner,'types',id)}</td></tr>`}).join('')}
+  </tbody></table></div>
+  <p class="hint" style="margin-top:8px">${isSys()?'Hiding a type removes it from the new ticket form only. Old tickets keep their type.':'Stop using removes it from your customers\' new ticket form only. Old tickets keep their type. Only the place that made a type can edit it.'}</p>
+  ${linksGrid()}
+ </div>`;
+}
+function typeForm(){
+ const u=USE[viewer];
+ return `<div class="card form"><div class="head"><h3>Add ticket type</h3>${closeBtn}</div><div class="grid2" style="margin-top:12px">
+   <label class="f">Name (English) <span class="req">*</span><input type="text" id="tName"></label><label class="f">Name (Arabic) <span class="req">*</span><input type="text" id="tAr" dir="rtl"></label>
+   <label class="f">Description (English)<textarea></textarea></label><label class="f">Description (Arabic)<textarea dir="rtl"></textarea></label>
+   <label class="f">Examples (English)<input type="text"></label><label class="f">Examples (Arabic)<input type="text" dir="rtl"></label>
+   <div><label class="f">Code in the ticket number<input type="text" id="tCode"></label><p class="hint">2 to 4 English letters, for example REQ. Leave empty to use the prefix.</p></div></div>
+   <p style="margin:14px 0 0;font-weight:600;font-size:14px">Available categories</p><p class="hint">${isSys()?'':'Only categories used'+where()+'. '}Customers who pick this type only see the ticked categories.</p>
+   <div class="grid3" style="margin-top:8px">${u.cats.map(c=>`<label class="tick"><input type="checkbox" class="tc" value="${c}" checked>${esc(C(c).name)}</label>`).join('')}</div>
+   <label class="chk" style="margin-top:12px"><input type="checkbox" checked>Show to customers on the new ticket form</label>
+   <div class="row" style="margin-top:14px"><button class="btn" onclick="newType()">Add ticket type</button><span class="ro"><span class="req">*</span> Required</span></div></div>`;
+}
+function newType(){const n=$('#tName').value.trim();if(!n)return;const id=++uid,cs=$$('.tc:checked').map(x=>+x.value);TYPES.push({id,name:n,ar:$('#tAr').value.trim(),code:$('#tCode').value.trim().toUpperCase(),owner:viewer});USE[viewer].types.push(id);USE[viewer].typeCats[id]=cs;panel=null;render();}
+/** "Which categories each type shows" — for this place only. */
+function linksGrid(){
+ const u=USE[viewer];if(!u.types.length||!u.cats.length)return '';
+ return `<h3 style="margin-top:22px">Which categories each type shows${where()}</h3>
+  <p class="hint">Tick a box to let customers choose that category after picking that type. A category can belong to many types.${isSys()?'':' Only types and categories used here are listed, and your ticks do not change other places.'}</p>
+  <div class="tbl"><table><thead><tr><th>Category</th>${u.types.map(t=>`<th style="text-align:center">${esc(T(t).name)}${isSys()?'':'<br>'+chip(T(t).owner,viewer)}</th>`).join('')}<th style="text-align:center">Types</th></tr></thead><tbody>
+  ${u.cats.map(c=>{const n=u.types.filter(t=>(u.typeCats[t]??[]).includes(c)).length;return `<tr><td><b style="${n?'':'color:var(--red)'}">${esc(C(c).name)}</b></td>${u.types.map(t=>`<td style="text-align:center"><input type="checkbox" class="lk" data-t="${t}" data-c="${c}" style="width:18px;height:18px" ${(u.typeCats[t]??[]).includes(c)?'checked':''}></td>`).join('')}<td style="text-align:center"><b>${n} / ${u.types.length}</b></td></tr>`}).join('')}
+  </tbody></table></div>
+  <p class="hint" style="margin-top:6px">A category linked to no type (shown in red) cannot be chosen by customers.</p>
+  <button class="btn" style="margin-top:10px" onclick="saveLinks()">Save links</button>`;
+}
+function saveLinks(){const u=USE[viewer];u.types.forEach(t=>u.typeCats[t]=[]);$$('.lk:checked').forEach(x=>u.typeCats[+x.dataset.t].push(+x.dataset.c));render();}
+
+// ---------------- categories and sub-categories
+function catsSec(){
+ const u=USE[viewer],subsAvail=SUBS.filter(s=>u.cats.includes(s.cat)&&!u.subs.includes(s.id)&&offeredSub(s));
+ return `${panel==='use'?`<div class="card form"><div class="head"><h3>Choose from current</h3>${closeBtn}</div>
+   <p style="margin:10px 0 0;font-weight:600;font-size:14px">Categories</p>${offered(CATS,'cats',viewer).map(c=>`<label class="opt"><input type="checkbox" value="${c.id}" class="pickC"><span><b>${esc(c.name)}</b><small>${from(c.owner)} · handled by ${c.kind?esc(K(c.kind).name):'no team'} · its sub-categories come with it</small></span></label>`).join('')||'<p class="ro">You already use every category available.</p>'}
+   <p style="margin:14px 0 0;font-weight:600;font-size:14px">Sub-categories of the categories you use</p>${subsAvail.map(s=>`<label class="opt"><input type="checkbox" value="${s.id}" class="pickS"><span><b>${esc(C(s.cat).name)} › ${esc(s.name)}</b><small>${from(s.owner)}</small></span></label>`).join('')||'<p class="ro">None left to choose.</p>'}
+   <button class="btn" style="margin-top:12px" onclick="const s=$$('.pickS:checked').map(x=>+x.value);choose('cats','.pickC');s.forEach(id=>USE[viewer].subs.includes(id)||USE[viewer].subs.push(id));render()">Use selected</button></div>`:''}
+ ${panel==='new'?catForm():''}${panel==='newSub'?subForm():''}
+ <div class="card"><div class="head"><div class="row" style="gap:12px;align-items:flex-start">${ico('cat')}<div><h2>Categories and Sub-Categories${where()}</h2>${isSys()?'':`<p class="sub">You can add your own sub-categories under any category you use, even one from the system. Only your customers see them.</p>`}</div></div>
+  <div class="row">${chooseBtn()}<button class="btn" onclick="panel='new';render()">+ Add Category</button><button class="btn" onclick="panel='newSub';render()">+ Add Sub-Category</button></div></div>
+  <div class="tbl"><table><thead><tr><th>#</th><th>Name</th><th>Priority</th><th>Handled by</th><th>Tickets</th><th>Type</th><th>Auto-assign</th><th>Status</th>${isSys()?'':'<th>Comes from</th>'}<th>Actions</th></tr></thead><tbody>
+  ${u.cats.map((id,i)=>{const c=C(id),ss=u.subs.filter(s=>SB(s).cat===id),n=tk(viewer,'c',id),h=handler(c.kind,viewer);
+   return `<tr><td>${ss.length?'⌄ ':''}${i+1}</td><td><div class="nm">${ico('cat','sm')}<div><b>${esc(c.name)}</b>${ss.length?`<br><span class="ro">Subcategories: ${ss.length}</span>`:''}</div></div></td><td><span style="color:var(--muted)">By SLA / default</span></td>
+   <td>${c.kind?esc(K(c.kind).name):'No team'}${isSys()?'':`<br><small class="ro">${esc(h.txt)}</small>`}</td><td>${n?`<span class="link">${n}</span>`:'0'}</td><td>Public</td><td><b>ON</b></td><td>Active</td>${isSys()?'':`<td>${chip(c.owner,viewer)}</td>`}
+   <td><span class="row" style="gap:6px">${arrows(i,u.cats.length)}${acts(c.owner,'cats',id)}</span></td></tr>
+   ${ss.map(s=>{const x=SB(s);return `<tr class="subrow"><td></td><td style="padding-inline-start:34px"><div class="nm">${ico('sub','xs')}${esc(x.name)}</div></td><td class="ro">Same as category</td><td class="ro">–</td><td class="ro">–</td><td class="ro">–</td><td class="ro">–</td><td>Active</td>${isSys()?'':`<td>${chip(x.owner,viewer)}</td>`}<td>${acts(x.owner,'subs',s)}</td></tr>`}).join('')}`}).join('')}
+  </tbody></table></div></div>`;
+}
+function catForm(){
+ const u=USE[viewer];
+ return `<div class="card form"><div class="head"><h3>Add Category</h3>${closeBtn}</div><div class="grid2" style="margin-top:12px">
+   <label class="f">Name (English) <span class="req">*</span><input type="text" id="cName"></label><label class="f">Name (Arabic) <span class="req">*</span><input type="text" dir="rtl"></label>
+   <div><label class="f">Handled by (kind of team)<select id="cKind"><option value="">No team</option>${u.kinds.map(k=>`<option value="${k}">${esc(K(k).name)}</option>`).join('')}</select></label><p class="hint">${isSys()?'':'Only kinds of team used'+where()+'. '}The ticket goes to this kind of team in the customer's branch, then organization, then the central team.</p></div>
+   <div><label class="f">Fixed priority<select><option>None (staff choose)</option>${PRIOS.map(p=>`<option>${p}</option>`).join('')}</select></label><p class="hint">New tickets get this priority automatically and staff cannot change it. A subcategory overrides its category.</p></div>
+   <label class="f">Sort order<input type="number" value="0"></label>
+   <div><label class="chk"><input type="checkbox" checked>Active</label><label class="chk"><input type="checkbox">Private category (staff only)</label><label class="chk"><input type="checkbox" checked>Auto-assign</label></div></div>
+   <label class="chk" style="margin-top:10px"><input type="checkbox" checked>Show it under these ticket types${where()}: ${u.types.map(t=>esc(T(t).name)).join(', ')}</label>
+   <div class="row" style="margin-top:14px"><button class="btn" onclick="newCat()">Add category</button><span class="ro"><span class="req">*</span> Required</span></div></div>`;
+}
+function newCat(){const n=$('#cName').value.trim();if(!n)return;const id=++uid,u=USE[viewer];CATS.push({id,name:n,kind:$('#cKind').value?+$('#cKind').value:null,owner:viewer});u.cats.push(id);u.types.forEach(t=>(u.typeCats[t]??=[]).push(id));panel=null;render();}
+function subForm(){
+ const u=USE[viewer];
+ return `<div class="card form"><div class="head"><h3>Add Sub-Category</h3>${closeBtn}</div>
+   <label class="f" style="max-width:360px;margin-top:12px">Category the sub-category belongs to<select id="sCat">${u.cats.map(c=>`<option value="${c}">${esc(C(c).name)}${C(c).owner===viewer?'':' ('+from(C(c).owner).toLowerCase()+')'}</option>`).join('')}</select></label>
+   <div class="grid2" style="margin-top:12px"><label class="f">Name (English) <span class="req">*</span><input type="text" id="sName"></label><label class="f">Name (Arabic) <span class="req">*</span><input type="text" dir="rtl"></label>
+   <label class="f">Fixed priority<select><option>Same as category</option>${PRIOS.map(p=>`<option>${p}</option>`).join('')}</select></label><label class="f">Sort order<input type="number" value="0"></label></div>
+   <label class="chk" style="margin-top:10px"><input type="checkbox" checked>Active</label>
+   <div class="row" style="margin-top:14px"><button class="btn" onclick="newSub()">Add subcategory</button><span class="ro"><span class="req">*</span> Required</span></div></div>`;
+}
+function newSub(){const n=$('#sName').value.trim();if(!n)return;const id=++uid;SUBS.push({id,cat:+$('#sCat').value,name:n,owner:viewer});USE[viewer].subs.push(id);panel=null;render();}
+
+// ---------------- branch setting
+/** The three sources a customer can see. A branch has all three; an organization (customers with no branch) has organization and system. */
+const SRC_LABEL={org:'His organization',branch:'His branch',sys:'All system'};
+const srcOf=pid=>P(pid).org?['org','branch','sys']:['org','sys'];
+const srcPlace=(pid,s)=>s==='sys'?'sys':s==='branch'?pid:(P(pid).org??pid);
+function showSec(){
+ const pl=P(viewer),org=pname(pl.org??viewer),v=SHOW[viewer];
+ const desc={org:`Everything ${esc(org)} uses: its own items and what it chose from the system.`,branch:`Everything ${esc(pl.name)} uses: its own items and what it chose.`,sys:'Every ticket type, category and sub-category the system admin uses.'};
+ const name={org:`${SRC_LABEL.org} · ${esc(org)}`,branch:`${SRC_LABEL.branch} · ${esc(pl.name)}`,sys:SRC_LABEL.sys};
+ return `<div class="card"><div class="row" style="gap:12px">${ico('eye')}<div><h2>What your customers see</h2><p class="sub">Tick one, two${pl.org?' or all three':''}. Customers in ${esc(pl.name)}${pl.org?'':' with no branch'} see everything from the ticked places together.</p></div></div>
+  ${srcOf(viewer).map(k=>`<label class="opt"><input type="checkbox" ${v.includes(k)?'checked':''} onchange="setShow('${k}',this.checked)"><span><b>${name[k]}</b><small>${desc[k]}</small></span></label>`).join('')}
+  <p id="showErr" style="color:var(--red);font-size:13px;margin:8px 0 0"></p>
+  <div class="say">Right now your customers see <b>${custTree(viewer).length}</b> ticket types and <b>${custTree(viewer).reduce((n,x)=>n+x.cats.length,0)}</b> categories. <a href="#" onclick="tab='cust';cust='${viewer}';render();return false">See them</a></div>
+  ${pl.org?'':'<p class="hint" style="margin-top:8px">Branches of your organization set this for their own customers.</p>'}</div>`;
+}
+function setShow(k,on){const v=SHOW[viewer];if(!on&&v.length===1){render();$('#showErr').textContent='Keep at least one ticked, or your customers cannot open a ticket.';return;}SHOW[viewer]=on?[...v,k]:v.filter(x=>x!==k);render();}
+
+/** The new-ticket list for a customer: everything from the places their own place ticked. */
+function custTree(placeId){
+ const places=[...new Set(SHOW[placeId].map(s=>srcPlace(placeId,s)))];
+ const types=[...new Set(places.flatMap(p=>USE[p].types))];
+ const subs=[...new Set(places.flatMap(p=>USE[p].subs))].map(SB);
+ return types.map(t=>{const cats=[...new Set(places.flatMap(p=>USE[p].types.includes(t)?USE[p].typeCats[t]??[]:[]))];
+  return {t:T(t),cats:cats.map(c=>({c:C(c),subs:subs.filter(s=>s.cat===c)}))};}).filter(x=>x.cats.length);
+}
+function custView(){
+ const tree=custTree(cust),pl=P(cust);
+ const label=p=>p.org?`${pname(p.org)} · ${p.name} (branch customer)`:`${p.name} (organization customer, no branch)`;
+ return `<div class="card"><label class="f" style="max-width:440px">Customer in
+  <select onchange="cust=this.value;render()">${PLACES.filter(p=>p.id!=='sys').map(p=>`<option value="${p.id}" ${p.id===cust?'selected':''}>${esc(label(p))}</option>`).join('')}</select></label>
+  <div class="say">${esc(pl.name)} setting: <b>${SHOW[cust].map(s=>SRC_LABEL[s]+(s==='sys'?'':' ('+esc(pname(srcPlace(cust,s)))+')')).join(' + ')}</b>. This customer sees everything from these together. Never anything from other organizations or branches.</div>
+ </div>
+ <div class="card"><div class="row" style="gap:12px">${ico('ticket')}<h2>New ticket</h2></div>
+  ${tree.length?tree.map(x=>`<div class="row" style="gap:10px;margin-top:16px">${ico('type','sm')}<h3>${esc(x.t.name)} <span class="code">${esc(x.t.code)}</span></h3></div>${x.cats.map(({c,subs})=>`<div class="pick row" style="gap:10px;align-items:flex-start">${ico('cat','sm')}<div><b>${esc(c.name)}</b>${subs.length?`<div class="subs">${subs.map(s=>`<span class="subchip">${ico('sub','xs')}${esc(s.name)}</span>`).join('')}</div>`:''}</div></div>`).join('')}`).join(''):'<div class="note">Nothing to pick. The customer cannot open a ticket until the admin adds some.</div>'}
+ </div>`;
+}
+
+function rulesView(){
+ return `<div class="card"><h2>The rules</h2><ul class="rules">
+ <li><b>System admin</b> keeps today's screens. Everything they make is what organizations and branches can choose from.</li>
+ <li><b>Organization admin</b> chooses from the system, or creates their own. <b>Branch admin</b> chooses from the system and from their organization, or creates their own.</li>
+ <li>Each screen has <b>+ Choose from current</b> next to the usual <b>+ Add</b> buttons, and a <b>Comes from</b> column.</li>
+ <li><b>Which categories each type shows:</b> each place has its own grid with only the types and categories it uses. Its ticks do not change the system or other places.</li>
+ <li><b>Categories:</b> choosing one brings its sub-categories. A new category can only use kinds of team used in that place.</li>
+ <li><b>Sub-categories:</b> a place can add its own under any category it uses, even a system one. Only its customers see them.</li>
+ <li><b>Teams:</b> for each kind, a place creates its own team or uses the organization's or the central team.</li>
+ <li><b>What your customers see:</b> a branch admin ticks any of <b>His organization</b>, <b>His branch</b>, <b>All system</b> (one, two or all three). An organization admin ticks <b>His organization</b> and/or <b>All system</b> for customers with no branch. At least one must stay ticked.</li>
+ <li>Customers never see anything from other organizations or branches.</li>
+ <li><b>Icons:</b> teams, ticket types, categories and sub-categories each get their own icon and colour, used on every screen in the system, including the system admin's screens and the customer's new ticket form.</li>
+ <li><b>Stop using</b> hides an item for that place only. Old tickets keep their type and category. Only the place that made an item can edit it.</li>
+ </ul></div>`;
+}
+render();
+</script></body></html>

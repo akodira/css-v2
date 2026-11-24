@@ -15,18 +15,20 @@ public sealed record NewTicketOptions(IReadOnlyList<TypeOption> Types, IReadOnly
     IReadOnlyList<PriorityOption> Priorities, IReadOnlyList<FieldOption> Fields, bool CustomerPicksPriority);
 
 /// <summary>Everything the "new ticket" form needs: type, then category, then subcategory and custom fields.</summary>
-public sealed class CatalogQueries(ICcsDbContext db, AccessService access)
+public sealed class CatalogQueries(ICcsDbContext db, AccessService access, PlaceCatalog places)
 {
-    public async Task<NewTicketOptions> NewTicketOptionsAsync(CancellationToken ct = default)
+    /// <summary>A customer gets what their place shows them; staff get the chosen customer's list, or everything before one is chosen.</summary>
+    public async Task<NewTicketOptions> NewTicketOptionsAsync(Guid? requesterId = null, CancellationToken ct = default)
     {
         var c = await access.RequireSignedInAsync(ct);
-        var links = await db.TicketTypeCategories.AsNoTracking().ToListAsync(ct);
-        var types = (await db.TicketTypes.AsNoTracking().Where(t => t.IsActive).OrderBy(t => t.SortOrder).ThenBy(t => t.NameEn).ToListAsync(ct))
+        var allowed = c.Customer ? await places.ForUserAsync(c.UserId, ct)
+            : requesterId is Guid rid ? await places.ForUserAsync(rid, ct) : await places.EverythingAsync(ct);
+        var types = (await db.TicketTypes.AsNoTracking().Where(t => allowed.Types.Contains(t.Id)).OrderBy(t => t.SortOrder).ThenBy(t => t.NameEn).ToListAsync(ct))
             .Select(t => new TypeOption(t.Id, t.NameEn, t.NameAr, t.DescriptionEn, t.DescriptionAr, t.ExamplesEn, t.ExamplesAr,
-                links.Where(l => l.TypeId == t.Id).Select(l => l.CategoryId).ToList()))
+                allowed.Links.Where(l => l.Type == t.Id).Select(l => l.Category).ToList()))
             .ToList();
-        var subs = await db.TicketSubcategories.AsNoTracking().Where(s => s.IsActive).OrderBy(s => s.SortOrder).ThenBy(s => s.NameEn).ToListAsync(ct);
-        var cats = (await db.TicketCategories.AsNoTracking().Where(x => x.IsActive && (!x.IsPrivate || c.Internal))
+        var subs = await db.TicketSubcategories.AsNoTracking().Where(s => allowed.Subcategories.Contains(s.Id)).OrderBy(s => s.SortOrder).ThenBy(s => s.NameEn).ToListAsync(ct);
+        var cats = (await db.TicketCategories.AsNoTracking().Where(x => allowed.Categories.Contains(x.Id) && (!x.IsPrivate || c.Internal))
                 .OrderBy(x => x.SortOrder).ThenBy(x => x.NameEn).ToListAsync(ct))
             .Select(x => new CategoryOption(x.Id, x.NameEn, x.NameAr, x.PriorityCode,
                 subs.Where(s => s.CategoryId == x.Id).Select(s => new SubcategoryOption(s.Id, s.NameEn, s.NameAr, s.PriorityCode)).ToList()))

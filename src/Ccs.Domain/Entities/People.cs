@@ -138,6 +138,9 @@ public class TeamKind
     public bool CentralFallback { get; set; } = true;
     public int SortOrder { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    /// <summary>The place that made it (organization, and branch for a branch); both empty = the system's.</summary>
+    public Guid? OrganizationId { get; set; }
+    public Guid? BranchId { get; set; }
 }
 
 /// <summary>"Only these people": who in a team may get a category's tickets. No rows for a team = all its staff.</summary>

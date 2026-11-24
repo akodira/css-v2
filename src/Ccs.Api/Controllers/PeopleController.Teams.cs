@@ -14,7 +14,7 @@ namespace Ccs.Api.Controllers;
 /// </summary>
 public sealed partial class PeopleController
 {
-    public sealed record KindBody(string NameEn, string NameAr, bool CentralFallback, int SortOrder);
+    public sealed record KindBody(string NameEn, string NameAr, bool CentralFallback, int SortOrder, Guid? OrganizationId = null, Guid? BranchId = null);
     public sealed record PlaceTeamBody(Guid? KindId, Guid? OrganizationId, Guid? BranchId, string? NameEn, string? NameAr, bool IsActive, string? AssignMethod);
     public sealed record MemberRow(Guid UserId, bool IsLeader);
     public sealed record MembersBody(MemberRow[] Members);
@@ -25,18 +25,26 @@ public sealed partial class PeopleController
     [HttpGet("api/admin/team-kinds")]
     public async Task<object> Kinds(CancellationToken ct)
     {
-        await MeAsync(ct);
-        return await db.TeamKinds.AsNoTracking().OrderBy(k => k.SortOrder).ThenBy(k => k.NameEn)
-            .Select(k => new { k.Id, k.NameEn, k.NameAr, k.CentralFallback, k.SortOrder, Teams = db.Teams.Count(t => t.KindId == k.Id) }).ToListAsync(ct);
+        var me = await MeAsync(ct);
+        var branchOrgs = await BranchOrgsAsync(me, ct);
+        return (await db.TeamKinds.AsNoTracking().OrderBy(k => k.SortOrder).ThenBy(k => k.NameEn)
+            .Select(k => new { k.Id, k.NameEn, k.NameAr, k.CentralFallback, k.SortOrder, k.OrganizationId, k.BranchId, Teams = db.Teams.Count(t => t.KindId == k.Id) }).ToListAsync(ct))
+            .Where(k => SeesKind(me, branchOrgs, k.OrganizationId, k.BranchId)).ToList();
     }
 
     [HttpPost("api/admin/team-kinds")]
     public async Task<object> CreateKind(KindBody b, CancellationToken ct)
     {
-        await AdminAsync(ct);
-        var k = new TeamKind { Id = Guid.NewGuid(), CreatedAt = clock.UtcNow };
+        // The system admin's kinds are for every place; an organization or branch admin's kind only for that place.
+        Guid? org = b.OrganizationId, branch = b.BranchId;
+        if (branch is Guid bid) org = await db.Branches.Where(x => x.Id == bid).Select(x => (Guid?)x.OrganizationId).FirstOrDefaultAsync(ct) ?? throw Err("required", "branchId");
+        if (org is null) await AdminAsync(ct);
+        else if (!(await MeAsync(ct)).Covers(org, branch)) throw Err("outOfScope", null, 403);
+        var k = new TeamKind { Id = Guid.NewGuid(), CreatedAt = clock.UtcNow, OrganizationId = org, BranchId = branch };
         await ApplyKindAsync(k, b, ct);
         db.TeamKinds.Add(k);
+        await db.SaveChangesAsync(ct);
+        if (org is Guid o) db.PlaceCatalog.Add(new PlaceCatalogItem { Id = Guid.NewGuid(), OrganizationId = o, BranchId = branch, ItemKind = Ccs.Application.Tickets.PlaceCatalog.Kind, ItemId = k.Id });
         audit.Write("team_kind.create", "team_kind", k.Id, null, b);
         await db.SaveChangesAsync(ct);
         return new { k.Id };
@@ -45,8 +53,7 @@ public sealed partial class PeopleController
     [HttpPut("api/admin/team-kinds/{id:guid}")]
     public async Task<IActionResult> UpdateKind(Guid id, KindBody b, CancellationToken ct)
     {
-        await AdminAsync(ct);
-        var k = await db.TeamKinds.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        var k = await KindICanChangeAsync(id, ct);
         var before = new { k.NameEn, k.NameAr, k.CentralFallback, k.SortOrder };
         await ApplyKindAsync(k, b, ct);
         audit.Write("team_kind.update", "team_kind", id, before, b);
@@ -57,13 +64,22 @@ public sealed partial class PeopleController
     [HttpDelete("api/admin/team-kinds/{id:guid}")]
     public async Task<IActionResult> DeleteKind(Guid id, CancellationToken ct)
     {
-        await AdminAsync(ct);
-        var k = await db.TeamKinds.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        var k = await KindICanChangeAsync(id, ct);
         if (await db.Teams.AnyAsync(t => t.KindId == id, ct) || await db.TicketCategories.AnyAsync(c => c.TeamKindId == id, ct)) throw Err("inUse", null, 409);
+        await db.PlaceCatalog.Where(x => x.ItemKind == Ccs.Application.Tickets.PlaceCatalog.Kind && x.ItemId == id).ExecuteDeleteAsync(ct);
         db.TeamKinds.Remove(k);
         audit.Write("team_kind.delete", "team_kind", id, new { k.NameEn, k.NameAr }, null);
         await db.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    /// <summary>The system admin changes any kind; organization and branch admins only the kinds their places made.</summary>
+    private async Task<TeamKind> KindICanChangeAsync(Guid id, CancellationToken ct)
+    {
+        var me = await MeAsync(ct);
+        var k = await db.TeamKinds.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        if (!me.C.Admin && (k.OrganizationId is null || !me.Covers(k.OrganizationId, k.BranchId))) throw Err("outOfScope", null, 403);
+        return k;
     }
 
     private async Task ApplyKindAsync(TeamKind k, KindBody b, CancellationToken ct)
@@ -72,7 +88,9 @@ public sealed partial class PeopleController
         var ar = (b.NameAr ?? "").Trim();
         if (en.Length is < 2 or > 80) throw Err("name", "nameEn");
         if (ar.Length is < 2 or > 80) throw Err("name", "nameAr");
-        if (await db.TeamKinds.AnyAsync(x => x.Id != k.Id && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
+        // Unique among the system's kinds and the place's own.
+        if (await db.TeamKinds.AnyAsync(x => x.Id != k.Id && (x.OrganizationId == null || (x.OrganizationId == k.OrganizationId && x.BranchId == k.BranchId)) && (x.NameEn == en || x.NameAr == ar), ct))
+            throw Err("nameTaken", "nameEn", 409);
         k.NameEn = en; k.NameAr = ar; k.CentralFallback = b.CentralFallback; k.SortOrder = b.SortOrder;
     }
 
@@ -87,6 +105,7 @@ public sealed partial class PeopleController
         var me = await MeAsync(ct);
         var all = await db.Teams.AsNoTracking().ToListAsync(ct);
         var teams = all.Where(t => Manages(me, t)).ToList();
+        var branchOrgs = await BranchOrgsAsync(me, ct);
         var ids = teams.Select(t => t.Id).ToList();
         var members = await (from m in db.TeamMembers.AsNoTracking() join p in db.Profiles on m.UserId equals p.Id
                              where ids.Contains(m.TeamId)
@@ -110,7 +129,12 @@ public sealed partial class PeopleController
                 Members = members.Where(m => m.TeamId == t.Id).OrderByDescending(m => m.IsLeader).ThenBy(m => m.FullName)
                     .Select(m => new { m.UserId, m.FullName, m.Email, m.IsLeader, m.AutoAssign, OpenTickets = openByAgent.GetValueOrDefault(m.UserId) }),
             }),
-            kinds = await db.TeamKinds.AsNoTracking().OrderBy(k => k.SortOrder).ThenBy(k => k.NameEn).Select(k => new { k.Id, k.NameEn, k.NameAr, k.CentralFallback }).ToListAsync(ct),
+            kinds = (await db.TeamKinds.AsNoTracking().OrderBy(k => k.SortOrder).ThenBy(k => k.NameEn).Select(k => new { k.Id, k.NameEn, k.NameAr, k.CentralFallback, k.OrganizationId, k.BranchId }).ToListAsync(ct))
+                .Where(k => SeesKind(me, branchOrgs, k.OrganizationId, k.BranchId)),
+            borrowed = await BorrowedAsync(me, all, ct),
+            // Kinds each place the caller manages uses ("Choose from current" lists the others).
+            kindUses = (await db.PlaceCatalog.AsNoTracking().Where(x => x.ItemKind == Ccs.Application.Tickets.PlaceCatalog.Kind).Select(x => new { x.OrganizationId, x.BranchId, KindId = x.ItemId }).ToListAsync(ct))
+                .Where(x => me.Covers(x.OrganizationId, x.BranchId)),
             // Places the caller may put a team in.
             organizations = orgs.Where(o => me.Covers(o.Id, null)),
             branches = branches.Where(b => me.Covers(b.OrganizationId, b.Id)),
@@ -123,16 +147,69 @@ public sealed partial class PeopleController
     /// <summary>Active agents and team leaders the caller may put in a team (scoped admins: the people of their places).</summary>
     private async Task<List<Candidate>> CandidatesAsync(Me me, CancellationToken ct)
     {
-        var rows = await (from p in db.Profiles join ur in db.CcsUserRoles on p.Id equals ur.UserId join r in db.CcsRoles on ur.RoleId equals r.Id
+        var raw = await (from p in db.Profiles join ur in db.CcsUserRoles on p.Id equals ur.UserId join r in db.CcsRoles on ur.RoleId equals r.Id
                           where p.AccountStatus == AccountStatus.Active && (r.Code == RoleCode.Agent || r.Code == RoleCode.TeamLeader)
-                          orderby p.FullName select new Candidate(p.Id, p.FullName, p.Email, r.Code)).ToListAsync(ct);
+                          orderby p.FullName select new { p.Id, p.FullName, p.Email, r.Code }).ToListAsync(ct);
+        // Where each person works (Works in); nobody listed = works everywhere.
+        var ids0 = raw.Select(x => x.Id).Distinct().ToList();
+        var placed = (await db.StaffPlacements.AsNoTracking().Where(s => ids0.Contains(s.UserId)).ToListAsync(ct)).ToLookup(s => s.UserId);
+        var rows = raw.Select(x => new Candidate(x.Id, x.FullName, x.Email, x.Code,
+            placed[x.Id].Select(s => new CandidatePlace(s.OrganizationId, s.BranchId)).ToList())).ToList();
         // One line per person, even with both the Agent and the Team leader role.
         rows = rows.GroupBy(x => x.Id).Select(g => g.OrderByDescending(x => x.Role == RoleCode.TeamLeader).First()).ToList();
         if (me.C.Admin) return rows;
         var mine = (await PeopleAsync(me, ct)).Select(p => p.Id).ToHashSet();
         return rows.Where(x => mine.Contains(x.Id)).ToList();
     }
-    public sealed record Candidate(Guid Id, string FullName, string Email, string Role);
+    public sealed record Candidate(Guid Id, string FullName, string Email, string Role, List<CandidatePlace> Places);
+    public sealed record CandidatePlace(Guid OrganizationId, Guid? BranchId);
+
+    /// <summary>The organizations of the branches a branch admin manages: they may use those organizations' own kinds.</summary>
+    private async Task<HashSet<Guid>> BranchOrgsAsync(Me me, CancellationToken ct) =>
+        (await db.Branches.AsNoTracking().Where(b => me.Branches.Contains(b.Id)).Select(b => b.OrganizationId).ToListAsync(ct)).ToHashSet();
+
+    /// <summary>The system's kinds, the kinds of the places the caller manages, and (for a branch) its organization's kinds.</summary>
+    private static bool SeesKind(Me me, HashSet<Guid> branchOrgs, Guid? org, Guid? branch) =>
+        me.C.Admin || org is null || me.Covers(org, branch) || (branch is null && branchOrgs.Contains(org.Value));
+
+    /// <summary>
+    /// "Used from other places": for each place the caller manages, the kinds it uses with no team of its own, and the team
+    /// that takes those tickets instead (the organization's for a branch, else the central one).
+    /// </summary>
+    private async Task<object> BorrowedAsync(Me me, List<Team> all, CancellationToken ct)
+    {
+        if (me.C.Admin) return Array.Empty<object>();
+        var uses = await db.PlaceCatalog.AsNoTracking().Where(x => x.ItemKind == Ccs.Application.Tickets.PlaceCatalog.Kind).ToListAsync(ct);
+        uses = uses.Where(u => me.Covers(u.OrganizationId, u.BranchId) && (u.BranchId is not null || me.Orgs.Contains(u.OrganizationId))).ToList();
+        if (uses.Count == 0) return Array.Empty<object>();
+        var kinds = await db.TeamKinds.AsNoTracking().ToDictionaryAsync(k => k.Id, ct);
+        var names = await db.Organizations.AsNoTracking().Select(o => new { o.Id, o.Name }).ToDictionaryAsync(o => o.Id, o => o.Name, ct);
+        var bnames = await db.Branches.AsNoTracking().Select(b => new { b.Id, b.Name }).ToDictionaryAsync(b => b.Id, b => b.Name, ct);
+        var open = db.Tickets.AsNoTracking().Where(t => t.Status != TicketStatus.Resolved && t.Status != TicketStatus.Closed && t.TeamId != null);
+        var rows = new List<object>();
+        foreach (var u in uses)
+        {
+            if (!kinds.TryGetValue(u.ItemId, out var k)) continue;
+            if (all.Any(t => t.IsActive && t.KindId == k.Id && t.OrganizationId == u.OrganizationId && t.BranchId == u.BranchId)) continue;
+            var t = u.BranchId is null ? null : all.FirstOrDefault(x => x.IsActive && x.KindId == k.Id && x.OrganizationId == u.OrganizationId && x.BranchId == null);
+            var at = t is null ? null : "organization";
+            if (t is null && k.OrganizationId is null && k.CentralFallback) { t = all.FirstOrDefault(x => x.IsActive && x.KindId == k.Id && x.OrganizationId == null); at = t is null ? null : "central"; }
+            object? team = null;
+            if (t is not null)
+            {
+                var members = await (from m in db.TeamMembers.AsNoTracking() join p in db.Profiles on m.UserId equals p.Id where m.TeamId == t.Id
+                                     orderby m.IsLeader descending, p.FullName select new { p.FullName, m.IsLeader, p.AutoAssign }).ToListAsync(ct);
+                team = new { t.Id, t.NameEn, t.NameAr, t.AssignMethod, At = at, OpenTickets = await open.CountAsync(x => x.TeamId == t.Id, ct), Members = members };
+            }
+            rows.Add(new
+            {
+                u.OrganizationId, u.BranchId, KindId = k.Id, k.NameEn, k.NameAr, OwnerOrganizationId = k.OrganizationId,
+                PlaceName = u.BranchId is Guid b ? $"{names.GetValueOrDefault(u.OrganizationId)} · {bnames.GetValueOrDefault(b)}" : names.GetValueOrDefault(u.OrganizationId),
+                Team = team,
+            });
+        }
+        return rows;
+    }
 
     [HttpPost("api/admin/teams")]
     public async Task<object> CreateTeam(PlaceTeamBody b, CancellationToken ct)
@@ -241,8 +318,12 @@ public sealed partial class PeopleController
         // Central teams (no place) are the system admin's; others only in places the caller covers.
         if (org is null ? !me.C.Admin : !me.Covers(org, branch)) throw Err("outOfScope", "organizationId", 403);
         if (b.AssignMethod is not null && !TeamRouting.IsMethod(b.AssignMethod)) throw Err("required", "assignMethod");
+        // A place's own kind is used only in that place (and, for an organization's kind, its branches).
+        if (kind.OrganizationId is not null && (org != kind.OrganizationId || (kind.BranchId is not null && branch != kind.BranchId))) throw Err("required", "kindId");
         if (await db.Teams.AnyAsync(x => x.Id != t.Id && x.KindId == kind.Id && x.OrganizationId == org && x.BranchId == branch, ct))
             throw Err("teamExists", "kindId", 409);
+        if (org is Guid po && !await db.PlaceCatalog.AnyAsync(x => x.OrganizationId == po && x.BranchId == branch && x.ItemKind == Ccs.Application.Tickets.PlaceCatalog.Kind && x.ItemId == kind.Id, ct))
+            db.PlaceCatalog.Add(new PlaceCatalogItem { Id = Guid.NewGuid(), OrganizationId = po, BranchId = branch, ItemKind = Ccs.Application.Tickets.PlaceCatalog.Kind, ItemId = kind.Id });
         var en = (b.NameEn ?? "").Trim();
         var ar = (b.NameAr ?? "").Trim();
         t.NameEn = en.Length > 0 ? en[..Math.Min(en.Length, 120)] : place.Length > 0 ? $"{kind.NameEn} ({place})" : kind.NameEn;

@@ -157,7 +157,8 @@ export class TicketsApi {
     return firstValueFrom(this.http.get<TicketSummary>('/api/tickets/summary', { params: { mine } }));
   }
   get(id: string): Promise<TicketDetail> { return firstValueFrom(this.http.get<TicketDetail>(`/api/tickets/${id}`)); }
-  options(): Promise<NewTicketOptions> { return firstValueFrom(this.http.get<NewTicketOptions>('/api/tickets/options')); }
+  /** Staff pass the customer: the list is what that customer's place shows them. */
+  options(requesterId?: string): Promise<NewTicketOptions> { return firstValueFrom(this.http.get<NewTicketOptions>('/api/tickets/options' + (requesterId ? '?requesterId=' + requesterId : ''))); }
   create(body: unknown): Promise<{ id: string; reference: string }> { return firstValueFrom(this.http.post<{ id: string; reference: string }>('/api/tickets', body)); }
   status(id: string, body: { to: string; reason?: string; resolution?: string; closureReason?: string }): Promise<unknown> {
     return firstValueFrom(this.http.post(`/api/tickets/${id}/status`, body));

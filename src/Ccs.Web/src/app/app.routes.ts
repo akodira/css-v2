@@ -104,6 +104,7 @@ export const routes: Routes = [
           { path: 'admin/teams', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminTeamsPage) },
           { path: 'admin/ticket-types', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/catalog-pages').then((m) => m.AdminTicketTypesPage) },
           { path: 'admin/catalog', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/catalog-pages').then((m) => m.AdminCatalogPage) },
+          { path: 'admin/place-catalog', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/place-catalog-pages').then((m) => m.PlaceCatalogPage) },
           { path: 'admin/priorities', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/catalog-pages').then((m) => m.AdminPrioritiesPage) },
           { path: 'admin/sla', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/catalog-pages').then((m) => m.AdminSlaPage) },
           { path: 'admin/ticket-status', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/flow-pages').then((m) => m.AdminStatusPage) },

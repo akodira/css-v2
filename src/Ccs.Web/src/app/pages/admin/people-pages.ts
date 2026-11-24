@@ -8,6 +8,7 @@ import { AccountTypeRow, AdminApi, Lookups, OrgRow, BranchRow, TeamRow, TeamsRes
 import { Auth } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { AddPanel, Alert, Req, ReqNote } from '../../shared/ui';
+import { TILE_TEAM } from '../../shared/tiles';
 import { PhoneInput, phoneDigits } from '../../shared/phone';
 import { PwEye } from '../../shared/pw-eye';
 import { AdminBase, CLS, TurnBack } from './admin-pages';
@@ -574,14 +575,20 @@ const METHODS = ['fewest', 'turns', 'shared', 'leader'];
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div class="flex flex-wrap items-start justify-between gap-3">
-        <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminTeams.title' | t }}</h1>
+        <h1 class="flex items-center gap-3 text-3xl font-bold tracking-tight"><span aria-hidden="true" class="grid size-11 place-items-center rounded-xl bg-brand-soft text-brand-ink">${TILE_TEAM}</span>{{ 'AdminTeams.title' | t }}</h1>
+        <div class="flex flex-wrap items-start gap-3">
+        @if (choosePlaces().length) {
+          <button type="button" class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg bg-brand-soft px-4 font-semibold text-brand-ink hover:bg-brand/15" [attr.aria-expanded]="choosing()" (click)="choosing.set(!choosing())">+ {{ 'PlaceCat.chooseCurrent' | t }}</button>
+        }
         <app-add #add label="Directory.addTeam">
           <form class="flex flex-col gap-4" novalidate (ngSubmit)="create(add)">
             @if (!(data()?.kinds ?? []).length) { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'TeamPlace.noKinds' | t }}</p> }
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.kind' | t }}<app-req /></span>
                 <select name="kind" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.kindId"><option value="">{{ 'TeamPlace.pickKind' | t }}</option>
-                  @for (k of data()?.kinds ?? []; track k.id) { <option [value]="k.id">{{ i18n.pick(k.nameEn, k.nameAr) }}</option> }</select></label>
+                  <optgroup [label]="'TeamPlace.kindsSystem' | t">@for (k of kindsFor(nw.place, 'system'); track k.id) { <option [value]="k.id">{{ i18n.pick(k.nameEn, k.nameAr) }}</option> }</optgroup>
+                  @if (kindsFor(nw.place, 'own').length) { <optgroup [label]="'TeamPlace.kindsOwn' | t">@for (k of kindsFor(nw.place, 'own'); track k.id) { <option [value]="k.id">{{ i18n.pick(k.nameEn, k.nameAr) }}</option> }</optgroup> }
+                  <option value="new">{{ 'TeamPlace.newKindOption' | t }}</option></select></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.place' | t }}<app-req /></span>
                 <select name="place" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.place">
                   @for (p of places(); track p.value) { <option [value]="p.value">{{ p.label }}</option> }</select></label>
@@ -589,12 +596,20 @@ const METHODS = ['fewest', 'turns', 'shared', 'leader'];
                 <select name="method" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.assignMethod"><option value="">{{ 'TeamPlace.methodDefault' | t: { name: methodName(data()?.defaultMethod) } }}</option>
                   @for (m of methods; track m) { <option [value]="m">{{ methodName(m) }}</option> }</select></label>
             </div>
+            @if (nw.kindId === 'new') {
+              <div class="grid grid-cols-1 gap-4 rounded-xl bg-brand-soft/50 p-4 md:grid-cols-2">
+                <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.newKindEn' | t }}<app-req /></span><input name="nke2" dir="ltr" maxlength="80" [class]="cls.input + ' font-normal'" [(ngModel)]="nk2.nameEn" /></label>
+                <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.newKindAr' | t }}<app-req /></span><input name="nka2" dir="rtl" lang="ar" maxlength="80" [class]="cls.input + ' font-normal'" [(ngModel)]="nk2.nameAr" /></label>
+                <p class="text-sm text-muted md:col-span-2">{{ (nw.place ? 'TeamPlace.newKindPlaceHint' : 'TeamPlace.newKindSystemHint') | t }}</p>
+              </div>
+            }
             <p class="text-sm text-muted">{{ 'TeamPlace.nameAuto' | t }}</p>
             <fieldset class="flex flex-col gap-1">
               <legend class="mb-1 text-sm font-semibold">{{ 'Directory.membersOptional' | t }}</legend>
-              @if (!(data()?.candidates ?? []).length) { <p class="text-sm text-muted">{{ 'Directory.noStaffToPick' | t }}</p> } @else {
+              <p class="text-sm text-muted">{{ 'TeamPlace.membersOfPlace' | t }}</p>
+              @if (!candidatesFor(nw.place).length) { <p class="text-sm text-muted">{{ 'Directory.noStaffToPick' | t }}</p> } @else {
                 <ul class="grid max-h-64 grid-cols-1 gap-x-6 overflow-y-auto rounded-lg border border-line p-2 md:grid-cols-2">
-                  @for (c of data()!.candidates; track c.id) {
+                  @for (c of candidatesFor(nw.place); track c.id) {
                     <li class="flex min-h-11 items-center justify-between gap-2">
                       <label class="flex min-w-0 items-center gap-2 text-sm"><input type="checkbox" class="h-5 w-5 accent-[var(--brand)]" [checked]="nwMembers.has(c.id)" (change)="flipSet(nwMembers, c.id)" /><span class="truncate" dir="auto">{{ c.fullName }} ({{ c.email }})</span></label>
                       <label class="flex min-h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line bg-bg px-3 text-xs font-bold text-muted hover:border-brand has-[:checked]:border-brand has-[:checked]:bg-brand has-[:checked]:text-white">
@@ -608,15 +623,33 @@ const METHODS = ['fewest', 'turns', 'shared', 'leader'];
             <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy() || !nw.kindId">{{ 'Directory.create' | t }}</button><app-req-note /></div>
           </form>
         </app-add>
+        </div>
       </div>
+      @if (choosing()) {
+        <section class="flex flex-col gap-3 rounded-xl border border-line border-t-4 border-t-brand bg-surface p-5 shadow-card" aria-labelledby="chk">
+          <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 id="chk" class="text-lg font-bold">{{ 'PlaceCat.chooseKinds' | t }}</h2><p class="text-sm text-muted">{{ 'PlaceCat.chooseKindsHint' | t }}</p></div>
+            <button type="button" class="min-h-10 cursor-pointer rounded-lg px-3 text-sm font-semibold text-muted hover:bg-bg" (click)="choosing.set(false)">✕ {{ 'Directory.cancel' | t }}</button></div>
+          <label class="flex max-w-md flex-col gap-1.5 text-sm font-semibold">{{ 'TeamPlace.place' | t }}
+            <select name="chp" [class]="cls.input + ' font-normal'" [(ngModel)]="chPlace" (ngModelChange)="chosen.clear()">@for (p of choosePlaces(); track p.value) { <option [value]="p.value">{{ p.label }}</option> }</select></label>
+          @if (!offeredKinds(chPlace).length) { <p class="text-sm text-muted">{{ 'PlaceCat.nothingLeft' | t }}</p> } @else {
+            <ul class="flex flex-col gap-2">
+              @for (k of offeredKinds(chPlace); track k.id) {
+                <li><label class="flex min-h-12 cursor-pointer items-start gap-3 rounded-lg border border-line px-3 py-2 hover:bg-bg"><input type="checkbox" class="mt-1 h-5 w-5" [checked]="chosen.has(k.id)" (change)="flipSet(chosen, k.id)" />
+                  <span><b dir="auto">{{ i18n.pick(k.nameEn, k.nameAr) }}</b><span class="block text-sm text-muted">{{ (k.organizationId ? 'PlaceCat.fromOrg' : 'PlaceCat.fromSystem') | t: { name: orgLabel(k.organizationId ?? '') } }}</span></span></label></li>
+              }
+            </ul>
+            <div><button type="button" [class]="cls.btn" [disabled]="busy() || !chosen.size" (click)="useKinds()">{{ 'PlaceCat.useSelected' | t }}</button></div>
+          }
+        </section>
+      }
       <app-page-about key="teams" tile="users" [points]="['ticket', 'eye', 'swap', 'crown']" />
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
 
-      @if (data()?.canCentral) {
-        <details class="rounded-xl border border-line bg-surface shadow-card" [open]="!(data()?.kinds ?? []).length">
+      @if (data()?.canCentral || myKinds().length) {
+        <details class="rounded-xl border border-line bg-surface shadow-card" [open]="data()?.canCentral && !myKinds().length">
           <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'TeamPlace.kindsTitle' | t }}</span> <span class="text-sm text-muted">· {{ 'TeamPlace.kindsHelp' | t }}</span></summary>
           <div class="flex flex-col gap-3 border-t border-line p-5">
-            @for (k of data()!.kinds ?? []; track k.id) {
+            @for (k of myKinds(); track k.id) {
               <form class="flex flex-wrap items-end gap-3 border-b border-line pb-3" novalidate (ngSubmit)="saveKind(k)">
                 <label class="flex min-w-48 flex-1 flex-col gap-1 text-sm font-semibold">{{ 'Directory.nameEn' | t }}<input [name]="'ke' + k.id" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="k.nameEn" /></label>
                 <label class="flex min-w-48 flex-1 flex-col gap-1 text-sm font-semibold">{{ 'Directory.nameAr' | t }}<input [name]="'ka' + k.id" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="k.nameAr" /></label>
@@ -625,11 +658,13 @@ const METHODS = ['fewest', 'turns', 'shared', 'leader'];
                 <button type="button" class="min-h-11 cursor-pointer rounded-lg px-3 text-sm font-semibold text-danger hover:bg-danger-soft disabled:opacity-60" [disabled]="busy()" (click)="deleteKind(k)">{{ 'Directory.delete' | t }}<span class="sr-only"> {{ k.nameEn }}</span></button>
               </form>
             }
+            @if (data()?.canCentral) {
             <form class="flex flex-wrap items-end gap-3" novalidate (ngSubmit)="addKind()">
               <label class="flex min-w-48 flex-1 flex-col gap-1 text-sm font-semibold"><span>{{ 'TeamPlace.newKindEn' | t }}<app-req /></span><input name="nke" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="nk.nameEn" /></label>
               <label class="flex min-w-48 flex-1 flex-col gap-1 text-sm font-semibold"><span>{{ 'TeamPlace.newKindAr' | t }}<app-req /></span><input name="nka" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="nk.nameAr" /></label>
               <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'TeamPlace.addKind' | t }}</button>
             </form>
+            }
           </div>
         </details>
       }
@@ -754,7 +789,7 @@ const METHODS = ['fewest', 'turns', 'shared', 'leader'];
           <form class="flex flex-col gap-4" novalidate (ngSubmit)="update(t)">
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.kind' | t }}<app-req /></span>
-                <select name="kind" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].kindId">@for (k of data()?.kinds ?? []; track k.id) { <option [value]="k.id">{{ i18n.pick(k.nameEn, k.nameAr) }}</option> }</select></label>
+                <select name="kind" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].kindId">@for (k of kindsFor(edit[t.id].place, 'all'); track k.id) { <option [value]="k.id">{{ i18n.pick(k.nameEn, k.nameAr) }}</option> }</select></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.place' | t }}<app-req /></span>
                 <select name="place" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].place">@for (p of places(); track p.value) { <option [value]="p.value">{{ p.label }}</option> }</select></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.method' | t }}</span>
@@ -787,6 +822,45 @@ const METHODS = ['fewest', 'turns', 'shared', 'leader'];
             }
           </ul>
           </section>
+          }
+          @if ((data()?.borrowed ?? []).length) {
+            <section class="flex flex-col gap-3" aria-labelledby="borrowed">
+              <h2 id="borrowed" class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted"><span>{{ 'TeamPlace.borrowedTitle' | t }}</span><span class="h-px flex-1 bg-line"></span></h2>
+              <ul class="flex flex-col gap-4">
+                @for (b of data()!.borrowed!; track b.organizationId + (b.branchId ?? '') + b.kindId) {
+                  <li class="rounded-xl border border-line bg-surface shadow-card">
+                    <div class="flex flex-wrap items-center gap-3 px-5 py-3">
+                      <span aria-hidden="true" class="hidden size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand-ink sm:grid">${TILE_TEAM}</span>
+                      <span class="min-w-0 flex-1">
+                        <span class="flex flex-wrap items-center gap-2">
+                          <span class="text-lg font-bold" dir="auto">{{ b.team ? i18n.pick(b.team.nameEn, b.team.nameAr) : i18n.pick(b.nameEn, b.nameAr) }}</span>
+                          <span class="rounded-full bg-[#efe8fd] px-2 py-0.5 text-xs font-bold text-[#5b3aa8]">{{ 'TeamPlace.usedBy' | t: { name: b.placeName } }}</span>
+                        </span>
+                        @if (b.team; as tm) {
+                          <span class="mt-1 flex flex-wrap gap-1.5 text-xs font-semibold text-muted">
+                            <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ tm.members.length }}</b> {{ 'AdminTeams.statMembers' | t }}</span>
+                            <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ tm.openTickets }}</b> {{ 'AdminTeams.statOpen' | t }}</span>
+                            <span class="rounded-md border border-line bg-brand-soft px-2 py-0.5 text-brand-ink">{{ methodName(tm.assignMethod || data()?.defaultMethod) }}</span>
+                          </span>
+                        }
+                      </span>
+                      @if (b.team; as tm) {
+                        <span aria-hidden="true" class="hidden shrink-0 md:flex">
+                          @for (mb of tm.members.slice(0, 5); track $index) { <span class="-ms-2 grid size-9 place-items-center rounded-full border-2 border-surface text-xs font-bold first:ms-0" [class]="avatarTone(mb.fullName)">{{ initials(mb.fullName) }}</span> }
+                        </span>
+                      }
+                    </div>
+                    <div class="flex flex-col gap-3 border-t border-dashed border-line px-5 py-3 text-sm text-muted">
+                      <p>@if (b.team; as tm) { {{ (tm.at === 'central' ? 'TeamPlace.borrowedCentral' : 'TeamPlace.borrowedOrg') | t: { kind: i18n.pick(b.nameEn, b.nameAr) } }} } @else { <span class="text-warn-ink">{{ 'TeamPlace.borrowedNone' | t: { kind: i18n.pick(b.nameEn, b.nameAr) } }}</span> }</p>
+                      <span class="flex flex-wrap gap-2">
+                        <button type="button" [class]="cls.btn" (click)="ownTeam(b, add)">{{ 'TeamPlace.createOwn' | t }}</button>
+                        <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="stopKind(b)">{{ 'PlaceCat.stopUsing' | t }}</button>
+                      </span>
+                    </div>
+                  </li>
+                }
+              </ul>
+            </section>
           }
         </div>
       }
@@ -825,7 +899,7 @@ export class AdminTeamsPage extends AccordionPage implements OnInit {
     for (const b of d.branches ?? []) out.push({ value: 'b:' + b.id, label: this.orgLabel(b.organizationId) + ' · ' + b.name });
     return out;
   });
-  private orgLabel(id: string): string { const d = this.data(); return d?.organizations?.find((o) => o.id === id)?.name ?? d?.branches?.find((b) => b.organizationId === id)?.organizationName ?? this.orgName(id) ?? ''; }
+  protected orgLabel(id: string): string { const d = this.data(); return d?.organizations?.find((o) => o.id === id)?.name ?? d?.branches?.find((b) => b.organizationId === id)?.organizationName ?? this.orgName(id) ?? ''; }
   private branchLabel(id: string): string { return this.data()?.branches?.find((b) => b.id === id)?.name ?? this.branchName(id) ?? ''; }
   private placeLabel(t: TeamRow): string { return !t.organizationId ? this.i18n.t('TeamPlace.central') : this.orgLabel(t.organizationId) + (t.branchId ? ' · ' + this.branchLabel(t.branchId) : ''); }
   protected methodName(m: string | null | undefined): string { return this.i18n.t('TeamPlace.method_' + (m || 'fewest')); }
@@ -835,6 +909,52 @@ export class AdminTeamsPage extends AccordionPage implements OnInit {
   }
   protected nw = { kindId: '', place: '', assignMethod: '' };
   protected nk = { nameEn: '', nameAr: '' };
+  /** A new kind made while adding a team. */
+  protected nk2 = { nameEn: '', nameAr: '' };
+  protected readonly choosing = signal(false);
+  protected chPlace = '';
+  protected chosen = new Set<string>();
+  private orgOf(v: string): string | null {
+    if (v.startsWith('o:')) return v.slice(2);
+    if (v.startsWith('b:')) return this.data()?.branches?.find((b) => b.id === v.slice(2))?.organizationId ?? null;
+    return null;
+  }
+  private placeRef(v: string): { organizationId: string; branchId: string | null } | null {
+    const o = this.orgOf(v); return o ? { organizationId: o, branchId: v.startsWith('b:') ? v.slice(2) : null } : null;
+  }
+  /** Kinds a place can use: the system's, and its own (an organization's own kinds also in its branches). */
+  protected kindsFor(v: string, which: 'system' | 'own' | 'all') {
+    const org = this.orgOf(v), br = v.startsWith('b:') ? v.slice(2) : null;
+    return (this.data()?.kinds ?? []).filter((k) => {
+      const own = !!k.organizationId && !!org && k.organizationId === org && (!k.branchId || k.branchId === br);
+      return which === 'system' ? !k.organizationId : which === 'own' ? own : !k.organizationId || own;
+    });
+  }
+  /** The system admin edits the system's kinds; organization and branch admins the kinds their places made. */
+  protected myKinds() { const d = this.data(); return (d?.kinds ?? []).filter((k) => d?.canCentral ? !k.organizationId : !!k.organizationId); }
+  /** Only staff who work in that place (nobody listed under Works in = works everywhere). */
+  protected candidatesFor(v: string) {
+    const org = this.orgOf(v), br = v.startsWith('b:') ? v.slice(2) : null;
+    return (this.data()?.candidates ?? []).filter((c) => !org || !c.places?.length || c.places.some((p) => p.organizationId === org && (!br || !p.branchId || p.branchId === br)));
+  }
+  protected choosePlaces() { return this.places().filter((p) => p.value); }
+  protected offeredKinds(v: string) {
+    const ref = this.placeRef(v); if (!ref) return [];
+    const used = new Set((this.data()?.kindUses ?? []).filter((u) => u.organizationId === ref.organizationId && (u.branchId ?? null) === ref.branchId).map((u) => u.kindId));
+    return this.kindsFor(v, 'all').filter((k) => !used.has(k.id) && !(k.organizationId && (k.branchId ?? null) === ref.branchId && ref.branchId !== null));
+  }
+  protected async useKinds(): Promise<void> {
+    const ref = this.placeRef(this.chPlace); if (!ref) return;
+    if (await this.run(() => this.api.post('place-catalog/use', { ...ref, itemKind: 'kind', ids: [...this.chosen], use: true }))) { this.chosen.clear(); this.choosing.set(false); }
+  }
+  protected stopKind(b: { organizationId: string; branchId: string | null; kindId: string }): void {
+    void this.run(() => this.api.post('place-catalog/use', { organizationId: b.organizationId, branchId: b.branchId, itemKind: 'kind', ids: [b.kindId], use: false }));
+  }
+  /** "Create our own team": the add form opens with the kind and place filled in. */
+  protected ownTeam(b: { organizationId: string; branchId: string | null; kindId: string }, box: { open: boolean }): void {
+    this.nw = { ...this.nw, kindId: b.kindId, place: b.branchId ? 'b:' + b.branchId : 'o:' + b.organizationId };
+    box.open = true; window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
   protected nwMembers = new Set<string>();
   protected nwLeaders = new Set<string>();
   protected adding: Record<string, string | undefined> = {};
@@ -853,6 +973,7 @@ export class AdminTeamsPage extends AccordionPage implements OnInit {
       this.pick = {};
       for (const c of cp.chosen) (this.pick[c.categoryId + '|' + c.teamId] ??= new Set()).add(c.userId);
       if (!this.nw.place) this.nw.place = d.canCentral ? '' : d.branches?.[0] ? 'b:' + d.branches[0].id : d.organizations?.[0] ? 'o:' + d.organizations[0].id : '';
+      if (!this.chPlace) this.chPlace = d.organizations?.[0] ? 'o:' + d.organizations[0].id : d.branches?.[0] ? 'b:' + d.branches[0].id : '';
       this.cats.set(cp);
       this.data.set(d);
     } catch (e) { this.fail(e); }
@@ -886,10 +1007,12 @@ export class AdminTeamsPage extends AccordionPage implements OnInit {
     const members = [...new Set([...this.nwMembers, ...this.nwLeaders])].map((id) => ({ userId: id, isLeader: this.nwLeaders.has(id) }));
     const body = { kindId: this.nw.kindId, ...this.placeBody(this.nw.place), nameEn: null, nameAr: null, isActive: true, assignMethod: this.nw.assignMethod || null };
     const ok = await this.run(async () => {
+      // A new kind first: the system's when the team is central, else the place's own.
+      if (body.kindId === 'new') body.kindId = (await this.api.post<{ id: string }>('team-kinds', { ...this.nk2, centralFallback: true, sortOrder: (this.data()?.kinds?.length ?? 0) + 1, ...this.placeBody(this.nw.place) })).id;
       const r = await this.api.post<{ id: string }>('teams', body);
       if (members.length) await this.api.put(`teams/${r.id}/members`, { members });
     });
-    if (ok) { this.nw = { ...this.nw, kindId: '', assignMethod: '' }; this.nwMembers.clear(); this.nwLeaders.clear(); box.open = false; }
+    if (ok) { this.nw = { ...this.nw, kindId: '', assignMethod: '' }; this.nk2 = { nameEn: '', nameAr: '' }; this.nwMembers.clear(); this.nwLeaders.clear(); box.open = false; }
   }
   protected update(t: TeamRow): void {
     const e = this.edit[t.id];

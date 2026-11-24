@@ -59,10 +59,11 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     public async Task<object> Catalog(CancellationToken ct)
     {
         await Need(Permission.ManageCatalog, ct);
-        var types = await db.TicketTypes.AsNoTracking().OrderBy(t => t.SortOrder).ThenBy(t => t.NameEn).ToListAsync(ct);
+        // The system's own list; items organizations and branches made are on their own catalog screen.
+        var types = await db.TicketTypes.AsNoTracking().Where(t => t.OrganizationId == null).OrderBy(t => t.SortOrder).ThenBy(t => t.NameEn).ToListAsync(ct);
         var links = await db.TicketTypeCategories.AsNoTracking().ToListAsync(ct);
-        var cats = await db.TicketCategories.AsNoTracking().OrderBy(c => c.SortOrder).ThenBy(c => c.NameEn).ToListAsync(ct);
-        var subs = await db.TicketSubcategories.AsNoTracking().OrderBy(s => s.SortOrder).ThenBy(s => s.NameEn).ToListAsync(ct);
+        var cats = await db.TicketCategories.AsNoTracking().Where(c => c.OrganizationId == null).OrderBy(c => c.SortOrder).ThenBy(c => c.NameEn).ToListAsync(ct);
+        var subs = await db.TicketSubcategories.AsNoTracking().Where(s => s.OrganizationId == null).OrderBy(s => s.SortOrder).ThenBy(s => s.NameEn).ToListAsync(ct);
         var byType = await db.Tickets.AsNoTracking().Where(t => t.TicketTypeId != null).GroupBy(t => t.TicketTypeId).Select(g => new { Id = g.Key!.Value, N = g.Count() }).ToListAsync(ct);
         var byCat = await db.Tickets.AsNoTracking().GroupBy(t => t.CategoryId).Select(g => new { Id = g.Key, N = g.Count() }).ToListAsync(ct);
         var bySub = await db.Tickets.AsNoTracking().Where(t => t.SubcategoryId != null).GroupBy(t => t.SubcategoryId).Select(g => new { Id = g.Key!.Value, N = g.Count() }).ToListAsync(ct);
@@ -97,7 +98,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
                 f.IsActive, f.SortOrder, HasValues = used.Contains(f.Id),
             }),
             teams,
-            kinds = await db.TeamKinds.AsNoTracking().OrderBy(k => k.SortOrder).ThenBy(k => k.NameEn).Select(k => new { k.Id, k.NameEn, k.NameAr }).ToListAsync(ct),
+            kinds = await db.TeamKinds.AsNoTracking().Where(k => k.OrganizationId == null).OrderBy(k => k.SortOrder).ThenBy(k => k.NameEn).Select(k => new { k.Id, k.NameEn, k.NameAr }).ToListAsync(ct),
             priorities = prios,
         };
     }
@@ -122,7 +123,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     public async Task<IActionResult> UpdateType(Guid id, TypeBody b, CancellationToken ct)
     {
         await Need(Permission.ManageCatalog, ct);
-        var t = await db.TicketTypes.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        var t = await db.TicketTypes.FirstOrDefaultAsync(x => x.Id == id && x.OrganizationId == null, ct) ?? throw new NotFoundException();
         if (t.IsActive && !b.IsActive && !await db.TicketTypes.AnyAsync(x => x.Id != id && x.IsActive, ct)) throw Err("lastTicketType");
         var before = new { t.Code, t.NameEn, t.NameAr, t.IsActive, t.SortOrder };
         await ApplyTypeAsync(t, b, ct);
@@ -136,7 +137,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     public async Task<IActionResult> DeleteType(Guid id, CancellationToken ct)
     {
         await Need(Permission.ManageCatalog, ct);
-        var t = await db.TicketTypes.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        var t = await db.TicketTypes.FirstOrDefaultAsync(x => x.Id == id && x.OrganizationId == null, ct) ?? throw new NotFoundException();
         if (await db.Tickets.AnyAsync(x => x.TicketTypeId == id, ct)) throw Err("ticketTypeInUse", null, 409);
         if (t.IsActive && !await db.TicketTypes.AnyAsync(x => x.Id != id && x.IsActive, ct)) throw Err("lastTicketType");
         await db.TicketTypeCategories.Where(l => l.TypeId == id).ExecuteDeleteAsync(ct);
@@ -149,7 +150,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     private async Task ApplyTypeAsync(TicketType t, TypeBody b, CancellationToken ct)
     {
         var (en, ar) = (Name(b.NameEn, "nameEn"), Name(b.NameAr, "nameAr"));
-        if (await db.TicketTypes.AnyAsync(x => x.Id != t.Id && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
+        if (await db.TicketTypes.AnyAsync(x => x.Id != t.Id && x.OrganizationId == t.OrganizationId && x.BranchId == t.BranchId && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
         var code = TicketTypeCode.Normalize(b.Code);
         if (!TicketTypeCode.IsValid(code)) throw Err("typeCode", "code");
         if (code is not null && await db.TicketTypes.AnyAsync(x => x.Id != t.Id && x.Code == code, ct)) throw Err("typeCodeTaken", "code", 409);
@@ -188,7 +189,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     public async Task<IActionResult> UpdateCategory(Guid id, CategoryBody b, CancellationToken ct)
     {
         await Need(Permission.ManageCatalog, ct);
-        var c = await db.TicketCategories.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        var c = await db.TicketCategories.FirstOrDefaultAsync(x => x.Id == id && x.OrganizationId == null, ct) ?? throw new NotFoundException();
         var before = new { c.NameEn, c.NameAr, c.DefaultTeamId, c.TeamKindId, c.IsActive, c.SortOrder, c.PriorityCode, c.IsPrivate, c.AutoAssign };
         await ApplyCategoryAsync(c, b, ct);
         if (b.TypeIds is not null) await LinkCategoryAsync(id, b.TypeIds, ct);
@@ -201,7 +202,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     public async Task<IActionResult> DeleteCategory(Guid id, CancellationToken ct)
     {
         await Need(Permission.ManageCatalog, ct);
-        var c = await db.TicketCategories.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        var c = await db.TicketCategories.FirstOrDefaultAsync(x => x.Id == id && x.OrganizationId == null, ct) ?? throw new NotFoundException();
         if (await db.Tickets.AnyAsync(t => t.CategoryId == id, ct)) throw Err("inUse", null, 409);
         await db.TicketTypeCategories.Where(l => l.CategoryId == id).ExecuteDeleteAsync(ct);
         db.TicketCategories.Remove(c);                 // subcategories and category fields follow (ON DELETE CASCADE)
@@ -226,7 +227,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     public async Task<IActionResult> UpdateSub(Guid id, SubcategoryBody b, CancellationToken ct)
     {
         await Need(Permission.ManageCatalog, ct);
-        var s = await db.TicketSubcategories.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        var s = await db.TicketSubcategories.FirstOrDefaultAsync(x => x.Id == id && x.OrganizationId == null, ct) ?? throw new NotFoundException();
         if (s.CategoryId != b.CategoryId && await db.Tickets.AnyAsync(t => t.SubcategoryId == id, ct)) throw Err("inUse", "categoryId", 409);
         var before = new { s.CategoryId, s.NameEn, s.NameAr, s.IsActive, s.SortOrder, s.PriorityCode };
         await ApplySubAsync(s, b, ct);
@@ -239,7 +240,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     public async Task<IActionResult> DeleteSub(Guid id, CancellationToken ct)
     {
         await Need(Permission.ManageCatalog, ct);
-        var s = await db.TicketSubcategories.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        var s = await db.TicketSubcategories.FirstOrDefaultAsync(x => x.Id == id && x.OrganizationId == null, ct) ?? throw new NotFoundException();
         if (await db.Tickets.AnyAsync(t => t.SubcategoryId == id, ct)) throw Err("inUse", null, 409);
         db.TicketSubcategories.Remove(s);
         audit.Write("subcategory.delete", "ticket_subcategory", id, new { s.NameEn, s.NameAr }, null);
@@ -250,7 +251,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     private async Task ApplyCategoryAsync(TicketCategory c, CategoryBody b, CancellationToken ct)
     {
         var (en, ar) = (Name(b.NameEn, "nameEn"), Name(b.NameAr, "nameAr"));
-        if (await db.TicketCategories.AnyAsync(x => x.Id != c.Id && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
+        if (await db.TicketCategories.AnyAsync(x => x.Id != c.Id && x.OrganizationId == c.OrganizationId && x.BranchId == c.BranchId && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
         if (b.DefaultTeamId is Guid tm && !await db.Teams.AnyAsync(t => t.Id == tm, ct)) throw Err("notFound", "defaultTeamId");
         if (b.TeamKindId is Guid kd && !await db.TeamKinds.AnyAsync(k => k.Id == kd, ct)) throw Err("notFound", "teamKindId");
         await CheckPriorityAsync(b.PriorityCode, ct);
@@ -270,7 +271,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     {
         var (en, ar) = (Name(b.NameEn, "nameEn"), Name(b.NameAr, "nameAr"));
         if (!await db.TicketCategories.AnyAsync(c => c.Id == b.CategoryId, ct)) throw Err("notFound", "categoryId");
-        if (await db.TicketSubcategories.AnyAsync(x => x.Id != s.Id && x.CategoryId == b.CategoryId && (x.NameEn == en || x.NameAr == ar), ct))
+        if (await db.TicketSubcategories.AnyAsync(x => x.Id != s.Id && x.CategoryId == b.CategoryId && x.OrganizationId == s.OrganizationId && x.BranchId == s.BranchId && (x.NameEn == en || x.NameAr == ar), ct))
             throw Err("nameTaken", "nameEn", 409);
         await CheckPriorityAsync(b.PriorityCode, ct);
         s.CategoryId = b.CategoryId; s.NameEn = en; s.NameAr = ar; s.IsActive = b.IsActive; s.SortOrder = Sort(b.SortOrder);

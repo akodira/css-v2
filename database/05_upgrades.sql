@@ -367,3 +367,102 @@ BEGIN
     COMMIT;
 END
 GO
+
+-- Own catalog per place. Organizations and branches choose kinds of team, ticket types, categories and sub-categories from
+-- the system (a branch also from its organization) or create their own. organization_id/branch_id on an item = the place
+-- that made it (empty = the system's). place_catalog = what each place uses; place_type_categories = which categories each
+-- type shows in that place; place_customer_view = what the place's customers see (their organization, branch, the system).
+IF COL_LENGTH(N'ccs.team_kinds', N'organization_id') IS NULL ALTER TABLE ccs.team_kinds ADD organization_id uniqueidentifier NULL, branch_id uniqueidentifier NULL;
+GO
+IF COL_LENGTH(N'ccs.ticket_types', N'organization_id') IS NULL ALTER TABLE ccs.ticket_types ADD organization_id uniqueidentifier NULL, branch_id uniqueidentifier NULL;
+GO
+IF COL_LENGTH(N'ccs.ticket_categories', N'organization_id') IS NULL ALTER TABLE ccs.ticket_categories ADD organization_id uniqueidentifier NULL, branch_id uniqueidentifier NULL;
+GO
+IF COL_LENGTH(N'ccs.ticket_subcategories', N'organization_id') IS NULL ALTER TABLE ccs.ticket_subcategories ADD organization_id uniqueidentifier NULL, branch_id uniqueidentifier NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_team_kinds_org') ALTER TABLE ccs.team_kinds ADD CONSTRAINT FK_team_kinds_org FOREIGN KEY (organization_id) REFERENCES ccs.organizations(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_team_kinds_branch') ALTER TABLE ccs.team_kinds ADD CONSTRAINT FK_team_kinds_branch FOREIGN KEY (branch_id) REFERENCES ccs.branches(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_ticket_types_org') ALTER TABLE ccs.ticket_types ADD CONSTRAINT FK_ticket_types_org FOREIGN KEY (organization_id) REFERENCES ccs.organizations(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_ticket_types_branch') ALTER TABLE ccs.ticket_types ADD CONSTRAINT FK_ticket_types_branch FOREIGN KEY (branch_id) REFERENCES ccs.branches(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_categories_org') ALTER TABLE ccs.ticket_categories ADD CONSTRAINT FK_categories_org FOREIGN KEY (organization_id) REFERENCES ccs.organizations(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_categories_branch') ALTER TABLE ccs.ticket_categories ADD CONSTRAINT FK_categories_branch FOREIGN KEY (branch_id) REFERENCES ccs.branches(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_subcategories_org') ALTER TABLE ccs.ticket_subcategories ADD CONSTRAINT FK_subcategories_org FOREIGN KEY (organization_id) REFERENCES ccs.organizations(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_subcategories_branch') ALTER TABLE ccs.ticket_subcategories ADD CONSTRAINT FK_subcategories_branch FOREIGN KEY (branch_id) REFERENCES ccs.branches(id);
+GO
+-- Names are unique per owner (two organizations may both have "Installation"); the code in the ticket number stays unique.
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_ticket_types_name_en' AND object_id = OBJECT_ID(N'ccs.ticket_types')) DROP INDEX UX_ticket_types_name_en ON ccs.ticket_types;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_ticket_types_name_ar' AND object_id = OBJECT_ID(N'ccs.ticket_types')) DROP INDEX UX_ticket_types_name_ar ON ccs.ticket_types;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_ticket_categories_name_en' AND object_id = OBJECT_ID(N'ccs.ticket_categories')) DROP INDEX UX_ticket_categories_name_en ON ccs.ticket_categories;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_ticket_categories_name_ar' AND object_id = OBJECT_ID(N'ccs.ticket_categories')) DROP INDEX UX_ticket_categories_name_ar ON ccs.ticket_categories;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_ticket_types_owner_name_en' AND object_id = OBJECT_ID(N'ccs.ticket_types'))
+    CREATE UNIQUE INDEX UX_ticket_types_owner_name_en ON ccs.ticket_types (organization_id, branch_id, name_en);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_ticket_types_owner_name_ar' AND object_id = OBJECT_ID(N'ccs.ticket_types'))
+    CREATE UNIQUE INDEX UX_ticket_types_owner_name_ar ON ccs.ticket_types (organization_id, branch_id, name_ar);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_ticket_categories_owner_name_en' AND object_id = OBJECT_ID(N'ccs.ticket_categories'))
+    CREATE UNIQUE INDEX UX_ticket_categories_owner_name_en ON ccs.ticket_categories (organization_id, branch_id, name_en);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_ticket_categories_owner_name_ar' AND object_id = OBJECT_ID(N'ccs.ticket_categories'))
+    CREATE UNIQUE INDEX UX_ticket_categories_owner_name_ar ON ccs.ticket_categories (organization_id, branch_id, name_ar);
+GO
+IF OBJECT_ID(N'ccs.place_catalog') IS NULL
+    CREATE TABLE ccs.place_catalog (
+        id              uniqueidentifier NOT NULL CONSTRAINT PK_place_catalog PRIMARY KEY DEFAULT NEWID(),
+        organization_id uniqueidentifier NOT NULL CONSTRAINT FK_place_catalog_org REFERENCES ccs.organizations(id),
+        branch_id       uniqueidentifier NULL CONSTRAINT FK_place_catalog_branch REFERENCES ccs.branches(id),
+        item_kind       varchar(8) NOT NULL CONSTRAINT CK_place_catalog_kind CHECK (item_kind IN ('kind','type','cat','sub')),
+        item_id         uniqueidentifier NOT NULL
+    );
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_place_catalog' AND object_id = OBJECT_ID(N'ccs.place_catalog'))
+    CREATE UNIQUE INDEX UX_place_catalog ON ccs.place_catalog (organization_id, branch_id, item_kind, item_id);
+GO
+IF OBJECT_ID(N'ccs.place_type_categories') IS NULL
+    CREATE TABLE ccs.place_type_categories (
+        id              uniqueidentifier NOT NULL CONSTRAINT PK_place_type_categories PRIMARY KEY DEFAULT NEWID(),
+        organization_id uniqueidentifier NOT NULL CONSTRAINT FK_ptc_org REFERENCES ccs.organizations(id),
+        branch_id       uniqueidentifier NULL CONSTRAINT FK_ptc_branch REFERENCES ccs.branches(id),
+        type_id         uniqueidentifier NOT NULL CONSTRAINT FK_ptc_type REFERENCES ccs.ticket_types(id) ON DELETE CASCADE,
+        category_id     uniqueidentifier NOT NULL CONSTRAINT FK_ptc_category REFERENCES ccs.ticket_categories(id) ON DELETE CASCADE
+    );
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_place_type_categories' AND object_id = OBJECT_ID(N'ccs.place_type_categories'))
+    CREATE UNIQUE INDEX UX_place_type_categories ON ccs.place_type_categories (organization_id, branch_id, type_id, category_id);
+GO
+-- No row = the customers see all three (the system list they saw before this change, plus anything their places add).
+IF OBJECT_ID(N'ccs.place_customer_view') IS NULL
+    CREATE TABLE ccs.place_customer_view (
+        id                uniqueidentifier NOT NULL CONSTRAINT PK_place_customer_view PRIMARY KEY DEFAULT NEWID(),
+        organization_id   uniqueidentifier NOT NULL CONSTRAINT FK_pcv_org REFERENCES ccs.organizations(id),
+        branch_id         uniqueidentifier NULL CONSTRAINT FK_pcv_branch REFERENCES ccs.branches(id),
+        show_organization bit NOT NULL CONSTRAINT DF_pcv_org DEFAULT 1,
+        show_branch       bit NOT NULL CONSTRAINT DF_pcv_branch DEFAULT 1,
+        show_system       bit NOT NULL CONSTRAINT DF_pcv_system DEFAULT 1
+    );
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_place_customer_view' AND object_id = OBJECT_ID(N'ccs.place_customer_view'))
+    CREATE UNIQUE INDEX UX_place_customer_view ON ccs.place_customer_view (organization_id, branch_id);
+GO
+-- Sub-category names: unique per category and owner (two branches may add the same name under a system category).
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_subcategories_name_en' AND object_id = OBJECT_ID(N'ccs.ticket_subcategories')) DROP INDEX UX_subcategories_name_en ON ccs.ticket_subcategories;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_subcategories_name_ar' AND object_id = OBJECT_ID(N'ccs.ticket_subcategories')) DROP INDEX UX_subcategories_name_ar ON ccs.ticket_subcategories;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_subcategories_owner_name_en' AND object_id = OBJECT_ID(N'ccs.ticket_subcategories'))
+    CREATE UNIQUE INDEX UX_subcategories_owner_name_en ON ccs.ticket_subcategories (category_id, organization_id, branch_id, name_en);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_subcategories_owner_name_ar' AND object_id = OBJECT_ID(N'ccs.ticket_subcategories'))
+    CREATE UNIQUE INDEX UX_subcategories_owner_name_ar ON ccs.ticket_subcategories (category_id, organization_id, branch_id, name_ar);
+GO

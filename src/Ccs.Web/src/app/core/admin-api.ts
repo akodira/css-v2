@@ -41,9 +41,15 @@ export interface TeamRow {
   id: string; nameEn: string; nameAr: string; isActive: boolean; openTickets?: number; members: TeamMemberRow[];
   kindId?: string | null; organizationId?: string | null; branchId?: string | null; assignMethod?: string | null;
 }
-export interface TeamKindRow { id: string; nameEn: string; nameAr: string; centralFallback: boolean; sortOrder?: number; teams?: number }
+export interface TeamKindRow { id: string; nameEn: string; nameAr: string; centralFallback: boolean; sortOrder?: number; teams?: number; organizationId?: string | null; branchId?: string | null }
+/** A kind a place uses with no team of its own, and the team (organization's or central) that takes those tickets. */
+export interface BorrowedRow {
+  organizationId: string; branchId: string | null; kindId: string; nameEn: string; nameAr: string; ownerOrganizationId: string | null; placeName: string;
+  team: { id: string; nameEn: string; nameAr: string; assignMethod: string | null; at: 'organization' | 'central'; openTickets: number; members: { fullName: string; isLeader: boolean; autoAssign: boolean }[] } | null;
+}
+export interface PlaceRef { organizationId: string; branchId: string | null }
 export interface TeamsResult {
-  teams: TeamRow[]; candidates: (PersonLite & { role: string })[]; kinds?: TeamKindRow[];
+  teams: TeamRow[]; candidates: (PersonLite & { role: string; places?: PlaceRef[] })[]; kinds?: TeamKindRow[]; borrowed?: BorrowedRow[]; kindUses?: (PlaceRef & { kindId: string })[];
   organizations?: { id: string; name: string; parentId: string | null }[]; branches?: { id: string; organizationId: string; name: string; organizationName?: string | null }[];
   canCentral?: boolean; defaultMethod?: string;
 }
