@@ -81,6 +81,10 @@ jobs:
       - name: Install SQL Server 2022 Developer with Full-Text Search
         shell: pwsh
         run: |
+          # Newer runner disks report a sector size SQL Server will not start on (setup exits 0x851A0019).
+          $key = 'HKLM:\SYSTEM\CurrentControlSet\Services\stornvme\Parameters\Device'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name ForcedPhysicalSectorSizeInBytes -PropertyType MultiString -Value '* 4095' -Force | Out-Null
           choco install sql-server-2022 -y --no-progress --params="'/IgnorePendingReboot /FEATURES:SQLENGINE,FULLTEXT /INSTANCENAME:MSSQLSERVER'"
           if ($LASTEXITCODE -notin 0, 3010) { throw "SQL Server install failed: $LASTEXITCODE" }
           $tools = Get-ChildItem 'C:\Program Files\Microsoft SQL Server\Client SDK\ODBC' -Recurse -Filter sqlcmd.exe -ErrorAction SilentlyContinue | Select-Object -First 1
