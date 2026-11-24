@@ -37,8 +37,16 @@ export interface BranchRow { id: string; name: string; location: string | null; 
 export interface OrgRow extends Omit<BranchRow, 'customers'> { sharedAccessEnabled: boolean; customers: number; branches: BranchRow[] }
 
 export interface TeamMemberRow { userId: string; fullName: string; email: string; isLeader: boolean; autoAssign?: boolean; openTickets?: number }
-export interface TeamRow { id: string; nameEn: string; nameAr: string; isActive: boolean; openTickets?: number; members: TeamMemberRow[] }
-export interface TeamsResult { teams: TeamRow[]; candidates: (PersonLite & { role: string })[] }
+export interface TeamRow {
+  id: string; nameEn: string; nameAr: string; isActive: boolean; openTickets?: number; members: TeamMemberRow[];
+  kindId?: string | null; organizationId?: string | null; branchId?: string | null; assignMethod?: string | null;
+}
+export interface TeamKindRow { id: string; nameEn: string; nameAr: string; centralFallback: boolean; sortOrder?: number; teams?: number }
+export interface TeamsResult {
+  teams: TeamRow[]; candidates: (PersonLite & { role: string })[]; kinds?: TeamKindRow[];
+  organizations?: { id: string; name: string; parentId: string | null }[]; branches?: { id: string; organizationId: string; name: string; organizationName?: string | null }[];
+  canCentral?: boolean; defaultMethod?: string;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AdminApi {

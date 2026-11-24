@@ -120,6 +120,14 @@
         "title": "Admin account signed in from a new device: {person}",
         "body": "The admin account of {person} ({email}) signed in from a new device: {device}, on {at} (Cairo time), network address {ip}.\n\nIf this is not expected, sign this person out everywhere under Settings → Security → Sessions and devices.",
         "button": "Open sessions and devices"
+      },
+      "team_ticket_waiting": {
+        "title": "New ticket for {team}: {reference}",
+        "body": "\"{subject}\" is waiting in the team list."
+      },
+      "ticket_no_team": {
+        "title": "No team for {reference}",
+        "body": "\"{subject}\" needs a {team} team, but the customer's place has none. Assign it by hand or add the team."
       }
     },
     "emailFooter": "You receive this email because of activity on your tickets.",
@@ -247,6 +255,14 @@
         "title": "دخول حساب مسؤول من جهاز جديد: {person}",
         "body": "سجّل حساب المسؤول {person} ({email}) الدخول من جهاز جديد: {device}، في {at} (بتوقيت القاهرة)، من عنوان الشبكة {ip}.\n\nإن لم يكن ذلك متوقعًا، فسجّل خروج هذا الشخص من جميع الأجهزة من الإعدادات ← الأمان ← الجلسات والأجهزة.",
         "button": "فتح الجلسات والأجهزة"
+      },
+      "team_ticket_waiting": {
+        "title": "تذكرة جديدة لفريق {team}: {reference}",
+        "body": "«{subject}» بانتظار الاستلام في قائمة الفريق."
+      },
+      "ticket_no_team": {
+        "title": "لا يوجد فريق للتذكرة {reference}",
+        "body": "«{subject}» تحتاج فريق {team}، ولا يوجد فريق في مكان العميل. أسندها يدويًا أو أضف الفريق."
       }
     },
     "emailFooter": "تصلك هذه الرسالة بسبب نشاط على تذاكرك.",

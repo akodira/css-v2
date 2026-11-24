@@ -26,7 +26,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     public sealed record TypeBody(string NameEn, string NameAr, string? DescriptionEn, string? DescriptionAr, string? ExamplesEn, string? ExamplesAr,
         int SortOrder, bool IsActive, Guid[] CategoryIds, string? Code = null);
     public sealed record CategoryBody(string NameEn, string NameAr, Guid? DefaultTeamId, bool IsActive, int SortOrder, string? PriorityCode,
-        bool IsPrivate, bool AutoAssign, Guid[]? TypeIds);
+        bool IsPrivate, bool AutoAssign, Guid[]? TypeIds, Guid? TeamKindId = null);
     public sealed record SubcategoryBody(Guid CategoryId, string NameEn, string NameAr, bool IsActive, int SortOrder, string? PriorityCode);
     public sealed record PriorityBody(string NameEn, string NameAr, string Color, string Icon, int SortOrder, bool IsActive,
         int FirstResponseMinutes, int ResolutionMinutes);
@@ -82,7 +82,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
             }),
             categories = cats.Select(c => new
             {
-                c.Id, c.NameEn, c.NameAr, c.DefaultTeamId, c.IsActive, c.SortOrder, c.PriorityCode, c.IsPrivate, c.AutoAssign,
+                c.Id, c.NameEn, c.NameAr, c.DefaultTeamId, c.TeamKindId, c.IsActive, c.SortOrder, c.PriorityCode, c.IsPrivate, c.AutoAssign,
                 TypeIds = links.Where(l => l.CategoryId == c.Id).Select(l => l.TypeId),
                 Tickets = N(byCat, x => x.Id == c.Id, x => x.N),
                 Subcategories = subs.Where(s => s.CategoryId == c.Id).Select(s => new
@@ -97,6 +97,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
                 f.IsActive, f.SortOrder, HasValues = used.Contains(f.Id),
             }),
             teams,
+            kinds = await db.TeamKinds.AsNoTracking().OrderBy(k => k.SortOrder).ThenBy(k => k.NameEn).Select(k => new { k.Id, k.NameEn, k.NameAr }).ToListAsync(ct),
             priorities = prios,
         };
     }
@@ -188,7 +189,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     {
         await Need(Permission.ManageCatalog, ct);
         var c = await db.TicketCategories.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
-        var before = new { c.NameEn, c.NameAr, c.DefaultTeamId, c.IsActive, c.SortOrder, c.PriorityCode, c.IsPrivate, c.AutoAssign };
+        var before = new { c.NameEn, c.NameAr, c.DefaultTeamId, c.TeamKindId, c.IsActive, c.SortOrder, c.PriorityCode, c.IsPrivate, c.AutoAssign };
         await ApplyCategoryAsync(c, b, ct);
         if (b.TypeIds is not null) await LinkCategoryAsync(id, b.TypeIds, ct);
         audit.Write("category.update", "ticket_category", id, before, b);
@@ -251,8 +252,9 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
         var (en, ar) = (Name(b.NameEn, "nameEn"), Name(b.NameAr, "nameAr"));
         if (await db.TicketCategories.AnyAsync(x => x.Id != c.Id && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
         if (b.DefaultTeamId is Guid tm && !await db.Teams.AnyAsync(t => t.Id == tm, ct)) throw Err("notFound", "defaultTeamId");
+        if (b.TeamKindId is Guid kd && !await db.TeamKinds.AnyAsync(k => k.Id == kd, ct)) throw Err("notFound", "teamKindId");
         await CheckPriorityAsync(b.PriorityCode, ct);
-        c.NameEn = en; c.NameAr = ar; c.DefaultTeamId = b.DefaultTeamId; c.IsActive = b.IsActive; c.SortOrder = Sort(b.SortOrder);
+        c.NameEn = en; c.NameAr = ar; c.TeamKindId = b.TeamKindId; c.DefaultTeamId = b.TeamKindId is null ? b.DefaultTeamId : null; c.IsActive = b.IsActive; c.SortOrder = Sort(b.SortOrder);
         c.PriorityCode = Blank(b.PriorityCode); c.IsPrivate = b.IsPrivate; c.AutoAssign = b.AutoAssign;
     }
 

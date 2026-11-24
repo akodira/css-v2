@@ -243,6 +243,19 @@ public sealed class AccessService(ICcsDbContext db, ICurrentUser current, IMfaSt
         if (isAdmin) return true;
         var me = await db.Profiles.AsNoTracking().FirstOrDefaultAsync(p => p.Id == userId, ct);
         if (me is null) return false;
+        // "Works in" (and an admin's own place) decides, the same as what the person can see (BuildContextAsync).
+        var placements = await db.StaffPlacements.AsNoTracking().Where(p => p.UserId == userId).Select(p => new { p.OrganizationId, p.BranchId }).ToListAsync(ct);
+        var scopes = await db.AdminScopes.AsNoTracking().Where(s => s.UserId == userId).Select(s => new { s.OrganizationId, s.BranchId }).ToListAsync(ct);
+        if (placements.Count > 0 || scopes.Count > 0)
+        {
+            var who = await db.Profiles.AsNoTracking().Where(p => p.Id == requesterId).Select(p => new { p.OrganizationId, p.BranchId }).FirstOrDefaultAsync(ct);
+            if (who?.OrganizationId is not Guid reqOrg) return false;
+            var tree = await OrgTreeAsync(ct);
+            foreach (var p in placements.Concat(scopes))
+                foreach (var org in WithChildren(tree, p.OrganizationId))
+                    if (org == reqOrg && (org != p.OrganizationId || p.BranchId is null || p.BranchId == who.BranchId)) return true;
+            return false;
+        }
         if (me.AccountTypeId is null) return true;
         var type = await db.AccountTypes.AsNoTracking().FirstOrDefaultAsync(t => t.Id == me.AccountTypeId, ct);
         if (type?.AllAccess == true) return true;

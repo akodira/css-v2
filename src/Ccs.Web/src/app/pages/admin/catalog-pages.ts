@@ -13,9 +13,9 @@ interface TeamOpt { id: string; nameEn: string; nameAr: string; isActive: boolea
 interface PrioOpt { code: string; nameEn: string; nameAr: string; color: string; icon?: string; isActive: boolean }
 interface TypeRow { id: string; code: string | null; nameEn: string; nameAr: string; descriptionEn: string; descriptionAr: string; examplesEn: string; examplesAr: string; sortOrder: number; isActive: boolean; categoryIds: string[]; tickets: number }
 interface SubRow { id: string; categoryId: string; nameEn: string; nameAr: string; isActive: boolean; sortOrder: number; priorityCode: string | null; tickets: number }
-interface CatRow { id: string; nameEn: string; nameAr: string; defaultTeamId: string | null; isActive: boolean; sortOrder: number; priorityCode: string | null; isPrivate: boolean; autoAssign: boolean; typeIds: string[]; tickets: number; subcategories: SubRow[] }
+interface CatRow { id: string; nameEn: string; nameAr: string; defaultTeamId: string | null; teamKindId: string | null; isActive: boolean; sortOrder: number; priorityCode: string | null; isPrivate: boolean; autoAssign: boolean; typeIds: string[]; tickets: number; subcategories: SubRow[] }
 interface FieldRow { id: string; key: string; labelEn: string; labelAr: string; type: string; options: string; isRequired: boolean; validation: string; visibleToCustomer: boolean; categoryId: string | null; isActive: boolean; sortOrder: number; hasValues: boolean }
-interface CatalogData { types: TypeRow[]; categories: CatRow[]; fields: FieldRow[]; teams: TeamOpt[]; priorities: PrioOpt[] }
+interface CatalogData { types: TypeRow[]; categories: CatRow[]; fields: FieldRow[]; teams: TeamOpt[]; kinds?: { id: string; nameEn: string; nameAr: string }[]; priorities: PrioOpt[] }
 
 interface PrioRow { code: string; nameEn: string; nameAr: string; color: string; icon: string; sortOrder: number; isActive: boolean; firstResponseMinutes: number | null; resolutionMinutes: number | null; usedBy: number; tickets: number; isDefault: boolean }
 interface SlaRow { priority: string; nameEn: string; nameAr: string; color: string; icon?: string; isActive: boolean; firstResponseMinutes: number; resolutionMinutes: number; warningThresholdPct: number; pauseOnPendingCustomer: boolean; pauseOnPendingInternal: boolean; businessHoursId: string | null; warnNotify: string[]; breachNotify: string[]; hasPolicy: boolean }
@@ -130,7 +130,7 @@ interface FieldModel {
   key: string; labelEn: string; labelAr: string; type: string; optionsText: string; isRequired: boolean; visibleToCustomer: boolean;
   categoryId: string | null; isActive: boolean; sortOrder: number; min: number | null; max: number | null; minLength: number | null; maxLength: number | null; pattern: string;
 }
-const blankCat = (): CatModel => ({ nameEn: '', nameAr: '', defaultTeamId: null, isActive: true, sortOrder: 0, priorityCode: null, isPrivate: false, autoAssign: true, typeIds: [] });
+const blankCat = (): CatModel => ({ nameEn: '', nameAr: '', defaultTeamId: null, teamKindId: null, isActive: true, sortOrder: 0, priorityCode: null, isPrivate: false, autoAssign: true, typeIds: [] });
 const blankSub = (categoryId: string): SubModel => ({ categoryId, nameEn: '', nameAr: '', isActive: true, sortOrder: 0, priorityCode: null });
 const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type: 'text', optionsText: '', isRequired: false, visibleToCustomer: true, categoryId: null, isActive: true, sortOrder: 0, min: null, max: null, minLength: null, maxLength: null, pattern: '' });
 
@@ -152,11 +152,12 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
       <ng-template #catForm let-m="m" let-id="id">
         <div class="grid gap-4 md:grid-cols-2">
           <ng-container *ngTemplateOutlet="names; context: { m, id }" />
-          <div class="flex flex-col gap-1.5"><label [for]="id + 'tm'" [class]="cls.label">{{ 'AdminCatalog.defaultTeam' | t }}</label>
-            <select [id]="id + 'tm'" [name]="id + 'tm'" [class]="cls.input" [(ngModel)]="m.defaultTeamId">
+          <div class="flex flex-col gap-1.5"><label [for]="id + 'tm'" [class]="cls.label">{{ 'TeamPlace.handledBy' | t }}</label>
+            <select [id]="id + 'tm'" [name]="id + 'tm'" [class]="cls.input" [(ngModel)]="m.teamKindId" (ngModelChange)="m.defaultTeamId = null">
               <option [ngValue]="null">{{ 'AdminCatalog.noTeam' | t }}</option>
-              @for (x of data()?.teams ?? []; track x.id) { <option [ngValue]="x.id">{{ i18n.pick(x.nameEn, x.nameAr) }}</option> }
-            </select></div>
+              @for (x of data()?.kinds ?? []; track x.id) { <option [ngValue]="x.id">{{ i18n.pick(x.nameEn, x.nameAr) }}</option> }
+            </select>
+            <p class="text-sm text-muted">{{ 'TeamPlace.handledByHint' | t }} <a [routerLink]="'/' + i18n.locale() + '/admin/teams'" class="font-semibold text-brand-ink underline">{{ 'TeamPlace.teamsLink' | t }}</a></p></div>
           <div class="flex flex-col gap-1.5"><label [for]="id + 'pr'" [class]="cls.label">{{ 'AdminCatalog.fixedPriority' | t }}</label>
             <select [id]="id + 'pr'" [name]="id + 'pr'" [class]="cls.input" [(ngModel)]="m.priorityCode">
               <option [ngValue]="null">{{ 'AdminCatalog.noFixedPriority' | t }}</option>
@@ -364,7 +365,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
                     <span class="text-muted" dir="ltr">{{ i + 1 }}</span></div></td>
                   <td class="px-2 py-3 font-semibold" dir="auto">{{ i18n.pick(c.nameEn, c.nameAr) }}@if (c.subcategories.length) { <span class="ms-2 text-xs font-normal text-muted">{{ 'AdminCatalog.subcategories' | t }}: {{ c.subcategories.length }}</span> }</td>
                   <td class="px-2 py-3">@if (prio(c.priorityCode); as p) { <span class="inline-flex items-center gap-1.5"><app-prio-icon [name]="p.icon" [color]="p.color" />{{ i18n.pick(p.nameEn, p.nameAr) }}</span> } @else { <span class="text-muted">{{ 'AdminCatalog.noFixedPriorityShort' | t }}</span> }</td>
-                  <td class="px-2 py-3">@if (teamName2(c.defaultTeamId); as tn) { {{ tn }} } @else { <span class="text-muted">{{ 'AdminCatalog.noTeam' | t }}</span> }</td>
+                  <td class="px-2 py-3">@if (kindName(c.teamKindId) || teamName2(c.defaultTeamId); as tn) { {{ tn }} } @else { <span class="text-muted">{{ 'AdminCatalog.noTeam' | t }}</span> }</td>
                   <td class="px-2 py-3">@if (n > 0) { <a [routerLink]="'/' + i18n.locale() + '/console'" [queryParams]="{ view: 'all', status: 'any', category: c.id }" class="font-semibold text-brand-ink underline">{{ n }} ({{ pct(n) }}%)</a> } @else { <span class="text-muted">0</span> }</td>
                   <td class="px-2 py-3">{{ (c.isPrivate ? 'AdminCatalog.typePrivate' : 'AdminCatalog.typePublic') | t }}</td>
                   <td class="px-2 py-3"><span class="font-semibold">{{ (c.autoAssign ? 'AdminCatalog.on' : 'AdminCatalog.off') | t }}</span></td>
@@ -514,7 +515,7 @@ export class AdminCatalogPage extends AdminBase implements OnInit {
       const d = await this.api.get<CatalogData>('catalog');
       for (const t of d.types) this.editTypeM[t.id] = { code: t.code, nameEn: t.nameEn, nameAr: t.nameAr, descriptionEn: t.descriptionEn, descriptionAr: t.descriptionAr, examplesEn: t.examplesEn, examplesAr: t.examplesAr, sortOrder: t.sortOrder, isActive: t.isActive, categoryIds: [...t.categoryIds] };
       for (const c of d.categories) {
-        this.editCat[c.id] = { nameEn: c.nameEn, nameAr: c.nameAr, defaultTeamId: c.defaultTeamId, isActive: c.isActive, sortOrder: c.sortOrder, priorityCode: c.priorityCode, isPrivate: c.isPrivate, autoAssign: c.autoAssign, typeIds: [...c.typeIds] };
+        this.editCat[c.id] = { nameEn: c.nameEn, nameAr: c.nameAr, defaultTeamId: c.defaultTeamId, teamKindId: c.teamKindId, isActive: c.isActive, sortOrder: c.sortOrder, priorityCode: c.priorityCode, isPrivate: c.isPrivate, autoAssign: c.autoAssign, typeIds: [...c.typeIds] };
         for (const s of c.subcategories) this.editSub[s.id] = { categoryId: s.categoryId, nameEn: s.nameEn, nameAr: s.nameAr, isActive: s.isActive, sortOrder: s.sortOrder, priorityCode: s.priorityCode };
       }
       for (const f of d.fields) this.editField[f.id] = toFieldModel(f);
@@ -527,6 +528,7 @@ export class AdminCatalogPage extends AdminBase implements OnInit {
   protected nwSub(catId: string): SubModel { return (this.newSubs[catId] ??= blankSub(catId)); }
   protected toggle(list: string[], id: string): void { const i = list.indexOf(id); if (i >= 0) list.splice(i, 1); else list.push(id); }
   protected flipOpen(id: string): void { this.openCats.update((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id])); }
+  protected kindName(id: string | null): string { const k = this.data()?.kinds?.find((x) => x.id === id); return k ? this.i18n.pick(k.nameEn, k.nameAr) : ''; }
   protected teamName2(id: string | null): string { const t = this.data()?.teams.find((x) => x.id === id); return t ? this.i18n.pick(t.nameEn, t.nameAr) : ''; }
   protected prio(code: string | null): PrioOpt | undefined { return this.data()?.priorities.find((x) => x.code === code); }
   protected dot(color: string): string { return PRIO_DOT[color] ?? 'bg-slate-400'; }

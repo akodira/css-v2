@@ -53,7 +53,10 @@ public class TicketCategory
     public Guid Id { get; set; }
     public string NameEn { get; set; } = "";
     public string NameAr { get; set; } = "";
+    /// <summary>Old fixed team; used only when no kind is set.</summary>
     public Guid? DefaultTeamId { get; set; }
+    /// <summary>The kind of team that handles it; the ticket goes to that kind in the customer's place.</summary>
+    public Guid? TeamKindId { get; set; }
     public bool IsActive { get; set; } = true;
     public int SortOrder { get; set; }
     public string? PriorityCode { get; set; }

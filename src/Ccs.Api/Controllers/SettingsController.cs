@@ -756,6 +756,40 @@ public sealed partial class SettingsController(
         return NoContent();
     }
 
+    // ================================================================ ticket routing (teams per place) and how tickets are given out
+
+    [HttpGet("routing")]
+    public async Task<object> GetRouting([FromServices] Ccs.Application.Settings.SettingsService settings, CancellationToken ct)
+    {
+        await Need(ct);
+        return await settings.GetRoutingAsync(ct);
+    }
+
+    [HttpPut("routing")]
+    public async Task<IActionResult> SaveRouting(RoutingSettings b, CancellationToken ct)
+    {
+        await Need(ct);
+        if (b.Notify is not ("org" or "sys")) throw Err("required", "notify");
+        if (!TeamRouting.IsMethod(b.Method)) throw Err("required", "method");
+        var values = new Dictionary<string, string>
+        {
+            ["routing_use_org"] = b.UseOrganization ? "true" : "false", ["routing_use_central"] = b.UseCentral ? "true" : "false",
+            ["routing_notify"] = JsonSerializer.Serialize(b.Notify), ["assign_method_default"] = JsonSerializer.Serialize(b.Method),
+            ["staff_multi_place"] = b.MultiPlace ? "true" : "false",
+        };
+        var rows = await db.AppSettings.Where(s => values.Keys.Contains(s.Key)).ToListAsync(ct);
+        var before = rows.ToDictionary(r => r.Key, r => r.Value);
+        foreach (var (key, json) in values)
+        {
+            var row = rows.FirstOrDefault(r => r.Key == key);
+            if (row is null) db.AppSettings.Add(new AppSetting { Key = key, Value = json });
+            else row.Value = json;
+        }
+        audit.Write("settings.routing", "app_settings", null, before, values);
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     public sealed record RegistrationBody(string Mode);
 
     [HttpPut("registration")]

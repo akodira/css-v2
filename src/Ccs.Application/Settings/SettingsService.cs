@@ -71,6 +71,17 @@ public sealed class SettingsService(ICcsDbContext db)
         return f.Validate() is null ? f : d;
     }
 
+    /// <summary>Settings → System → Ticket routing and how tickets are given out.</summary>
+    public async Task<RoutingSettings> GetRoutingAsync(CancellationToken ct = default)
+    {
+        var d = RoutingSettings.Default;
+        var notify = await GetStringAsync("routing_notify", d.Notify, ct);
+        var method = await GetStringAsync("assign_method_default", d.Method, ct);
+        return new(await GetBoolAsync("routing_use_org", d.UseOrganization, ct), await GetBoolAsync("routing_use_central", d.UseCentral, ct),
+            notify is "org" or "sys" ? notify : d.Notify, TeamRouting.IsMethod(method) ? method : d.Method,
+            await GetBoolAsync("staff_multi_place", d.MultiPlace, ct));
+    }
+
     public async Task SetAsync(string key, object value, CancellationToken ct = default)
     {
         var json = JsonSerializer.Serialize(value);

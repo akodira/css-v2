@@ -22,6 +22,7 @@ import { RichEditor } from '../../shared/rich-editor';
 import { LockedAccountsPage, LockedCounts, LockoutPolicyPage, SecurityOverview } from './security-pages';
 import { AlertsPage, MfaPolicyPage, PasswordHistoryForm, ReportPage, SessionsPage } from './security-extras';
 import { PhoneSettings } from './phone-settings';
+import { RoutingSettings } from './routing-settings';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
 const TABS = ['', 'home', 'menus', 'email', 'templates', 'messages', 'uploads', 'system', 'handover', 'security'];
@@ -1291,7 +1292,7 @@ export class UploadsTab extends Tab implements OnInit {
 
 @Component({
   selector: 'app-set-system',
-  imports: [TPipe, FormsModule, Alert, Req, ReqNote, PhoneSettings],
+  imports: [TPipe, FormsModule, Alert, Req, ReqNote, PhoneSettings, RoutingSettings],
   template: `
     ${MSG}
     @if (!part()) { <p class="max-w-prose text-muted">{{ 'AdminSettings.subtitle' | t }}</p> }
@@ -1392,6 +1393,7 @@ export class UploadsTab extends Tab implements OnInit {
       </form>
       }
       <app-phone-settings />
+      <app-routing-settings />
       }
 
       @if (part() === 'idle') {

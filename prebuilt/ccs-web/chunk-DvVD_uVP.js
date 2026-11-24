@@ -1,1 +1,0 @@
-import{M as Yt}from"./main-TPC2NPJD.js";import"./chunk-DoMPm57t.js";import"./chunk-DdDf-V10.js";export{Yt as PeoplePage};

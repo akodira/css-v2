@@ -278,3 +278,92 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_transitions_not_same')
     ALTER TABLE ccs.ticket_status_transitions ADD CONSTRAINT CK_transitions_not_same CHECK (from_status <> to_status);
 GO
+
+-- Teams per place. A kind of team (Technical support, Billing…) is defined once; each organization or branch has its own
+-- team of a kind (organization_id/branch_id empty = a central team for every place). A category names the kind it needs,
+-- and a new ticket goes to that kind of team in the customer's own branch, then organization, then the central team.
+IF OBJECT_ID(N'ccs.team_kinds') IS NULL
+    CREATE TABLE ccs.team_kinds (
+        id               uniqueidentifier NOT NULL CONSTRAINT PK_team_kinds PRIMARY KEY DEFAULT NEWID(),
+        name_en          nvarchar(80) NOT NULL,
+        name_ar          nvarchar(80) NOT NULL,
+        central_fallback bit NOT NULL CONSTRAINT DF_team_kinds_central DEFAULT 1,
+        sort_order       int NOT NULL CONSTRAINT DF_team_kinds_sort DEFAULT 0,
+        created_at       datetimeoffset(7) NOT NULL CONSTRAINT DF_team_kinds_created DEFAULT SYSUTCDATETIME()
+    );
+GO
+IF COL_LENGTH(N'ccs.teams', N'kind_id') IS NULL ALTER TABLE ccs.teams ADD kind_id uniqueidentifier NULL;
+GO
+IF COL_LENGTH(N'ccs.teams', N'organization_id') IS NULL ALTER TABLE ccs.teams ADD organization_id uniqueidentifier NULL;
+GO
+IF COL_LENGTH(N'ccs.teams', N'branch_id') IS NULL ALTER TABLE ccs.teams ADD branch_id uniqueidentifier NULL;
+GO
+IF COL_LENGTH(N'ccs.teams', N'assign_method') IS NULL ALTER TABLE ccs.teams ADD assign_method nvarchar(16) NULL;
+GO
+IF COL_LENGTH(N'ccs.teams', N'last_auto_user_id') IS NULL ALTER TABLE ccs.teams ADD last_auto_user_id uniqueidentifier NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_teams_kind')
+    ALTER TABLE ccs.teams ADD CONSTRAINT FK_teams_kind FOREIGN KEY (kind_id) REFERENCES ccs.team_kinds(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_teams_org')
+    ALTER TABLE ccs.teams ADD CONSTRAINT FK_teams_org FOREIGN KEY (organization_id) REFERENCES ccs.organizations(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_teams_branch')
+    ALTER TABLE ccs.teams ADD CONSTRAINT FK_teams_branch FOREIGN KEY (branch_id) REFERENCES ccs.branches(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_teams_assign_method')
+    ALTER TABLE ccs.teams ADD CONSTRAINT CK_teams_assign_method CHECK (assign_method IS NULL OR assign_method IN ('fewest','turns','shared','leader'));
+GO
+-- Team names may repeat across places ("Technical support" in two branches); one team per kind per place instead.
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_teams_name_en' AND object_id = OBJECT_ID(N'ccs.teams')) DROP INDEX UX_teams_name_en ON ccs.teams;
+GO
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_teams_name_ar' AND object_id = OBJECT_ID(N'ccs.teams')) DROP INDEX UX_teams_name_ar ON ccs.teams;
+GO
+IF COL_LENGTH(N'ccs.ticket_categories', N'team_kind_id') IS NULL ALTER TABLE ccs.ticket_categories ADD team_kind_id uniqueidentifier NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_categories_team_kind')
+    ALTER TABLE ccs.ticket_categories ADD CONSTRAINT FK_categories_team_kind FOREIGN KEY (team_kind_id) REFERENCES ccs.team_kinds(id);
+GO
+-- "Only these people": per category and team. A team with no rows for a category = all its staff.
+IF OBJECT_ID(N'ccs.category_people') IS NULL
+    CREATE TABLE ccs.category_people (
+        category_id uniqueidentifier NOT NULL CONSTRAINT FK_category_people_category REFERENCES ccs.ticket_categories(id) ON DELETE CASCADE,
+        team_id     uniqueidentifier NOT NULL,
+        user_id     uniqueidentifier NOT NULL,
+        CONSTRAINT PK_category_people PRIMARY KEY (category_id, team_id, user_id)
+    );
+GO
+-- Existing teams become central teams, each of its own kind (same name), and categories point at their team's kind:
+-- tickets are routed exactly as before until an admin adds teams for organizations or branches.
+IF EXISTS (SELECT 1 FROM ccs.teams WHERE kind_id IS NULL)
+BEGIN
+    BEGIN TRAN;
+    DECLARE @map TABLE (team_id uniqueidentifier, kind_id uniqueidentifier);
+    INSERT INTO @map (team_id, kind_id) SELECT id, NEWID() FROM ccs.teams WHERE kind_id IS NULL;
+    INSERT INTO ccs.team_kinds (id, name_en, name_ar, sort_order)
+        SELECT m.kind_id, t.name_en, t.name_ar, ROW_NUMBER() OVER (ORDER BY t.name_en) FROM @map m JOIN ccs.teams t ON t.id = m.team_id;
+    UPDATE t SET kind_id = m.kind_id FROM ccs.teams t JOIN @map m ON m.team_id = t.id;
+    COMMIT;
+END
+GO
+UPDATE c SET team_kind_id = t.kind_id FROM ccs.ticket_categories c JOIN ccs.teams t ON t.id = c.default_team_id WHERE c.team_kind_id IS NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_teams_kind_place' AND object_id = OBJECT_ID(N'ccs.teams'))
+    CREATE UNIQUE INDEX UX_teams_kind_place ON ccs.teams (kind_id, organization_id, branch_id) WHERE kind_id IS NOT NULL;
+GO
+-- Account types say only what people can do. Places they carried move to the staff who had no "Works in" of their own.
+IF EXISTS (SELECT 1 FROM ccs.account_type_access)
+BEGIN
+    BEGIN TRAN;
+    INSERT INTO ccs.staff_placement (id, user_id, organization_id, branch_id)
+        SELECT NEWID(), p.id, a.organization_id, a.branch_id
+        FROM ccs.profiles p
+        JOIN ccs.account_types ty ON ty.id = p.account_type_id AND ty.all_access = 0
+        JOIN ccs.account_type_access a ON a.account_type_id = ty.id
+        WHERE NOT EXISTS (SELECT 1 FROM ccs.staff_placement s WHERE s.user_id = p.id)
+          AND NOT EXISTS (SELECT 1 FROM ccs.admin_scopes s WHERE s.user_id = p.id);
+    DELETE FROM ccs.account_type_access;
+    UPDATE ccs.account_types SET all_access = 1 WHERE all_access = 0 AND scope_level IS NULL;
+    COMMIT;
+END
+GO

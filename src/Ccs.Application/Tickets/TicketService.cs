@@ -136,6 +136,7 @@ public sealed class TicketService(
             if (!await db.Tickets.AnyAsync(x => x.Reference == reference, ct)) break;
         }
         var flowId = await FlowLookup.ForNewTicketAsync(db, settings, cmd.TypeId, category.Id, ct);
+        var routed = await RouteAsync(category, requester, ct);
         var ticket = new Ticket
         {
             Id = Guid.NewGuid(),
@@ -149,7 +150,7 @@ public sealed class TicketService(
             Priority = priority,
             Status = TicketStatus.New,
             FlowId = flowId,
-            TeamId = category.DefaultTeamId,
+            TeamId = routed?.TeamId ?? (category.TeamKindId is null ? category.DefaultTeamId : null),
             CreatedBy = c.UserId,
             CreatedAt = now,
             UpdatedAt = now,
@@ -174,7 +175,8 @@ public sealed class TicketService(
 
         await sla.StartAsync(ticket, ct);
         await notifications.OnTicketCreatedAsync(ticket, ct);
-        await AutoAssignAsync(ticket, ct);
+        if (ticket.TeamId is null && category.TeamKindId is Guid needKind) await NoTeamAsync(ticket, needKind, ct);
+        else await AutoAssignAsync(ticket, ct, routed?.Step);
         await SaveAsync(ct);
         await tx.CommitAsync(ct);
         return new CreatedTicket(ticket.Id, ticket.Reference);
@@ -365,14 +367,54 @@ public sealed class TicketService(
     }
 
     /// <summary>
-    /// auto_assign_ticket(): the active team member with auto-assign on, in the requester's scope,
-    /// with the fewest open tickets (random on a tie). A new ticket becomes open. A category can switch it off.
+    /// Teams per place: the category's kind of team in the customer's branch, then their organization (and the ones above
+    /// it), then a central team (Settings → System → Ticket routing). Null when the category has no kind or nothing fits.
     /// </summary>
-    public async Task<Guid?> AutoAssignAsync(Ticket t, CancellationToken ct = default)
+    public async Task<(Guid TeamId, string Step)?> RouteAsync(TicketCategory category, Guid requesterId, CancellationToken ct = default)
+    {
+        if (category.TeamKindId is not Guid kind) return null;
+        var teams = await db.Teams.AsNoTracking().Where(t => t.KindId == kind && t.IsActive)
+            .Select(t => new TeamRouting.TeamAt(t.Id, t.OrganizationId, t.BranchId)).ToListAsync(ct);
+        var who = await db.Profiles.AsNoTracking().Where(p => p.Id == requesterId).Select(p => new { p.OrganizationId, p.BranchId }).FirstOrDefaultAsync(ct);
+        var chain = new List<Guid>();
+        if (who?.OrganizationId is Guid org)
+        {
+            var parents = await db.Organizations.AsNoTracking().ToDictionaryAsync(o => o.Id, o => o.ParentId, ct);
+            for (Guid? cur = org; cur is Guid c && !chain.Contains(c); cur = parents.GetValueOrDefault(c)) chain.Add(c);
+        }
+        var central = await db.TeamKinds.AsNoTracking().Where(k => k.Id == kind).Select(k => k.CentralFallback).FirstOrDefaultAsync(ct);
+        return TeamRouting.Pick(teams, chain, who?.BranchId, await settings.GetRoutingAsync(ct), central);
+    }
+
+    /// <summary>No team of the needed kind fits: the ticket waits unassigned; the organization admins (or system admins) are told.</summary>
+    private async Task NoTeamAsync(Ticket t, Guid kind, CancellationToken ct)
+    {
+        var routing = await settings.GetRoutingAsync(ct);
+        var req = await db.Profiles.AsNoTracking().Where(p => p.Id == t.RequesterId).Select(p => new { p.OrganizationId, p.BranchId }).FirstOrDefaultAsync(ct);
+        var admins = new List<Guid>();
+        if (routing.Notify == "org" && req?.OrganizationId is Guid org)
+            admins = await db.AdminScopes.Where(s => s.OrganizationId == org && (s.BranchId == null || s.BranchId == req.BranchId))
+                .Select(s => s.UserId).Distinct().ToListAsync(ct);
+        if (admins.Count == 0)
+            admins = await (from ur in db.UserRoles join r in db.Roles on ur.RoleId equals r.Id where r.Code == RoleCode.Admin select ur.UserId).Distinct().ToListAsync(ct);
+        var kindName = await db.TeamKinds.AsNoTracking().Where(k => k.Id == kind).Select(k => new { k.NameEn, k.NameAr }).FirstOrDefaultAsync(ct);
+        var payload = await notifications.TicketPayloadAsync(t.Id, new Dictionary<string, object?> { ["team"] = kindName?.NameEn, ["teamAr"] = kindName?.NameAr }, ct);
+        foreach (var a in admins) await notifications.NotifyAsync(a, NotificationEvent.TicketNoTeam, t.Id, payload, "ticket:" + t.Id, ct);
+    }
+
+    /// <summary>
+    /// auto_assign_ticket(): who in the ticket's team gets it. Candidates are active team members with "Gets tickets
+    /// automatically" on, in the customer's place, and (when the category names people for this team) one of them.
+    /// The team's method (or the default) then decides: fewest open tickets, take turns, shared with the team (everyone is
+    /// told; the first to take it gets it) or the team leader chooses. A category can switch automatic assignment off.
+    /// </summary>
+    public async Task<Guid?> AutoAssignAsync(Ticket t, CancellationToken ct = default, string? step = null)
     {
         if (t.TeamId is not Guid team || t.AssignedAgentId is not null) return null;
         var catAuto = await db.TicketCategories.Where(x => x.Id == t.CategoryId).Select(x => (bool?)x.AutoAssign).FirstOrDefaultAsync(ct);
         if (catAuto == false) return null;
+        var teamRow = await db.Teams.FirstAsync(x => x.Id == team, ct);
+        var method = teamRow.AssignMethod ?? (await settings.GetRoutingAsync(ct)).Method;
 
         var candidates = await (from m in db.TeamMembers
                                 join p in db.Profiles on m.UserId equals p.Id
@@ -380,28 +422,46 @@ public sealed class TicketService(
                                       && (from ur in db.UserRoles join r in db.Roles on ur.RoleId equals r.Id
                                           where ur.UserId == m.UserId && (r.Code == RoleCode.Agent || r.Code == RoleCode.TeamLeader)
                                           select 1).Any()
+                                orderby p.FullName, m.UserId
                                 select new
                                 {
                                     m.UserId,
                                     Load = db.Tickets.Count(o => o.AssignedAgentId == m.UserId && o.Status != TicketStatus.Resolved && o.Status != TicketStatus.Closed),
                                 }).ToListAsync(ct);
-        var inScope = new List<(Guid UserId, int Load)>();
+        var chosen = await db.CategoryPeople.Where(x => x.CategoryId == t.CategoryId && x.TeamId == team).Select(x => x.UserId).ToListAsync(ct);
+        var pool = new List<(Guid UserId, int Load)>();
         foreach (var x in candidates)
-            if (await access.UserInScopeAsync(x.UserId, t.RequesterId, ct)) inScope.Add((x.UserId, x.Load));
-        if (inScope.Count == 0) return null;
-
-        var min = inScope.Min(x => x.Load);
-        var pool = inScope.Where(x => x.Load == min).ToList();
-        var agent = pool[Random.Shared.Next(pool.Count)].UserId;
-        var by = await db.TeamMembers.Where(m => m.TeamId == team && m.IsLeader).Select(m => (Guid?)m.UserId).FirstOrDefaultAsync(ct) ?? agent;
-
+            if ((chosen.Count == 0 || chosen.Contains(x.UserId)) && await access.UserInScopeAsync(x.UserId, t.RequesterId, ct)) pool.Add((x.UserId, x.Load));
+        var leaders = await db.TeamMembers.Where(m => m.TeamId == team && m.IsLeader).Select(m => m.UserId).ToListAsync(ct);
+        var by = leaders.Cast<Guid?>().FirstOrDefault() ?? t.CreatedBy ?? t.RequesterId;
         var now = clock.UtcNow;
+        var where = step ?? "team";   // "team": staff moved it to this team
+
+        // Nobody can take it automatically, or the team gives tickets out by hand: it waits in the team list.
+        if (pool.Count == 0 || method is TeamRouting.Shared or TeamRouting.Leader)
+        {
+            var why = pool.Count == 0 ? "nobody" : method;
+            db.TicketAssignments.Add(new TicketAssignment
+            {
+                Id = Guid.NewGuid(), TicketId = t.Id, ToTeam = team, FromTeam = team, AssignedBy = by, Reason = $"auto:{why}:{where}", CreatedAt = now,
+            });
+            var tell = method == TeamRouting.Shared && pool.Count > 0 ? pool.Select(x => x.UserId).ToList() : leaders;
+            var payload = await notifications.TicketPayloadAsync(t.Id, new Dictionary<string, object?> { ["team"] = teamRow.NameEn, ["teamAr"] = teamRow.NameAr }, ct);
+            foreach (var u in tell) await notifications.NotifyAsync(u, NotificationEvent.TeamTicketWaiting, t.Id, payload, "ticket:" + t.Id, ct);
+            return null;
+        }
+
+        var agent = method == TeamRouting.Turns
+            ? TeamRouting.NextInLine(pool.Select(x => x.UserId).ToList(), teamRow.LastAutoUserId)
+            : TeamRouting.PickFewest(pool, Random.Shared.Next);
+        if (method == TeamRouting.Turns) teamRow.LastAutoUserId = agent;
+
         t.AssignedAgentId = agent;
         t.UpdatedAt = now;
         var a = new TicketAssignment
         {
             Id = Guid.NewGuid(), TicketId = t.Id, FromAgent = null, ToAgent = agent, FromTeam = team, ToTeam = team,
-            AssignedBy = by, Reason = "Auto-assigned", CreatedAt = now,
+            AssignedBy = leaders.Cast<Guid?>().FirstOrDefault() ?? agent, Reason = $"auto:{method}:{where}", CreatedAt = now,
         };
         db.TicketAssignments.Add(a);
         if (t.Status == TicketStatus.New && FlowRules.AfterAssign(await FlowLookup.StatusesAsync(db, await FlowLookup.OfTicketAsync(db, t.FlowId, ct), ct)) is string toOpen)

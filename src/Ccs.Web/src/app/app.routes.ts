@@ -101,7 +101,7 @@ export const routes: Routes = [
           { path: 'admin/permissions', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/perm-pages').then((m) => m.AdminPermissionsPage) },
           { path: 'admin/permissions/types/:id', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/perm-pages').then((m) => m.AdminTypePage) },
           { path: 'admin/organizations', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminOrgsPage) },
-          { path: 'admin/teams', canActivate: [requireRole(['admin'])], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminTeamsPage) },
+          { path: 'admin/teams', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/people-pages').then((m) => m.AdminTeamsPage) },
           { path: 'admin/ticket-types', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/catalog-pages').then((m) => m.AdminTicketTypesPage) },
           { path: 'admin/catalog', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/catalog-pages').then((m) => m.AdminCatalogPage) },
           { path: 'admin/priorities', canActivate: [requireRole(STAFF_ROLES)], loadComponent: () => import('./pages/admin/catalog-pages').then((m) => m.AdminPrioritiesPage) },

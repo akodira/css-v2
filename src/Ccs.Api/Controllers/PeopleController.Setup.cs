@@ -101,6 +101,9 @@ public sealed partial class PeopleController
         // A picked branch narrows its organization to the picked branches; an organization alone means all its branches.
         var whole = orgs.Where(o => !branches.Any(x => x.OrganizationId == o)).ToList();
         if (whole.Count == 0 && branches.Count == 0) throw new AuthError("placeRequired", 400, "where");
+        // Settings → System → Ticket routing: "Staff can work in more than one place" off = one place each.
+        if (whole.Count + branches.Count > 1 && await db.AppSettings.AnyAsync(s => s.Key == "staff_multi_place" && s.Value == "false", ct))
+            throw new AuthError("onePlace", 400, "where");
         foreach (var o in whole) db.StaffPlacements.Add(new StaffPlacement { Id = Guid.NewGuid(), UserId = user, OrganizationId = o });
         foreach (var x in branches) db.StaffPlacements.Add(new StaffPlacement { Id = Guid.NewGuid(), UserId = user, OrganizationId = x.OrganizationId, BranchId = x.Id });
         return new(false, whole, branches.Select(x => x.Id).ToList());

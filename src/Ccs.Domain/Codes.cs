@@ -139,6 +139,10 @@ public static class NotificationEvent
     public const string ResolvedReminder = "resolved_reminder";
     /// <summary>To the assigned agent and team leaders: a ticket has been waiting on another team (Pending internal) for N days.</summary>
     public const string PendingInternalReminder = "pending_internal_reminder";
+    /// <summary>To the team (shared) or its leaders (leader chooses / nobody available): a new ticket waits in the team list.</summary>
+    public const string TeamTicketWaiting = "team_ticket_waiting";
+    /// <summary>To the organization admins (or system admins): no team of the needed kind serves the customer's place.</summary>
+    public const string TicketNoTeam = "ticket_no_team";
     public const string CancellationRequested = "cancellation_requested";
     public const string CancellationRejected = "cancellation_rejected";
     public const string PasswordExpiring = "password_expiring";

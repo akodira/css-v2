@@ -31,6 +31,8 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
     public DbSet<Branch> Branches => Set<Branch>();
     public DbSet<Team> Teams => Set<Team>();
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
+    public DbSet<TeamKind> TeamKinds => Set<TeamKind>();
+    public DbSet<CategoryPerson> CategoryPeople => Set<CategoryPerson>();
     public DbSet<SigninCode> SigninCodes => Set<SigninCode>();
     public DbSet<AuthCode> AuthCodes => Set<AuthCode>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -84,7 +86,7 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
         [typeof(AccountType)] = "account_types", [typeof(AccountTypePermission)] = "account_type_permissions",
         [typeof(AccountTypeAccess)] = "account_type_access", [typeof(AdminScope)] = "admin_scopes",
         [typeof(StaffPlacement)] = "staff_placement", [typeof(Organization)] = "organizations", [typeof(Branch)] = "branches",
-        [typeof(Team)] = "teams", [typeof(TeamMember)] = "team_members", [typeof(SigninCode)] = "signin_codes",
+        [typeof(Team)] = "teams", [typeof(TeamMember)] = "team_members", [typeof(TeamKind)] = "team_kinds", [typeof(CategoryPerson)] = "category_people", [typeof(SigninCode)] = "signin_codes",
         [typeof(AuthCode)] = "auth_codes", [typeof(RefreshToken)] = "refresh_tokens", [typeof(PasswordHistory)] = "password_history",
         [typeof(Ticket)] = "tickets", [typeof(TicketCounter)] = "ticket_counters", [typeof(TicketMessage)] = "ticket_messages",
         [typeof(TicketAttachment)] = "ticket_attachments", [typeof(TicketStatusHistory)] = "ticket_status_history",
@@ -120,6 +122,7 @@ public sealed class CcsDbContext(DbContextOptions<CcsDbContext> options)
         b.Entity<UserRole>().HasKey(x => new { x.UserId, x.RoleId });
         b.Entity<AccountTypePermission>().HasKey(x => new { x.AccountTypeId, x.Permission });
         b.Entity<TeamMember>().HasKey(x => new { x.TeamId, x.UserId });
+        b.Entity<CategoryPerson>().HasKey(x => new { x.CategoryId, x.TeamId, x.UserId });
         b.Entity<TicketCounter>().HasKey(x => x.Year);
         b.Entity<TicketStatusTransition>().HasKey(x => new { x.FlowId, x.FromStatus, x.ToStatus, x.Actor });
         b.Entity<CustomerFeedback>().HasKey(x => x.TicketId);

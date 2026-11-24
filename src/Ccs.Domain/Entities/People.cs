@@ -115,8 +115,37 @@ public class Team
     public string NameAr { get; set; } = "";
     public bool IsActive { get; set; } = true;
     public Guid? BusinessHoursId { get; set; }
+    /// <summary>The kind of team (Technical support, Billing…); a category sends tickets to a kind.</summary>
+    public Guid? KindId { get; set; }
+    /// <summary>Where the team works: a branch, a whole organization, or neither = a central team for every place.</summary>
+    public Guid? OrganizationId { get; set; }
+    public Guid? BranchId { get; set; }
+    /// <summary>How it gives out tickets: fewest, turns, shared, leader; null = the default in Settings.</summary>
+    public string? AssignMethod { get; set; }
+    /// <summary>Who got the last ticket when taking turns.</summary>
+    public Guid? LastAutoUserId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+}
+
+/// <summary>A kind of team, defined once (Technical support, Billing…). Each place may have its own team of a kind.</summary>
+public class TeamKind
+{
+    public Guid Id { get; set; }
+    public string NameEn { get; set; } = "";
+    public string NameAr { get; set; } = "";
+    /// <summary>When a place has no team of this kind, a central team of this kind may take its tickets.</summary>
+    public bool CentralFallback { get; set; } = true;
+    public int SortOrder { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+/// <summary>"Only these people": who in a team may get a category's tickets. No rows for a team = all its staff.</summary>
+public class CategoryPerson
+{
+    public Guid CategoryId { get; set; }
+    public Guid TeamId { get; set; }
+    public Guid UserId { get; set; }
 }
 
 public class TeamMember

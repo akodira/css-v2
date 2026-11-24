@@ -792,7 +792,8 @@
     "unLeader": "Remove leader",
     "activeLong": "Team is active",
     "delTitle": "Delete this team",
-    "openProfile": "Open {name} in Staff"
+    "openProfile": "Open {name} in Staff",
+    "tab_categories": "Categories"
   },
   "Notifications": {
     "title": "Notifications",
@@ -921,6 +922,14 @@
       "new_signin_admin": {
         "title": "Admin account signed in from a new device: {person}",
         "body": "{person} ({email}) signed in from {device}, {at}."
+      },
+      "team_ticket_waiting": {
+        "title": "New ticket for {team}: {reference}",
+        "body": "\"{subject}\" is waiting in the team list."
+      },
+      "ticket_no_team": {
+        "title": "No team for {reference}",
+        "body": "\"{subject}\" needs a {team} team, but the customer's place has none. Assign it by hand or add the team."
       }
     },
     "markRead": "Mark as read",
@@ -1223,7 +1232,9 @@
       "customStatusLimit": "You can have up to 30 statuses of your own.",
       "phoneFormat_countryCode": "Type a country code like +20 (1 to 4 digits).",
       "phoneFormat_length": "The number length must be between 4 and 15 digits.",
-      "phoneFormat_starts": "Each \"starts with\" value must be digits only and shorter than the number length (up to 10 values)."
+      "phoneFormat_starts": "Each \"starts with\" value must be digits only and shorter than the number length (up to 10 values).",
+      "teamExists": "This place already has a team of that kind.",
+      "onePlace": "Pick one place only: staff work in one place (Settings › System › Ticket routing)."
     },
     "cancel": "Cancel"
   },
@@ -1237,7 +1248,7 @@
     "nameEn": "Name (English)",
     "nameAr": "Name (Arabic)",
     "defaultTeam": "Default team",
-    "noTeam": "No default team",
+    "noTeam": "No team",
     "sort": "Sort order",
     "active": "Active",
     "inactive": "inactive",
@@ -1270,7 +1281,7 @@
     "colOrder": "#",
     "colName": "Name",
     "colPriority": "Priority",
-    "colTeam": "Default team",
+    "colTeam": "Handled by",
     "colTickets": "Tickets",
     "colType": "Type",
     "colAuto": "Auto-assign",
@@ -2381,7 +2392,9 @@
       "account_locked": "Account: your account is locked",
       "account_locked_admin": "Admins: an account was locked",
       "new_signin": "Account: new sign-in from a new device",
-      "new_signin_admin": "Admins: an admin account signed in from a new device"
+      "new_signin_admin": "Admins: an admin account signed in from a new device",
+      "team_ticket_waiting": "New ticket waiting in a team list (to staff)",
+      "ticket_no_team": "No team for a new ticket (to admins)"
     },
     "tplWho": {
       "ticket_created": "Sent to the customer.",
@@ -2421,7 +2434,9 @@
       "account_locked": "Sent to a person whose account was locked after too many failed sign-ins (see Settings, Security, Account lockout). {until} is when it unlocks.",
       "account_locked_admin": "Sent to system admins when an account is locked. {person} and {email} are the account, {at} is the time, {until} is when it unlocks.",
       "new_signin": "Sent when an account signs in from a browser and device not used on it recently (Settings, Security, New sign-in alerts). {device}, {at} and {ip} describe the sign-in.",
-      "new_signin_admin": "Sent to the other system admins when an admin account signs in from a new device. {person} and {email} are the account."
+      "new_signin_admin": "Sent to the other system admins when an admin account signs in from a new device. {person} and {email} are the account.",
+      "team_ticket_waiting": "Sent to the whole team when the team shares tickets, or to the team leaders when they choose who handles it. {team} is the team.",
+      "ticket_no_team": "Sent to the customer's organization admins (or system admins) when no team of the needed kind serves the customer's place. {team} is the kind of team."
     },
     "menuArea": {
       "header": "Customer side menu",
@@ -4058,14 +4073,14 @@
       "title": "What is a team?",
       "lead": "A team is a group of agents and one team leader who handle the same kind of tickets. Each category sends its new tickets to a team, so the right people see them first.",
       "p1t": "Tickets go to a team",
-      "p1": "Each ticket category has a default team. New tickets in that category land in that team's queue.",
+      "p1": "Each organization and branch has its own teams. A category names a kind of team; a new ticket goes to that kind in the customer's branch, then organization, then the central team.",
       "p2t": "Members see the team's work",
       "p2": "Members see and reply to their team's tickets, including internal notes. Other teams' tickets stay hidden.",
       "p3t": "Automatic assignment",
-      "p3": "A new ticket goes to the member with the fewest open tickets, among those with automatic assignment on.",
+      "p3": "Each team gives out tickets its own way: fewest open tickets, take turns, shared with the team, or the team leader chooses.",
       "p4t": "The team leader",
       "p4": "The leader assigns tickets to members, escalates them and follows the team's workload.",
-      "foot": "Only people with the Agent or Team leader role can join a team. Set the default team for each category under Categories."
+      "foot": "Only people with the Agent or Team leader role can join a team. Organization and branch admins manage the teams of their own places."
     },
     "staff": {
       "title": "What is the Staff page?",
@@ -4591,7 +4606,7 @@
     },
     "tickets": {
       "title": "Tickets",
-      "auto": "Auto-assign new team tickets to this person",
+      "auto": "Gets tickets automatically (untick while on leave)",
       "autoNeedsTeam": "needs a team first",
       "create": "Can open tickets for customers"
     },
@@ -4812,5 +4827,64 @@
     "tryOk": "Looks right ✓",
     "tryStarts": "Must start with {starts}",
     "existing": "Numbers already saved are kept as they are. The new format is checked the next time someone types or changes a number."
+  },
+  "TeamPlace": {
+    "noKinds": "Add a kind of team first (Kinds of team, below).",
+    "kind": "Kind of team",
+    "pickKind": "Pick a kind",
+    "place": "Place",
+    "method": "Gives out tickets by",
+    "methodDefault": "Default ({name})",
+    "nameAuto": "The name is made for you, e.g. \"Billing (Kitchen)\". You can change it later under Settings.",
+    "kindsTitle": "Kinds of team",
+    "kindsHelp": "Defined once, e.g. Technical support or Billing. Each place makes its own team of a kind; a category sends its tickets to a kind.",
+    "centralFallback": "Central team takes over when a place has none",
+    "newKindEn": "New kind (English)",
+    "newKindAr": "New kind (Arabic)",
+    "addKind": "Add kind",
+    "catsHelp": "Who in this team can get each category's tickets. \"All staff in the team\" is the usual choice.",
+    "noCats": "No category sends tickets to this kind of team yet (Ticket catalog).",
+    "whoGets": "Who can get {name} tickets",
+    "whoAll": "All staff in the team",
+    "whoSome": "Only these people",
+    "central": "Central (every place)",
+    "wholeOrg": "{name} (whole organization)",
+    "method_fewest": "Fewest open tickets",
+    "method_turns": "Take turns",
+    "method_shared": "Shared with the whole team",
+    "method_leader": "Team leader chooses",
+    "methodHelp_fewest": "The person with the fewest open tickets gets it.",
+    "methodHelp_turns": "Each new ticket goes to the next person in line.",
+    "methodHelp_shared": "Everyone in the team is told; the first to press Take gets it.",
+    "methodHelp_leader": "It waits for the team leader to choose who handles it.",
+    "handledBy": "Handled by (kind of team)",
+    "handledByHint": "The ticket goes to this kind of team in the customer's branch, then organization, then the central team. Who in each team gets it:",
+    "teamsLink": "Teams page",
+    "take": "Take",
+    "why_fewest": "Auto-assigned: fewest open tickets",
+    "why_turns": "Auto-assigned: next in line",
+    "why_shared": "Shared with the team: the first to take it gets it",
+    "why_leader": "Waiting for the team leader to choose",
+    "why_nobody": "Nobody available to take it automatically; the team leader was told",
+    "where_branch": "customer's branch team",
+    "where_organization": "customer's organization team",
+    "where_central": "central team",
+    "where_team": "team chosen by staff"
+  },
+  "Routing": {
+    "title": "Ticket routing",
+    "help": "Each organization and branch has its own teams. Set them up on the",
+    "noTeamTitle": "When the customer's place has no team of the needed kind",
+    "useOrg": "Use the organization's team when the branch has none",
+    "useOrgHelp": "Living Room has no Billing team → the organization's Billing team.",
+    "useCentral": "Use a central team as the last step",
+    "useCentralHelp": "A team with no place, e.g. head office Technical support. Each kind of team can opt out on the Teams page.",
+    "notify": "When no team is found, tell",
+    "notifyOrg": "the customer's organization admins",
+    "notifySys": "the system admins",
+    "methodTitle": "How teams give out tickets (default)",
+    "methodHelp": "Each team can keep this or choose its own on the Teams page.",
+    "multi": "Staff can work in more than one place",
+    "multiHelp": "Off: each person works in one place only (Works in on the staff page)."
   }
 }

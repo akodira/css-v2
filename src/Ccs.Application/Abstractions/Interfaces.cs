@@ -19,6 +19,8 @@ public interface ICcsDbContext
     DbSet<Branch> Branches { get; }
     DbSet<Team> Teams { get; }
     DbSet<TeamMember> TeamMembers { get; }
+    DbSet<TeamKind> TeamKinds { get; }
+    DbSet<CategoryPerson> CategoryPeople { get; }
     DbSet<SigninCode> SigninCodes { get; }
     DbSet<AuthCode> AuthCodes { get; }
     DbSet<RefreshToken> RefreshTokens { get; }

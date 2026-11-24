@@ -133,7 +133,8 @@ const SLA_TONE: Record<string, string> = {
                 <tr class="border-b border-line align-top last:border-0 hover:bg-bg" [class]="pstripe[r.priorityColor ?? 'grey'] ?? ''">
                   <td class="px-3 py-3"><a [routerLink]="link('/console/tickets/' + r.id)" class="font-semibold text-brand-ink underline" dir="ltr">{{ r.reference }}</a><p class="mt-1 [overflow-wrap:anywhere]" dir="auto">{{ r.subject }}</p></td>
                   <td class="px-3 py-3"><p dir="auto">{{ r.requesterName }}</p><p class="text-muted [overflow-wrap:anywhere]" dir="ltr">{{ r.requesterEmail }}</p></td>
-                  <td class="px-3 py-3"><p dir="auto">{{ i18n.pick(r.teamEn, r.teamAr) || ('Console.noTeam' | t) }}</p><p class="text-muted" dir="auto">{{ r.assigneeName ?? ('Console.unassignedLabel' | t) }}</p></td>
+                  <td class="px-3 py-3"><p dir="auto">{{ i18n.pick(r.teamEn, r.teamAr) || ('Console.noTeam' | t) }}</p><p class="text-muted" dir="auto">{{ r.assigneeName ?? ('Console.unassignedLabel' | t) }}</p>
+                    @if (canTake(r)) { <button type="button" class="mt-1 min-h-9 cursor-pointer rounded-lg bg-brand px-3 text-sm font-semibold text-white hover:bg-brand-ink disabled:opacity-60" [disabled]="taking() === r.id" (click)="take(r)">{{ 'TeamPlace.take' | t }}<span class="sr-only"> {{ r.reference }}</span></button> }</td>
                   <td class="px-3 py-3"><span [class]="'inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold ' + prio(r.priorityColor)"><app-prio-icon [name]="r.priorityIcon ?? 'minus'" [size]="12" />{{ i18n.pick(r.priorityEn, r.priorityAr) || r.priority }}</span></td>
                   <td class="px-3 py-3"><app-status-badge [status]="r.status" [custom]="r.customStatus" [staff]="true" /></td>
                   <td class="px-3 py-3">
@@ -220,6 +221,19 @@ export class ConsoleQueuePage {
     return null;
   }
   dueOf(r: TicketListItem): string | null { return r.firstRespondedAt ? r.resolutionDue : (r.firstResponseDue ?? r.resolutionDue); }
+
+  /** Shared team lists: an unassigned ticket of my team can be taken with one click (the server checks it too). */
+  protected readonly taking = signal<string | null>(null);
+  protected canTake(r: TicketListItem): boolean {
+    return !r.assigneeName && !!r.teamId && this.auth.has('assign_self') && (this.auth.me()?.teams ?? []).includes(r.teamId);
+  }
+  protected async take(r: TicketListItem): Promise<void> {
+    const me = this.auth.me(); if (!me || !r.teamId) return;
+    this.taking.set(r.id);
+    try { await this.api.assign(r.id, r.teamId, me.id, ''); await this.router.navigateByUrl(this.link('/console/tickets/' + r.id)); }
+    catch { this.load(); }
+    finally { this.taking.set(null); }
+  }
 
   private seq = 0;
   load(): void {
@@ -532,6 +546,13 @@ export class ConsoleTicketPage {
     return this.agentsOf(team).filter((m) => m.canServe === false && m.userId !== current).map((m) => m.fullName).join(this.i18n.locale() === 'ar' ? '، ' : ', ');
   }
   protected initials(n: string | null): string { return (n ?? '').split(/\s+/).filter(Boolean).map((w) => w[0]).slice(0, 2).join('').toUpperCase() || '?'; }
+  /** "auto:<method>:<where>" from automatic assignment, in words; other reasons as typed. */
+  protected autoReason(r: string | null): string | null {
+    const m = /^auto:(\w+):(\w+)$/.exec(r ?? '');
+    if (!m) return r;
+    const t = (k: string) => this.i18n.t(k);
+    return t('TeamPlace.why_' + m[1]) + ' · ' + t('TeamPlace.where_' + m[2]);
+  }
   /** Activity: status changes and assignments, oldest first (v1). */
   protected readonly activity = computed(() => {
     const tk = this.t(), x = this.x(); if (!tk) return [];
@@ -539,7 +560,7 @@ export class ConsoleTicketPage {
     const sys = t('Console.ticket.system');
     return [
       ...tk.timeline.map((h) => ({ at: h.at, text: `${t('Console.ticket.status')}: ${h.from ? t('StaffStatus.' + h.from) : '-'} ${t('Console.ticket.to')} ${t('StaffStatus.' + h.to)}`, who: h.byName ?? sys, reason: h.reason })),
-      ...(x?.assignments ?? []).map((a) => ({ at: a.at, text: `${t('Console.ticket.assignment')}: ${this.i18n.pick(a.teamEn, a.teamAr) || '-'} / ${a.agent ?? t('Console.unassignedLabel')}`, who: a.by ?? sys, reason: a.reason })),
+      ...(x?.assignments ?? []).map((a) => ({ at: a.at, text: `${t('Console.ticket.assignment')}: ${this.i18n.pick(a.teamEn, a.teamAr) || '-'} / ${a.agent ?? t('Console.unassignedLabel')}`, who: a.by ?? sys, reason: this.autoReason(a.reason) })),
     ].sort((p, q) => p.at.localeCompare(q.at));
   });
   protected readonly t = signal<TicketDetail | null>(null);

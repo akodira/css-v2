@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teams per place</title>
+<style>
+:root{--brand:#2563eb;--ink:#1e3a8a;--soft:#eff4ff;--line:#e3e8f0;--bg:#f5f7fb;--muted:#5b6578;--text:#111827;--ok:#15803d;--oksoft:#e8f6ee;--warn:#8a5a00;--warnsoft:#fff4e0;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,Segoe UI,Arial;background:var(--bg);color:var(--text)}
+main{max-width:1080px;margin:0 auto;padding:22px 16px 60px}h1{font-size:26px;margin:0}h2{font-size:20px;margin:0}h3{font-size:16px;margin:0}.sub{color:var(--muted);margin:4px 0 0}
+button{font:inherit;cursor:pointer}
+.banner{background:#fff7d6;color:#6b4e00;border-radius:10px;padding:8px 14px;font-size:13px;margin-bottom:14px}
+.tabs{display:flex;gap:4px;margin:16px 0 0;border-bottom:2px solid var(--line);flex-wrap:wrap}.tabs button{border:0;background:none;padding:10px 14px;font-weight:600;color:var(--muted);margin-bottom:-2px;border-bottom:3px solid transparent}.tabs button[aria-current="page"]{color:var(--ink);border-bottom-color:var(--brand)}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 3px #0000000d;padding:18px;margin-top:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 16px;border-radius:9px;border:0;background:var(--brand);color:#fff;font-weight:600;font-size:14px}.q{background:#fff;color:var(--text);border:1px solid var(--line)}
+select,input[type=text]{min-height:40px;border:1px solid #cfd6e3;border-radius:8px;padding:0 10px;font:inherit;background:#fff}
+label.f{font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.place{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-top:10px}
+.place .head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.kindtag{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.team{display:flex;justify-content:space-between;gap:10px;align-items:center;border-top:1px dashed var(--line);padding:8px 0;flex-wrap:wrap}
+.team:first-of-type{border-top:0}
+.chip{display:inline-flex;align-items:center;border-radius:99px;padding:2px 10px;font-size:12px;font-weight:700;background:var(--soft);color:var(--ink)}
+.chip.g{background:#eef1f5;color:#475467}.chip.c{background:#f1ecfd;color:#6d4bd1}
+.people{color:var(--muted);font-size:14px}
+.indent{margin-inline-start:22px}
+.say{background:var(--bg);border-radius:10px;padding:10px 14px;font-size:14px;margin-top:10px}
+.note{background:var(--warnsoft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
+.okbox{background:var(--oksoft);color:var(--ok);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px;font-weight:600}
+.steps{list-style:none;padding:0;margin:10px 0 0}.steps li{display:flex;gap:10px;align-items:flex-start;padding:6px 0;font-size:14px}
+.dot{width:22px;height:22px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;background:#c2c9d6}
+.dot.y{background:var(--ok)}.dot.n{background:#c2c9d6}.dot.s{background:#e5e7eb;color:#9aa3b2}
+.opt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}
+.opt input{width:18px;height:18px;margin-top:3px;flex:none}.opt small{display:block;color:var(--muted);font-size:12.5px}
+table{border-collapse:collapse;width:100%;font-size:14px}th,td{border-bottom:1px solid var(--line);padding:9px 10px;text-align:start}th{font-size:12px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.hist{border-inline-start:3px solid var(--brand);padding:6px 12px;font-size:14px;background:#fff;border-radius:0 8px 8px 0;margin-top:8px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+</style></head><body><main>
+<div class="banner"><b>Sample only.</b> Nothing is saved. Start with <b>How a ticket is routed</b>, then try the options under <b>Routing settings</b>.</div>
+<h1>Teams per place</h1>
+<p class="sub">Every organization and branch has its own teams and its own staff. A category sends a ticket to a <b>kind of team</b>; the system picks that kind in the customer's own place.</p>
+<nav class="tabs" id="tabs"></nav>
+<div id="body"></div>
+</main>
+<script>
+const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const KINDS=['Technical support','Billing','Complaints'];
+const PLACES=[
+ {id:'akorg',name:'Ahmed Kodira',org:null},{id:'lr',name:'Living Room',org:'akorg'},{id:'kit',name:'Kitchen',org:'akorg'},
+ {id:'cai',name:'Cairo',org:null},{id:'nc',name:'Nasr City',org:'cai'},{id:'hel',name:'Heliopolis',org:'cai'}];
+const P=id=>PLACES.find(p=>p.id===id);
+const placeName=id=>id==='central'?'Central (every place)':(P(id).org?P(P(id).org).name+' · '+P(id).name:P(id).name);
+let TEAMS=[
+ {kind:'Technical support',place:'lr',people:['Mona','Omar','Karim'],leader:'Mona',method:'default'},{kind:'Billing',place:'lr',people:['Hany'],leader:'Hany',method:'default'},
+ {kind:'Technical support',place:'kit',people:['Sara','Youssef'],leader:'Sara',method:'shared'},
+ {kind:'Technical support',place:'nc',people:['Tarek Wahba'],leader:'Tarek Wahba',method:'default'},
+ {kind:'Billing',place:'cai',people:['Nour','Laila'],leader:'Laila',method:'leader'},
+ {kind:'Technical support',place:'central',people:['Ali (head office)'],leader:'Ali (head office)',method:'default'}];
+const LOAD={Mona:3,Omar:1,Karim:2,Hany:2,Sara:4,Youssef:1,'Tarek Wahba':2,Nour:0,Laila:1,'Ali (head office)':5};
+const METHODS={fewest:['Fewest open tickets','The person with the fewest open tickets gets it.'],turns:['Take turns','Each new ticket goes to the next person in line.'],shared:['Shared with the whole team','Everyone in the team is told; the first to press Take gets it.'],leader:['Team leader chooses','It waits for the team leader to pick who handles it.']};
+const turnAt={};
+const CATWHO={'Technical issue':{who:'all',people:[]},'VPN access':{who:'some',people:['Omar','Karim','Youssef','Ali (head office)']},'Invoice question':{who:'all',people:[]},'Complaint':{who:'all',people:[]}};
+const methodOf=t=>t.method==='default'?S.method:t.method;
+/** Who gets it inside the team found: the category's people first, then the team's way of giving out tickets. */
+function assign(t,catName){
+ const cw=CATWHO[catName],m=methodOf(t);
+ const pool=cw.who==='some'?t.people.filter(p=>cw.people.includes(p)):t.people.slice();
+ const lines=[cw.who==='some'?`"${catName}" goes only to chosen people. In this team: <b>${pool.length?pool.join(', '):'none'}</b>.`:`Everyone in the team can get "${catName}" tickets.`];
+ if(!pool.length) return {lines,text:`None of the chosen people are in this team, so it waits for ${t.leader} (team leader) to pick someone.`,hist:`Waiting for ${t.leader} (team leader) · no chosen person in this team`};
+ lines.push(`How this team gives out tickets: <b>${METHODS[m][0]}</b>${t.method==='default'?' (the default)':" (this team's own setting)"}.`);
+ if(m==='fewest'){const min=Math.min(...pool.map(p=>LOAD[p]??0)),who=pool.find(p=>(LOAD[p]??0)===min);return {lines,text:`${who} gets it: ${min} open ticket${min===1?'':'s'}, the fewest${pool.length>1?' of '+pool.join(', '):''}.`,hist:`Auto-assigned to ${who} · fewest open tickets`};}
+ if(m==='turns'){const i=(turnAt[t.kind+t.place]??0)%pool.length,who=pool[i];return {lines,text:`${who} gets it: next in line${pool.length>1?'. The next ticket goes to '+pool[(i+1)%pool.length]:''}.`,hist:`Auto-assigned to ${who} · next in line`};}
+ if(m==='shared')return {lines,text:`It goes to the team's list. ${pool.join(', ')} ${pool.length>1?'are':'is'} told, and the first to press <b>Take</b> gets it.`,hist:`In the ${t.kind} list · shared with ${pool.join(', ')}`};
+ return {lines,text:`It waits for ${t.leader} (team leader) to choose: ${pool.join(', ')}.`,hist:`Waiting for ${t.leader} (team leader) to assign`};
+}
+const CATS=[['Technical issue','Technical support'],['VPN access','Technical support'],['Invoice question','Billing'],['Complaint','Complaints']];
+const S={useOrg:true,useCentral:true,centralTeams:{'Technical support':true,'Billing':false,'Complaints':false},wait:'org',multi:false,method:'fewest'};
+let tab='route',cust='lr',cat='VPN access',viewer='sys';
+
+function route(placeId,kind){
+ const pl=P(placeId),steps=[];let hit=null;
+ const tryAt=(where,label,skip)=>{if(hit)return steps.push({s:'s',t:label,r:'not needed'});if(skip)return steps.push({s:'s',t:label,r:skip});
+  const t=TEAMS.find(x=>x.kind===kind&&x.place===where);if(t){hit=t;steps.push({s:'y',t:label,r:`${kind} (${placeName(where)}): ${t.people.join(', ')}`});}else steps.push({s:'n',t:label,r:`no ${kind} team here`});};
+ if(pl.org){tryAt(pl.id,`Customer's branch: ${pl.name}`);tryAt(pl.org,`Its organization: ${P(pl.org).name}`,S.useOrg?null:'switched off in Routing settings');}
+ else tryAt(pl.id,`Customer's organization: ${pl.name}`);
+ tryAt('central','Central team',!S.useCentral?'switched off in Routing settings':(!S.centralTeams[kind]?`not used for ${kind}`:null));
+ return {steps,hit};
+}
+
+function tabs(){$('#tabs').innerHTML=[['route','How a ticket is routed'],['teams','Teams'],['cats','Categories'],['assign','How tickets are given out'],['settings','Routing settings'],['staff','Staff page'],['ticket','Ticket history']].map(([k,l])=>`<button data-t="${k}" ${tab===k?'aria-current="page"':''}>${l}</button>`).join('');
+ document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;draw()});}
+
+function draw(){tabs();const B=$('#body');
+ if(tab==='route'){
+  const kind=CATS.find(c=>c[0]===cat)[1],r=route(cust,kind);
+  B.innerHTML=`<div class="card"><h2>Try it</h2><p class="sub">Pick where the customer is and what they ask about.</p>
+   <div class="row" style="margin-top:10px"><label class="f">Customer's place<select id="cu">${PLACES.map(p=>`<option value="${p.id}" ${p.id===cust?'selected':''}>${placeName(p.id)}</option>`).join('')}</select></label>
+   <label class="f">Category<select id="ca">${CATS.map(c=>`<option ${c[0]===cat?'selected':''}>${c[0]}</option>`).join('')}</select></label></div>
+   <div class="say">"${esc(cat)}" goes to a <b>${kind}</b> team. The system looks in this order:</div>
+   <ol class="steps">${r.steps.map((s,i)=>`<li><span class="dot ${s.s}">${s.s==='y'?'✓':i+1}</span><span><b>${esc(s.t)}</b><br><span class="people">${esc(s.r)}</span></span></li>`).join('')}</ol>
+   ${r.hit?(()=>{const a=assign(r.hit,cat);return `<div class="say"><b>Found: ${esc(r.hit.kind)} (${esc(placeName(r.hit.place))}).</b> Then:<ul style="margin:6px 0 0;padding-inline-start:20px">${a.lines.map(l=>'<li>'+l+'</li>').join('')}</ul></div><div class="okbox">${a.text}</div>`})()
+     :`<div class="note">No team found. The ticket waits unassigned and ${S.wait==='org'?'the organization admin ('+esc(P(P(cust).org||cust).name)+')':'the system admins'} ${S.wait==='org'?'is':'are'} told to pick a team.</div>`}</div>`;
+  $('#cu').onchange=e=>{cust=e.target.value;draw()};$('#ca').onchange=e=>{cat=e.target.value;draw()};
+ }
+ if(tab==='teams'){
+  const block=(id,inner)=>{const ts=TEAMS.filter(t=>t.place===id);return `<div class="place ${P(id)?.org?'indent':''}"><div class="head"><div><span class="kindtag">${id==='central'?'Central':P(id).org?'Branch':'Organization'}</span><h3>${esc(id==='central'?'Central (every place)':P(id).name)}</h3></div><button class="btn q add" data-p="${id}">+ Add team</button></div>
+    ${ts.length?ts.map(t=>`<div class="team"><span><b>${esc(t.kind)}</b> <span class="people">· ${esc(t.people.join(', '))}</span></span><span class="chip ${id==='central'?'c':''}">${t.people.length} staff</span></div>`).join(''):'<p class="people" style="margin:6px 0 0">No teams yet.</p>'}${inner||''}</div>`};
+  B.innerHTML=`<div class="card"><h2>Teams</h2><p class="sub">Grouped by place. A branch admin sees and manages only their branch; an organization admin sees the organization and its branches.</p>
+   ${viewer==='sys'?block('central')+PLACES.filter(p=>!p.org).map(o=>block(o.id,PLACES.filter(b=>b.org===o.id).map(b=>block(b.id)).join(''))).join('')
+     :P(viewer).org?block(viewer):block(viewer,PLACES.filter(b=>b.org===viewer).map(b=>block(b.id)).join(''))}
+   <p class="people" style="margin-top:10px">Showing what the <b>${viewer==='sys'?'system admin':esc(placeName(viewer))+' admin'}</b> sees (change it on the Categories tab).</p></div>
+   <div class="card" id="addBox" hidden><h3>Add team</h3><div class="row" style="margin-top:10px"><label class="f">Kind of team<select id="nk">${KINDS.map(k=>`<option>${k}</option>`).join('')}</select></label><label class="f">Place<input type="text" id="np" readonly></label><button class="btn" id="nsave">Add</button></div>
+   <p class="people">The name is made for you, e.g. "Billing (Kitchen)". Kinds are managed once by the admin.</p></div>`;
+  document.querySelectorAll('.add').forEach(b=>b.onclick=()=>{$('#addBox').hidden=false;$('#np').value=placeName(b.dataset.p);$('#np').dataset.p=b.dataset.p;$('#addBox').scrollIntoView({behavior:'smooth'})});
+  $('#nsave').onclick=()=>{const k=$('#nk').value,p=$('#np').dataset.p;if(!TEAMS.some(t=>t.kind===k&&t.place===p))TEAMS.push({kind:k,place:p,people:[]});draw()};
+ }
+ if(tab==='cats'){
+  // What this admin may see: a system admin sees every team; an organization admin their organization and its branches; a branch admin their branch.
+  const mine=t=>viewer==='sys'||t.place===viewer||P(t.place)?.org===viewer;
+  const staffOf=k=>TEAMS.filter(t=>t.kind===k&&mine(t));
+  const sys=viewer==='sys';
+  B.innerHTML=`<div class="card"><div class="row" style="justify-content:space-between"><h2>Categories</h2>
+     <label class="f" style="font-weight:400">Signed in as<select id="vw"><option value="sys" ${sys?'selected':''}>System admin</option><option value="akorg" ${viewer==='akorg'?'selected':''}>Ahmed Kodira organization admin</option><option value="lr" ${viewer==='lr'?'selected':''}>Living Room branch admin</option><option value="cai" ${viewer==='cai'?'selected':''}>Cairo organization admin</option></select></label></div>
+   <p class="sub">A category says which <b>kind</b> of team handles it, and who in those teams may get its tickets.
+     ${sys?'You see every team.':`You see only ${esc(placeName(viewer))}${P(viewer).org?'':' and its branches'}. Other places choose their own people.`}</p>
+   <table><thead><tr><th>Category</th><th>Handled by (kind of team)</th><th>Who can get these tickets${sys?'':' in '+esc(P(viewer).name)}</th></tr></thead><tbody>${CATS.map(c=>{const w=CATWHO[c[0]];return `<tr><td>${c[0]}</td><td>${sys?`<select>${KINDS.map(k=>`<option ${k===c[1]?'selected':''}>${k}</option>`).join('')}</select>`:`${c[1]}<br><span class="people" style="font-size:12px">set by the system admin</span>`}</td>
+     <td><select class="who" data-c="${c[0]}"><option value="all" ${w.who==='all'?'selected':''}>All staff in the team</option><option value="some" ${w.who==='some'?'selected':''}>Only these people</option></select>
+     ${w.who==='some'?`<div style="margin-top:8px">${staffOf(c[1]).length?'':'<span class="people">You have no '+esc(c[1])+' team yet.</span>'}${staffOf(c[1]).map(t=>`<div style="margin-top:4px"><span class="people" style="font-size:12px">${esc(t.kind)} (${esc(placeName(t.place))})</span><div class="row" style="gap:12px">${t.people.map(p=>`<label style="display:flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" class="pp" data-c="${c[0]}" data-p="${esc(p)}" ${w.people.includes(p)?'checked':''}>${esc(p)}</label>`).join('')}</div></div>`).join('')}</div>`:''}</td></tr>`}).join('')}</tbody></table>
+   <div class="say"><b>All staff in the team:</b> anyone in the team can get it. <b>Only these people:</b> e.g. VPN access only goes to Omar and Karim in Living Room, Youssef in Kitchen and Ali at head office. If a team has none of them, its team leader picks someone.</div></div>`;
+  $('#vw').onchange=e=>{viewer=e.target.value;draw()};
+  document.querySelectorAll('.who').forEach(s=>s.onchange=()=>{CATWHO[s.dataset.c].who=s.value;draw()});
+  document.querySelectorAll('.pp').forEach(c=>c.onchange=()=>{const w=CATWHO[c.dataset.c];w.people=c.checked?[...w.people,c.dataset.p]:w.people.filter(x=>x!==c.dataset.p)});
+ }
+ if(tab==='assign'){
+  B.innerHTML=`<div class="card"><h2>How tickets are given out</h2><p class="sub">Settings › System sets the default. Each team can keep it or choose its own.</p>
+   <h3 style="margin-top:12px">Default for all teams</h3>
+   ${Object.entries(METHODS).map(([k,[n,h]])=>`<label class="opt"><input type="radio" name="dm" value="${k}" ${S.method===k?'checked':''}><span><b>${n}</b><small>${h}</small></span></label>`).join('')}
+   <h3 style="margin-top:18px">Each team</h3>
+   <table style="margin-top:6px"><thead><tr><th>Team</th><th>Team leader</th><th>Gives out tickets by</th></tr></thead><tbody>${TEAMS.map((t,i)=>`<tr><td>${esc(t.kind)} <span class="people">(${esc(placeName(t.place))})</span></td><td>${esc(t.leader)}</td>
+     <td><select class="tm" data-i="${i}"><option value="default" ${t.method==='default'?'selected':''}>Default (${METHODS[S.method][0]})</option>${Object.entries(METHODS).map(([k,[n]])=>`<option value="${k}" ${t.method===k?'selected':''}>${n}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table>
+   <label class="opt" style="margin-top:12px"><input type="checkbox" checked><span><b>A team leader can always reassign a ticket to someone else in the team</b><small>Whatever the method, the leader can move a ticket by hand.</small></span></label>
+   <div class="say">A person can still be left out of automatic assignment (on leave, trainee) with "Gets tickets automatically" on their staff page.</div></div>
+   <div class="grid2">
+    <div class="card"><h3>What the team sees: Shared</h3><p class="sub">Technical support (Kitchen)</p>
+     <table style="margin-top:8px"><tbody><tr><td>PRB-26-0081 · VPN not connecting</td><td><button class="btn" style="min-height:34px">Take</button></td></tr><tr><td>PRB-26-0083 · Printer offline</td><td><button class="btn" style="min-height:34px">Take</button></td></tr></tbody></table></div>
+    <div class="card"><h3>What the leader sees: Leader chooses</h3><p class="sub">Billing (Cairo) · Laila</p>
+     <table style="margin-top:8px"><tbody><tr><td>INV-26-0042 · Wrong amount</td><td><select style="min-height:34px"><option>Assign to…</option><option>Nour (0 open)</option><option>Laila (1 open)</option></select></td></tr></tbody></table></div>
+   </div>`;
+  document.querySelectorAll('input[name=dm]').forEach(r=>r.onchange=()=>{S.method=r.value;draw()});
+  document.querySelectorAll('.tm').forEach(s=>s.onchange=()=>{TEAMS[+s.dataset.i].method=s.value});
+ }
+ if(tab==='settings'){
+  B.innerHTML=`<div class="card"><h2>Routing settings</h2><p class="sub">Settings › System. What happens when a place has no team of the needed kind.</p>
+   <label class="opt"><input type="checkbox" id="o1" ${S.useOrg?'checked':''}><span><b>Use the organization's team when the branch has none</b><small>Living Room has no Billing team → the Ahmed Kodira organization's Billing team.</small></span></label>
+   <label class="opt"><input type="checkbox" id="o2" ${S.useCentral?'checked':''}><span><b>Use a central team as the last step</b><small>A team set to "every place", e.g. head office Technical support.</small>
+     <span class="row" style="margin-top:6px">${KINDS.map(k=>`<label style="font-weight:400;display:flex;gap:6px;align-items:center"><input type="checkbox" class="ck" data-k="${k}" ${S.centralTeams[k]?'checked':''} ${S.useCentral?'':'disabled'}>${k}</label>`).join('')}</span></span></label>
+   <div class="opt" style="display:block"><b>When no team is found, tell</b>
+     <div class="row" style="margin-top:6px"><label style="display:flex;gap:6px;align-items:center"><input type="radio" name="w" value="org" ${S.wait==='org'?'checked':''}>the customer's organization admin</label><label style="display:flex;gap:6px;align-items:center"><input type="radio" name="w" value="sys" ${S.wait==='sys'?'checked':''}>the system admins</label></div></div>
+   <label class="opt"><input type="checkbox" id="o3" ${S.multi?'checked':''}><span><b>Staff can work in more than one place</b><small>Off: each person belongs to one place. On: "Also works in" appears on the staff page.</small></span></label>
+   <div class="say">Try a change here, then look at <b>How a ticket is routed</b> again.</div></div>`;
+  $('#o1').onchange=e=>{S.useOrg=e.target.checked};$('#o2').onchange=e=>{S.useCentral=e.target.checked;draw()};$('#o3').onchange=e=>{S.multi=e.target.checked};
+  document.querySelectorAll('.ck').forEach(c=>c.onchange=()=>{S.centralTeams[c.dataset.k]=c.checked});
+  document.querySelectorAll('input[name=w]').forEach(r=>r.onchange=()=>{S.wait=r.value});
+ }
+ if(tab==='staff'){
+  B.innerHTML=`<div class="card"><h2>Tarek Wahba</h2><p class="sub">Agent · tarek.wahba@demo.cts.test</p>
+   <div class="grid2" style="margin-top:12px">
+    <label class="f">Account type (what they can do)<select><option>Agent</option></select><span class="people" style="font-weight:400">No places here any more.</span></label>
+    <label class="f">Belongs to (where they work)<select><option>Cairo · Nasr City</option><option>Cairo (all branches)</option><option>Central (every place)</option></select>
+     ${S.multi?'<button class="btn q" style="margin-top:6px;width:max-content">+ Also works in</button>':''}</label>
+   </div>
+   <label class="f" style="margin-top:12px">Teams<span class="row"><span class="chip">Technical support (Nasr City) ✕</span><select><option>Add a team in Nasr City…</option><option>Billing (Cairo)</option></select></span><span class="people" style="font-weight:400">Only teams of the places they work in are offered.</span></label>
+   <label class="opt"><input type="checkbox" checked><span><b>Gets tickets automatically</b><small>Untick while on leave: they stay in the team but no new tickets are given to them.</small></span></label>
+   <div class="say"><b>Gets new tickets:</b> Technical support tickets from customers in Cairo · Nasr City (team gives them out by: ${METHODS[methodOf(TEAMS.find(t=>t.place==='nc'))][0]}).</div>
+   ${S.multi?'':'<p class="people">"Also works in" shows when <b>Staff can work in more than one place</b> is on (Routing settings).</p>'}</div>`;
+ }
+ if(tab==='ticket'){
+  const r=route(cust,CATS.find(c=>c[0]===cat)[1]);
+  B.innerHTML=`<div class="card"><h2>Ticket history</h2><p class="sub">Every automatic assignment says why.</p>
+   <div class="hist">${r.hit?`<b>${assign(r.hit,cat).hist}</b> · ${esc(r.hit.kind)} (${esc(placeName(r.hit.place))}) · ${r.hit.place===cust?"customer's branch":r.hit.place==='central'?'central team':"customer's organization"}`
+     :`<b>Waiting for a team</b> · no ${esc(CATS.find(c=>c[0]===cat)[1])} team for ${esc(placeName(cust))} · organization admin told`}</div>
+   <p class="people">Uses the place and category picked on the first tab (${esc(placeName(cust))}, ${esc(cat)}).</p></div>`;
+ }
+}
+draw();
+</script>
+</body></html>

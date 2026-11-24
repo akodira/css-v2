@@ -88,7 +88,7 @@ export const ADMIN_A_ARTICLES: Article[] = [
       { name: { en: "Ticket types", ar: "أنواع التذاكر" }, tone: "brand", text: { en: "Picked first; they decide which categories the customer sees.", ar: "تُختار أولًا وتحدد التصنيفات التي يراها العميل." } },
       { name: { en: "Categories and subcategories", ar: "التصنيفات والتصنيفات الفرعية" }, tone: "purple", points: [
         { en: "What customers choose when they open a ticket.", ar: "ما يختاره العميل عند فتح تذكرة." },
-        { en: "Each can have a default team, automatic assignment and a fixed priority.", ar: "لكل منها فريق افتراضي وإسناد تلقائي وأولوية ثابتة." },
+        { en: "Each names the kind of team that handles it, and can have automatic assignment and a fixed priority.", ar: "يحدد كل منها نوع الفريق الذي يتولاه، ويمكن أن يكون له إسناد تلقائي وأولوية ثابتة." },
         { en: "Or be private (staff only).", ar: "أو يمكن جعله خاصًا (للموظفين فقط)." },
       ] },
       { name: { en: "Custom fields", ar: "الحقول المخصصة" }, tone: "ok", text: { en: "Add extra questions to the ticket form.", ar: "تضيف أسئلة إضافية إلى نموذج التذكرة." } },
@@ -318,7 +318,8 @@ export const ADMIN_A_ARTICLES: Article[] = [
     title: { en: "Teams", ar: "الفرق" },
     summary: { en: "A team is a group of agents who share a queue.", ar: "الفريق مجموعة موظفين يتشاركون قائمة واحدة." },
     points: [
-      { en: "Categories send tickets to a default team.", ar: "ترسل التصنيفات التذاكر إلى فريق افتراضي." },
+      { en: "Each organization and branch has its own teams. A category sends tickets to a kind of team, and the customer's own branch or organization team gets them.", ar: "لكل مؤسسة وفرع فرقه الخاصة. يرسل التصنيف التذاكر إلى نوع فريق، فيستلمها فريق فرع العميل أو مؤسسته." },
+      { en: "Each team gives out tickets its own way: fewest open tickets, take turns, shared with the team, or the team leader chooses.", ar: "يوزع كل فريق التذاكر بطريقته: أقل عدد من التذاكر المفتوحة، أو بالتناوب، أو مشاركتها مع الفريق، أو يختار قائد الفريق." },
       { en: "Members must already have the Agent or Team leader role.", ar: "يجب أن يكون الأعضاء حاصلين مسبقًا على دور موظف أو قائد فريق." },
     ],
     notes: [
@@ -330,7 +331,7 @@ export const ADMIN_A_ARTICLES: Article[] = [
     title: { en: "Create a team and add members", ar: "إنشاء فريق وإضافة أعضاء" },
     summary: { en: "Teams are where tickets wait and who works them.", ar: "الفرق هي مكان انتظار التذاكر ومن يعمل عليها." },
     steps: [
-      { en: "Open **Teams** and select **Add a team**. Enter the name in English and Arabic and, if you want, an **Assigned team leader**.", ar: "افتح **الفرق** واختر **إضافة فريق**. أدخل الاسم بالإنجليزية والعربية و، إن أردت، **قائد الفريق المعيّن**." },
+      { en: "Open **Teams** and select **Add a team**. Pick the **Kind of team** and the **Place**; the name is made for you.", ar: "افتح **الفرق** واختر **إضافة فريق**. اختر **نوع الفريق** و**المكان**، ويُنشأ الاسم تلقائيًا." },
       { en: "Open the team and select **Add member**. Under **Select a person** choose an agent or team leader.", ar: "افتح الفريق واختر **إضافة عضو**. ضمن **اختيار شخص** اختر موظفًا أو قائد فريق." },
       { en: "Tick **Team leader of this team** if they lead it, then select **Add**.", ar: "حدد **قائد هذا الفريق** إن كان يقوده ثم اختر **إضافة**." },
       { en: "To remove someone select **Remove** next to their name.", ar: "لإزالة شخص اختر **إزالة** بجانب اسمه." },

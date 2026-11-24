@@ -558,7 +558,14 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
   }
 }
 
-// ================================================================== teams (v1 /admin/teams)
+// ================================================================== teams per place (v1 /admin/teams)
+
+interface CatPeople {
+  teams: { id: string; kindId: string; members: { userId: string; fullName: string }[] }[];
+  categories: { id: string; nameEn: string; nameAr: string; teamKindId: string; isActive: boolean }[];
+  chosen: { categoryId: string; teamId: string; userId: string }[];
+}
+const METHODS = ['fewest', 'turns', 'shared', 'leader'];
 
 @Component({
   selector: 'app-admin-teams',
@@ -570,10 +577,19 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
         <h1 class="text-3xl font-bold tracking-tight">{{ 'AdminTeams.title' | t }}</h1>
         <app-add #add label="Directory.addTeam">
           <form class="flex flex-col gap-4" novalidate (ngSubmit)="create(add)">
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameEn' | t }}<app-req /></span><input name="en" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.nameEn" /></label>
-              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameAr' | t }}<app-req /></span><input name="ar" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.nameAr" /></label>
+            @if (!(data()?.kinds ?? []).length) { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'TeamPlace.noKinds' | t }}</p> }
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.kind' | t }}<app-req /></span>
+                <select name="kind" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.kindId"><option value="">{{ 'TeamPlace.pickKind' | t }}</option>
+                  @for (k of data()?.kinds ?? []; track k.id) { <option [value]="k.id">{{ i18n.pick(k.nameEn, k.nameAr) }}</option> }</select></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.place' | t }}<app-req /></span>
+                <select name="place" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.place">
+                  @for (p of places(); track p.value) { <option [value]="p.value">{{ p.label }}</option> }</select></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.method' | t }}</span>
+                <select name="method" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.assignMethod"><option value="">{{ 'TeamPlace.methodDefault' | t: { name: methodName(data()?.defaultMethod) } }}</option>
+                  @for (m of methods; track m) { <option [value]="m">{{ methodName(m) }}</option> }</select></label>
             </div>
+            <p class="text-sm text-muted">{{ 'TeamPlace.nameAuto' | t }}</p>
             <fieldset class="flex flex-col gap-1">
               <legend class="mb-1 text-sm font-semibold">{{ 'Directory.membersOptional' | t }}</legend>
               @if (!(data()?.candidates ?? []).length) { <p class="text-sm text-muted">{{ 'Directory.noStaffToPick' | t }}</p> } @else {
@@ -589,29 +605,53 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
                 </ul>
               }
             </fieldset>
-            <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.create' | t }}</button><app-req-note /></div>
+            <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy() || !nw.kindId">{{ 'Directory.create' | t }}</button><app-req-note /></div>
           </form>
         </app-add>
       </div>
       <app-page-about key="teams" tile="users" [points]="['ticket', 'eye', 'swap', 'crown']" />
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
+
+      @if (data()?.canCentral) {
+        <details class="rounded-xl border border-line bg-surface shadow-card" [open]="!(data()?.kinds ?? []).length">
+          <summary [class]="cls.summary"><span class="text-lg font-bold">{{ 'TeamPlace.kindsTitle' | t }}</span> <span class="text-sm text-muted">· {{ 'TeamPlace.kindsHelp' | t }}</span></summary>
+          <div class="flex flex-col gap-3 border-t border-line p-5">
+            @for (k of data()!.kinds ?? []; track k.id) {
+              <form class="flex flex-wrap items-end gap-3 border-b border-line pb-3" novalidate (ngSubmit)="saveKind(k)">
+                <label class="flex min-w-48 flex-1 flex-col gap-1 text-sm font-semibold">{{ 'Directory.nameEn' | t }}<input [name]="'ke' + k.id" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="k.nameEn" /></label>
+                <label class="flex min-w-48 flex-1 flex-col gap-1 text-sm font-semibold">{{ 'Directory.nameAr' | t }}<input [name]="'ka' + k.id" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="k.nameAr" /></label>
+                <label class="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" class="h-5 w-5" [name]="'kc' + k.id" [(ngModel)]="k.centralFallback" />{{ 'TeamPlace.centralFallback' | t }}</label>
+                <button type="submit" [class]="cls.btn2" [disabled]="busy()">{{ 'AdminCommon.save' | t }}</button>
+                <button type="button" class="min-h-11 cursor-pointer rounded-lg px-3 text-sm font-semibold text-danger hover:bg-danger-soft disabled:opacity-60" [disabled]="busy()" (click)="deleteKind(k)">{{ 'Directory.delete' | t }}<span class="sr-only"> {{ k.nameEn }}</span></button>
+              </form>
+            }
+            <form class="flex flex-wrap items-end gap-3" novalidate (ngSubmit)="addKind()">
+              <label class="flex min-w-48 flex-1 flex-col gap-1 text-sm font-semibold"><span>{{ 'TeamPlace.newKindEn' | t }}<app-req /></span><input name="nke" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="nk.nameEn" /></label>
+              <label class="flex min-w-48 flex-1 flex-col gap-1 text-sm font-semibold"><span>{{ 'TeamPlace.newKindAr' | t }}<app-req /></span><input name="nka" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="nk.nameAr" /></label>
+              <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'TeamPlace.addKind' | t }}</button>
+            </form>
+          </div>
+        </details>
+      }
+
       @if (data() && !data()!.candidates.length) { <p role="status" class="rounded-lg bg-warn-soft px-4 py-3 text-sm font-medium text-warn-ink">{{ 'AdminTeams.noStaff' | t }}</p> }
       @if (data()) {
         <div class="flex flex-col gap-4">
-          
-  <div class="flex flex-wrap items-center gap-3">
-    <label class="sr-only" for="acc-q">{{ 'AdminTeams.searchLabel' | t }}</label>
-    <input id="acc-q" type="search" dir="auto" [placeholder]="'AdminTeams.searchPlaceholder' | t" [value]="q()" (input)="q.set($any($event.target).value)"
-      class="min-h-11 min-w-60 flex-1 rounded-lg border border-line bg-surface px-3 text-sm" />
-    <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="expandAll()">{{ 'AdminOrgs.expandAll' | t }}</button>
-    <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="opened.set([])">{{ 'AdminOrgs.collapseAll' | t }}</button>
-  </div>
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="sr-only" for="acc-q">{{ 'AdminTeams.searchLabel' | t }}</label>
+            <input id="acc-q" type="search" dir="auto" [placeholder]="'AdminTeams.searchPlaceholder' | t" [value]="q()" (input)="q.set($any($event.target).value)"
+              class="min-h-11 min-w-60 flex-1 rounded-lg border border-line bg-surface px-3 text-sm" />
+            <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="expandAll()">{{ 'AdminOrgs.expandAll' | t }}</button>
+            <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="opened.set([])">{{ 'AdminOrgs.collapseAll' | t }}</button>
+          </div>
           @if (!filtered().length) { <p class="text-muted">{{ 'AdminTeams.noMatch' | t }}</p> }
+          @for (g of groups(); track g.key) {
+          <section class="flex flex-col gap-3">
+            <h2 class="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted"><span>{{ g.label }}</span><span class="h-px flex-1 bg-line"></span></h2>
           <ul class="flex flex-col gap-4">
-            @for (t of filtered(); track t.id) {
-              
+            @for (t of g.teams; track t.id) {
   <li class="overflow-hidden rounded-xl border bg-surface shadow-card" [class.border-brand]="isOpen(t.id)" [class.border-line]="!isOpen(t.id)">
-    <h2><button type="button" [attr.aria-expanded]="isOpen(t.id)" [attr.aria-controls]="'acc-' + t.id" (click)="toggle(t.id)"
+    <h3><button type="button" [attr.aria-expanded]="isOpen(t.id)" [attr.aria-controls]="'acc-' + t.id" (click)="toggle(t.id)"
       class="flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-start" [class]="isOpen(t.id) ? 'bg-[#f7f9fd]' : 'hover:bg-bg'">
       <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
         class="shrink-0 text-muted transition-transform" [class]="isOpen(t.id) ? 'rotate-90' : 'rtl:rotate-180'"><path d="M7 4l6 6-6 6" /></svg>
@@ -627,6 +667,7 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
           <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ leaderCount(t) }}</b> {{ 'AdminTeams.statLeaders' | t }}</span>
           <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ autoCount(t) }}</b> {{ 'AdminTeams.statAuto' | t }}</span>
           <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ t.openTickets ?? 0 }}</b> {{ 'AdminTeams.statOpen' | t }}</span>
+          <span class="rounded-md border border-line bg-brand-soft px-2 py-0.5 text-brand-ink">{{ methodName(t.assignMethod || data()?.defaultMethod) }}</span>
         </span>
       </span>
       <span aria-hidden="true" class="hidden shrink-0 md:flex">
@@ -635,7 +676,7 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
         }
         @if (t.members.length > 5) { <span class="-ms-2 grid size-9 place-items-center rounded-full border-2 border-surface bg-bg text-xs font-bold text-muted">+{{ t.members.length - 5 }}</span> }
       </span>
-    </button></h2>
+    </button></h3>
     <div [id]="'acc-' + t.id" [hidden]="!isOpen(t.id)" class="border-t border-line">
       @let tab = teamTab[t.id] ?? 'members';
       <div role="tablist" class="flex gap-1 border-b border-line px-5">
@@ -665,8 +706,8 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
               @for (mb of t.members; track mb.userId) {
                 <li class="flex flex-wrap items-center gap-3 border-t border-line px-3.5 py-2.5 first:border-t-0 hover:bg-[#f7f9fd]">
                   <span aria-hidden="true" class="grid size-9 shrink-0 place-items-center rounded-full text-xs font-bold" [class]="avatarTone(mb.userId)">{{ initials(mb.fullName) }}</span>
-                  <span class="min-w-40 flex-1"><a [routerLink]="'/' + i18n.locale() + '/admin/users'" [queryParams]="{ open: mb.userId }" class="block font-bold text-brand-ink hover:underline" dir="auto"
-                    [attr.aria-label]="'AdminTeams.openProfile' | t: { name: mb.fullName }">{{ mb.fullName }}</a><span class="block text-xs text-muted" dir="ltr">{{ mb.email }}</span></span>
+                  <span class="min-w-40 flex-1">@if (data()?.canCentral) { <a [routerLink]="'/' + i18n.locale() + '/admin/users'" [queryParams]="{ open: mb.userId }" class="block font-bold text-brand-ink hover:underline" dir="auto"
+                    [attr.aria-label]="'AdminTeams.openProfile' | t: { name: mb.fullName }">{{ mb.fullName }}</a> } @else { <span class="block font-bold" dir="auto">{{ mb.fullName }}</span> }<span class="block text-xs text-muted" dir="ltr">{{ mb.email }}</span></span>
                   <span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="mb.isLeader ? 'bg-brand-soft text-brand-ink' : 'bg-bg text-muted'">{{ (mb.isLeader ? 'AdminTeams.leader' : 'AdminTeams.agent') | t }}</span>
                   <span class="hidden min-w-20 text-xs text-muted sm:inline">{{ 'AdminTeams.openCount' | t: { count: mb.openTickets ?? 0 } }}</span>
                   <span class="hidden rounded-full px-2 py-0.5 text-xs font-semibold sm:inline" [class]="mb.autoAssign ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (mb.autoAssign ? 'AdminTeams.autoOn' : 'AdminTeams.autoOff') | t }}</span>
@@ -683,12 +724,47 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
         </div>
       }
 
+      @if (tab === 'categories') {
+        <div class="flex flex-col gap-3 p-5">
+          <p class="text-sm text-muted">{{ 'TeamPlace.catsHelp' | t }}</p>
+          @if (!catsOf(t).length) { <p class="text-muted">{{ 'TeamPlace.noCats' | t }}</p> }
+          @for (c of catsOf(t); track c.id) {
+            @let key = c.id + '|' + t.id;
+            <div class="rounded-xl border border-line p-3">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <span class="font-semibold" dir="auto">{{ i18n.pick(c.nameEn, c.nameAr) }}</span>
+                <select [attr.aria-label]="'TeamPlace.whoGets' | t: { name: i18n.pick(c.nameEn, c.nameAr) }" class="min-h-11 rounded-lg border border-line bg-surface px-3" [ngModel]="pick[key] ? 'some' : 'all'" (ngModelChange)="setMode(key, $event)">
+                  <option value="all">{{ 'TeamPlace.whoAll' | t }}</option><option value="some">{{ 'TeamPlace.whoSome' | t }}</option></select>
+              </div>
+              @if (pick[key]; as set) {
+                <div class="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+                  @for (mb of t.members; track mb.userId) {
+                    <label class="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" class="h-5 w-5" [checked]="set.has(mb.userId)" (change)="flipSet(set, mb.userId)" />{{ mb.fullName }}</label>
+                  }
+                </div>
+              }
+              <div class="mt-2"><button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="saveCat(c.id, t)">{{ 'AdminCommon.save' | t }}</button></div>
+            </div>
+          }
+        </div>
+      }
+
       @if (tab === 'settings') {
         <div class="flex flex-col gap-4 p-5">
           <form class="flex flex-col gap-4" novalidate (ngSubmit)="update(t)">
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.kind' | t }}<app-req /></span>
+                <select name="kind" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].kindId">@for (k of data()?.kinds ?? []; track k.id) { <option [value]="k.id">{{ i18n.pick(k.nameEn, k.nameAr) }}</option> }</select></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.place' | t }}<app-req /></span>
+                <select name="place" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].place">@for (p of places(); track p.value) { <option [value]="p.value">{{ p.label }}</option> }</select></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'TeamPlace.method' | t }}</span>
+                <select name="method" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].assignMethod"><option value="">{{ 'TeamPlace.methodDefault' | t: { name: methodName(data()?.defaultMethod) } }}</option>
+                  @for (m of methods; track m) { <option [value]="m">{{ methodName(m) }}</option> }</select>
+                <span class="text-xs font-normal text-muted">{{ 'TeamPlace.methodHelp_' + (edit[t.id].assignMethod || data()?.defaultMethod || 'fewest') | t }}</span></label>
+            </div>
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameEn' | t }}<app-req /></span><input name="en" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameEn" /></label>
-              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameAr' | t }}<app-req /></span><input name="ar" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameAr" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameEn' | t }}</span><input name="en" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameEn" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.nameAr' | t }}</span><input name="ar" dir="rtl" lang="ar" [class]="cls.input + ' font-normal'" [(ngModel)]="edit[t.id].nameAr" /></label>
             </div>
             <div class="flex flex-wrap items-center justify-between gap-3">
               <label class="flex min-h-11 items-center gap-2"><input type="checkbox" name="act" class="h-5 w-5" [(ngModel)]="edit[t.id].isActive" /> {{ 'AdminTeams.activeLong' | t }}</label>
@@ -710,6 +786,8 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
     </div></li>
             }
           </ul>
+          </section>
+          }
         </div>
       }
     </main>`,
@@ -717,35 +795,82 @@ export class AdminStaffPage extends AccordionPage implements OnInit {
 export class AdminTeamsPage extends AccordionPage implements OnInit {
   protected readonly data = signal<TeamsResult | null>(null);
   protected readonly confirmDel = signal<string | null>(null);
+  protected readonly methods = METHODS;
   protected readonly filtered = computed(() => {
     const s = this.q().trim().toLowerCase();
-    return (this.data()?.teams ?? []).filter((t) => !s || [t.nameEn, t.nameAr, ...t.members.flatMap((m) => [m.fullName, m.email])].join(' ').toLowerCase().includes(s));
+    return (this.data()?.teams ?? []).filter((t) => !s || [t.nameEn, t.nameAr, this.placeLabel(t), ...t.members.flatMap((m) => [m.fullName, m.email])].join(' ').toLowerCase().includes(s));
   });
-  protected nw = { nameEn: '', nameAr: '', isActive: true };
+  /** Teams under a heading per place: central first, then each organization followed by its branches. */
+  protected readonly groups = computed(() => {
+    const d = this.data(); if (!d) return [];
+    const out: { key: string; label: string; teams: TeamRow[] }[] = [];
+    const push = (key: string, label: string, teams: TeamRow[]) => { if (teams.length) out.push({ key, label, teams }); };
+    const list = this.filtered();
+    push('central', this.i18n.t('TeamPlace.central'), list.filter((t) => !t.organizationId));
+    const orgIds = [...new Set(list.filter((t) => t.organizationId).map((t) => t.organizationId!))]
+      .sort((a, b) => this.orgLabel(a).localeCompare(this.orgLabel(b)));
+    for (const o of orgIds) {
+      push('o' + o, this.orgLabel(o), list.filter((t) => t.organizationId === o && !t.branchId));
+      const bs = [...new Set(list.filter((t) => t.organizationId === o && t.branchId).map((t) => t.branchId!))];
+      for (const b of bs) push('b' + b, this.orgLabel(o) + ' · ' + this.branchLabel(b), list.filter((t) => t.branchId === b));
+    }
+    return out;
+  });
+  /** Places the caller may put a team in. Value: '' central, 'o:<id>' organization, 'b:<id>' branch. */
+  protected readonly places = computed(() => {
+    const d = this.data(); if (!d) return [];
+    const out: { value: string; label: string }[] = [];
+    if (d.canCentral) out.push({ value: '', label: this.i18n.t('TeamPlace.central') });
+    for (const o of d.organizations ?? []) out.push({ value: 'o:' + o.id, label: this.i18n.t('TeamPlace.wholeOrg', { name: o.name }) });
+    for (const b of d.branches ?? []) out.push({ value: 'b:' + b.id, label: this.orgLabel(b.organizationId) + ' · ' + b.name });
+    return out;
+  });
+  private orgLabel(id: string): string { const d = this.data(); return d?.organizations?.find((o) => o.id === id)?.name ?? d?.branches?.find((b) => b.organizationId === id)?.organizationName ?? this.orgName(id) ?? ''; }
+  private branchLabel(id: string): string { return this.data()?.branches?.find((b) => b.id === id)?.name ?? this.branchName(id) ?? ''; }
+  private placeLabel(t: TeamRow): string { return !t.organizationId ? this.i18n.t('TeamPlace.central') : this.orgLabel(t.organizationId) + (t.branchId ? ' · ' + this.branchLabel(t.branchId) : ''); }
+  protected methodName(m: string | null | undefined): string { return this.i18n.t('TeamPlace.method_' + (m || 'fewest')); }
+  private placeValue(t: TeamRow): string { return t.branchId ? 'b:' + t.branchId : t.organizationId ? 'o:' + t.organizationId : ''; }
+  private placeBody(v: string): { organizationId: string | null; branchId: string | null } {
+    return v.startsWith('b:') ? { organizationId: null, branchId: v.slice(2) } : v.startsWith('o:') ? { organizationId: v.slice(2), branchId: null } : { organizationId: null, branchId: null };
+  }
+  protected nw = { kindId: '', place: '', assignMethod: '' };
+  protected nk = { nameEn: '', nameAr: '' };
   protected nwMembers = new Set<string>();
   protected nwLeaders = new Set<string>();
   protected adding: Record<string, string | undefined> = {};
   protected asLeader: Record<string, boolean> = {};
-  protected edit: Record<string, { nameEn: string; nameAr: string; isActive: boolean }> = {};
+  protected edit: Record<string, { nameEn: string; nameAr: string; isActive: boolean; kindId: string; place: string; assignMethod: string }> = {};
+  /** Category people being edited, keyed "categoryId|teamId"; missing = all staff in the team. */
+  protected pick: Record<string, Set<string> | undefined> = {};
+  private readonly cats = signal<CatPeople | null>(null);
   protected shownIds(): string[] { return this.filtered().map((t) => t.id); }
-  async ngOnInit(): Promise<void> { await this.reload(); }
+  async ngOnInit(): Promise<void> { await this.reload(); if (this.data()?.canCentral) await this.loadLookups(); }
   protected async reload(): Promise<void> {
     try {
-      const d = await this.api.get<TeamsResult>('teams');
-      for (const t of d.teams) this.edit[t.id] = { nameEn: t.nameEn, nameAr: t.nameAr, isActive: t.isActive };
+      const [d, cp] = await Promise.all([this.api.get<TeamsResult>('teams'), this.api.get<CatPeople>('category-people')]);
+      for (const t of d.teams) this.edit[t.id] = { nameEn: t.nameEn, nameAr: t.nameAr, isActive: t.isActive, kindId: t.kindId ?? '', place: this.placeValue(t), assignMethod: t.assignMethod ?? '' };
       this.adding = {}; this.asLeader = {}; this.confirmDel.set(null);
+      this.pick = {};
+      for (const c of cp.chosen) (this.pick[c.categoryId + '|' + c.teamId] ??= new Set()).add(c.userId);
+      if (!this.nw.place) this.nw.place = d.canCentral ? '' : d.branches?.[0] ? 'b:' + d.branches[0].id : d.organizations?.[0] ? 'o:' + d.organizations[0].id : '';
+      this.cats.set(cp);
       this.data.set(d);
     } catch (e) { this.fail(e); }
   }
+  protected catsOf(t: TeamRow) { return (this.cats()?.categories ?? []).filter((c) => c.teamKindId === t.kindId); }
+  protected setMode(key: string, mode: string): void { this.pick[key] = mode === 'some' ? (this.pick[key] ?? new Set()) : undefined; }
+  protected saveCat(categoryId: string, t: TeamRow): void {
+    const set = this.pick[categoryId + '|' + t.id];
+    void this.run(() => this.api.put('category-people', { categoryId, teamId: t.id, userIds: set ? [...set] : [] }));
+  }
   protected flipSet(s: Set<string>, id: string): void { if (s.has(id)) s.delete(id); else s.add(id); }
-  protected leaders(t: TeamRow): string { return t.members.filter((m) => m.isLeader).map((m) => m.fullName).join(', '); }
   protected free(t: TeamRow) { const taken = new Set(t.members.map((m) => m.userId)); return (this.data()?.candidates ?? []).filter((c) => !taken.has(c.id)); }
   private members(t: TeamRow, list: { userId: string; isLeader: boolean }[]) { return this.run(() => this.api.put(`teams/${t.id}/members`, { members: list }), 'AdminTeams.updated'); }
   private list(t: TeamRow) { return t.members.map((m) => ({ userId: m.userId, isLeader: m.isLeader })); }
   protected addMember(t: TeamRow): void { const id = this.adding[t.id]; if (id) void this.members(t, [...this.list(t), { userId: id, isLeader: !!this.asLeader[t.id] }]); }
   protected removeMember(t: TeamRow, id: string): void { void this.members(t, this.list(t).filter((m) => m.userId !== id)); }
-  protected readonly teamTabs = ['members', 'settings'] as const;
-  protected teamTab: Record<string, 'members' | 'settings'> = {};
+  protected readonly teamTabs = ['members', 'categories', 'settings'] as const;
+  protected teamTab: Record<string, 'members' | 'categories' | 'settings'> = {};
   protected leaderCount(t: TeamRow): number { return t.members.filter((m) => m.isLeader).length; }
   protected autoCount(t: TeamRow): number { return t.members.filter((m) => m.autoAssign).length; }
   /** Only people holding the Team leader role can lead (the API checks it too). */
@@ -759,14 +884,25 @@ export class AdminTeamsPage extends AccordionPage implements OnInit {
   }
   protected async create(box: { open: boolean }): Promise<void> {
     const members = [...new Set([...this.nwMembers, ...this.nwLeaders])].map((id) => ({ userId: id, isLeader: this.nwLeaders.has(id) }));
+    const body = { kindId: this.nw.kindId, ...this.placeBody(this.nw.place), nameEn: null, nameAr: null, isActive: true, assignMethod: this.nw.assignMethod || null };
     const ok = await this.run(async () => {
-      const r = await this.api.post<{ id: string }>('teams', this.nw);
+      const r = await this.api.post<{ id: string }>('teams', body);
       if (members.length) await this.api.put(`teams/${r.id}/members`, { members });
     });
-    if (ok) { this.nw = { nameEn: '', nameAr: '', isActive: true }; this.nwMembers.clear(); this.nwLeaders.clear(); box.open = false; }
+    if (ok) { this.nw = { ...this.nw, kindId: '', assignMethod: '' }; this.nwMembers.clear(); this.nwLeaders.clear(); box.open = false; }
   }
-  protected update(t: TeamRow): void { void this.run(() => this.api.put('teams/' + t.id, this.edit[t.id])); }
+  protected update(t: TeamRow): void {
+    const e = this.edit[t.id];
+    void this.run(() => this.api.put('teams/' + t.id, { kindId: e.kindId, ...this.placeBody(e.place), nameEn: e.nameEn, nameAr: e.nameAr, isActive: e.isActive, assignMethod: e.assignMethod || null }));
+  }
   protected remove(t: TeamRow): void { void this.run(() => this.api.del('teams/' + t.id), 'AdminV2.deleted'); }
+  protected saveKind(k: { id: string; nameEn: string; nameAr: string; centralFallback: boolean; sortOrder?: number }): void {
+    void this.run(() => this.api.put('team-kinds/' + k.id, { nameEn: k.nameEn, nameAr: k.nameAr, centralFallback: k.centralFallback, sortOrder: k.sortOrder ?? 0 }));
+  }
+  protected deleteKind(k: { id: string }): void { void this.run(() => this.api.del('team-kinds/' + k.id), 'AdminV2.deleted'); }
+  protected async addKind(): Promise<void> {
+    if (await this.run(() => this.api.post('team-kinds', { ...this.nk, centralFallback: true, sortOrder: (this.data()?.kinds?.length ?? 0) + 1 }))) this.nk = { nameEn: '', nameAr: '' };
+  }
 }
 
 // ================================================================== organizations (v1 /admin/organizations)

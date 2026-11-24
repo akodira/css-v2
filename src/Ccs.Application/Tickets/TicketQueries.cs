@@ -23,7 +23,7 @@ public sealed record TicketListItem(
     string CategoryEn, string CategoryAr, string? TeamEn, string? TeamAr, string? AssigneeName, string RequesterName,
     string? SlaState, DateTimeOffset? ResolutionDue, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
     string? RequesterEmail = null, DateTimeOffset? FirstResponseDue = null, DateTimeOffset? FirstRespondedAt = null,
-    DateTimeOffset? PausedAt = null, int PausedTotalSeconds = 0, DateTimeOffset? ResolvedAt = null, string? PriorityIcon = null, string? CustomStatus = null);
+    DateTimeOffset? PausedAt = null, int PausedTotalSeconds = 0, DateTimeOffset? ResolvedAt = null, string? PriorityIcon = null, string? CustomStatus = null, Guid? TeamId = null);
 
 public sealed record TicketSummary(int Total, int Active, int Waiting, int Resolved, int Closed, int Unassigned, int Breached);
 
@@ -142,7 +142,7 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
                                sr == null ? 0 : sr.PausedTotalSeconds,
                                t.ResolvedAt,
                                db.Priorities.Where(p => p.Code == t.Priority).Select(p => p.Icon).FirstOrDefault(),
-                               t.CustomStatus))
+                               t.CustomStatus, t.TeamId))
                           .Skip((page.SafePage - 1) * page.SafeSize).Take(page.SafeSize).ToListAsync(ct);
         return new PagedResult<TicketListItem>(items, total, page.SafePage, page.SafeSize);
     }

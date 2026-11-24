@@ -392,7 +392,7 @@ export class Shell {
     // Same rules as v1 StaffShell: who sees which built-in item.
     const can: Record<string, boolean> = {
       canned: admin || has('reply'), team: !!me?.leadsTeam || !!me?.teams?.length, reports: has('reports_own') || has('reports_all'), kb_console: !(admin || canKb),
-      users: admin, people: !admin && !!me?.scopeLevel, branches: !admin && !!me?.scopeLevel, hierarchy: false, escalation: admin, admin_customers: admin, customers: !admin, admin_teams: admin,
+      users: admin, people: !admin && !!me?.scopeLevel, branches: !admin && !!me?.scopeLevel, hierarchy: false, escalation: admin, admin_customers: admin, customers: !admin, admin_teams: admin || !!me?.scopeLevel,
       permissions: admin, organizations: admin, catalog: canCatalog, priorities: canCatalog, ticket_status: canSettings,
       approvals: admin || has('approve_customers'), help: !canSettings, help_center: canSettings, kb_admin: canKb, sla_settings: canSettings,
       audit: admin || roles.includes('management_viewer'), settings: canSettings,

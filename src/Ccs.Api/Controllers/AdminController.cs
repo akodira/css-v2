@@ -40,9 +40,6 @@ public sealed class AdminController(
     public sealed record TypeBody(string NameEn, string NameAr, bool AllAccess, string? ScopeLevel, string[] Permissions, AccessRow[] Access, string? Kind = null);
     public sealed record OrgBody(string Name, string? Location, string? Phone, Guid? TeamLeaderId, bool IsActive, bool SharedAccessEnabled);
     public sealed record BranchBody(Guid OrganizationId, string Name, string? Location, string? Phone, Guid? TeamLeaderId, bool IsActive);
-    public sealed record TeamBody(string NameEn, string NameAr, bool IsActive);
-    public sealed record MemberRow(Guid UserId, bool IsLeader);
-    public sealed record MembersBody(MemberRow[] Members);
     /// <summary>With <see cref="AccountTypeId"/> (the Staff page): the type gives the role, Everywhere / Orgs / Branches give Works in.
     /// Without it: the older roles / scoped shape.</summary>
     public sealed record StaffCreateBody(string FullName, string Email, string? Phone, string Password, string[]? Roles, string? Scoped, Guid[]? Orgs, Guid[]? Branches,
@@ -595,108 +592,7 @@ public sealed class AdminController(
 
     // ---------------------------------------------------------------- teams
 
-    [HttpGet("teams")]
-    public async Task<object> Teams(CancellationToken ct)
-    {
-        await Need(null, ct);
-        var teams = await db.Teams.AsNoTracking().OrderBy(t => t.NameEn).ToListAsync(ct);
-        var members = await (from m in db.TeamMembers.AsNoTracking() join p in db.Profiles on m.UserId equals p.Id
-                             select new { m.TeamId, m.UserId, m.IsLeader, p.FullName, p.Email, p.AutoAssign }).ToListAsync(ct);
-        // Open = not resolved or closed (same load measure automatic assignment uses).
-        var open = db.Tickets.AsNoTracking().Where(t => t.Status != TicketStatus.Resolved && t.Status != TicketStatus.Closed);
-        var memberIds = members.Select(m => m.UserId).Distinct().ToList();
-        var openByAgent = await open.Where(t => t.AssignedAgentId != null && memberIds.Contains(t.AssignedAgentId.Value))
-            .GroupBy(t => t.AssignedAgentId!.Value).Select(g => new { Id = g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Id, x => x.N, ct);
-        var openByTeam = await open.Where(t => t.TeamId != null)
-            .GroupBy(t => t.TeamId!.Value).Select(g => new { Id = g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Id, x => x.N, ct);
-        var candidates = await (from p in db.Profiles join ur in db.CcsUserRoles on p.Id equals ur.UserId join r in db.CcsRoles on ur.RoleId equals r.Id
-                                where p.AccountStatus == AccountStatus.Active && (r.Code == RoleCode.Agent || r.Code == RoleCode.TeamLeader)
-                                orderby p.CreatedAt descending select new { p.Id, p.FullName, p.Email, Role = r.Code }).ToListAsync(ct); // newest first, as v1
-        // One line per person, even with both the Agent and the Team leader role.
-        candidates = candidates.GroupBy(x => x.Id).Select(g => g.OrderByDescending(x => x.Role == RoleCode.TeamLeader).First()).ToList();
-        return new
-        {
-            teams = teams.Select(t => new
-            {
-                t.Id, t.NameEn, t.NameAr, t.IsActive,
-                OpenTickets = openByTeam.GetValueOrDefault(t.Id),
-                Members = members.Where(m => m.TeamId == t.Id).OrderByDescending(m => m.IsLeader).ThenBy(m => m.FullName)
-                    .Select(m => new { m.UserId, m.FullName, m.Email, m.IsLeader, m.AutoAssign, OpenTickets = openByAgent.GetValueOrDefault(m.UserId) }),
-            }),
-            candidates,
-        };
-    }
-
-    [HttpPost("teams")]
-    public async Task<object> CreateTeam(TeamBody b, CancellationToken ct)
-    {
-        await Need(null, ct);
-        var t = new Team { Id = Guid.NewGuid(), CreatedAt = clock.UtcNow };
-        await ApplyTeamAsync(t, b, ct);
-        db.Teams.Add(t);
-        audit.Write("team.create", "team", t.Id, null, b);
-        await db.SaveChangesAsync(ct);
-        return new { t.Id };
-    }
-
-    [HttpPut("teams/{id:guid}")]
-    public async Task<IActionResult> UpdateTeam(Guid id, TeamBody b, CancellationToken ct)
-    {
-        await Need(null, ct);
-        var t = await db.Teams.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
-        var before = new { t.NameEn, t.NameAr, t.IsActive };
-        await ApplyTeamAsync(t, b, ct);
-        audit.Write("team.update", "team", id, before, b);
-        await db.SaveChangesAsync(ct);
-        return NoContent();
-    }
-
-    [HttpDelete("teams/{id:guid}")]
-    public async Task<IActionResult> DeleteTeam(Guid id, CancellationToken ct)
-    {
-        await Need(null, ct);
-        var t = await db.Teams.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
-        if (await db.Tickets.AnyAsync(x => x.TeamId == id, ct) || await db.TicketCategories.AnyAsync(x => x.DefaultTeamId == id, ct))
-            throw Err("inUse", null, 409);
-        db.TeamMembers.RemoveRange(db.TeamMembers.Where(m => m.TeamId == id));
-        db.Teams.Remove(t);
-        audit.Write("team.delete", "team", id, new { t.NameEn, t.NameAr }, null);
-        try { await db.SaveChangesAsync(ct); } catch (DbUpdateException) { throw Err("inUse", null, 409); }
-        return NoContent();
-    }
-
-    [HttpPut("teams/{id:guid}/members")]
-    public async Task<IActionResult> Members(Guid id, MembersBody b, CancellationToken ct)
-    {
-        await Need(null, ct);
-        if (!await db.Teams.AnyAsync(x => x.Id == id, ct)) throw new NotFoundException();
-        var wanted = (b.Members ?? []).GroupBy(m => m.UserId).Select(g => g.First()).ToList();
-        var ids = wanted.Select(m => m.UserId).ToList();
-        var roles = await (from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id
-                           where ids.Contains(ur.UserId) select new { ur.UserId, r.Code }).ToListAsync(ct);
-        foreach (var m in wanted)
-        {
-            var codes = roles.Where(r => r.UserId == m.UserId).Select(r => r.Code).ToList();
-            if (!codes.Any(x => x is RoleCode.Agent or RoleCode.TeamLeader)) throw Err("user_must_be_agent_or_team_leader");
-            if (m.IsLeader && !codes.Contains(RoleCode.TeamLeader)) throw Err("leaderRole");
-        }
-        var before = await db.TeamMembers.AsNoTracking().Where(m => m.TeamId == id).Select(m => new { m.UserId, m.IsLeader }).ToListAsync(ct);
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await db.TeamMembers.Where(m => m.TeamId == id).ExecuteDeleteAsync(ct);
-        foreach (var m in wanted) db.TeamMembers.Add(new TeamMember { TeamId = id, UserId = m.UserId, IsLeader = m.IsLeader });
-        audit.Write("team.members", "team", id, before, wanted);
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
-        return NoContent();
-    }
-
-    private async Task ApplyTeamAsync(Team t, TeamBody b, CancellationToken ct)
-    {
-        var en = Name(b.NameEn, "nameEn");
-        var ar = Name(b.NameAr, "nameAr");
-        if (await db.Teams.AnyAsync(x => x.Id != t.Id && (x.NameEn == en || x.NameAr == ar), ct)) throw Err("nameTaken", "nameEn", 409);
-        t.NameEn = en; t.NameAr = ar; t.IsActive = b.IsActive; t.UpdatedAt = clock.UtcNow;
-    }
+    // Teams (per place) live in PeopleController.Teams.cs: organization and branch admins manage their own.
 
     // ---------------------------------------------------------------- staff screen (v1 /admin/users)
 
