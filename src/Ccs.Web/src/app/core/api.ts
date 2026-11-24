@@ -3,6 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { I18n } from './i18n';
 import { apiUrl } from './api-base';
+import { PhoneFmt, phoneFmt } from '../shared/phone';
 
 // ---- Contracts (mirror Ccs.Application DTOs, camelCase JSON) ----------------------------------
 
@@ -57,6 +58,7 @@ export interface SiteInfo {
   captcha: { enabled: boolean; provider: string | null; siteKey: string | null };
   signinCodes: { enabled: boolean; length: number; validMinutes?: number; cooldownSeconds?: number };
   passwordPolicy: { minLength: number; requireUpper: boolean; requireLower: boolean; requireNumber: boolean; requireSpecial: boolean };
+  phoneFormat?: PhoneFmt;
   autoRefreshSeconds: number;
   minReplyChars: number;
   reopenWindowDays: number;
@@ -116,6 +118,7 @@ export class SiteService {
       this.info.set(info);
       this.menus.set(menus);
       this.i18n.setOverrides(info.systemMessages ?? []);
+      if (info.phoneFormat) phoneFmt.set(info.phoneFormat);
       const fav = info.site?.faviconPath;
       if (fav) {
         let el = document.querySelector<HTMLLinkElement>('link[rel="icon"]');

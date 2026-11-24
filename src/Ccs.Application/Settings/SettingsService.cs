@@ -60,6 +60,17 @@ public sealed class SettingsService(ICcsDbContext db)
         return f.Validate() is null ? f : d;
     }
 
+    /// <summary>The mobile number format from Settings → System; Egypt when a value is missing or invalid.</summary>
+    public async Task<PhoneFormat> GetPhoneFormatAsync(CancellationToken ct = default)
+    {
+        var d = PhoneFormat.Default;
+        var starts = await GetJsonAsync("phone_starts", ct) is { ValueKind: JsonValueKind.Array } a
+            ? a.EnumerateArray().Select(x => x.ValueKind == JsonValueKind.String ? x.GetString() : null) : d.Starts;
+        var f = PhoneFormat.Normalize(await GetStringAsync("phone_country", d.Country, ct), await GetStringAsync("phone_country_code", d.CountryCode, ct),
+            await GetIntAsync("phone_length", d.Length, ct), starts);
+        return f.Validate() is null ? f : d;
+    }
+
     public async Task SetAsync(string key, object value, CancellationToken ct = default)
     {
         var json = JsonSerializer.Serialize(value);

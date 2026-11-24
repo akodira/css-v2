@@ -7,7 +7,7 @@ import { Auth, problemOf } from '../core/auth';
 import { I18n, TPipe } from '../core/i18n';
 import { SiteService, TicketListItem, TicketsApi, TicketSummary } from '../core/api';
 import { Alert, NewPasswordFields, StatusBadge, Submit, TextField } from '../shared/ui';
-import { phoneDigits } from '../shared/phone';
+import { phoneDigits, phoneParams } from '../shared/phone';
 import { CustomerKpis } from '../shared/customer-kpis';
 import { AuthArt } from '../shared/auth-art';
 
@@ -236,7 +236,7 @@ export class HomePage {
               <p id="acc-email-hint" class="text-sm text-muted">{{ 'Account.emailNote' | t }}</p>
             </div>
             <app-text-field name="fullName" [label]="'Auth.fields.fullName' | t" autocomplete="name" [maxLength]="120" [required]="true" [(value)]="fullName" [error]="pfErrors()['fullName']" />
-            <app-text-field name="phone" type="tel" [label]="'Auth.fields.phone' | t" autocomplete="tel" dir="ltr" [maxLength]="40" [required]="true" [hint]="'Auth.fields.phoneHint' | t" [(value)]="phone" [error]="pfErrors()['phone']" />
+            <app-text-field name="phone" type="tel" [label]="'Auth.fields.phone' | t" autocomplete="tel" dir="ltr" [maxLength]="40" [required]="true" [hint]="'Auth.fields.phoneHint' | t: ph()" [(value)]="phone" [error]="pfErrors()['phone']" />
             <div class="flex flex-col gap-1.5">
               <label for="acc-lang" class="text-sm font-semibold">{{ 'Auth.fields.language' | t }}</label>
               <select id="acc-lang" class="min-h-11 rounded-lg border border-line bg-surface px-3 text-base" (change)="lang.set($any($event.target).value)">
@@ -385,6 +385,7 @@ export class AccountPage {
   // Profile form (v1 ProfileForm): name, phone and language.
   protected readonly fullName = signal(this.auth.me()?.fullName ?? '');
   protected readonly phone = signal(phoneDigits(this.auth.me()?.phone));
+  protected readonly ph = phoneParams;
   protected readonly lang = signal<string>(this.auth.me()?.preferredLocale ?? this.i18n.locale());
   protected readonly pfErrors = signal<Record<string, string>>({});
   protected readonly pfMsg = signal<string | null>(null);

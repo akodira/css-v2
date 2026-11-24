@@ -18,8 +18,43 @@ public class RulesTests
     [InlineData("010 1234 5678", "+201012345678")]
     [InlineData("0101234567", null)]
     [InlineData("+441012345678", null)]
+    [InlineData("00201012345678", "+201012345678")]
+    [InlineData("02012345678", null)]
+    [InlineData("010123456789", null)]
+    [InlineData("0101234567x", null)]
     [InlineData("someone@example.com", null)]
-    public void Egyptian_phone_numbers(string input, string? expected) => Assert.Equal(expected, EgyptPhone.Normalize(input));
+    public void Egyptian_phone_numbers(string input, string? expected) => Assert.Equal(expected, PhoneFormat.Default.Normalize(input));
+
+    [Theory]
+    [InlineData("41234567", "+96541234567")]
+    [InlineData("+965 4123 4567", "+96541234567")]
+    [InlineData("31234567", null)]
+    [InlineData("4123456", null)]
+    public void Kuwait_numbers_have_no_leading_zero(string input, string? expected) =>
+        Assert.Equal(expected, new PhoneFormat("KW", "+965", 8, ["4", "5", "6", "9"]).Normalize(input));
+
+    [Theory]
+    [InlineData("0501234567", "+966501234567")]
+    [InlineData("+966501234567", "+966501234567")]
+    [InlineData("966501234567", "+966501234567")]
+    public void Saudi_numbers_drop_the_leading_zero(string input, string? expected) =>
+        Assert.Equal(expected, new PhoneFormat("SA", "+966", 10, ["05"]).Normalize(input));
+
+    [Fact]
+    public void Stored_number_reads_back_as_the_local_form()
+    {
+        Assert.Equal("01012345678", PhoneFormat.Default.Local("+201012345678"));
+        Assert.Equal("41234567", new PhoneFormat("KW", "+965", 8, []).Local("+96541234567"));
+    }
+
+    [Theory]
+    [InlineData("", "+0", 11, "countryCode")]
+    [InlineData("", "20", 11, null)]
+    [InlineData("", "+20", 3, "length")]
+    [InlineData("", "+20", 11, "starts", "012345678901")]
+    [InlineData("eg", "+20", 11, null, "01")]
+    public void Phone_format_settings_are_checked(string country, string code, int length, string? error, params string[] starts) =>
+        Assert.Equal(error, PhoneFormat.Normalize(country, code, length, starts).Validate());
 
     [Fact]
     public void Password_policy_defaults_need_10_chars_upper_lower_number_special()

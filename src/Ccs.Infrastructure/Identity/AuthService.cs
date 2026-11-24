@@ -219,7 +219,7 @@ public sealed class AuthService(
         var email = r.Email.Trim().ToLowerInvariant();
         string? phone = null;
         if (!string.IsNullOrWhiteSpace(r.Phone))
-            phone = EgyptPhone.Normalize(r.Phone) ?? throw new AuthError("phoneInvalid", 400, "phone");
+            phone = (await settings.GetPhoneFormatAsync(ct)).Normalize(r.Phone) ?? throw new AuthError("phoneInvalid", 400, "phone");
         if (await users.FindByEmailAsync(email) is not null) throw new AuthError("emailTaken", 400, "email");
         if (phone is not null && await db.Profiles.AnyAsync(p => p.Phone == phone, ct)) throw new AuthError("phoneTaken", 400, "phone");
 
@@ -408,9 +408,8 @@ public sealed class AuthService(
     public async Task<AppUser?> FindByIdentifierAsync(string identifier, CancellationToken ct)
     {
         identifier = identifier.Trim();
-        if (EgyptPhone.LooksLikePhone(identifier))
+        if ((await settings.GetPhoneFormatAsync(ct)).Normalize(identifier) is string phone)
         {
-            var phone = EgyptPhone.Normalize(identifier);
             var email = await db.Profiles.Where(p => p.Phone == phone).Select(p => p.Email).FirstOrDefaultAsync(ct);
             return email is null ? null : await users.FindByEmailAsync(email);
         }

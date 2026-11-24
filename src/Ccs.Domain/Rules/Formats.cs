@@ -64,22 +64,61 @@ public static class TicketTypeCode
     public static bool IsValid(string? code) => code is null || (code.Length is >= 2 and <= 4 && code.All(char.IsAsciiLetterUpper));
 }
 
-/// <summary>Egyptian mobile numbers: "+2" then 11 digits; the "+2" may be left out (spec 5).</summary>
-public static partial class EgyptPhone
+/// <summary>
+/// The mobile number format from Settings → System: country code, how many digits people type locally, and what the
+/// local number starts with. Stored as the country code plus the local number without its leading 0
+/// (Egypt: 01001234567 → +201001234567).
+/// </summary>
+public sealed record PhoneFormat(string Country, string CountryCode, int Length, IReadOnlyList<string> Starts)
 {
-    [GeneratedRegex(@"^(?:\+?2)?(01[0-9]{9})$")]
-    private static partial Regex Pattern();
+    public static readonly PhoneFormat Default = new("EG", "+20", 11, ["01"]);
 
-    /// <summary>Returns +201xxxxxxxxx, or null when the input is not an Egyptian mobile number.</summary>
-    public static string? Normalize(string? input)
+    private string CodeDigits => CountryCode.TrimStart('+');
+
+    /// <summary>Null when valid, else the field in error: countryCode, length or starts.</summary>
+    public string? Validate()
     {
-        if (string.IsNullOrWhiteSpace(input)) return null;
-        var digits = input.Trim().Replace(" ", "").Replace("-", "");
-        var m = Pattern().Match(digits);
-        return m.Success ? "+2" + m.Groups[1].Value : null;
+        if (!Regex.IsMatch(CountryCode, @"^\+[1-9][0-9]{0,3}$")) return "countryCode";
+        if (Length is < 4 or > 15) return "length";
+        if (Starts.Count > 10 || Starts.Any(s => !Regex.IsMatch(s, @"^[0-9]{1,5}$") || s.Length >= Length)) return "starts";
+        if (Country.Length != 0 && !Regex.IsMatch(Country, "^[A-Z]{2}$")) return "countryCode";
+        return null;
     }
 
-    public static bool LooksLikePhone(string input) => !input.Contains('@') && Normalize(input) is not null;
+    public static PhoneFormat Normalize(string? country, string? code, int length, IEnumerable<string?>? starts)
+    {
+        var c = (code ?? "").Trim().Replace(" ", "");
+        if (c.Length > 0 && !c.StartsWith('+')) c = "+" + c;
+        var s = (starts ?? []).Select(x => (x ?? "").Trim()).Where(x => x.Length > 0).Distinct().ToArray();
+        return new((country ?? "").Trim().ToUpperInvariant(), c, length, s);
+    }
+
+    private bool LocalOk(string local) => local.Length == Length && (Starts.Count == 0 || Starts.Any(local.StartsWith));
+
+    /// <summary>The local number as people type it (digits only), or null when the input does not fit the format.
+    /// Accepts the local form, or the international one with +, 00 or just the country code in front.</summary>
+    public string? Local(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input) || input.Contains('@')) return null;
+        var t = input.Trim();
+        if (!Regex.IsMatch(t, @"^\+?[0-9 ()\-.]+$")) return null;
+        var plus = t.StartsWith('+');
+        var d = Regex.Replace(t, @"\D", "");
+        if (!plus && LocalOk(d)) return d;
+        if (!plus && d.StartsWith("00")) { d = d[2..]; plus = true; }
+        if (d.StartsWith(CodeDigits))
+        {
+            var rest = d[CodeDigits.Length..];
+            if (LocalOk(rest)) return rest;
+            if (LocalOk("0" + rest)) return "0" + rest;
+        }
+        return null;
+    }
+
+    /// <summary>What is stored: +{code}{local without one leading 0}; null when the input does not fit.</summary>
+    public string? Normalize(string? input) => Local(input) is string l ? CountryCode + (l.StartsWith('0') ? l[1..] : l) : null;
+
+    public bool LooksLikePhone(string input) => Normalize(input) is not null;
 }
 
 public sealed record PasswordPolicy(int MinLength = 10, bool RequireUpper = true, bool RequireLower = true,

@@ -150,7 +150,7 @@
       "fullName": "Full name",
       "phone": "Phone number",
       "language": "Preferred language",
-      "phoneHint": "Type your 11-digit mobile number, starting with 01. You can also use it to sign in.",
+      "phoneHint": "Type your {len}-digit mobile number, e.g. {example}. You can also use it to sign in.",
       "identifier": "Email or phone number",
       "organization": "Organization",
       "pickOrganization": "Organization",
@@ -306,9 +306,9 @@
     "captcha": {
       "label": "Security check"
     },
-    "phoneDigits": "A phone number has 11 digits starting with 01. You have typed {n}.",
-    "phoneCount": "{n} of 11 digits",
-    "phoneLooksRight": "11 of 11 digits ✓",
+    "phoneDigits": "A phone number has {len} digits, e.g. {example}. You have typed {n}.",
+    "phoneCount": "{n} of {len} digits",
+    "phoneLooksRight": "{len} of {len} digits ✓",
     "capsLock": "Caps Lock is on"
   },
   "Account": {
@@ -1220,7 +1220,10 @@
       "flowOpenTickets": "Open tickets follow this flow. It can be deleted after they are closed.",
       "customStatusInFlow": "A flow uses this status. Remove it from the flow first.",
       "customStatusInUse": "Open tickets are in this status. Move them first.",
-      "customStatusLimit": "You can have up to 30 statuses of your own."
+      "customStatusLimit": "You can have up to 30 statuses of your own.",
+      "phoneFormat_countryCode": "Type a country code like +20 (1 to 4 digits).",
+      "phoneFormat_length": "The number length must be between 4 and 15 digits.",
+      "phoneFormat_starts": "Each \"starts with\" value must be digits only and shorter than the number length (up to 10 values)."
     },
     "cancel": "Cancel"
   },
@@ -4708,8 +4711,8 @@
       "resolved": "Resolved",
       "closed": "Closed"
     },
-    "tryTitle": "Try it",
-    "tryHelp": "Which buttons does a person get on the ticket page?",
+    "tryTitle": "Check the flow",
+    "tryHelp": "See what someone can do with a ticket, before you save.",
     "tryWho": "Who",
     "reasonShort": "reason",
     "noButtons": "No buttons here.",
@@ -4738,7 +4741,14 @@
     "saveWho": "Save",
     "whoSaved": "Saved. New tickets will follow these flows.",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "tryWhen": "When a ticket is",
+    "tryAnd": "and",
+    "tryStaff": "a staff member",
+    "tryCustomer": "the customer",
+    "tryOpens": "opens it, they see these buttons:",
+    "tryMove": "Move to {name}",
+    "tryNote": "This only shows the flow on this page. Change the moves above and it updates straight away; nothing is saved until you press Save flow."
   },
   "CustomStatus": {
     "help": "You can also add your own statuses, for example \"Visit scheduled\" or \"Waiting for spare parts\".",
@@ -4764,5 +4774,43 @@
     "likeLocked": "Remove it from every flow to change this.",
     "cantDelete": "It can be deleted when no flow and no open ticket uses it.",
     "deleteConfirm": "Delete the status \"{name}\"? Old ticket history keeps its name."
+  },
+  "ResetPw": {
+    "title": "Reset password for {name}",
+    "help": "They are signed out everywhere. Give them the new password; they can change it under My Account.",
+    "how": "How to set the password",
+    "make": "Make one for me",
+    "makeHelp": "A strong random password.",
+    "type": "I'll type it",
+    "typeHelp": "Must follow the password rules.",
+    "another": "Make another",
+    "copy": "Copy",
+    "copied": "Copied ✓",
+    "newPassword": "New password",
+    "set": "Set password",
+    "done": "Password changed. Give it to {name} now: it is not shown again after you close this window.",
+    "finish": "Done",
+    "rulesNotMet": "The password does not meet all the rules yet."
+  },
+  "PhoneSettings": {
+    "title": "Phone numbers",
+    "help": "The mobile number format people type. Every phone box (register, staff, people, My Account) follows it. Pick a country or set your own.",
+    "country": "Country",
+    "search": "Search a country or code…",
+    "own": "Set my own (any country)",
+    "code": "Country code",
+    "length": "Number length",
+    "lengthHint": "Digits, as people type it locally.",
+    "starts": "Starts with",
+    "startsHint": "Optional. Separate with commas.",
+    "missing": "We know this country's code but not its mobile length. Type the number length (and, if you like, what numbers start with) once.",
+    "sum": "People type {len} digits, e.g. {example}. Letters are dropped and typing stops at {len}.",
+    "sumStarts": "People type {len} digits, starting with {starts}, e.g. {example}. Letters are dropped and typing stops at {len}.",
+    "saved": "Saved as",
+    "finish": "Set the number length (4 to 15) to finish.",
+    "try": "Try a number",
+    "tryOk": "Looks right ✓",
+    "tryStarts": "Must start with {starts}",
+    "existing": "Numbers already saved are kept as they are. The new format is checked the next time someone types or changes a number."
   }
 }

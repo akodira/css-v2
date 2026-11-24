@@ -1,1 +1,0 @@
-import{tt as zt}from"./main-LV3CCEDJ.js";import"./chunk-DoMPm57t.js";import"./chunk-DdDf-V10.js";export{zt as PeoplePage};

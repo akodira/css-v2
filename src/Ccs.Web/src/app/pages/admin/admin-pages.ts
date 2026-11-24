@@ -15,6 +15,7 @@ import {
 } from '../../core/admin-api';
 import { AddPanel, Alert, PRIORITY_TONE, PrioIcon, Req, StatusBadge } from '../../shared/ui';
 import { PhoneInput, phoneDigits } from '../../shared/phone';
+import { ResetPassword } from '../../shared/reset-password';
 import { PwEye } from '../../shared/pw-eye';
 import { WhereEditor } from './where-editor';
 import { feedbackFor } from '../../shared/feedback';
@@ -109,7 +110,7 @@ export const SEARCH = `
 
 @Component({
   selector: 'app-person-form',
-  imports: [FormsModule, TPipe, Req, PhoneInput, WhereEditor, forwardRef(() => TurnBack), PwEye],
+  imports: [FormsModule, TPipe, Req, PhoneInput, ResetPassword, WhereEditor, forwardRef(() => TurnBack), PwEye],
   template: `
     <form class="flex flex-col gap-4" (ngSubmit)="submit()">
       <div class="grid gap-4 md:grid-cols-2">
@@ -118,7 +119,7 @@ export const SEARCH = `
         <div class="flex flex-col gap-1.5"><label [for]="id + 'e'" [class]="cls.label"><span>{{ 'Directory.email' | t }}<app-req /></span></label>
           <input [id]="id + 'e'" name="email" type="email" dir="ltr" required maxlength="254" [class]="cls.input" [(ngModel)]="m.email" /></div>
         <div class="flex flex-col gap-1.5"><label [for]="id + 'p'" [class]="cls.label">{{ 'Directory.phone' | t }}</label>
-          <input [id]="id + 'p'" name="phone" appPhone dir="ltr" placeholder="01012345678" [class]="cls.input" [(ngModel)]="m.phone" /></div>
+          <input [id]="id + 'p'" name="phone" appPhone dir="ltr" [class]="cls.input" [(ngModel)]="m.phone" /></div>
         @if (!user()) {
           <div class="flex flex-col gap-1.5"><label [for]="id + 'w'" [class]="cls.label"><span>{{ 'Directory.tempPassword' | t }}<app-req /></span></label>
             <div class="flex gap-2"><span class="relative min-w-0 flex-1"><input #pfw [id]="id + 'w'" name="password" type="password" dir="ltr" required [class]="cls.input + ' w-full pe-11'" [(ngModel)]="m.password" autocomplete="new-password" /><app-pw-eye [target]="pfw" /></span>
@@ -164,7 +165,7 @@ export const SEARCH = `
           @if (u.status === 'active') { <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="act.emit({ kind: 'status', value: 'suspended' })">{{ 'AdminUsers.suspend' | t }}</button> }
           @else { <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="act.emit({ kind: 'status', value: 'active' })">{{ 'AdminUsers.reactivate' | t }}</button> }
         }
-        <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="act.emit({ kind: 'password', value: gen() })">{{ 'AdminV2.resetPassword' | t }}</button>
+        <app-reset-password [userId]="u.id" [name]="u.fullName" [disabled]="busy()" [btnClass]="cls.btn2" />
         @if (u.mfaEnabled && !u.isSelf) { <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="act.emit({ kind: 'mfa', value: '' })">{{ 'Mfa.reset' | t }}</button> }
         @if (!u.isSelf) {
           @if (confirmDelete()) {
@@ -191,7 +192,7 @@ export class PersonForm implements OnInit {
   readonly lk = input<Lookups | null>(null);
   readonly busy = input(false);
   readonly save = output<UserBody>();
-  readonly act = output<{ kind: 'status' | 'password' | 'delete' | 'mfa'; value: string }>();
+  readonly act = output<{ kind: 'status' | 'delete' | 'mfa'; value: string }>();
   protected readonly confirmDelete = signal(false);
   protected readonly staffRoles = ['agent', 'team_leader', 'admin', 'management_viewer'];
   protected m: UserBody = this.blank();
@@ -599,7 +600,6 @@ export class CustomerProfilePage extends AdminBase implements OnInit {
   protected action(a: { kind: string; value: string }): void {
     if (a.kind === 'mfa') { void this.run(() => this.api.post(`users/${this.id}/reset-mfa`, {})); return; }
     if (a.kind === 'status') void this.run(() => this.api.post(`users/${this.id}/status`, { status: a.value }));
-    else if (a.kind === 'password') void this.run(() => this.api.post(`users/${this.id}/password`, { password: a.value }), 'AdminV2.passwordSet', { password: a.value });
     else void this.api.del('users/' + this.id).then(() => this.router.navigateByUrl(`/${this.i18n.locale()}/admin/customers`)).catch((e) => this.fail(e));
   }
   protected promote(): void {

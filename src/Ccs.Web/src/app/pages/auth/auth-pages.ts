@@ -13,9 +13,7 @@ import { AuthShell } from './auth-shell';
 
 export { AuthLogo } from './auth-shell';
 
-export { normPhone } from '../../shared/phone';
-import { normPhone } from '../../shared/phone';
-const PHONE_OK = /^01[0-9]{9}$/;
+import { phoneDigits, phoneLocal, phoneOk, phoneParams } from '../../shared/phone';
 /** Email or phone remembered on this device (only when "Remember" is ticked; never the password). */
 const REMEMBER_KEY = 'ccs.signin.remember';
 const readRemembered = (): string => { try { return localStorage.getItem(REMEMBER_KEY) ?? ''; } catch { return ''; } };
@@ -101,7 +99,7 @@ abstract class FormBase {
         @if (reason() === 'pending_approval') { <app-alert><app-rich [text]="'Auth.login.pendingNotice' | t" [compact]="true" /></app-alert> }
         <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
           <app-text-field name="email" [label]="'Auth.fields.identifier' | t" [placeholder]="'Auth.login.identifierPlaceholder' | t" [hint]="'Auth.login.identifierHint' | t" [smallHint]="true" autocomplete="username" dir="ltr" [required]="true" [(value)]="identifier" [error]="fieldErrors()['identifier']" />
-          @if (tried() && phoneTyped() !== null) { <p class="-mt-2 text-sm font-medium text-danger" role="alert">{{ 'Auth.phoneDigits' | t: { n: phoneTyped() } }}</p> }
+          @if (tried() && phoneTyped() !== null) { <p class="-mt-2 text-sm font-medium text-danger" role="alert">{{ 'Auth.phoneDigits' | t: { n: phoneTyped(), len: ph().len, example: ph().example } }}</p> }
           @if (remembered() && identifier() === remembered()) {
             <p class="-mt-2 text-xs text-muted">{{ 'AuthLook.rememberedHere' | t }} <button type="button" class="cursor-pointer font-bold text-brand-ink underline" (click)="forget()">{{ 'AuthLook.notYou' | t }}</button></p>
           }
@@ -154,11 +152,12 @@ export class LoginPage extends FormBase {
 
   protected readonly tried = signal(false);
   /** When a phone number (not an email) is typed and it is not 11 digits starting with 01: how many digits were typed. */
+  protected readonly ph = phoneParams;
   protected readonly phoneTyped = computed(() => {
     const v = this.identifier().trim();
     if (!v || !/^[+\d\s()-]+$/.test(v)) return null;
-    const d = normPhone(v);
-    return PHONE_OK.test(d) ? null : d.length;
+    const d = phoneLocal(v);
+    return phoneOk(d) ? null : d.length;
   });
 
   /** "Not you?": forget the remembered address on this device. */
@@ -175,7 +174,7 @@ export class LoginPage extends FormBase {
     if (!this.password()) fe['password'] = 'required';
     if (Object.keys(fe).length) { this.fieldErrors.set(fe); return; }
     if (this.phoneTyped() !== null) return;
-    if (/^[+\d\s()-]+$/.test(this.identifier().trim())) this.identifier.set(normPhone(this.identifier()));
+    if (/^[+\d\s()-]+$/.test(this.identifier().trim())) this.identifier.set(phoneLocal(this.identifier()));
     void this.run(async () => {
       let s;
       try { s = await this.auth.signIn(this.identifier().trim(), this.password()); }
@@ -326,8 +325,8 @@ const SELECT = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 te
             <div [class]="pair()">
               <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
               <div class="flex flex-col gap-1.5">
-                <app-text-field name="phone" type="tel" [label]="'Auth.fields.phone' | t" autocomplete="tel-national" dir="ltr" [maxLength]="16" [required]="true" [hint]="'Auth.fields.phoneHint' | t" [smallHint]="nl()" [(value)]="phone" [error]="fieldErrors()['phone']" />
-                @if (phone()) { <p class="text-sm font-semibold" [class]="phoneOk() ? 'text-ok' : 'text-muted'" aria-live="polite">{{ phoneOk() ? ('Auth.phoneLooksRight' | t) : ('Auth.phoneCount' | t: { n: phone().length }) }}</p> }
+                <app-text-field name="phone" type="tel" [label]="'Auth.fields.phone' | t" autocomplete="tel-national" dir="ltr" [maxLength]="16" [required]="true" [hint]="'Auth.fields.phoneHint' | t: ph()" [smallHint]="nl()" [(value)]="phone" [error]="fieldErrors()['phone']" />
+                @if (phone()) { <p class="text-sm font-semibold" [class]="phoneOk() ? 'text-ok' : 'text-muted'" aria-live="polite">{{ phoneOk() ? ('Auth.phoneLooksRight' | t: ph()) : ('Auth.phoneCount' | t: { n: phone().length, len: ph().len }) }}</p> }
               </div>
             </div>
             @if (mode() === 'pick_approval' || mode() === 'pick_auto') {
@@ -370,9 +369,10 @@ export class RegisterPage extends FormBase {
   protected readonly fullName = signal('');
   protected readonly email = signal('');
   protected readonly phone = signal('');
-  protected readonly phoneOk = computed(() => PHONE_OK.test(this.phone()));
+  protected readonly ph = phoneParams;
+  protected readonly phoneOk = computed(() => phoneOk(this.phone()));
   /** Only digits are kept as you type; "+20 10 ..." becomes "010...". */
-  private readonly phoneClean = effect(() => { const v = this.phone(), d = normPhone(v); if (d !== v) this.phone.set(d); });
+  private readonly phoneClean = effect(() => { const v = this.phone(), d = phoneDigits(v); if (d !== v) this.phone.set(d); });
   protected readonly password = signal('');
   protected readonly confirmPw = signal('');
   protected readonly code = signal('');
@@ -405,7 +405,7 @@ export class RegisterPage extends FormBase {
     const fe: Record<string, string> = {};
     if (this.fullName().trim().length < 2) fe['fullName'] = 'nameRequired';
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email().trim())) fe['email'] = 'emailInvalid';
-    if (!PHONE_OK.test(this.phone())) fe['phone'] = this.phone() ? 'phoneInvalid' : 'phoneRequired';
+    if (!phoneOk(this.phone())) fe['phone'] = this.phone() ? 'phoneInvalid' : 'phoneRequired';
     const pw = this.passwordProblems(this.password());
     if (pw) fe['password'] = pw;
     if (this.password() !== this.confirmPw()) fe['confirm'] = 'passwordMismatch';

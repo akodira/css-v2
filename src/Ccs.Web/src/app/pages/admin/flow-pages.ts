@@ -311,14 +311,18 @@ export class FlowMap {
 
           <section class="rounded-xl border border-line bg-surface p-5 shadow-card" aria-labelledby="try-h">
             <h3 id="try-h" class="text-lg font-bold">{{ 'Flows.tryTitle' | t }}</h3><p class="text-sm text-muted">{{ 'Flows.tryHelp' | t }}</p>
-            <div class="mt-3 flex flex-wrap items-center gap-3">
+            <div class="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-bg px-4 py-3">
+              <span>{{ 'Flows.tryWhen' | t }}</span>
               <select [attr.aria-label]="'Flows.colStatus' | t" class="min-h-11 rounded-lg border border-line bg-surface px-3" [ngModel]="tryS()" (ngModelChange)="tryS.set($event)">@for (s of d.statuses; track s) { <option [value]="s">{{ staffName(s) }}</option> }</select>
-              <select [attr.aria-label]="'Flows.tryWho' | t" class="min-h-11 rounded-lg border border-line bg-surface px-3" [ngModel]="tryW()" (ngModelChange)="tryW.set($event)"><option value="staff">{{ 'Flows.byStaff' | t }}</option><option value="customer">{{ 'Flows.byCustomer' | t }}</option></select>
-              <span aria-live="polite" class="flex flex-wrap gap-2">
-                @for (m of tryMoves(); track m.to) { <span class="rounded-full bg-brand-soft px-3 py-1 text-sm font-semibold text-brand-ink">{{ tryW() === 'customer' ? customerName(m.to) : staffName(m.to) }}@if (m.requiresReason) { ({{ 'Flows.reasonShort' | t }}) }</span> }
-                @empty { <span class="text-sm text-muted">{{ 'Flows.noButtons' | t }}</span> }
-              </span>
+              <span>{{ 'Flows.tryAnd' | t }}</span>
+              <select [attr.aria-label]="'Flows.tryWho' | t" class="min-h-11 rounded-lg border border-line bg-surface px-3" [ngModel]="tryW()" (ngModelChange)="tryW.set($event)"><option value="staff">{{ 'Flows.tryStaff' | t }}</option><option value="customer">{{ 'Flows.tryCustomer' | t }}</option></select>
+              <span>{{ 'Flows.tryOpens' | t }}</span>
             </div>
+            <div aria-live="polite" class="mt-3 flex flex-wrap gap-2">
+              @for (m of tryMoves(); track m.to) { <span class="inline-flex min-h-9 items-center gap-1 rounded-lg border border-line bg-surface px-3 text-sm font-semibold">{{ 'Flows.tryMove' | t: { name: tryW() === 'customer' ? customerName(m.to) : staffName(m.to) } }}@if (m.requiresReason) { <span class="font-normal text-muted">({{ 'Flows.reasonShort' | t }})</span> }</span> }
+              @empty { <span class="text-sm text-muted">{{ 'Flows.noButtons' | t }}</span> }
+            </div>
+            <p class="mt-2 text-xs text-muted">{{ 'Flows.tryNote' | t }}</p>
           </section>
           <div class="flex justify-end"><ng-container *ngTemplateOutlet="saveBar" /></div>
           <ng-template #saveBar>

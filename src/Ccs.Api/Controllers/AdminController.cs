@@ -1015,7 +1015,7 @@ public sealed class AdminController(
     private async Task<string?> CheckPhoneAsync(string? phone, Guid? self, CancellationToken ct)
     {
         if (Clean(phone) is null) return null;
-        var p = EgyptPhone.Normalize(phone) ?? throw Err("phoneInvalid", "phone");
+        var p = (await HttpContext.RequestServices.GetRequiredService<Ccs.Application.Settings.SettingsService>().GetPhoneFormatAsync(ct)).Normalize(phone) ?? throw Err("phoneInvalid", "phone");
         if (await db.Profiles.AnyAsync(x => x.Phone == p && x.Id != self, ct)) throw Err("phoneTaken", "phone", 409);
         return p;
     }

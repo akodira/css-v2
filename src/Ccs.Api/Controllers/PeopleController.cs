@@ -336,7 +336,7 @@ public sealed partial class PeopleController(CcsDbContext db, AccessService acce
     {
         if (string.IsNullOrWhiteSpace(phone)) return null;
         // Egyptian mobile (11 digits starting 01), stored as +201xxxxxxxxx like at registration.
-        var p = EgyptPhone.Normalize(phone) ?? throw Err("phoneInvalid", "phone");
+        var p = (await HttpContext.RequestServices.GetRequiredService<Ccs.Application.Settings.SettingsService>().GetPhoneFormatAsync(ct)).Normalize(phone) ?? throw Err("phoneInvalid", "phone");
         if (await db.Profiles.AnyAsync(x => x.Phone == p && x.Id != self, ct)) throw Err("phoneTaken", "phone", 409);
         return p;
     }

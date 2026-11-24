@@ -39,7 +39,7 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
                 <div class="flex flex-col gap-1.5"><label for="pp-e" [class]="cls.label">{{ 'People.email' | t }}<app-req /></label>
                   <input id="pp-e" name="email" type="email" dir="ltr" autocomplete="off" [class]="cls.input" [ngModel]="n().email" (ngModelChange)="patch({ email: $event })" /></div>
                 <div class="flex flex-col gap-1.5"><label for="pp-p" [class]="cls.label">{{ 'People.phone' | t }}</label>
-                  <input id="pp-p" name="phone" appPhone dir="ltr" placeholder="01012345678" autocomplete="off" [class]="cls.input" [ngModel]="n().phone" (ngModelChange)="patch({ phone: $event })" /></div>
+                  <input id="pp-p" name="phone" appPhone dir="ltr" autocomplete="off" [class]="cls.input" [ngModel]="n().phone" (ngModelChange)="patch({ phone: $event })" /></div>
                 <div class="flex flex-col gap-1.5"><label for="pp-w" [class]="cls.label">{{ 'People.tempPassword' | t }}<app-req /></label>
                   <span class="flex gap-2"><span class="relative min-w-0 flex-1"><input #ppw id="pp-w" name="password" type="password" dir="ltr" autocomplete="new-password" [class]="cls.input + ' w-full pe-11'" [ngModel]="n().password" (ngModelChange)="patch({ password: $event })" /><app-pw-eye [target]="ppw" /></span>
                     <button type="button" [class]="btn + ' shrink-0'" (click)="patch({ password: gen() })">{{ 'People.generate' | t }}</button></span></div>
@@ -125,7 +125,7 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
                             <div class="flex flex-col gap-1.5"><label [for]="'pe-' + p.id" [class]="cls.label">{{ 'People.email' | t }}</label>
                               <input [id]="'pe-' + p.id" name="email" type="email" dir="ltr" [class]="cls.input" [(ngModel)]="ed.email" /></div>
                             <div class="flex flex-col gap-1.5"><label [for]="'pp-' + p.id" [class]="cls.label">{{ 'People.phone' | t }}</label>
-                              <input [id]="'pp-' + p.id" name="phone" appPhone dir="ltr" placeholder="01012345678" [class]="cls.input" [(ngModel)]="ed.phone" /></div>
+                              <input [id]="'pp-' + p.id" name="phone" appPhone dir="ltr" [class]="cls.input" [(ngModel)]="ed.phone" /></div>
                           </div>
                           <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'People.save' | t }}</button></div>
                         </form>

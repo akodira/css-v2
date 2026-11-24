@@ -302,7 +302,7 @@ interface StaffData { me: string; orgs: Pick[]; branches: BranchPick[]; staff: S
           <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.name' | t }}<app-req /></span><input name="n" dir="auto" [class]="cls.input + ' font-normal'" [(ngModel)]="d.fullName" /></label>
             <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.email' | t }}<app-req /></span><input name="e" type="email" dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="d.email" /></label>
-            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" appPhone dir="ltr" placeholder="01012345678" [class]="cls.input + ' font-normal'" [(ngModel)]="d.phone" /></label>
+            <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" appPhone dir="ltr" [class]="cls.input + ' font-normal'" [(ngModel)]="d.phone" /></label>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Directory.saveChanges' | t }}</button>
@@ -400,7 +400,7 @@ export class StaffBody implements OnInit {
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.name' | t }}<app-req /></span><input name="n" dir="auto" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.fullName" /></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Directory.email' | t }}<app-req /></span><input name="e" type="email" dir="ltr" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.email" /></label>
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" appPhone dir="ltr" placeholder="01012345678" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.phone" /></label>
+              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.phone' | t }}<input name="p" appPhone dir="ltr" autocomplete="off" [class]="cls.input + ' font-normal'" [(ngModel)]="nw.phone" /></label>
               <div class="flex flex-col gap-1.5">
                 <label for="nw-pw" class="text-sm font-semibold">{{ 'Directory.tempPassword' | t }}<app-req /></label>
                 <span class="flex gap-2"><span class="relative min-w-0 flex-1"><input #nwpw id="nw-pw" name="w" type="password" dir="ltr" autocomplete="new-password" [class]="cls.input + ' w-full pe-11'" [(ngModel)]="nw.password" /><app-pw-eye [target]="nwpw" /></span>

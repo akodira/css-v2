@@ -28,6 +28,7 @@ public sealed class SiteController(CcsDbContext db, SettingsService settings, Cc
             signinCodes = new { enabled = codes?.Enabled == true && (codes.ForCustomers || codes.ForStaff || codes.ForAdmins), length = codes?.CodeLength ?? 6,
                 validMinutes = codes?.ValidMinutes ?? 10, cooldownSeconds = codes?.CooldownSeconds ?? 60 },
             passwordPolicy = await settings.GetPasswordPolicyAsync(ct),
+            phoneFormat = await settings.GetPhoneFormatAsync(ct),
             autoRefreshSeconds = await settings.GetIntAsync("auto_refresh_seconds", 30, ct),
             minReplyChars = await settings.GetIntAsync("min_reply_chars", 20, ct),
             reopenWindowDays = await settings.GetIntAsync("reopen_window_days", 30, ct),
@@ -165,7 +166,7 @@ public sealed class MeController(AccessService access, CcsDbContext db, Settings
         var raw = (b.Phone ?? "").Trim();
         if (raw.Length == 0) throw new Ccs.Infrastructure.Identity.AuthError("phoneRequired", 400, "phone");
         // Egyptian mobile (11 digits starting 01), stored as +201xxxxxxxxx like at registration.
-        var phone = Ccs.Domain.Rules.EgyptPhone.Normalize(raw) ?? throw new Ccs.Infrastructure.Identity.AuthError("phoneInvalid", 400, "phone");
+        var phone = (await settings.GetPhoneFormatAsync(ct)).Normalize(raw) ?? throw new Ccs.Infrastructure.Identity.AuthError("phoneInvalid", 400, "phone");
         if (b.PreferredLocale is not ("en" or "ar")) throw new Ccs.Infrastructure.Identity.AuthError("generic", 400, "preferredLocale");
         if (await db.Profiles.AnyAsync(x => x.Phone == phone && x.Id != c.UserId, ct)) throw new Ccs.Infrastructure.Identity.AuthError("phoneTaken", 400, "phone");
         var p = await db.Profiles.FirstAsync(x => x.Id == c.UserId, ct);

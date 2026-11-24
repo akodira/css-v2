@@ -718,6 +718,44 @@ public sealed partial class SettingsController(
         return NoContent();
     }
 
+    // ================================================================ phone numbers (country code, length, starts with)
+
+    private static readonly string[] PhoneKeys = ["phone_country", "phone_country_code", "phone_length", "phone_starts"];
+
+    [HttpGet("phone")]
+    public async Task<object> GetPhone([FromServices] Ccs.Application.Settings.SettingsService settings, CancellationToken ct)
+    {
+        await Need(ct);
+        var f = await settings.GetPhoneFormatAsync(ct);
+        return new { f.Country, f.CountryCode, f.Length, f.Starts };
+    }
+
+    public sealed record PhoneBody(string? Country, string? CountryCode, int Length, string?[]? Starts);
+
+    [HttpPut("phone")]
+    public async Task<IActionResult> SavePhone(PhoneBody b, CancellationToken ct)
+    {
+        await Need(ct);
+        var f = PhoneFormat.Normalize(b.Country, b.CountryCode, b.Length, b.Starts);
+        if (f.Validate() is string error) throw Err("phoneFormat_" + error, error);
+        var values = new Dictionary<string, string>
+        {
+            ["phone_country"] = JsonSerializer.Serialize(f.Country), ["phone_country_code"] = JsonSerializer.Serialize(f.CountryCode),
+            ["phone_length"] = f.Length.ToString(), ["phone_starts"] = JsonSerializer.Serialize(f.Starts),
+        };
+        var rows = await db.AppSettings.Where(s => PhoneKeys.Contains(s.Key)).ToListAsync(ct);
+        var before = rows.ToDictionary(r => r.Key, r => r.Value);
+        foreach (var (key, json) in values)
+        {
+            var row = rows.FirstOrDefault(r => r.Key == key);
+            if (row is null) db.AppSettings.Add(new AppSetting { Key = key, Value = json });
+            else row.Value = json;
+        }
+        audit.Write("settings.phone_format", "app_settings", null, before, values);
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     public sealed record RegistrationBody(string Mode);
 
     [HttpPut("registration")]

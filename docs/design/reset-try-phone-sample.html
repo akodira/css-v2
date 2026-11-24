@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reset password, Try it, phone settings</title>
+<style>
+:root{--brand:#2563eb;--ink:#1e3a8a;--soft:#eff4ff;--line:#e3e8f0;--bg:#f5f7fb;--muted:#5b6578;--text:#111827;--ok:#15803d;--oksoft:#e8f6ee;--warn:#8a5a00;--warnsoft:#fff4e0;--red:#b42318}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,Segoe UI,Arial;background:var(--bg);color:var(--text)}
+main{max-width:1000px;margin:0 auto;padding:22px 16px 60px}h1{font-size:26px;margin:0}h2{font-size:20px;margin:30px 0 4px}h3{font-size:16px;margin:0}.sub{color:var(--muted);margin:4px 0 0}
+button{font:inherit;cursor:pointer}
+.banner{background:#fff7d6;color:#6b4e00;border-radius:10px;padding:8px 14px;font-size:13px;margin-bottom:14px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:42px;padding:0 18px;border-radius:9px;border:0;background:var(--brand);color:#fff;font-weight:600;font-size:14px}
+.q{background:#fff;color:var(--text);border:1px solid var(--line)}.danger{background:#fff;color:var(--red);border:1px solid #f1b4ae}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 3px #0000000d;padding:18px;margin-top:12px}
+.tag{display:inline-block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+input[type=text],input[type=password],select{min-height:42px;border:1px solid #cfd6e3;border-radius:8px;padding:0 12px;font:inherit;background:#fff;width:100%}
+label.f{font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.hint{font-size:12px;color:var(--muted);font-weight:400}
+.pick{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer}
+.pick:has(input:checked){border-color:var(--brand);background:var(--soft)}.pick input{width:18px;height:18px;flex:none;margin-top:3px}.pick small{color:var(--muted);font-size:12px;display:block}
+.picks{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.pw{font:600 18px/1 ui-monospace,Consolas,monospace;letter-spacing:.04em;background:var(--bg);border:1px dashed #b9c3d6;border-radius:8px;padding:11px 14px;flex:1;min-width:200px}
+.rules{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;margin-top:6px}.rules span::before{content:"○ ";color:var(--muted)}.rules .y{color:var(--ok)}.rules .y::before{content:"✓ ";color:var(--ok)}
+.done{background:var(--oksoft);color:var(--ok);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:10px}
+.note{background:var(--warnsoft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px;margin-top:10px}
+.say{background:var(--bg);border-radius:10px;padding:10px 14px;font-size:14px;margin-top:10px}
+.modal{position:relative;max-width:560px;margin:14px auto 0;background:#fff;border-radius:14px;box-shadow:0 12px 40px #0f172a26;border:1px solid var(--line);padding:20px}
+.x{position:absolute;top:12px;inset-inline-end:12px;border:0;background:none;font-size:20px;color:var(--muted)}
+.mv{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:9px;padding:6px 12px;font-weight:600;font-size:14px}
+.mv b{color:var(--brand)}
+.grid3{display:grid;grid-template-columns:1.3fr .8fr .8fr 1fr;gap:12px;margin-top:12px}
+.test{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.test .res{font-size:14px;font-weight:600}
+.okc{color:var(--ok)}.bad{color:var(--red)}
+.before{opacity:.75}
+@media(max-width:760px){.picks,.grid3{grid-template-columns:1fr}}
+</style></head><body><main>
+<div class="banner"><b>Sample only.</b> Nothing is saved. Everything here gets Arabic texts too when built.</div>
+<h1>Three changes</h1>
+
+<!-- 1 -->
+<h2>1. Reset password</h2>
+<p class="sub">Pressing <b>Reset password</b> opens a small window. You choose: let the system make one (with a Copy button), or type your own.</p>
+<div class="card">
+  <div class="row"><button class="btn q">Suspend</button><button class="btn q" id="openReset">Reset password</button><button class="btn danger">Delete</button></div>
+  <div class="modal" id="resetBox">
+    <button class="x" aria-label="Close" id="closeReset">×</button>
+    <h3>Reset password for Ahmed K</h3>
+    <p class="sub" style="font-size:14px">They are signed out everywhere. Give them the new password; they can change it under My Account.</p>
+    <div class="picks">
+      <label class="pick"><input type="radio" name="how" value="gen" checked><span><b>Make one for me</b><small>A strong random password.</small></span></label>
+      <label class="pick"><input type="radio" name="how" value="own"><span><b>I'll type it</b><small>Must follow the password rules.</small></span></label>
+    </div>
+    <div id="genPane" style="margin-top:12px">
+      <div class="row"><span class="pw" id="pw"></span><button class="btn q" id="regen" title="Make another">↻ New</button><button class="btn q" id="copy1">Copy</button></div>
+    </div>
+    <div id="ownPane" style="margin-top:12px" hidden>
+      <label class="f">New password <span class="row" style="flex-wrap:nowrap"><input type="password" id="own"><button class="btn q" id="eye" type="button">Show</button></span></label>
+      <div class="rules" id="rules"></div>
+    </div>
+    <div class="row" style="margin-top:16px"><button class="btn" id="save">Set password</button><button class="btn q" id="cancel">Cancel</button></div>
+    <div id="after" hidden>
+      <div class="done">Password changed. Give it to Ahmed K now: it is not shown again after you close this window.</div>
+      <div class="row" style="margin-top:10px"><span class="pw" id="pwDone"></span><button class="btn q" id="copy2">Copy</button></div>
+      <div class="row" style="margin-top:12px"><button class="btn" id="close2">Done</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2 -->
+<h2>2. "Try it" on the Ticket status page</h2>
+<p class="sub"><b>What it means today:</b> it is a preview of your flow. Pick where a ticket is now (for example <i>In progress</i>) and who opens it (<i>Staff</i> or <i>Customer</i>). The blue chips are the buttons that person gets on the ticket page, i.e. where they can move it next. Nothing is changed; it only helps you check the flow before saving.</p>
+<div class="card before">
+  <span class="tag">Today</span>
+  <h3 style="margin-top:6px">Try it</h3><p class="sub" style="font-size:13px">Which buttons does a person get on the ticket page?</p>
+  <div class="row" style="margin-top:8px"><select style="width:auto"><option>In progress</option></select><select style="width:auto"><option>Staff</option></select>
+  <span style="background:#e7efff;color:var(--ink);border-radius:99px;padding:3px 11px;font-size:13px;font-weight:700">Open</span><span style="background:#e7efff;color:var(--ink);border-radius:99px;padding:3px 11px;font-size:13px;font-weight:700">Pending customer</span><span style="background:#e7efff;color:var(--ink);border-radius:99px;padding:3px 11px;font-size:13px;font-weight:700">Resolved</span></div>
+</div>
+<div class="card">
+  <span class="tag" style="color:var(--brand)">Proposed: same tool, plain words</span>
+  <h3 style="margin-top:6px">Check the flow</h3>
+  <p class="sub" style="font-size:14px">See what someone can do with a ticket, before you save.</p>
+  <div class="say" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    When a ticket is <select id="tNow" style="width:auto"></select> and <select id="tWho" style="width:auto"><option value="staff">a staff member</option><option value="customer">the customer</option></select> opens it, they see these buttons:
+  </div>
+  <div class="row" id="tOut" style="margin-top:10px"></div>
+  <p class="hint" id="tNote" style="margin-top:8px"></p>
+</div>
+
+<!-- 3 -->
+<h2>3. Phone numbers in Settings</h2>
+<p class="sub">Settings › General gets a <b>Phone numbers</b> section. Every phone box (register, staff, people, My Account) follows it.</p>
+<div class="card">
+  <h3>Phone numbers</h3>
+  <p class="sub" style="font-size:14px">The mobile number format people type. Pick a country or set your own.</p>
+  <div class="grid3">
+    <label class="f">Country<input type="text" id="ctySearch" placeholder="Search a country or code…" style="min-height:36px"><select id="cty"></select></label>
+    <label class="f">Country code<input type="text" id="cc" dir="ltr"></label>
+    <label class="f">Number length<input type="text" id="len" dir="ltr"><span class="hint">Digits, as people type it locally.</span></label>
+    <label class="f">Starts with<input type="text" id="st" dir="ltr"><span class="hint">Optional. Separate with commas.</span></label>
+  </div>
+  <div class="note" id="missing" hidden>We know this country's code but not its mobile length. Type the number length (and, if you like, what numbers start with) once.</div>
+  <div class="say" id="sum"></div>
+  <div class="test"><label class="f" style="flex:1;min-width:220px">Try a number<input type="text" id="try" dir="ltr" inputmode="numeric"></label><span class="res" id="tres"></span></div>
+  <div class="note">Numbers already saved are kept as they are. The new format is checked the next time someone types or changes a number.</div>
+  <div class="row" style="margin-top:14px"><button class="btn">Save</button></div>
+</div>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+// 1 reset
+const CH='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789#!@$%';
+const gen=()=>Array.from({length:14},()=>CH[Math.floor(Math.random()*CH.length)]).join('');
+let pw=gen();$('#pw').textContent=pw;
+$('#regen').onclick=()=>{pw=gen();$('#pw').textContent=pw};
+const copied=b=>{const t=b.textContent;b.textContent='Copied ✓';setTimeout(()=>b.textContent=t,1400)};
+$('#copy1').onclick=e=>{navigator.clipboard?.writeText(pw);copied(e.target)};
+document.querySelectorAll('input[name=how]').forEach(r=>r.onchange=()=>{const own=r.value==='own'&&r.checked;$('#genPane').hidden=own;$('#ownPane').hidden=!own;});
+const RULES=[['At least 10 characters',v=>v.length>=10],['A capital letter',v=>/[A-Z]/.test(v)],['A small letter',v=>/[a-z]/.test(v)],['A number',v=>/\d/.test(v)],['A symbol',v=>/[^A-Za-z0-9]/.test(v)]];
+const showRules=()=>{const v=$('#own').value;$('#rules').innerHTML=RULES.map(([t,f])=>`<span class="${f(v)?'y':''}">${t}</span>`).join('')};showRules();
+$('#own').oninput=showRules;$('#eye').onclick=()=>{const i=$('#own');i.type=i.type==='password'?'text':'password';$('#eye').textContent=i.type==='password'?'Show':'Hide'};
+$('#save').onclick=()=>{const own=document.querySelector('input[name=how]:checked').value==='own';const v=own?$('#own').value:pw;if(own&&!RULES.every(([,f])=>f(v))){$('#own').focus();return}
+  $('#pwDone').textContent=v;['.picks','#genPane','#ownPane'].forEach(s=>$(s).hidden=true);$('#save').parentElement.hidden=true;$('#after').hidden=false;};
+$('#copy2').onclick=e=>{navigator.clipboard?.writeText($('#pwDone').textContent);copied(e.target)};
+const reset=()=>{document.querySelector('.picks').hidden=false;document.querySelector('input[value=gen]').checked=true;$('#genPane').hidden=false;$('#ownPane').hidden=true;$('#save').parentElement.hidden=false;$('#after').hidden=true;$('#own').value='';showRules();};
+$('#close2').onclick=$('#cancel').onclick=$('#closeReset').onclick=()=>{$('#resetBox').hidden=true;reset()};
+$('#openReset').onclick=()=>{$('#resetBox').hidden=false};
+
+// 2 try it
+const FLOW={staff:{new:['Open','In progress','Resolved'],open:['In progress','Pending customer','Resolved'],in_progress:['Open','Pending customer','Pending internal','Resolved'],pending_customer:['In progress','Resolved'],pending_internal:['In progress','Resolved'],resolved:['Closed','Reopened'],closed:['Reopened']},
+ customer:{new:[],open:[],in_progress:[],pending_customer:[],pending_internal:[],resolved:['Reopened','Closed'],closed:['Reopened']}};
+const NAMES={new:'New',open:'Open',in_progress:'In progress',pending_customer:'Pending customer',pending_internal:'Pending internal',resolved:'Resolved',closed:'Closed'};
+$('#tNow').innerHTML=Object.entries(NAMES).map(([k,v])=>`<option value="${k}" ${k==='in_progress'?'selected':''}>${v}</option>`).join('');
+const tdraw=()=>{const l=FLOW[$('#tWho').value][$('#tNow').value]||[];
+ $('#tOut').innerHTML=l.length?l.map(x=>`<span class="mv">Move to <b>${x}</b></span>`).join(''):'<span class="hint" style="font-size:14px">No buttons: they cannot change the status here.</span>';
+ $('#tNote').textContent=$('#tWho').value==='customer'?'Customers only see buttons on resolved or closed tickets; replying moves the ticket by itself.':'Change the moves in the flow above and this updates straight away.';};
+$('#tNow').onchange=$('#tWho').onchange=tdraw;tdraw();
+
+// 3 phone
+// Every country: name|code|local mobile length|starts with. Length and "starts with" are filled where known; the rest you type once.
+const RAW=`Afghanistan|93|10|07;Albania|355|10|06;Algeria|213|10|05,06,07;American Samoa|1684;Andorra|376;Angola|244|9|9;Anguilla|1264;Antigua and Barbuda|1268;Argentina|54;Armenia|374;Aruba|297;Australia|61|10|04;Austria|43;Azerbaijan|994;Bahamas|1242;Bahrain|973|8|3,6;Bangladesh|880|11|01;Barbados|1246;Belarus|375;Belgium|32|10|04;Belize|501;Benin|229;Bermuda|1441;Bhutan|975;Bolivia|591;Bosnia and Herzegovina|387;Botswana|267;Brazil|55|11;Brunei|673;Bulgaria|359;Burkina Faso|226;Burundi|257;Cambodia|855;Cameroon|237|9|6;Canada|1|10;Cape Verde|238;Cayman Islands|1345;Central African Republic|236;Chad|235;Chile|56|9|9;China|86|11|1;Colombia|57|10|3;Comoros|269|7;Congo|242;Congo (DR)|243;Cook Islands|682;Costa Rica|506|8;Croatia|385;Cuba|53;Cyprus|357|8|9;Czechia|420|9;Denmark|45|8;Djibouti|253|8|77;Dominica|1767;Dominican Republic|1809;Ecuador|593|10|09;Egypt|20|11|01;El Salvador|503|8;Equatorial Guinea|240;Eritrea|291;Estonia|372;Eswatini|268;Ethiopia|251|10|09,07;Fiji|679;Finland|358;France|33|10|06,07;French Guiana|594;French Polynesia|689;Gabon|241;Gambia|220;Georgia|995|9|5;Germany|49;Ghana|233|10|02,05;Gibraltar|350;Greece|30|10|69;Greenland|299;Grenada|1473;Guadeloupe|590;Guam|1671;Guatemala|502|8;Guinea|224;Guinea-Bissau|245;Guyana|592;Haiti|509;Honduras|504|8;Hong Kong|852|8;Hungary|36;Iceland|354|7;India|91|10|6,7,8,9;Indonesia|62;Iran|98|11|09;Iraq|964|11|07;Ireland|353|10|08;Israel|972|10|05;Italy|39;Ivory Coast|225|10;Jamaica|1876;Japan|81|11|070,080,090;Jordan|962|10|07;Kazakhstan|7;Kenya|254|10|07,01;Kiribati|686;Kosovo|383;Kuwait|965|8|4,5,6,9;Kyrgyzstan|996;Laos|856;Latvia|371|8|2;Lebanon|961|8|03,7,81;Lesotho|266;Liberia|231;Libya|218|10|09;Liechtenstein|423;Lithuania|370;Luxembourg|352;Macau|853|8;Madagascar|261;Malawi|265;Malaysia|60;Maldives|960|7;Mali|223;Malta|356|8;Marshall Islands|692;Martinique|596;Mauritania|222|8|2,3,4;Mauritius|230|8|5;Mexico|52|10;Micronesia|691;Moldova|373;Monaco|377;Mongolia|976|8;Montenegro|382;Montserrat|1664;Morocco|212|10|06,07;Mozambique|258|9|8;Myanmar|95;Namibia|264;Nauru|674;Nepal|977|10|9;Netherlands|31|10|06;New Caledonia|687;New Zealand|64;Nicaragua|505|8;Niger|227;Nigeria|234|11|07,08,09;North Korea|850;North Macedonia|389;Norway|47|8|4,9;Oman|968|8|7,9;Pakistan|92|11|03;Palau|680;Palestine|970|10|05;Panama|507|8|6;Papua New Guinea|675;Paraguay|595;Peru|51|9|9;Philippines|63|11|09;Poland|48|9;Portugal|351|9|9;Puerto Rico|1787;Qatar|974|8|3,5,6,7;Reunion|262;Romania|40|10|07;Russia|7|11|89;Rwanda|250|10|07;Saint Kitts and Nevis|1869;Saint Lucia|1758;Saint Vincent and the Grenadines|1784;Samoa|685;San Marino|378;Sao Tome and Principe|239;Saudi Arabia|966|10|05;Senegal|221|9|7;Serbia|381;Seychelles|248;Sierra Leone|232;Singapore|65|8|8,9;Slovakia|421|10|09;Slovenia|386;Solomon Islands|677;Somalia|252;South Africa|27|10|06,07,08;South Korea|82|11|010;South Sudan|211;Spain|34|9|6,7;Sri Lanka|94|10|07;Sudan|249|10|09,01;Suriname|597;Sweden|46|10|07;Switzerland|41|10|07;Syria|963|10|09;Taiwan|886|10|09;Tajikistan|992;Tanzania|255|10|06,07;Thailand|66|10|06,08,09;Timor-Leste|670;Togo|228;Tonga|676;Trinidad and Tobago|1868;Tunisia|216|8|2,4,5,9;Turkey|90|11|05;Turkmenistan|993;Turks and Caicos Islands|1649;Tuvalu|688;Uganda|256|10|07;Ukraine|380|10|0;United Arab Emirates|971|10|05;United Kingdom|44|11|07;United States|1|10;Uruguay|598;Uzbekistan|998|9;Vanuatu|678;Vatican City|379;Venezuela|58|11|04;Vietnam|84|10|0;Virgin Islands (British)|1284;Virgin Islands (US)|1340;Yemen|967|9|7;Zambia|260|10|09,07;Zimbabwe|263|10|07`;
+const C=RAW.split(';').map(r=>{const [n,c,l='',s='']=r.split('|');return [n,'+'+c,l,s]});
+C.unshift(['Set my own (any country)','','','']);
+$('#cty').innerHTML=C.map((c,i)=>`<option value="${i}" ${c[0]==='Egypt'?'selected':''}>${c[0]}${c[1]?' ('+c[1]+')':''}</option>`).join('');
+$('#ctySearch').oninput=()=>{const q=$('#ctySearch').value.trim().toLowerCase();[...$('#cty').options].forEach(o=>o.hidden=!!q&&!o.text.toLowerCase().includes(q));const f=[...$('#cty').options].find(o=>!o.hidden);if(f&&q){$('#cty').value=f.value;fill()}};
+const fill=()=>{const c=C[+$('#cty').value];if(c[1]){$('#cc').value=c[1];$('#len').value=c[2];$('#st').value=c[3];}else{$('#cc').value='+';$('#len').value='';$('#st').value='';$('#cc').focus();}
+  $('#missing').hidden=!(c[1]&&!c[2]);draw()};
+const draw=()=>{const cc=$('#cc').value.trim(),n=+$('#len').value||0,st=$('#st').value.split(',').map(s=>s.trim()).filter(Boolean);
+ if(!n){$('#sum').innerHTML='Set the <b>Number length</b> to finish.';$('#try').maxLength=40;tryit();return;}
+ const ex=(st[0]||'')+'1234567890123'.slice(0,Math.max(0,n-(st[0]||'').length));
+ $('#sum').innerHTML=`People type <b>${n} digits</b>${st.length?`, starting with <b>${st.join(' or ')}</b>`:''}, e.g. <b dir="ltr">${ex}</b>. Letters are dropped and typing stops at ${n}. Pasting <span dir="ltr">${cc} …</span> also works. Saved as <b dir="ltr">${cc}${ex.replace(/^0/,'')}</b>.`;
+ $('#try').maxLength=n||40;tryit();};
+const tryit=()=>{const i=$('#try');i.value=i.value.replace(/\D/g,'').slice(0,+$('#len').value||40);const v=i.value,n=+$('#len').value,st=$('#st').value.split(',').map(s=>s.trim()).filter(Boolean);
+ $('#tres').innerHTML=!v||!n?'':v.length<n?`<span class="hint" style="font-size:14px">${v.length} of ${n} digits</span>`:(st.length&&!st.some(s=>v.startsWith(s)))?`<span class="bad">Must start with ${st.join(' or ')}</span>`:'<span class="okc">Looks right ✓</span>';};
+$('#cty').onchange=fill;['#cc','#len','#st'].forEach(s=>$(s).oninput=()=>{$('#missing').hidden=true;$('#cty').value='0';draw()});$('#try').oninput=tryit;
+fill();
+</script>
+</body></html>
