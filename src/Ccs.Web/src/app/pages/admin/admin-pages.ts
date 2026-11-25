@@ -14,6 +14,7 @@ import {
   adminError, generatePassword,
 } from '../../core/admin-api';
 import { AddPanel, Alert, PRIORITY_TONE, PrioIcon, Req, StatusBadge } from '../../shared/ui';
+import { CUSTOMER_KEY, TILE_P_CUSTOMER_MD, TILE_P_PENDING_MD } from '../../shared/tiles';
 import { PhoneInput, phoneDigits } from '../../shared/phone';
 import { ResetPassword } from '../../shared/reset-password';
 import { PwEye } from '../../shared/pw-eye';
@@ -251,6 +252,7 @@ interface CustomerRow { id: string; fullName: string; email: string; phone: stri
       @if (!rows()) { <p class="text-muted">…</p> }
       @else if (!rows()!.length) { <p role="status" class="rounded-md border border-line bg-surface p-6 text-muted">{{ 'Customers.empty' | t }}</p> }
       @else {
+        ${CUSTOMER_KEY}
         <div class="relative overflow-x-auto rounded-md border border-line bg-surface">
           <table class="w-full min-w-[48rem] text-start">
             <caption class="sr-only">{{ 'Customers.title' | t }}</caption>
@@ -266,7 +268,7 @@ interface CustomerRow { id: string; fullName: string; email: string; phone: stri
             <tbody>
               @for (r of rows(); track r.id) {
                 <tr class="border-b border-line last:border-0">
-                  <td class="px-4 py-3"><a [routerLink]="'/' + i18n.locale() + '/console/customers/' + r.id" class="font-semibold text-brand-ink underline" dir="auto">{{ r.fullName || r.email }}</a></td>
+                  <td class="px-4 py-3"><span class="flex items-center gap-3">@if (r.accountStatus.startsWith('pending')) {${TILE_P_PENDING_MD}} @else {${TILE_P_CUSTOMER_MD}}<a [routerLink]="'/' + i18n.locale() + '/console/customers/' + r.id" class="font-semibold text-brand-ink underline" dir="auto">{{ r.fullName || r.email }}</a></span></td>
                   <td class="px-4 py-3" dir="ltr">{{ r.email }}</td>
                   <td class="px-4 py-3" dir="auto">{{ r.organization ?? '-' }}</td>
                   <td class="px-4 py-3" dir="auto">{{ r.branch ?? '-' }}</td>

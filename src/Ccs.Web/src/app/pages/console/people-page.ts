@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { adminError, generatePassword } from '../../core/admin-api';
 import { I18n, TPipe } from '../../core/i18n';
 import { AddPanel, Alert, Req, ReqNote } from '../../shared/ui';
+import { STAFF_KEY, STAFF_TILE_SWITCH } from '../../shared/tiles';
 import { PhoneInput, phoneDigits } from '../../shared/phone';
 import { PwEye } from '../../shared/pw-eye';
 import { CLS, Msg } from '../admin/admin-pages';
@@ -80,16 +81,21 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
           @if (rows().length === 0) {
             <p class="text-muted">{{ (staffOnly().length ? 'People.noMatch' : 'People.emptyStaff') | t }}</p>
           } @else {
+            ${STAFF_KEY}
             <ul class="flex flex-col gap-4">
               @for (p of rows(); track p.id) {
                 <li class="rounded-xl border border-line bg-surface shadow-card">
-                  <button type="button" [attr.aria-expanded]="open() === p.id" (click)="toggle(p)" class="flex w-full cursor-pointer flex-col gap-0.5 p-4 text-start">
+                  <button type="button" [attr.aria-expanded]="open() === p.id" (click)="toggle(p)" class="flex w-full cursor-pointer items-center gap-3 p-4 text-start">
+                    @let kind = staffKind(p);
+                    ${STAFF_TILE_SWITCH}
+                    <span class="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span class="flex flex-wrap items-center gap-2">
                       <span class="text-lg font-bold" dir="auto">{{ p.fullName || '-' }}</span>
                       <span class="text-lg font-bold text-brand-ink">({{ roleNames(p) }})</span>
                       <span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="p.status === 'active' ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ 'Status.' + p.status | t }}</span>
                     </span>
                     <span class="text-sm text-muted"><span dir="ltr">{{ p.email }}</span> · <span dir="auto">{{ place(p) }}</span></span>
+                    </span>
                   </button>
                   @if (open() === p.id) {
                     <div class="flex flex-col gap-4 border-t border-line p-4">
@@ -194,6 +200,15 @@ export class PeoplePage {
   protected pickOrg(org: string): void { this.patch({ organizationId: org, branchId: this.firstBranch(this.d()!, org) }); }
   protected gen(): string { return generatePassword(); }
   protected typeName(t: PType): string { return this.i18n.pick(t.nameEn, t.nameAr); }
+  /** Which icon a person gets: their role, and for admins of places the level of their place. */
+  protected staffKind(p: PRow): string {
+    if (p.roles.includes('admin')) return 'admin';
+    if (!p.accountTypeId) return 'none';
+    const lvl = this.d()?.types.find((t) => t.id === p.accountTypeId)?.scopeLevel;
+    if (lvl === 'organization') return 'org';
+    if (lvl === 'branch') return 'branch';
+    return p.roles.includes('team_leader') ? 'leader' : p.roles.includes('agent') ? 'agent' : 'viewer';
+  }
   protected isStaff(p: PRow): boolean { return p.roles.some((r) => r !== 'customer'); }
   protected isLeader(p: PRow): boolean { return p.roles.includes('team_leader'); }
   protected roleNames(p: PRow): string { return p.roles.map((r) => this.i18n.t('Roles.' + r)).join(', '); }

@@ -1,4 +1,6 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { Auth } from '../../core/auth';
 import { FormsModule } from '@angular/forms';
 import { NgTemplateOutlet } from '@angular/common';
 import { TPipe } from '../../core/i18n';
@@ -37,11 +39,15 @@ const CHIP = { own: 'bg-ok-soft text-ok', sys: 'bg-bg text-muted border border-l
  */
 @Component({
   selector: 'app-place-catalog',
-  imports: [TPipe, Alert, FormsModule, Req, ReqNote, NgTemplateOutlet],
+  imports: [TPipe, Alert, FormsModule, Req, ReqNote, NgTemplateOutlet, RouterLink],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
-      <div><h1 class="text-3xl font-bold tracking-tight">{{ 'PlaceCat.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'PlaceCat.subtitle' | t }}</p></div>
+      <div><h1 class="text-3xl font-bold tracking-tight">{{ (isAdmin ? 'PlaceCat.titleAdmin' : 'PlaceCat.title') | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ (isAdmin ? 'PlaceCat.subtitleAdmin' : 'PlaceCat.subtitle') | t }}</p></div>
+      @if (isAdmin) {
+        <p class="flex items-start gap-2 rounded-lg bg-brand-soft px-4 py-3 text-sm text-brand-ink"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" class="mt-0.5 shrink-0"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+          <span>{{ 'PlaceCat.adminNoteA' | t }} <a [routerLink]="'/' + i18n.locale() + '/admin/catalog'" class="font-semibold underline">{{ 'PlaceCat.adminNoteLink' | t }}</a>{{ 'PlaceCat.adminNoteB' | t }}</span></p>
+      }
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
 
       @if (data(); as d) {
@@ -172,7 +178,7 @@ const CHIP = { own: 'bg-ok-soft text-ok', sys: 'bg-bg text-muted border border-l
               <div class="flex min-w-0 flex-1 items-start gap-3">${TILE_TYPE_LG}<div><h2 id="types" class="text-xl font-bold">{{ 'PlaceCat.typesIn' | t: { place: placeName() } }}</h2><p class="text-sm text-muted">{{ 'AdminTicketTypes.subtitle' | t }}</p></div></div>
               <div class="flex flex-wrap gap-2"><button type="button" [class]="softBtn" (click)="open('useTypes')">+ {{ 'PlaceCat.chooseCurrent' | t }}</button><button type="button" [class]="cls.btn" (click)="open('newType')">+ {{ 'AdminTicketTypes.add' | t }}</button></div>
             </div>
-            @if (!usedTypes().length) { <p class="rounded-lg bg-warn-soft px-4 py-3 text-sm text-warn-ink">{{ 'PlaceCat.noTypes' | t }}</p> } @else {
+            @if (!usedTypes().length) { @if (seesSystem()) { <p class="rounded-lg bg-bg px-4 py-3 text-sm text-muted">{{ 'PlaceCat.noneSeesSystem' | t: { place: placeName() } }}</p> } @else { <p class="rounded-lg bg-warn-soft px-4 py-3 text-sm text-warn-ink">{{ 'PlaceCat.noTypes' | t }}</p> } } @else {
             <div class="overflow-x-auto rounded-xl border border-line">
               <table class="w-full min-w-[46rem] border-collapse text-start text-sm">
                 <thead class="bg-bg text-xs font-semibold text-muted"><tr>
@@ -286,7 +292,7 @@ const CHIP = { own: 'bg-ok-soft text-ok', sys: 'bg-bg text-muted border border-l
               <div class="flex flex-wrap gap-2"><button type="button" [class]="softBtn" (click)="open('useCats')">+ {{ 'PlaceCat.chooseCurrent' | t }}</button>
                 <button type="button" [class]="cls.btn" (click)="open('newCat')">+ {{ 'AdminCatalog.addCategory' | t }}</button><button type="button" [class]="cls.btn" (click)="openSub()">+ {{ 'AdminCatalog.addSubcategory' | t }}</button></div>
             </div>
-            @if (!usedCats().length) { <p class="rounded-lg bg-warn-soft px-4 py-3 text-sm text-warn-ink">{{ 'PlaceCat.noCats' | t }}</p> } @else {
+            @if (!usedCats().length) { @if (seesSystem()) { <p class="rounded-lg bg-bg px-4 py-3 text-sm text-muted">{{ 'PlaceCat.noneSeesSystem' | t: { place: placeName() } }}</p> } @else { <p class="rounded-lg bg-warn-soft px-4 py-3 text-sm text-warn-ink">{{ 'PlaceCat.noCats' | t }}</p> } } @else {
             <div class="overflow-x-auto rounded-xl border border-line">
               <table class="w-full min-w-[56rem] border-collapse text-start text-sm">
                 <thead class="bg-bg text-xs font-semibold text-muted"><tr>
@@ -404,6 +410,9 @@ export class PlaceCatalogPage extends AdminBase implements OnInit {
   protected readonly offeredSubs = computed(() => this.usedCats().flatMap((c) => c.subcategories.filter((s) => s.offered && !s.used)));
   protected readonly prios = computed(() => (this.data()?.priorities ?? []).filter((p) => p.isActive));
   protected readonly isBranch = computed(() => !!this.data()?.place?.branchId);
+  /** The place's customers still get the system list: nothing of its own is not a problem then. */
+  protected readonly seesSystem = computed(() => this.data()?.view?.showSystem ?? true);
+  protected readonly isAdmin = inject(Auth).me()?.roles?.includes('admin') ?? false;
   protected readonly placeKey = computed(() => { const p = this.data()?.place; return p ? this.keyOf(p) : ''; });
 
   async ngOnInit(): Promise<void> { await this.reload(); }

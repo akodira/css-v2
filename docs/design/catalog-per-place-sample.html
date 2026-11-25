@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Catalog per place</title>
+<style>
+:root{--brand:#2563eb;--ink:#1e3a8a;--soft:#eff4ff;--line:#e3e8f0;--bg:#f5f7fb;--muted:#5b6578;--text:#111827;--ok:#15803d;--oksoft:#e8f6ee;--warn:#8a5a00;--warnsoft:#fff4e0}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,Segoe UI,Arial;background:var(--bg);color:var(--text)}
+main{max-width:1080px;margin:0 auto;padding:22px 16px 60px}h1{font-size:28px;margin:0}h2{font-size:20px;margin:0}.sub{color:var(--muted);margin:4px 0 0}
+button{font:inherit;cursor:pointer}
+.banner{background:#fff7d6;color:#6b4e00;border-radius:10px;padding:8px 14px;font-size:13px;margin-bottom:14px}
+.switch{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}.switch button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 14px;font-weight:600;font-size:14px}.switch button[aria-pressed="true"]{background:var(--soft);border-color:var(--brand);color:var(--ink)}
+.frame{display:grid;grid-template-columns:220px 1fr;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg)}
+.side{background:#0f1b3d;color:#fff;padding:16px 10px;font-size:14px}.side .g{font-weight:700;margin:10px 6px 6px}.side .i{padding:8px 10px;border-radius:8px;color:#cdd6ea;margin-inline-start:12px}.side .i.on{background:#2a3551;color:#fff;font-weight:700}
+.page{padding:22px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:14px}
+.note{display:flex;gap:8px;align-items:flex-start;background:var(--soft);color:var(--ink);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:12px}
+.warn{background:var(--warnsoft);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:12px}
+.info{background:var(--bg);color:var(--muted);border-radius:10px;padding:10px 12px;font-size:14px;margin-top:12px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
+.btn{min-height:40px;padding:0 16px;border-radius:9px;border:0;background:var(--brand);color:#fff;font-weight:600;font-size:14px}.ghost{background:var(--soft);color:var(--ink)}
+.tile{width:44px;height:44px;border-radius:11px;background:#fff4e0;color:#b45309;display:grid;place-items:center;flex:none}
+select{min-height:40px;border:1px solid #cfd6e3;border-radius:8px;padding:0 10px;font:inherit;background:#fff;min-width:300px}
+label.f{font-size:13px;font-weight:600;display:flex;flex-direction:column;gap:4px}
+.chk{display:flex;gap:8px;align-items:center;font-size:14px;margin-top:8px}.chk input{width:18px;height:18px}
+a{color:var(--brand);font-weight:600}
+@media(max-width:760px){.frame{grid-template-columns:1fr}.side{display:none}}
+</style></head><body><main>
+<div class="banner"><b>Sample only.</b> Switch <b>Signed in as</b>, and tick or untick <b>All system</b> to see the message change.</div>
+<div class="switch" id="who"></div>
+<div class="frame"><nav class="side" id="side"></nav><div class="page" id="page"></div></div>
+</main>
+<script>
+let who='admin',sys=true;
+const TILE='<span class="tile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4z"/><path d="M14 6v12" stroke-dasharray="2 2"/></svg></span>';
+function render(){
+ const admin=who==='admin';
+ document.getElementById('who').innerHTML=[['admin','Signed in as: System admin'],['org','Signed in as: Organization admin']].map(([k,l])=>`<button aria-pressed="${who===k}" onclick="who='${k}';render()">${l}</button>`).join('');
+ const name=admin?'Catalog per place':'Catalog for my places';
+ document.getElementById('side').innerHTML=`<div class="g">Rules & setup</div><div class="i on">${name}</div>${admin?'<div class="i">Escalation</div><div class="i">Categories</div><div class="i">Priorities</div>':''}`;
+ const msg=sys
+  ?`<div class="info">Nothing of its own yet. Ahmed Kodira's customers see the system list.</div>`
+  :`<div class="warn">You use no ticket types yet, so your customers cannot open a ticket. Choose some or create your own.</div>`;
+ document.getElementById('page').innerHTML=`
+  <h1>${name}</h1>
+  <p class="sub">${admin?'Manage the list of any organization or branch.':'Choose ticket types, categories and sub-categories from what already exists, or create your own. Your customers see only what your place uses.'}</p>
+  ${admin?`<div class="note">ℹ️ <span>The system's own list (what every place can choose from) is under <a href="#">Categories</a>. Use this page to set up or fix one place's list.</span></div>`:''}
+  <div class="card"><label class="f">Place<select><option>Ahmed Kodira (whole organization)</option><option>Ahmed Kodira · Living Room</option></select></label>
+   <label class="chk"><input type="checkbox" ${sys?'checked':''} onchange="sys=this.checked;render()"> <span><b>All system</b> is ticked under "What ${admin?'its':'your'} customers see" <span style="color:var(--muted)">(sample switch)</span></span></label></div>
+  <div class="card"><div class="head"><div class="row">${TILE}<div><h2>Ticket types in Ahmed Kodira</h2><p class="sub">Customers pick a type first. It decides which categories they see.</p></div></div>
+   <div class="row"><button class="btn ghost">+ Choose from current</button><button class="btn">+ Add ticket type</button></div></div>${msg}</div>`;
+}
+render();
+</script></body></html>

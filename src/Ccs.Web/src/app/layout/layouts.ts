@@ -419,7 +419,9 @@ export class Shell {
       seen.add(path);
       const gid = (r.systemKey && GROUP_OF[r.systemKey]) || 'more';
       // Organization and branch admins: "People" is the staff page (customers are added under Customers).
-      const label = r.systemKey === 'people' ? this.i18n.t('People.staffTitle') : this.i18n.locale() === 'ar' ? r.labelAr : r.labelEn;
+      // The system admin manages every place's list there: 'Catalog per place'.
+      const label = r.systemKey === 'people' ? this.i18n.t('People.staffTitle') : r.systemKey === 'place_catalog' && admin ? this.i18n.t('PlaceCat.titleAdmin')
+        : this.i18n.locale() === 'ar' ? r.labelAr : r.labelEn;
       const item: SideItem = { path, label, icon: (r.systemKey && ITEM_ICON[r.systemKey]) || 'catalog',
         exact: r.systemKey === 'dashboard' || r.systemKey === 'tickets', also: r.systemKey === 'tickets' ? ['/console/tickets'] : r.systemKey === 'admin_customers' ? ['/console/customers'] : undefined,
         badge: r.systemKey ? badge[r.systemKey] || undefined : undefined };

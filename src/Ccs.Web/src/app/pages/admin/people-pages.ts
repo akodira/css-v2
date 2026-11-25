@@ -8,7 +8,7 @@ import { AccountTypeRow, AdminApi, Lookups, OrgRow, BranchRow, TeamRow, TeamsRes
 import { Auth } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { AddPanel, Alert, Req, ReqNote } from '../../shared/ui';
-import { TILE_TEAM } from '../../shared/tiles';
+import { STAFF_KEY, STAFF_TILE_SWITCH, TILE_TEAM } from '../../shared/tiles';
 import { PhoneInput, phoneDigits } from '../../shared/phone';
 import { PwEye } from '../../shared/pw-eye';
 import { AdminBase, CLS, TurnBack } from './admin-pages';
@@ -450,6 +450,7 @@ export class StaffBody implements OnInit {
             <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="expandAll()">{{ 'AdminOrgs.expandAll' | t }}</button>
             <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg" (click)="opened.set([])">{{ 'AdminOrgs.collapseAll' | t }}</button>
           </div>
+          ${STAFF_KEY}
           @if (!filtered().length) { <p class="text-muted">{{ 'AdminUsers.noMatch' | t }}</p> }
           <ul class="flex flex-col gap-4">
             @for (u of filtered(); track u.id) {
@@ -458,6 +459,8 @@ export class StaffBody implements OnInit {
                   class="flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-start" [class]="isOpen(u.id) ? 'bg-brand-soft' : 'hover:bg-bg'">
                   <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                     class="shrink-0 transition-transform" [class]="isOpen(u.id) ? 'rotate-90' : 'rtl:rotate-180'"><path d="M7 4l6 6-6 6" /></svg>
+                  @let kind = staffKind(u);
+                  ${STAFF_TILE_SWITCH}
                   <span class="min-w-0 flex-1">
                     <span class="flex flex-wrap items-center gap-2">
                       <span class="text-lg font-bold" dir="auto">{{ u.fullName || '-' }}</span>
@@ -478,6 +481,14 @@ export class StaffBody implements OnInit {
     </main>`,
 })
 export class AdminStaffPage extends AccordionPage implements OnInit {
+  /** Which icon a person gets: their role, and for admins of places the level of their place. */
+  protected staffKind(u: StaffRow): string {
+    if (u.roles.includes('admin')) return 'admin';
+    if (!u.typeNameEn) return 'none';
+    if (u.scopeLevel === 'organization') return 'org';
+    if (u.scopeLevel === 'branch') return 'branch';
+    return u.roles.includes('team_leader') ? 'leader' : u.roles.includes('agent') ? 'agent' : 'viewer';
+  }
   private readonly route = inject(ActivatedRoute);
   protected readonly data = signal<StaffData | null>(null);
   protected readonly types = signal<AccountTypeRow[]>([]);

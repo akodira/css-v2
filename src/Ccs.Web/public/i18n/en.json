@@ -4946,6 +4946,18 @@
     "viewSystem": "All system",
     "viewSystemHint": "Every ticket type, category and sub-category the system admin uses.",
     "viewOne": "Keep at least one ticked, or your customers cannot open a ticket.",
-    "viewBranchesOwn": "Branches of your organization set this for their own customers."
+    "viewBranchesOwn": "Branches of your organization set this for their own customers.",
+    "titleAdmin": "Catalog per place",
+    "subtitleAdmin": "Manage the list of any organization or branch.",
+    "adminNoteA": "The system's own list (what every place can choose from) is under",
+    "adminNoteLink": "Categories",
+    "adminNoteB": ". Use this page to set up or fix one place's list.",
+    "noneSeesSystem": "Nothing of its own yet. {place}'s customers see the system list."
+  },
+  "PeopleIcons": {
+    "orgAdmin": "Organization admin",
+    "branchAdmin": "Branch admin",
+    "customer": "Customer",
+    "pending": "Waiting (email check or approval)"
   }
 }
