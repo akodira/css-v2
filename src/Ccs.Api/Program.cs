@@ -33,6 +33,7 @@ builder.Services.AddCcsInfrastructure(builder.Configuration, runJobs);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, HttpCurrentUser>();
 builder.Services.AddScoped<CaptchaVerifier>();
+builder.Services.AddScoped<Ccs.Api.Cleanup.CleanupService>();
 builder.Services.AddHttpClient("captcha", c => c.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddExceptionHandler<AppExceptionHandler>();
 builder.Services.AddProblemDetails();

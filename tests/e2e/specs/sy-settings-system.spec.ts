@@ -55,7 +55,7 @@ test.describe('SY Settings system', () => {
   });
 
   manual('TC-SY-010', 'Handover', 'transfers the administrator role');
-  manual('TC-SY-011', 'Remove demo data', 'deletes demo people and tickets');
+  manual('TC-SY-011', 'Clean up data', 'preview shows exact counts and removes nothing; removal needs DELETE and the backup tick; people in kept tickets are anonymized');
 
   test('TC-SY-012 Required markers', async ({ asRole }) => {
     const page = await asRole('admin');

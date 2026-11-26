@@ -867,8 +867,6 @@ public sealed partial class SettingsController(
 
     // ================================================================ handover (administrators only)
 
-    private const string DemoDomain = "@demo.cts.test";
-
     [HttpGet("handover")]
     public async Task<object> Handover(CancellationToken ct)
     {
@@ -881,21 +879,7 @@ public sealed partial class SettingsController(
                                 orderby p.FullName
                                 select new { p.Id, p.FullName, p.Email, TypeEn = t == null ? null : t.NameEn, TypeAr = t == null ? null : t.NameAr }).ToListAsync(ct);
         var types = await db.AccountTypes.AsNoTracking().Where(t => !t.IsBuiltin).OrderBy(t => t.NameEn).Select(t => new { t.Id, t.NameEn, t.NameAr }).ToListAsync(ct);
-        return new { candidates, types, demo = await DemoSummaryAsync(c.UserId, ct) };
-    }
-
-    private async Task<object> DemoSummaryAsync(Guid me, CancellationToken ct)
-    {
-        var demo = db.Profiles.Where(p => p.Email.EndsWith(DemoDomain)).Select(p => p.Id);
-        return new
-        {
-            users = await demo.CountAsync(ct),
-            organizations = await db.Organizations.CountAsync(o => o.Name.EndsWith(" (Demo)"), ct),
-            tickets = await db.Tickets.CountAsync(t => demo.Contains(t.RequesterId), ct),
-            articles = await db.KbArticles.CountAsync(a => a.Slug.StartsWith("demo-"), ct),
-            realTickets = await db.Tickets.CountAsync(t => !demo.Contains(t.RequesterId), ct),
-            meIsDemo = await demo.ContainsAsync(me, ct),
-        };
+        return new { candidates, types };
     }
 
     public sealed record TransferBody(Guid NewAdminId, Guid MyTypeId, string Confirm);
@@ -928,63 +912,6 @@ public sealed partial class SettingsController(
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
         return NoContent();
-    }
-
-    /// <summary>Removes the sample people, organizations, articles and tickets. Refused while real tickets exist.</summary>
-    [HttpPost("handover/remove-demo")]
-    public async Task<object> RemoveDemo(CancellationToken ct)
-    {
-        var c = await Need(ct, adminOnly: true);
-        var demo = db.Profiles.Where(p => p.Email.EndsWith(DemoDomain)).Select(p => p.Id);
-        if (await demo.ContainsAsync(c.UserId, ct)) throw Err("callerIsDemo", null, 409);
-        if (await db.Tickets.AnyAsync(t => !demo.Contains(t.RequesterId), ct)) throw Err("realTickets", null, 409);
-        var counts = new
-        {
-            users = await demo.CountAsync(ct),
-            organizations = await db.Organizations.CountAsync(o => o.Name.EndsWith(" (Demo)"), ct),
-            tickets = await db.Tickets.CountAsync(ct),
-            articles = await db.KbArticles.CountAsync(a => a.Slug.StartsWith("demo-"), ct),
-        };
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        try
-        {
-            // Every ticket is a demo ticket here (checked above): remove them with everything that hangs off them.
-            await db.Notifications.Where(n => n.TicketId != null).ExecuteDeleteAsync(ct);
-            await db.TicketLinks.ExecuteDeleteAsync(ct);
-            await db.Tickets.ExecuteDeleteAsync(ct);
-            var ids = await demo.ToListAsync(ct);
-            await db.Organizations.Where(o => o.TeamLeaderId != null && ids.Contains(o.TeamLeaderId.Value)).ExecuteUpdateAsync(s => s.SetProperty(o => o.TeamLeaderId, (Guid?)null), ct);
-            await db.Branches.Where(o => o.TeamLeaderId != null && ids.Contains(o.TeamLeaderId.Value)).ExecuteUpdateAsync(s => s.SetProperty(o => o.TeamLeaderId, (Guid?)null), ct);
-            await db.KbArticles.Where(a => a.Slug.StartsWith("demo-")).ExecuteDeleteAsync(ct);
-            await db.KbArticles.Where(a => a.CreatedBy != null && ids.Contains(a.CreatedBy.Value)).ExecuteUpdateAsync(s => s.SetProperty(a => a.CreatedBy, (Guid?)null), ct);
-            await db.EmailTemplates.Where(x => x.UpdatedBy != null && ids.Contains(x.UpdatedBy.Value)).ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedBy, (Guid?)null), ct);
-            await db.SystemMessages.Where(x => x.UpdatedBy != null && ids.Contains(x.UpdatedBy.Value)).ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedBy, (Guid?)null), ct);
-            await db.EmailSettings.Where(x => x.UpdatedBy != null && ids.Contains(x.UpdatedBy.Value)).ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedBy, (Guid?)null), ct);
-            await db.SiteSettings.Where(x => x.UpdatedBy != null && ids.Contains(x.UpdatedBy.Value)).ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedBy, (Guid?)null), ct);
-            await db.SigninCodeSettings.Where(x => x.UpdatedBy != null && ids.Contains(x.UpdatedBy.Value)).ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedBy, (Guid?)null), ct);
-            await db.TeamMembers.Where(x => ids.Contains(x.UserId)).ExecuteDeleteAsync(ct);
-            await db.CcsUserRoles.Where(x => ids.Contains(x.UserId)).ExecuteDeleteAsync(ct);
-            await db.Notifications.Where(x => ids.Contains(x.UserId)).ExecuteDeleteAsync(ct);
-            await db.Users.Where(u => ids.Contains(u.Id)).ExecuteDeleteAsync(ct);          // profiles and tokens follow
-            var demoOrgs = db.Organizations.Where(o => o.Name.EndsWith(" (Demo)")).Select(o => o.Id);
-            await db.Profiles.Where(p => p.OrganizationId != null && demoOrgs.Contains(p.OrganizationId.Value))
-                .ExecuteUpdateAsync(s => s.SetProperty(p => p.OrganizationId, (Guid?)null).SetProperty(p => p.BranchId, (Guid?)null), ct);
-            await db.AccountTypeAccess.Where(a => demoOrgs.Contains(a.OrganizationId)).ExecuteDeleteAsync(ct);
-            await db.AdminScopes.Where(a => demoOrgs.Contains(a.OrganizationId)).ExecuteDeleteAsync(ct);
-            await db.StaffPlacements.Where(a => demoOrgs.Contains(a.OrganizationId)).ExecuteDeleteAsync(ct);
-            await db.Branches.Where(b => demoOrgs.Contains(b.OrganizationId)).ExecuteDeleteAsync(ct);
-            await db.Organizations.Where(o => o.ParentId != null && demoOrgs.Contains(o.ParentId.Value)).ExecuteUpdateAsync(s => s.SetProperty(o => o.ParentId, (Guid?)null), ct);
-            await db.Organizations.Where(o => o.Name.EndsWith(" (Demo)")).ExecuteDeleteAsync(ct);
-            audit.Write("demo.remove", "system", null, null, counts);
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-        }
-        catch (Exception e) when (e is DbUpdateException or Microsoft.Data.SqlClient.SqlException)
-        {
-            await tx.RollbackAsync(ct);
-            throw new AuthError("generic", 409, e.Message[..Math.Min(200, e.Message.Length)]);
-        }
-        return counts;
     }
 
     [GeneratedRegex("^#[0-9a-fA-F]{6}$")] private static partial Regex ColorRx();

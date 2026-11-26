@@ -17,6 +17,7 @@ import { Alert, Req, ReqNote } from '../../shared/ui';
 import { EMAIL_ALL_PLACEHOLDERS, FormatBar, GLOBAL_TOKENS, PlaceholderInfo, PlaceholderPicker, describeVar } from '../../shared/email-editor';
 import { RichText, varsOf } from '../../shared/rich-text';
 import { CLS, Msg } from './admin-pages';
+import { CleanupTab } from './cleanup-tab';
 import { feedbackFor } from '../../shared/feedback';
 import { RichEditor } from '../../shared/rich-editor';
 import { LockedAccountsPage, LockedCounts, LockoutPolicyPage, SecurityOverview } from './security-pages';
@@ -25,10 +26,10 @@ import { PhoneSettings } from './phone-settings';
 import { RoutingSettings } from './routing-settings';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
-const TABS = ['', 'home', 'menus', 'email', 'templates', 'messages', 'uploads', 'system', 'handover', 'security'];
+const TABS = ['', 'home', 'menus', 'email', 'templates', 'messages', 'uploads', 'system', 'handover', 'cleanup', 'security'];
 const TAB_LABEL: Record<string, string> = {
   '': 'tabBranding', home: 'tabHome', menus: 'tabMenus', email: 'tabEmail', templates: 'tabTemplates', messages: 'tabMessages',
-  uploads: 'tabUploads', system: 'tabSystem', handover: 'tabHandover', security: 'tabSecurity',
+  uploads: 'tabUploads', system: 'tabSystem', handover: 'tabHandover', cleanup: 'tabCleanup', security: 'tabSecurity',
 };
 
 /** Shared helpers for every settings tab: the API, the message line and a save wrapper. */
@@ -1657,7 +1658,6 @@ export class SigninCodesTab extends Tab implements OnInit {
 interface HandoverData {
   candidates: { id: string; fullName: string; email: string; typeEn: string | null; typeAr: string | null }[];
   types: { id: string; nameEn: string; nameAr: string }[];
-  demo: { users: number; organizations: number; tickets: number; articles: number; realTickets: number; meIsDemo: boolean };
 }
 
 @Component({
@@ -1685,25 +1685,6 @@ interface HandoverData {
         }
       </form>
 
-      <section [class]="cls.card + ' flex flex-col gap-3 p-5'">
-        <h2 class="text-lg font-bold">{{ 'AdminHandover.demoTitle' | t }}</h2>
-        <p class="text-sm text-muted">{{ 'AdminHandover.demoIntro' | t }}</p>
-        @if (!x.demo.users && !x.demo.organizations && !x.demo.articles) { <p class="text-sm">{{ 'AdminHandover.demoNone' | t }}</p> } @else {
-          <ul class="list-disc ps-5 text-sm">
-            <li>{{ 'AdminHandover.demoUsers' | t: { n: x.demo.users } }}</li><li>{{ 'AdminHandover.demoOrgs' | t: { n: x.demo.organizations } }}</li>
-            <li>{{ 'AdminHandover.demoTickets' | t: { n: x.demo.tickets } }}</li><li>{{ 'AdminHandover.demoArticles' | t: { n: x.demo.articles } }}</li>
-          </ul>
-          @if (x.demo.meIsDemo) { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminHandover.errors.callerIsDemo' | t }}</p> }
-          @else if (x.demo.realTickets) { <p class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink">{{ 'AdminHandover.errors.realTickets' | t }}</p> }
-          @else {
-            <form class="flex flex-col gap-4" novalidate (ngSubmit)="removeDemo()">
-              <div class="flex flex-col gap-1.5"><label for="ho-del" [class]="cls.label">{{ 'AdminHandover.typeToConfirm' | t: { word: 'DELETE' } }}${REQ}</label>
-                <input id="ho-del" name="del" dir="ltr" autocomplete="off" [class]="cls.input + ' max-w-xs'" [(ngModel)]="delWord" /></div>
-              <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.danger" [disabled]="busy() || delWord.trim().toUpperCase() !== 'DELETE'">{{ 'AdminHandover.demoButton' | t }}</button><app-req-note /></div>
-            </form>
-          }
-        }
-      </section>
     }`,
   // Space between the boxes, as on the other tabs.
   host: { class: 'flex flex-col gap-6' },
@@ -1714,24 +1695,11 @@ export class HandoverTab extends Tab implements OnInit {
   protected readonly d = signal<HandoverData | null>(null);
   protected readonly word = computed(() => 'TRANSFER');
   protected t = { newAdminId: '', myTypeId: '', confirm: '' };
-  protected delWord = '';
   async ngOnInit(): Promise<void> { await this.load(); }
   private async load(): Promise<void> { this.d.set(await this.get<HandoverData>('handover')); }
   protected async transfer(): Promise<void> {
     if (this.t.confirm.trim().toUpperCase() !== this.word().toUpperCase()) { this.msg.set({ tone: 'error', text: this.i18n.t('AdminHandover.errors.confirm') }); return; }
     if (await this.save(() => this.post('handover/transfer', this.t))) await this.auth.signOut();
-  }
-  protected async removeDemo(): Promise<void> {
-    if (this.delWord.trim().toUpperCase() !== 'DELETE') return;
-    this.busy.set(true); this.msg.set(null);
-    try {
-      const r = await this.post<{ users: number; organizations: number; tickets: number; articles: number }>('handover/remove-demo', {});
-      this.msg.set({ tone: 'success', text: this.i18n.t('AdminHandover.demoDone', r) });
-      await this.load();
-    } catch (e) {
-      const code = (e as { error?: { code?: string } }).error?.code ?? 'generic';
-      this.msg.set({ tone: 'error', text: this.i18n.has('AdminHandover.errors.' + code) ? this.i18n.t('AdminHandover.errors.' + code) : adminError(this.i18n, e) });
-    } finally { this.busy.set(false); }
   }
 }
 
@@ -1802,7 +1770,7 @@ export class SecurityTab implements OnInit {
 
 @Component({
   selector: 'app-settings-page',
-  imports: [TPipe, RouterLink, BrandingTab, HomeTab, MenusTab, EmailTab, TemplatesTab, MessagesTab, UploadsTab, SystemTab, HandoverTab, SecurityTab],
+  imports: [TPipe, RouterLink, BrandingTab, HomeTab, MenusTab, EmailTab, TemplatesTab, MessagesTab, UploadsTab, SystemTab, HandoverTab, CleanupTab, SecurityTab],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminGeneral.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminGeneral.subtitle' | t }}</p></div>
@@ -1822,6 +1790,7 @@ export class SecurityTab implements OnInit {
         @case ('uploads') { <app-set-uploads /> }
         @case ('system') { <app-set-system /> }
         @case ('handover') { <app-set-handover /> }
+        @case ('cleanup') { <app-set-cleanup /> }
         @case ('security') { <app-set-security [part]="secPart()" /> }
       }
     </main>`,
@@ -1836,7 +1805,7 @@ export class SettingsPage {
   readonly p = input<string>();
   protected readonly secPart = computed(() => this.p() ?? (this.tab() === 'signin-codes' ? 'codes' : ''));
   protected readonly label = TAB_LABEL;
-  protected readonly tabs = computed(() => TABS.filter((x) => x !== 'handover' || !!this.auth.me()?.roles.includes('admin')));
+  protected readonly tabs = computed(() => TABS.filter((x) => (x !== 'handover' && x !== 'cleanup') || !!this.auth.me()?.roles.includes('admin')));
   protected readonly cur = computed(() => { const t = this.tab() === 'signin-codes' ? 'security' : this.tab() ?? ''; return this.tabs().includes(t) ? t : ''; });
   constructor() { effect(() => { this.cur(); untracked(() => window.scrollTo({ top: 0 })); }); }
 }

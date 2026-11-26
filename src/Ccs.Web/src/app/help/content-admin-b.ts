@@ -130,7 +130,7 @@ export const ADMIN_B_ARTICLES: Article[] = [
       { en: "Add the new administrator as a staff member first (**Staff**).", ar: "أضف المدير الجديد كموظف أولًا (**الموظفون**)." },
       { en: "Open **Settings** and the **Handover** tab. Under **Transfer administrator** choose the **New administrator** and **Your account type after the transfer** (for example Agent).", ar: "افتح **الإعدادات** وتبويب **التسليم**. ضمن **نقل المدير** اختر **المدير الجديد** و**نوع حسابك بعد النقل** (مثل موظف)." },
       { en: "Select **Transfer administrator**. You leave the page when it is done.", ar: "اختر **نقل المدير**. ستغادر الصفحة عند الانتهاء." },
-      { en: "To start clean, use **Remove demo data** and select **Delete demo data**. It removes sample people, organizations, articles and tickets, keeps your own account and real data, and is refused while real tickets exist.", ar: "للبدء من الصفر استخدم **حذف البيانات التجريبية** واختر **حذف البيانات التجريبية**. تُحذف العينات من أشخاص ومؤسسات ومقالات وتذاكر وتبقى بياناتك الحقيقية وحسابك، ويُرفض الحذف إذا وُجدت تذاكر حقيقية." },
+      { en: "To start clean, open the **Clean up data** tab: tick what to remove (tickets, customers, staff, teams, places, catalog items and more), check the **Preview**, then confirm. People who appear in kept tickets are anonymized instead of deleted.", ar: "للبدء من الصفر افتح تبويب **تنظيف البيانات**: حدّد ما تريد حذفه (التذاكر والعملاء والموظفين والفرق والمواقع وعناصر الكتالوج وغيرها)، وراجع **المعاينة**، ثم أكّد. الأشخاص الذين يظهرون في تذاكر محفوظة تُخفى بياناتهم بدل حذفهم." },
     ],
   },
 
@@ -348,7 +348,7 @@ export const ADMIN_B_FLOWS: Flow[] = [
     nodes: [
       { label: { en: "Add the new administrator as staff", ar: "إضافة المدير الجديد كموظف" }, tone: "a" },
       { label: { en: "Transfer administrator", ar: "نقل المدير" }, tone: "d" },
-      { label: { en: "Delete demo data", ar: "حذف البيانات التجريبية" } },
+      { label: { en: "Clean up data", ar: "تنظيف البيانات" } },
       { label: { en: "New owner starts clean", ar: "المالك الجديد يبدأ من الصفر" }, tone: "o" },
     ],
   },
