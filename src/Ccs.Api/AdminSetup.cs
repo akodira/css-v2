@@ -1,5 +1,6 @@
 using Ccs.Domain;
 using Ccs.Domain.Entities;
+using Ccs.Domain.Rules;
 using Ccs.Infrastructure;
 using Ccs.Infrastructure.Identity;
 using Ccs.Infrastructure.Persistence;
@@ -51,7 +52,8 @@ public static class AdminSetup
             await users.UpdateAsync(user);
         }
 
-        var adminType = await db.AccountTypes.Where(t => t.NameEn == "Administrator").Select(t => (Guid?)t.Id).FirstOrDefaultAsync();
+        await DefaultTypesStartup.EnsureAsync(db);   // a fresh database gets the default types, so the admin holds "Administrator"
+        var adminType = await db.AccountTypes.Where(t => t.DefaultKey == DefaultAccountTypes.Administrator).Select(t => (Guid?)t.Id).FirstOrDefaultAsync();
         var profile = await db.Profiles.FirstOrDefaultAsync(p => p.Id == user.Id);
         if (profile is null)
         {
