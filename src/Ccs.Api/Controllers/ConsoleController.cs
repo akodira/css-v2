@@ -148,9 +148,8 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         var me = c.UserId;
         var rep = c.Admin || c.Has(Permission.ReportsAll) ? all : all.Where(t => t.AssignedAgentId == me);
         var period = rep.Where(t => t.CreatedAt >= from && t.CreatedAt < to);
-        var rows = await (from t in period
-                          join p in db.Profiles on t.RequesterId equals p.Id
-                          select new { t.Id, t.Status, t.Priority, t.CategoryId, t.AssignedAgentId, t.CreatedAt, t.ResolvedAt, p.OrganizationId, p.BranchId }).ToListAsync(ct);
+        // Organization and branch are the ticket's own place (where it was created).
+        var rows = await period.Select(t => new { t.Id, t.Status, t.Priority, t.CategoryId, t.AssignedAgentId, t.CreatedAt, t.ResolvedAt, t.OrganizationId, t.BranchId }).ToListAsync(ct);
         var resolvedInPeriod = await rep.Where(t => t.ResolvedAt >= from && t.ResolvedAt < to).Select(t => new { t.CreatedAt, ResolvedAt = t.ResolvedAt!.Value }).ToListAsync(ct);
         var ids = rows.Select(r => r.Id).ToList();
         var sla = await db.TicketSlaRecords.AsNoTracking().Where(r => ids.Contains(r.TicketId))

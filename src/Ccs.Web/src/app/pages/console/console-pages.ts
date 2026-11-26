@@ -369,8 +369,11 @@ export class ConsoleQueuePage {
                 <div><dt class="text-sm text-muted">{{ 'Console.ticket.customer' | t }}</dt><dd class="font-semibold" dir="auto">{{ tk.requesterName }}</dd></div>
                 <div><dt class="text-sm text-muted">{{ 'Console.ticket.email' | t }}</dt><dd dir="ltr" class="break-all">{{ tk.requesterEmail }}</dd></div>
                 @if (x()?.requesterPhone) { <div><dt class="text-sm text-muted">{{ 'Console.ticket.phone' | t }}</dt><dd dir="ltr">{{ x()!.requesterPhone }}</dd></div> }
-                @if (x()?.requesterOrganization) { <div><dt class="text-sm text-muted">{{ 'Customers.organization' | t }}</dt><dd dir="auto">{{ x()!.requesterOrganization }}</dd></div> }
-                @if (x()?.requesterBranch) { <div><dt class="text-sm text-muted">{{ 'Customers.branch' | t }}</dt><dd dir="auto">{{ x()!.requesterBranch }}</dd></div> }
+                @if (tk.names.organization) { <div><dt class="text-sm text-muted">{{ 'Customers.organization' | t }}</dt><dd dir="auto">{{ tk.names.organization }}</dd></div> }
+                @if (tk.names.branch) { <div><dt class="text-sm text-muted">{{ 'Customers.branch' | t }}</dt><dd dir="auto">{{ tk.names.branch }}</dd></div> }
+                @if (x() && ((x()?.requesterOrganization ?? null) !== (tk.names.organization ?? null) || (x()?.requesterBranch ?? null) !== (tk.names.branch ?? null))) {
+                  <div class="rounded-lg bg-bg px-3 py-2 text-sm"><dt class="text-muted">{{ 'Console.ticket.customerMoved' | t }}</dt><dd dir="auto">{{ x()?.requesterOrganization || ('Console.ticket.noPlace' | t) }}@if (x()?.requesterBranch) { · {{ x()!.requesterBranch }} }</dd></div>
+                }
                 @if (tk.names.typeEn) { <div><dt class="text-sm text-muted">{{ 'TicketTypes.label' | t }}</dt><dd>{{ i18n.pick(tk.names.typeEn, tk.names.typeAr) }}</dd></div> }
                 <div><dt class="text-sm text-muted">{{ 'Console.ticket.category' | t }}</dt><dd>{{ i18n.pick(tk.names.categoryEn, tk.names.categoryAr) }}@if (tk.names.subcategoryEn) { / {{ i18n.pick(tk.names.subcategoryEn, tk.names.subcategoryAr) }} }</dd></div>
                 <div><dt class="text-sm text-muted">{{ 'Console.ticket.team' | t }}</dt><dd>{{ i18n.pick(tk.names.teamEn, tk.names.teamAr) || '-' }}</dd></div>

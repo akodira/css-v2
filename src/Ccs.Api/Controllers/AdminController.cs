@@ -29,7 +29,8 @@ public sealed class AdminController(
     // ---------------------------------------------------------------- contracts
 
     public sealed record UserBody(string FullName, string Email, string? Phone, string? Password, string Role,
-        Guid? AccountTypeId, Guid? OrganizationId, Guid? BranchId, string? Status, bool AutoAssign, bool CanCreateForCustomers);
+        Guid? AccountTypeId, Guid? OrganizationId, Guid? BranchId, string? Status, bool AutoAssign, bool CanCreateForCustomers,
+        bool MoveOpenTickets = false);
     public sealed record PasswordBody(string Password);
     public sealed record StatusBody(string Status);
     public sealed record ApproveBody(Guid OrganizationId, Guid? BranchId);
@@ -213,6 +214,7 @@ public sealed class AdminController(
         }
         await CheckPlacementAsync(b.OrganizationId, b.BranchId, ct);
         RequirePlacementInScope(c, b.OrganizationId, b.BranchId);
+        var placeChanged = p.OrganizationId != b.OrganizationId || p.BranchId != b.BranchId;
         p.OrganizationId = b.OrganizationId;
         p.BranchId = b.BranchId;
         if (b.Role == RoleCode.Customer)
@@ -238,6 +240,18 @@ public sealed class AdminController(
         p.UpdatedAt = clock.UtcNow;
         audit.Write("user.update", "profile", id, before, new { p.FullName, p.Email, p.Phone, b.Role, p.AccountTypeId, p.OrganizationId, p.BranchId, p.AccountStatus });
         await db.SaveChangesAsync(ct);
+        // Tickets keep the place they were created in. On request, the customer's open tickets move with them;
+        // resolved and closed tickets always stay where they were.
+        if (placeChanged && b.MoveOpenTickets && b.Role == RoleCode.Customer)
+        {
+            var moved = await db.Tickets.Where(t => t.RequesterId == id && t.Status != TicketStatus.Resolved && t.Status != TicketStatus.Closed)
+                .ExecuteUpdateAsync(x => x.SetProperty(t => t.OrganizationId, b.OrganizationId).SetProperty(t => t.BranchId, b.BranchId), ct);
+            if (moved > 0)
+            {
+                audit.Write("user.move_tickets", "profile", id, null, new { moved, p.OrganizationId, p.BranchId });
+                await db.SaveChangesAsync(ct);
+            }
+        }
         return NoContent();
     }
 

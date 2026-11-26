@@ -120,14 +120,15 @@ public sealed class AccessService(ICcsDbContext db, ICurrentUser current, IMfaSt
         var branches = c.Scope.Where(s => s.BranchId is not null).Select(s => s.BranchId!.Value).Distinct().ToList();
         var profiles = db.Profiles;
 
+        // Scope and shared access follow the ticket's own place (set at creation), not the customer's current place.
         return source.Where(t =>
             t.RequesterId == uid
-            || (shared && profiles.Any(p => p.Id == t.RequesterId && p.OrganizationId == myOrg))
+            || (shared && t.OrganizationId == myOrg)
             || (isInternal && (
                 t.AssignedAgentId == uid
-                || ((allScope || profiles.Any(p => p.Id == t.RequesterId &&
-                        ((p.OrganizationId != null && wholeOrgs.Contains(p.OrganizationId.Value))
-                         || (p.BranchId != null && branches.Contains(p.BranchId.Value)))))
+                || ((allScope
+                     || (t.OrganizationId != null && wholeOrgs.Contains(t.OrganizationId.Value))
+                     || (t.BranchId != null && branches.Contains(t.BranchId.Value)))
                     && (viewer || allTeams || (t.TeamId != null && teams.Contains(t.TeamId.Value)))
                     && ((t.AssignedAgentId == null && viewUnassigned) || (t.AssignedAgentId != null && viewOthers))))));
     }
@@ -197,10 +198,8 @@ public sealed class AccessService(ICcsDbContext db, ICurrentUser current, IMfaSt
     }
 
     public async Task<TicketFacts?> GetFactsAsync(Guid ticketId, CancellationToken ct = default) =>
-        await (from t in db.Tickets
-               join r in db.Profiles on t.RequesterId equals r.Id
-               where t.Id == ticketId
-               select new TicketFacts(t.RequesterId, t.AssignedAgentId, t.TeamId, r.OrganizationId, r.BranchId, t.CreatedBy, t.CreatedAt))
+        await db.Tickets.Where(t => t.Id == ticketId)
+              .Select(t => new TicketFacts(t.RequesterId, t.AssignedAgentId, t.TeamId, t.OrganizationId, t.BranchId, t.CreatedBy, t.CreatedAt))
               .AsNoTracking().FirstOrDefaultAsync(ct);
 
     /// <summary>Loads the ticket facts and throws 404 when the caller may not see it (same message as today).</summary>

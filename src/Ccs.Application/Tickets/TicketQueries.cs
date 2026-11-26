@@ -51,7 +51,8 @@ public sealed record TicketDetail(
 /// <summary>Display names for the header of the ticket page, in both languages.</summary>
 public sealed record Names(string? TypeEn, string? TypeAr, string CategoryEn, string CategoryAr, string? SubcategoryEn, string? SubcategoryAr,
     string? TeamEn, string? TeamAr, string? Assignee, string? PriorityEn, string? PriorityAr, string? PriorityColor,
-    string? ClosureEn, string? ClosureAr, bool ClosureAllowsReopen, string? PriorityIcon = null);
+    string? ClosureEn, string? ClosureAr, bool ClosureAllowsReopen, string? PriorityIcon = null,
+    string? Organization = null, string? Branch = null);
 
 public sealed class TicketQueries(ICcsDbContext db, AccessService access)
 {
@@ -266,8 +267,11 @@ public sealed class TicketQueries(ICcsDbContext db, AccessService access)
         var agent = t.AssignedAgentId is Guid aid ? await db.Profiles.AsNoTracking().Where(x => x.Id == aid).Select(x => x.FullName).FirstOrDefaultAsync(ct) : null;
         var prio = await db.Priorities.AsNoTracking().FirstOrDefaultAsync(x => x.Code == t.Priority, ct);
         var cr = t.ClosureReason is string code ? await db.ClosureReasons.AsNoTracking().FirstOrDefaultAsync(x => x.Code == code, ct) : null;
+        // The place the ticket was created in (it does not follow later moves of the customer).
+        var org = t.OrganizationId is Guid oid ? await db.Organizations.AsNoTracking().Where(x => x.Id == oid).Select(x => x.Name).FirstOrDefaultAsync(ct) : null;
+        var branch = t.BranchId is Guid bid ? await db.Branches.AsNoTracking().Where(x => x.Id == bid).Select(x => x.Name).FirstOrDefaultAsync(ct) : null;
         return new Names(type?.NameEn, type?.NameAr, cat.NameEn, cat.NameAr, sub?.NameEn, sub?.NameAr, team?.NameEn, team?.NameAr, agent,
-            prio?.NameEn, prio?.NameAr, prio?.Color, cr?.NameEn, cr?.NameAr, cr?.CustomerMayReopen ?? true, prio?.Icon);
+            prio?.NameEn, prio?.NameAr, prio?.Color, cr?.NameEn, cr?.NameAr, cr?.CustomerMayReopen ?? true, prio?.Icon, org, branch);
     }
 
     /// <summary>Customers see pending_internal as "in progress" (same masking as the notification trigger).</summary>

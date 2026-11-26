@@ -51,12 +51,11 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
     private async Task<List<Row>> RowsAsync(IQueryable<Ticket> q, DateTimeOffset fromAt, DateTimeOffset toAt, CancellationToken ct)
     {
         var rows = await (from t in q.Where(t => t.CreatedAt >= fromAt && t.CreatedAt < toAt)
-                          join p in db.Profiles on t.RequesterId equals p.Id
                           join s in db.TicketSlaRecords on t.Id equals s.TicketId into ss
                           from s in ss.DefaultIfEmpty()
                           select new
                           {
-                              t.Id, t.Status, t.Priority, t.CategoryId, t.TeamId, t.AssignedAgentId, t.RequesterId, p.OrganizationId, p.BranchId,
+                              t.Id, t.Status, t.Priority, t.CategoryId, t.TeamId, t.AssignedAgentId, t.RequesterId, t.OrganizationId, t.BranchId,
                               t.CreatedAt, t.ResolvedAt, FirstRespondedAt = s == null ? null : s.FirstRespondedAt, HasSla = s != null,
                               Breached = s != null && (s.BreachedAt != null || db.TicketSlaCycles.Any(x => x.TicketId == t.Id && x.BreachedAt != null)),
                               Rating = db.CustomerFeedback.Where(f => f.TicketId == t.Id).Select(f => (int?)f.Rating).FirstOrDefault(),
@@ -170,8 +169,8 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
         if (team is Guid tm) q = q.Where(t => t.TeamId == tm);
         if (!string.IsNullOrEmpty(priority)) q = q.Where(t => t.Priority == priority);
         if (!string.IsNullOrEmpty(status)) q = q.Where(t => t.Status == status);
-        if (org is Guid o) q = q.Where(t => db.Profiles.Any(p => p.Id == t.RequesterId && p.OrganizationId == o));
-        if (branch is Guid b) q = q.Where(t => db.Profiles.Any(p => p.Id == t.RequesterId && p.BranchId == b));
+        if (org is Guid o) q = q.Where(t => t.OrganizationId == o);
+        if (branch is Guid b) q = q.Where(t => t.BranchId == b);
         var rows = await RowsAsync(q, CairoMidnight(t0), CairoMidnight(t1.AddDays(1)), ct);
 
         var orgs = await db.Organizations.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.Name, ct);

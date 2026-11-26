@@ -487,3 +487,24 @@ BEGIN
     ALTER TABLE ccs.ticket_sla_cycles ADD CONSTRAINT CK_sla_cycles_state CHECK (state IN ('on_track','close','due_soon','breached','paused','completed'));
 END
 GO
+-- Each ticket keeps the customer's place at creation (organization and branch): visibility, reports and
+-- escalation follow it, so moving a customer no longer moves their old tickets. Existing tickets are
+-- filled in once from the customer's current place.
+IF COL_LENGTH(N'ccs.tickets', N'organization_id') IS NULL
+    ALTER TABLE ccs.tickets ADD organization_id uniqueidentifier NULL CONSTRAINT FK_tickets_org REFERENCES ccs.organizations(id),
+                                branch_id uniqueidentifier NULL CONSTRAINT FK_tickets_branch REFERENCES ccs.branches(id);
+GO
+IF NOT EXISTS (SELECT 1 FROM ccs.app_settings WHERE [key] = N'ticket_place_backfilled')
+BEGIN
+    UPDATE t SET organization_id = p.organization_id, branch_id = p.branch_id
+    FROM ccs.tickets t JOIN ccs.profiles p ON p.id = t.requester_id
+    WHERE t.organization_id IS NULL AND t.branch_id IS NULL;
+    INSERT ccs.app_settings ([key], value) VALUES (N'ticket_place_backfilled', N'true');
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_tickets_place' AND object_id = OBJECT_ID(N'ccs.tickets'))
+    CREATE INDEX IX_tickets_place ON ccs.tickets (organization_id, branch_id);
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_tickets_branch' AND object_id = OBJECT_ID(N'ccs.tickets'))
+    CREATE INDEX IX_tickets_branch ON ccs.tickets (branch_id) WHERE branch_id IS NOT NULL;
+GO

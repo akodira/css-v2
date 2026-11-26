@@ -29,6 +29,8 @@ export interface Names {
   typeEn: string | null; typeAr: string | null; categoryEn: string; categoryAr: string; subcategoryEn: string | null; subcategoryAr: string | null;
   teamEn: string | null; teamAr: string | null; assignee: string | null; priorityEn: string | null; priorityAr: string | null; priorityColor: string | null; priorityIcon?: string | null;
   closureEn: string | null; closureAr: string | null; closureAllowsReopen: boolean;
+  /** The place the ticket was created in (it does not follow later moves of the customer). */
+  organization?: string | null; branch?: string | null;
 }
 export interface TicketDetail {
   id: string; reference: string; subject: string; description: string; status: string; customStatus?: string | null; priority: string;

@@ -483,6 +483,9 @@ CREATE TABLE ccs.tickets (
     seq                bigint IDENTITY(1,1) NOT NULL,                 -- clustering key, avoids random-guid page splits
     reference          nvarchar(30) NOT NULL CONSTRAINT UQ_tickets_reference UNIQUE,
     requester_id       uniqueidentifier NOT NULL CONSTRAINT FK_tickets_requester REFERENCES ccs.profiles(id),
+    -- The customer's place when the ticket was created: visibility, reports and escalation follow it, not later moves.
+    organization_id    uniqueidentifier NULL CONSTRAINT FK_tickets_org REFERENCES ccs.organizations(id),
+    branch_id          uniqueidentifier NULL CONSTRAINT FK_tickets_branch REFERENCES ccs.branches(id),
     subject            nvarchar(200) NOT NULL CONSTRAINT CK_tickets_subject CHECK (LEN(subject) BETWEEN 3 AND 200),
     description        nvarchar(max) NOT NULL CONSTRAINT CK_tickets_description CHECK (LEN(description) BETWEEN 10 AND 10000),
     ticket_type_id     uniqueidentifier NULL CONSTRAINT FK_tickets_type REFERENCES ccs.ticket_types(id),
@@ -515,6 +518,8 @@ CREATE INDEX IX_tickets_status ON ccs.tickets (status) INCLUDE (assigned_agent_i
 CREATE INDEX IX_tickets_team_status ON ccs.tickets (team_id, status);
 CREATE INDEX IX_tickets_type ON ccs.tickets (ticket_type_id);
 CREATE INDEX IX_tickets_updated ON ccs.tickets (updated_at DESC);
+CREATE INDEX IX_tickets_place ON ccs.tickets (organization_id, branch_id);
+CREATE INDEX IX_tickets_branch ON ccs.tickets (branch_id) WHERE branch_id IS NOT NULL;
 GO
 
 CREATE TABLE ccs.ticket_messages (

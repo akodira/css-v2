@@ -669,7 +669,9 @@
       "noComments": "No comments yet.",
       "assignedTo": "Assigned to",
       "teamLeader": "Team leader",
-      "closureReason": "Closure reason"
+      "closureReason": "Closure reason",
+      "customerMoved": "The customer has since moved to",
+      "noPlace": "No organization"
     },
     "reply": {
       "title": "Reply",
@@ -1864,7 +1866,9 @@
       "branchStep1": "Move every customer to another branch (Users, then Edit), or delete their account.",
       "branchStep2": "Then delete the branch. To keep it but hide it, choose Deactivate instead."
     },
-    "addStaff": "Add staff"
+    "addStaff": "Add staff",
+    "moveOpenTickets": "Also move this customer's open tickets to the new place",
+    "moveOpenTicketsHint": "Tickets keep the organization and branch they were created in. Tick this to move the open ones too; resolved and closed tickets always stay where they were."
   },
   "AdminOrgs": {
     "title": "Organizations and branches",
@@ -4989,7 +4993,7 @@
     "st_done": "Resolved or closed",
     "st_dropped": "Closed as cancelled, duplicate or spam",
     "createdBefore": "Created before",
-    "organization": "Customer organization",
+    "organization": "Ticket organization (where it was created)",
     "any": "Any",
     "searchTickets": "Reference or subject",
     "searchPeople": "Name or email",
@@ -5018,7 +5022,7 @@
     "moveCategories": "Categories that send tickets to them now send to",
     "noTeam": "No team",
     "places": "Organizations and branches",
-    "placesHint": "With their own teams, catalog items, places and access rules. Ticking an organization takes all its branches.",
+    "placesHint": "With their own teams, catalog items, places and access rules. Ticking an organization takes all its branches. A place that kept tickets were created in is switched off instead of deleted.",
     "peopleN": "{n} people",
     "placePeople": "People placed there",
     "placeKeep": "Keep them, with no organization (they must be placed again)",

@@ -148,6 +148,12 @@ export const SEARCH = `
             <option [ngValue]="null">{{ 'Directory.noBranch' | t }}</option>
             @for (b of branches(); track b.id) { <option [ngValue]="b.id">{{ b.name }}</option> }
           </select></div>
+        @if (placeMoved()) {
+          <div class="flex flex-col gap-1 rounded-lg border border-line bg-bg p-3 md:col-span-2">
+            <label class="flex items-start gap-2 font-semibold"><input type="checkbox" name="mot" class="mt-1 h-5 w-5 shrink-0" [(ngModel)]="m.moveOpenTickets" />{{ 'Directory.moveOpenTickets' | t }}</label>
+            <p class="text-sm text-muted">{{ 'Directory.moveOpenTicketsHint' | t }}</p>
+          </div>
+        }
       </div>
       @if (mode() === 'staff') {
         <div class="flex flex-wrap gap-x-6 gap-y-2">
@@ -204,13 +210,21 @@ export class PersonForm implements OnInit {
       this.m = {
         fullName: u.fullName, email: u.email, phone: phoneDigits(u.phone), password: '', role: u.role ?? 'agent', accountTypeId: u.accountTypeId,
         organizationId: u.organizationId, branchId: u.branchId, autoAssign: u.autoAssign, canCreateForCustomers: u.canCreateForCustomers,
+        moveOpenTickets: false,
       };
+      this.origPlace = { org: u.organizationId, branch: u.branchId };
     }
   }
   private blank(): UserBody {
     return { fullName: '', email: '', phone: '', password: '', role: this.mode?.() === 'customer' ? 'customer' : 'agent', accountTypeId: null, organizationId: null, branchId: null, autoAssign: false, canCreateForCustomers: false };
   }
   protected branches() { return (this.lk()?.branches ?? []).filter((b) => b.organizationId === this.m.organizationId); }
+  private origPlace: { org: string | null; branch: string | null } | null = null;
+  /** An existing customer is being moved to another organization or branch. */
+  protected placeMoved(): boolean {
+    const o = this.origPlace;
+    return !!o && this.m.role === 'customer' && (o.org !== this.m.organizationId || o.branch !== this.m.branchId);
+  }
   protected gen(): string { return generatePassword(); }
   protected submit(): void {
     const body = { ...this.m, role: this.mode() === 'customer' ? 'customer' : this.m.role };

@@ -126,7 +126,7 @@ public sealed class TicketLifecycleService(
     /// <summary>escalation_chain(): branch leader (or the team's leader), then each organization leader up the hierarchy.</summary>
     private async Task<List<ChainRow>> ChainAsync(Ticket t, CancellationToken ct)
     {
-        var req = await db.Profiles.AsNoTracking().Where(p => p.Id == t.RequesterId).Select(p => new { p.OrganizationId, p.BranchId }).FirstAsync(ct);
+        var req = new { t.OrganizationId, t.BranchId };   // the place the ticket was created in
         var rows = new List<ChainRow>();
         var br = req.BranchId is Guid b ? await db.Branches.AsNoTracking().Where(x => x.Id == b && x.TeamLeaderId != null).Select(x => new { x.TeamLeaderId, x.Name }).FirstOrDefaultAsync(ct) : null;
         if (br is not null) rows.Add(new ChainRow(0, "branch", br.TeamLeaderId!.Value, br.Name));

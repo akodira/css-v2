@@ -6,6 +6,9 @@ public class Ticket
     public long Seq { get; set; }
     public string Reference { get; set; } = "";
     public Guid RequesterId { get; set; }
+    /// <summary>The customer's organization and branch when the ticket was created; later moves of the customer do not change them.</summary>
+    public Guid? OrganizationId { get; set; }
+    public Guid? BranchId { get; set; }
     public string Subject { get; set; } = "";
     public string Description { get; set; } = "";
     public Guid? TicketTypeId { get; set; }

@@ -199,7 +199,7 @@ public sealed class CleanupService(CcsDbContext db, IClock clock)
                         _ => "1 = 1",
                     });
                     if (tk.CreatedBefore is { } before) where.Add("t.created_at < @before");
-                    if (tk.OrganizationId is not null) where.Add("EXISTS (SELECT 1 FROM ccs.profiles rp WHERE rp.id = t.requester_id AND rp.organization_id = @org)");
+                    if (tk.OrganizationId is not null) where.Add("t.organization_id = @org");   // the place the ticket was created in
                     await Exec($"INSERT #t (id) SELECT t.id FROM ccs.tickets t WHERE {string.Join(" AND ", where)}",
                         ("@before", tk.CreatedBefore is { } b ? new DateTimeOffset(b.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero) : null),
                         ("@org", tk.OrganizationId));
@@ -327,15 +327,18 @@ public sealed class CleanupService(CcsDbContext db, IClock clock)
                     UPDATE ccs.ticket_categories SET team_kind_id = NULL WHERE team_kind_id IN (SELECT id FROM #tk);
                     DELETE ccs.team_kinds WHERE id IN (SELECT id FROM #tk);
                     """);
-                // A place still owning a switched-off team or catalog item is switched off too; the rest is deleted.
+                // A place that kept tickets were created in, or that still owns a switched-off team or catalog item,
+                // is switched off; the rest is deleted.
                 const string branchUsed = """
-                    (EXISTS (SELECT 1 FROM ccs.teams x WHERE x.branch_id = b.id) OR EXISTS (SELECT 1 FROM ccs.ticket_types x WHERE x.branch_id = b.id)
+                    (EXISTS (SELECT 1 FROM ccs.tickets x WHERE x.branch_id = b.id)
+                     OR EXISTS (SELECT 1 FROM ccs.teams x WHERE x.branch_id = b.id) OR EXISTS (SELECT 1 FROM ccs.ticket_types x WHERE x.branch_id = b.id)
                      OR EXISTS (SELECT 1 FROM ccs.ticket_categories x WHERE x.branch_id = b.id) OR EXISTS (SELECT 1 FROM ccs.ticket_subcategories x WHERE x.branch_id = b.id))
                     """;
                 Add("branchesOff", await Exec($"UPDATE b SET is_active = 0 FROM ccs.branches b WHERE b.id IN (SELECT id FROM #b) AND {branchUsed}"));
                 Add("branches", await Exec($"DELETE b FROM ccs.branches b WHERE b.id IN (SELECT id FROM #b) AND NOT {branchUsed}"));
                 const string orgUsed = """
-                    (EXISTS (SELECT 1 FROM ccs.branches x WHERE x.organization_id = o.id) OR EXISTS (SELECT 1 FROM ccs.teams x WHERE x.organization_id = o.id)
+                    (EXISTS (SELECT 1 FROM ccs.tickets x WHERE x.organization_id = o.id)
+                     OR EXISTS (SELECT 1 FROM ccs.branches x WHERE x.organization_id = o.id) OR EXISTS (SELECT 1 FROM ccs.teams x WHERE x.organization_id = o.id)
                      OR EXISTS (SELECT 1 FROM ccs.ticket_types x WHERE x.organization_id = o.id) OR EXISTS (SELECT 1 FROM ccs.ticket_categories x WHERE x.organization_id = o.id)
                      OR EXISTS (SELECT 1 FROM ccs.ticket_subcategories x WHERE x.organization_id = o.id) OR EXISTS (SELECT 1 FROM ccs.organizations x WHERE x.parent_id = o.id))
                     """;

@@ -24,6 +24,8 @@ export interface AdminUser {
 export interface UserBody {
   fullName: string; email: string; phone: string; password: string; role: string; accountTypeId: string | null;
   organizationId: string | null; branchId: string | null; status?: string; autoAssign: boolean; canCreateForCustomers: boolean;
+  /** Editing a customer's place: also move their open tickets (closed ones always stay where they were created). */
+  moveOpenTickets?: boolean;
 }
 
 export interface AccessRow { organizationId: string; branchId: string | null }

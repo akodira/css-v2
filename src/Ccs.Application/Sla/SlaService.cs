@@ -27,13 +27,13 @@ public sealed class CalendarProvider(ICcsDbContext db)
 
     public async Task<Guid?> TicketCalendarIdAsync(Guid ticketId, Guid? fallback, CancellationToken ct = default)
     {
+        // The calendar of the place the ticket was created in.
         var row = await (from t in db.Tickets
-                         join p in db.Profiles on t.RequesterId equals p.Id
                          where t.Id == ticketId
                          select new
                          {
-                             Branch = db.Branches.Where(b => b.Id == p.BranchId).Select(b => b.BusinessHoursId).FirstOrDefault(),
-                             Org = db.Organizations.Where(o => o.Id == p.OrganizationId).Select(o => o.BusinessHoursId).FirstOrDefault(),
+                             Branch = db.Branches.Where(b => b.Id == t.BranchId).Select(b => b.BusinessHoursId).FirstOrDefault(),
+                             Org = db.Organizations.Where(o => o.Id == t.OrganizationId).Select(o => o.BusinessHoursId).FirstOrDefault(),
                              Team = db.Teams.Where(tm => tm.Id == t.TeamId).Select(tm => tm.BusinessHoursId).FirstOrDefault(),
                          }).AsNoTracking().FirstOrDefaultAsync(ct);
         return row?.Branch ?? row?.Org ?? row?.Team ?? fallback;

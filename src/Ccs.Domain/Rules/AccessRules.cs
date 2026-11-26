@@ -38,8 +38,8 @@ public sealed record TicketFacts(
     Guid RequesterId,
     Guid? AssignedAgentId,
     Guid? TeamId,
-    Guid? RequesterOrganizationId,
-    Guid? RequesterBranchId,
+    Guid? OrganizationId,   // the ticket's place (set at creation), not the customer's current place
+    Guid? BranchId,
     Guid? CreatedBy = null,
     DateTimeOffset? CreatedAt = null);
 
@@ -57,12 +57,12 @@ public static class AccessRules
         if (t.RequesterId == c.UserId || c.Admin) return true;
 
         // Organization shared access: colleagues of the same organization see each other's tickets.
-        if (c.Customer && c.OrgSharedAccess && c.OrganizationId is not null && t.RequesterOrganizationId == c.OrganizationId)
+        if (c.Customer && c.OrgSharedAccess && c.OrganizationId is not null && t.OrganizationId == c.OrganizationId)
             return true;
 
         if (!c.Internal) return false;
         if (t.AssignedAgentId == c.UserId) return true;
-        if (!InScope(c, t.RequesterOrganizationId, t.RequesterBranchId)) return false;
+        if (!InScope(c, t.OrganizationId, t.BranchId)) return false;
         if (!(c.Viewer || c.Has(Permission.AllTeams) || (t.TeamId is Guid team && c.Teams.Contains(team)))) return false;
         return t.AssignedAgentId is null ? c.Has(Permission.ViewUnassigned) : c.Has(Permission.ViewOthers);
     }

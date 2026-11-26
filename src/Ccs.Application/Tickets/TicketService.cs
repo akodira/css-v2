@@ -138,11 +138,15 @@ public sealed class TicketService(
         }
         var flowId = await FlowLookup.ForNewTicketAsync(db, settings, cmd.TypeId, category.Id, ct);
         var routed = await RouteAsync(category, requester, ct);
+        // The ticket keeps the customer's place at this moment (visibility, reports and escalation follow it).
+        var place = await db.Profiles.AsNoTracking().Where(p => p.Id == requester).Select(p => new { p.OrganizationId, p.BranchId }).FirstOrDefaultAsync(ct);
         var ticket = new Ticket
         {
             Id = Guid.NewGuid(),
             Reference = reference,
             RequesterId = requester,
+            OrganizationId = place?.OrganizationId,
+            BranchId = place?.BranchId,
             Subject = subject,
             Description = description,
             TicketTypeId = cmd.TypeId,
@@ -391,7 +395,7 @@ public sealed class TicketService(
     private async Task NoTeamAsync(Ticket t, Guid kind, CancellationToken ct)
     {
         var routing = await settings.GetRoutingAsync(ct);
-        var req = await db.Profiles.AsNoTracking().Where(p => p.Id == t.RequesterId).Select(p => new { p.OrganizationId, p.BranchId }).FirstOrDefaultAsync(ct);
+        var req = new { t.OrganizationId, t.BranchId };   // the place the ticket was created in
         var admins = new List<Guid>();
         if (routing.Notify == "org" && req?.OrganizationId is Guid org)
             admins = await db.AdminScopes.Where(s => s.OrganizationId == org && (s.BranchId == null || s.BranchId == req.BranchId))

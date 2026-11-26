@@ -89,8 +89,8 @@ public sealed partial class CatalogAdminController
         var cats = (await db.TicketCategories.AsNoTracking().OrderBy(c => c.SortOrder).ThenBy(c => c.NameEn).ToListAsync(ct)).Where(c => Visible(c.OrganizationId, c.BranchId)).ToList();
         var subs = (await db.TicketSubcategories.AsNoTracking().OrderBy(s => s.SortOrder).ThenBy(s => s.NameEn).ToListAsync(ct)).Where(s => Visible(s.OrganizationId, s.BranchId)).ToList();
 
-        // Tickets of this place's customers (a branch: its customers; an organization: all of its customers).
-        var mine = db.Tickets.AsNoTracking().Where(t => db.Profiles.Any(p => p.Id == t.RequesterId && p.OrganizationId == o0 && (b0 == null || p.BranchId == b0)));
+        // Tickets created in this place (a branch: its tickets; an organization: all of its tickets).
+        var mine = db.Tickets.AsNoTracking().Where(t => t.OrganizationId == o0 && (b0 == null || t.BranchId == b0));
         var byType = await mine.Where(t => t.TicketTypeId != null).GroupBy(t => t.TicketTypeId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, ct);
         var byCat = await mine.GroupBy(t => t.CategoryId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, ct);
         var bySub = await mine.Where(t => t.SubcategoryId != null).GroupBy(t => t.SubcategoryId!.Value).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N, ct);

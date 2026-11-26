@@ -42,9 +42,14 @@ public class AccessParityTests
         var tickets = new List<Ticket>();
         for (var i = 0; i < 80; i++)
         {
+            // The ticket keeps the place it was created in; one in four customers has moved since.
+            var requester = people[rnd.Next(people.Count)];
+            var moved = rnd.Next(4) == 0 ? branches[rnd.Next(branches.Count)] : default;
             tickets.Add(new Ticket
             {
-                Id = Guid.NewGuid(), Reference = $"T{i}", RequesterId = people[rnd.Next(people.Count)].Id,
+                Id = Guid.NewGuid(), Reference = $"T{i}", RequesterId = requester.Id,
+                OrganizationId = moved == default ? requester.OrganizationId : moved.Org,
+                BranchId = moved == default ? requester.BranchId : (rnd.Next(2) == 0 ? null : moved.Id),
                 AssignedAgentId = rnd.Next(3) == 0 ? null : people[rnd.Next(people.Count)].Id,
                 TeamId = rnd.Next(5) == 0 ? null : teams[rnd.Next(teams.Count)], Subject = "s", Description = "d",
             });
@@ -77,12 +82,33 @@ public class AccessParityTests
             var listed = (await access.VisibleTickets(db.Tickets, c).Select(t => t.Id).ToListAsync()).ToHashSet();
             foreach (var t in tickets)
             {
-                var req = people.First(p => p.Id == t.RequesterId);
-                var facts = new TicketFacts(t.RequesterId, t.AssignedAgentId, t.TeamId, req.OrganizationId, req.BranchId);
+                var facts = new TicketFacts(t.RequesterId, t.AssignedAgentId, t.TeamId, t.OrganizationId, t.BranchId);
                 Assert.True(AccessRules.CanAccessTicket(c, facts) == listed.Contains(t.Id),
                     $"Mismatch in round {round} for ticket {t.Reference}: rule={AccessRules.CanAccessTicket(c, facts)} list={listed.Contains(t.Id)}");
             }
         }
+    }
+
+    [Fact]
+    public async Task A_moved_customers_old_ticket_stays_with_the_old_branch()
+    {
+        await using var db = NewDb();
+        Guid org = Guid.NewGuid(), oldBranch = Guid.NewGuid(), newBranch = Guid.NewGuid(), team = Guid.NewGuid();
+        var customer = new Profile { Id = Guid.NewGuid(), Email = "c@x.test", OrganizationId = org, BranchId = newBranch, AccountStatus = AccountStatus.Active };
+        db.Profiles.Add(customer);
+        var ticket = new Ticket { Id = Guid.NewGuid(), Reference = "OLD", RequesterId = customer.Id, OrganizationId = org, BranchId = oldBranch, TeamId = team, Subject = "s", Description = "d" };
+        db.Tickets.Add(ticket);
+        await db.SaveChangesAsync();
+        var access = new AccessService(db, new NoUser(), new NoMfa(), new SettingsService(db));
+        AccessContext Staff(Guid branch) => new()
+        {
+            UserId = Guid.NewGuid(), Active = true, Staff = true, Teams = new HashSet<Guid> { team }, Scope = [new ScopeEntry(org, branch)],
+            Permissions = new HashSet<string> { Permission.ViewOthers, Permission.ViewUnassigned },
+        };
+        Assert.True(await access.VisibleTickets(db.Tickets, Staff(oldBranch)).AnyAsync(t => t.Id == ticket.Id));
+        Assert.False(await access.VisibleTickets(db.Tickets, Staff(newBranch)).AnyAsync(t => t.Id == ticket.Id));
+        var mine = new AccessContext { UserId = customer.Id, Active = true, Customer = true, OrganizationId = org, BranchId = newBranch };
+        Assert.True(await access.VisibleTickets(db.Tickets, mine).AnyAsync(t => t.Id == ticket.Id));   // the customer always sees their own
     }
 
     [Fact]
