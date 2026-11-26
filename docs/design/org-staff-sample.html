@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Organizations staff sample</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root { --bg:#f1f5fb; --surface:#fff; --ink:#0f1b2d; --muted:#52607a; --line:#e2e8f3; --brand:#1f64e6; --brand-ink:#1650b8; --brand-soft:#e5eefd;
+          --ok:#16915a; --ok-soft:#e3f6ec; --warn-soft:#fff4db; --warn-ink:#7a4a00; --purple-soft:#efe9fd; --purple:#6b46c1; --shadow:0 1px 2px rgb(15 27 61/.05),0 4px 16px rgb(15 27 61/.05); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"IBM Plex Sans",system-ui,sans-serif; line-height:1.5; }
+  .wrap { max-width:66rem; margin:0 auto; padding:2rem 1rem 4rem; display:flex; flex-direction:column; gap:1rem; }
+  h1 { margin:0; font-size:1.75rem; } p { margin:0; } .muted { color:var(--muted); } .small { font-size:.85rem; }
+  .note { border-inline-start:4px solid var(--brand); background:var(--surface); padding:.75rem 1rem; border-radius:.5rem; box-shadow:var(--shadow); color:var(--muted); font-size:.9rem; }
+  .note b { color:var(--ink); }
+  .org { background:var(--surface); border:1px solid var(--brand); border-radius:.75rem; box-shadow:var(--shadow); overflow:hidden; }
+  .head { display:flex; align-items:center; gap:.8rem; padding:.9rem 1rem; background:#f7f9fd; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .chev { color:var(--muted); }
+  .ico { width:2.4rem; height:2.4rem; border-radius:.6rem; background:var(--purple-soft); display:grid; place-items:center; flex-shrink:0; }
+  .ico svg { width:1.2rem; height:1.2rem; stroke:var(--purple); fill:none; stroke-width:1.8; }
+  .title { flex:1; min-width:14rem; }
+  .title b { font-size:1.05rem; }
+  .badge { font-size:.7rem; font-weight:700; border-radius:999px; padding:.05rem .5rem; margin-inline-start:.4rem; }
+  .b-on { background:var(--ok-soft); color:var(--ok); }
+  .chips { display:flex; gap:.35rem; margin-top:.3rem; flex-wrap:wrap; }
+  .chip { font-size:.75rem; border:1px solid var(--line); background:#fff; border-radius:.4rem; padding:.05rem .45rem; }
+  .chip b { font-weight:700; }
+  .chip.new { border-color:var(--brand); background:var(--brand-soft); color:var(--brand-ink); }
+  .who { display:flex; gap:1.2rem; flex-wrap:wrap; }
+  .person { display:flex; align-items:center; gap:.5rem; font-size:.8rem; }
+  .av { width:2rem; height:2rem; border-radius:50%; background:var(--brand-soft); color:var(--brand-ink); display:grid; place-items:center; font-weight:700; font-size:.72rem; flex-shrink:0; }
+  .av.adm { background:#0f1b3d; color:#fff; }
+  .person small { display:block; color:var(--muted); font-size:.72rem; }
+  .tabs { display:flex; gap:1.5rem; padding:0 1rem; border-bottom:1px solid var(--line); font-size:.88rem; font-weight:600; color:var(--muted); }
+  .tabs button { border:0; background:none; font:inherit; color:inherit; padding:.6rem 0; cursor:pointer; }
+  .tabs .on { color:var(--brand-ink); border-bottom:2px solid var(--brand); }
+  .tabs .n { background:var(--bg); border-radius:999px; padding:0 .4rem; font-size:.72rem; margin-inline-start:.25rem; }
+  .tabs .isnew::after { content:'new'; font-size:.6rem; background:var(--brand); color:#fff; border-radius:.3rem; padding:0 .25rem; margin-inline-start:.3rem; vertical-align:middle; }
+  .body { padding:1rem; }
+  .grid3 { display:grid; grid-template-columns:repeat(auto-fill,minmax(17rem,1fr)); gap:.8rem; }
+  .card { border:1px solid var(--line); border-radius:.6rem; padding:.9rem; display:flex; flex-direction:column; gap:.3rem; font-size:.85rem; }
+  .card .t { display:flex; justify-content:space-between; font-weight:700; font-size:.95rem; }
+  .card .hi { background:var(--brand-soft); border-radius:.4rem; padding:.35rem .5rem; margin-top:.2rem; }
+  .btns { display:flex; gap:.5rem; margin-top:.4rem; }
+  .btn { border:1px solid var(--line); background:#fff; border-radius:.45rem; padding:.35rem .8rem; font:inherit; font-weight:600; font-size:.82rem; cursor:pointer; }
+  .tools { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:.8rem; }
+  .tools input { flex:1; min-width:12rem; border:1px solid #c9d3e3; border-radius:.5rem; min-height:2.4rem; padding:0 .7rem; font:inherit; }
+  .seg { display:flex; border:1px solid var(--line); border-radius:.5rem; overflow:hidden; }
+  .seg button { border:0; background:#fff; padding:.4rem .7rem; font:inherit; font-size:.82rem; cursor:pointer; }
+  .seg .on { background:var(--ink); color:#fff; }
+  .place { font-weight:700; font-size:.85rem; color:var(--brand-ink); margin:.8rem 0 .3rem; display:flex; align-items:center; gap:.4rem; }
+  .place:first-of-type { margin-top:0; }
+  table { width:100%; border-collapse:collapse; font-size:.85rem; table-layout:fixed; }
+  th:nth-child(1) { width:30%; } th:nth-child(2) { width:20%; } th:nth-child(3) { width:22%; }
+  th { text-align:start; font-size:.75rem; color:var(--muted); font-weight:600; padding:.35rem .5rem; border-bottom:1px solid var(--line); }
+  td { padding:.45rem .5rem; border-bottom:1px solid var(--line); vertical-align:middle; }
+  td a { color:var(--brand-ink); font-weight:600; text-decoration:none; }
+  .role { font-size:.72rem; font-weight:700; border-radius:999px; padding:.05rem .5rem; white-space:nowrap; }
+  .r-adm { background:#0f1b3d; color:#fff; } .r-ldr { background:var(--warn-soft); color:var(--warn-ink); } .r-agt { background:var(--brand-soft); color:var(--brand-ink); }
+  .empty { border:1px dashed #9aa7bd; border-radius:.5rem; padding:.8rem; color:var(--muted); font-size:.85rem; }
+  .ideas { display:grid; grid-template-columns:repeat(auto-fit,minmax(15rem,1fr)); gap:.8rem; }
+  .idea { background:var(--surface); border:1px solid var(--line); border-radius:.6rem; padding:.8rem; font-size:.88rem; box-shadow:var(--shadow); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div><h1>Organizations – staff sample</h1>
+    <p class="muted">People → Organizations. Today each organization and branch shows only its customers. This adds the staff who work there. Click the tabs; data is the demo company.</p></div>
+  <div class="note"><b>Why staff are missing today:</b> a customer's organization is saved on the customer's account, so the page counts them. Staff are linked another way (the place they work in, admin rights, their team), and the page never looks there. <b>New:</b> a Staff count in the header and on each branch, the organization admin next to the team leader, and a <b>Staff</b> tab grouped by head office and branch.</div>
+
+  <section class="org" id="org"></section>
+
+  <section class="org">
+    <div class="head"><span class="chev">›</span><span class="ico"><svg viewBox="0 0 24 24"><path d="M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M10 7h4M10 11h4M10 15h4M10 22v-3h4v3"/></svg></span>
+      <div class="title"><b>Demo Logistics</b><span class="badge b-on">Active</span>
+        <div class="chips"><span class="chip"><b>1</b> customers</span><span class="chip new"><b>2</b> staff</span><span class="chip"><b>0</b> branches</span></div></div>
+      <div class="who"><div class="person"><span class="av adm">WS</span><div><small>Organization admin</small><b>Walid Shawky</b></div></div>
+        <div class="person"><span class="av">RF</span><div><small>Assigned team leader</small><b>Ramy Fawzy</b></div></div></div></div>
+  </section>
+
+  <h2 style="margin:1rem 0 0;font-size:1.1rem">Also worth adding (your choice)</h2>
+  <div class="ideas">
+    <div class="idea"><b>Warnings</b><p class="muted small">"Giza Branch has no agents" or "No team leader" shown on the card, so gaps are seen before tickets wait.</p></div>
+    <div class="idea"><b>Add staff here</b><p class="muted small">An "Add staff" button on the Staff tab that opens the Staff form with this organization or branch already chosen.</p></div>
+    <div class="idea"><b>Staff in the search box</b><p class="muted small">The search at the top also finds staff by name or e-mail and opens their organization.</p></div>
+  </div>
+</div>
+
+<script>
+const ICON_HQ = '<svg viewBox="0 0 24 24" style="width:1rem;height:1rem;stroke:#6b46c1;fill:none;stroke-width:1.8"><path d="M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M10 7h4M10 11h4M10 15h4M10 22v-3h4v3"/></svg>';
+const ICON_BR = '<svg viewBox="0 0 24 24" style="width:1rem;height:1rem;stroke:#16915a;fill:none;stroke-width:1.8"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+const STAFF = [
+  ['Head office', 'Hany Mostafa', 'adm', 'Organization admin', 'Demo Organization Admin', '—'],
+  ['Head office', 'Tamer Adel', 'ldr', 'Team leader', 'Demo Team Leader', 'Main Office Support'],
+  ['Head office', 'Sara Fathy', 'agt', 'Agent', 'Demo Agent', 'Main Office Support'],
+  ['Head office', 'Mahmoud Saeed', 'agt', 'Agent', 'Demo Agent', 'Main Office Support'],
+  ['Alexandria Branch', 'Sherif Magdy', 'adm', 'Branch admin', 'Demo Branch Admin', '—'],
+  ['Alexandria Branch', 'Laila Hamdy', 'ldr', 'Team leader', 'Demo Team Leader', 'Alexandria Branch Support'],
+  ['Alexandria Branch', 'Ali Sobhy', 'agt', 'Agent', 'Demo Agent', 'Alexandria Branch Support'],
+  ['Alexandria Branch', 'Mai Essam', 'agt', 'Agent', 'Demo Agent', 'Alexandria Branch Support'],
+  ['Cairo Branch', 'Rania Samir', 'adm', 'Branch admin', 'Demo Branch Admin', '—'],
+  ['Cairo Branch', 'Omar Hassan', 'ldr', 'Team leader', 'Demo Team Leader', 'Cairo Branch Support'],
+  ['Cairo Branch', 'Nour Ahmed', 'agt', 'Agent', 'Demo Agent', 'Cairo Branch Support'],
+  ['Cairo Branch', 'Youssef Kamal', 'agt', 'Agent', 'Demo Agent', 'Cairo Branch Support'],
+  ['Giza Branch', 'Hossam Gamal', 'adm', 'Branch admin', 'Demo Branch Admin', '—'],
+  ['Giza Branch', 'Amira Salah', 'ldr', 'Team leader', 'Demo Team Leader', 'Giza Branch Support'],
+  ['Giza Branch', 'Karim Wael', 'agt', 'Agent', 'Demo Agent', 'Giza Branch Support'],
+  ['Giza Branch', 'Heba Tarek', 'agt', 'Agent', 'Demo Agent', 'Giza Branch Support'],
+];
+const BRANCHES = [['Alexandria Branch', 'Laila Hamdy', 'Sherif Magdy'], ['Cairo Branch', 'Omar Hassan', 'Rania Samir'], ['Giza Branch', 'Amira Salah', 'Hossam Gamal']];
+let tab = 'staff', filter = 'all', q = '';
+const ini = n => n.split(' ').map(w => w[0]).join('').slice(0, 2);
+function render() {
+  const el = document.getElementById('org');
+  el.innerHTML = `
+    <div class="head"><span class="chev">⌄</span><span class="ico"><svg viewBox="0 0 24 24"><path d="M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M10 7h4M10 11h4M10 15h4M10 22v-3h4v3"/></svg></span>
+      <div class="title"><b>Demo Water Company</b><span class="badge b-on">Active</span>
+        <div class="chips"><span class="chip"><b>8</b> customers</span><span class="chip new"><b>16</b> staff</span><span class="chip"><b>3</b> branches</span></div></div>
+      <div class="who"><div class="person"><span class="av adm">HM</span><div><small>Organization admin</small><b>Hany Mostafa</b></div></div>
+        <div class="person"><span class="av">TA</span><div><small>Assigned team leader</small><b>Tamer Adel</b></div></div></div></div>
+    <div class="tabs">${[['details', 'Details', ''], ['branches', 'Branches', 3], ['customers', 'Customers', 8], ['staff', 'Staff', 16]].map(([k, l, n]) =>
+      `<button data-tab="${k}" class="${tab === k ? 'on' : ''} ${k === 'staff' ? 'isnew' : ''}">${l}${n !== '' ? `<span class="n">${n}</span>` : ''}</button>`).join('')}</div>
+    <div class="body">${tab === 'branches' ? branches() : tab === 'staff' ? staff() : `<p class="empty">${tab === 'customers' ? 'The customers list, as today.' : 'Location, telephone and team leader, as today.'}</p>`}</div>`;
+  el.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
+  el.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { filter = b.dataset.f; render(); });
+  const s = el.querySelector('#sq'); if (s) { s.value = q; s.oninput = e => { q = e.target.value; render(); document.getElementById('sq').focus(); } }
+}
+function branches() {
+  return `<div class="grid3">${BRANCHES.map(([b, leader, admin]) => {
+    const n = STAFF.filter(x => x[0] === b);
+    return `<div class="card"><div class="t">${b}<span class="badge b-on">Active</span></div>
+      <span class="muted">2 customers · <b style="color:var(--brand-ink)">${n.length} staff</b> <span class="muted small">(${n.filter(x => x[2] === 'agt').length} agents)</span></span>
+      <span>Location: -</span><span>Telephone: -</span>
+      <span class="hi">Branch admin: <b>${admin}</b><br>Assigned team leader: <b>${leader}</b></span>
+      <div class="btns"><button class="btn">Edit</button><button class="btn">Deactivate</button><button class="btn" data-tab="staff">Staff</button></div></div>`;
+  }).join('')}</div>`;
+}
+function staff() {
+  const rows = STAFF.filter(x => (filter === 'all' || x[2] === filter) && (!q || x[1].toLowerCase().includes(q.toLowerCase())));
+  const places = [...new Set(rows.map(x => x[0]))];
+  return `<div class="tools"><input id="sq" type="search" placeholder="Search staff by name" aria-label="Search staff by name">
+      <div class="seg">${[['all', 'All 16'], ['adm', 'Admins 4'], ['ldr', 'Team leaders 4'], ['agt', 'Agents 8']].map(([k, l]) => `<button data-f="${k}" class="${filter === k ? 'on' : ''}">${l}</button>`).join('')}</div></div>
+    ${places.length ? places.map(p => `<div class="place">${p === 'Head office' ? ICON_HQ : ICON_BR} ${p} <span class="muted small" style="font-weight:400">· ${rows.filter(x => x[0] === p).length}</span></div>
+      <table><thead><tr><th>Name</th><th>Role</th><th>Account type</th><th>Team</th></tr></thead><tbody>
+      ${rows.filter(x => x[0] === p).map(x => `<tr><td><span class="person"><span class="av ${x[2] === 'adm' ? 'adm' : ''}">${ini(x[1])}</span><a href="#">${x[1]}</a></span></td>
+        <td><span class="role r-${x[2]}">${x[3]}</span></td><td class="muted">${x[4]}</td><td>${x[5]}</td></tr>`).join('')}</tbody></table>`).join('')
+      : '<p class="empty">No staff match.</p>'}
+    <p class="muted small" style="margin-top:.8rem">Click a name to open the person on the Staff page. Administrators and viewers who work for every organization are not listed here.</p>`;
+}
+render();
+</script>
+</body>
+</html>

@@ -36,7 +36,7 @@ export interface AccountTypeRow {
 export interface TypeBody { nameEn: string; nameAr: string; allAccess: boolean; scopeLevel: string | null; permissions: string[]; access: AccessRow[] }
 
 export interface BranchRow { id: string; name: string; location: string | null; phone: string | null; teamLeaderId: string | null; isActive: boolean; customers: number }
-export interface OrgRow extends Omit<BranchRow, 'customers'> { sharedAccessEnabled: boolean; customers: number; branches: BranchRow[] }
+export interface OrgRow extends Omit<BranchRow, 'customers'> { sharedAccessEnabled: boolean; customers: number; branches: BranchRow[]; parentId: string | null }
 
 export interface TeamMemberRow { userId: string; fullName: string; email: string; isLeader: boolean; autoAssign?: boolean; openTickets?: number }
 export interface TeamRow {

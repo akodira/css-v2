@@ -39,7 +39,9 @@ public sealed class AdminController(
     /// <summary>With <see cref="Kind"/> (the Permissions page): the kind sets the scope level, the permissions must fit it,
     /// and the type has no places of its own (each person's Works in decides where). Without it: the older shape.</summary>
     public sealed record TypeBody(string NameEn, string NameAr, bool AllAccess, string? ScopeLevel, string[] Permissions, AccessRow[] Access, string? Kind = null);
-    public sealed record OrgBody(string Name, string? Location, string? Phone, Guid? TeamLeaderId, bool IsActive, bool SharedAccessEnabled);
+    /// <summary>SetParent = true saves ParentId (null = a top-level organization); false leaves the parent as it is.</summary>
+    public sealed record OrgBody(string Name, string? Location, string? Phone, Guid? TeamLeaderId, bool IsActive, bool SharedAccessEnabled,
+        Guid? ParentId = null, bool SetParent = false);
     public sealed record BranchBody(Guid OrganizationId, string Name, string? Location, string? Phone, Guid? TeamLeaderId, bool IsActive);
     /// <summary>With <see cref="AccountTypeId"/> (the Staff page): the type gives the role, Everywhere / Orgs / Branches give Works in.
     /// Without it: the older roles / scoped shape.</summary>
@@ -495,7 +497,7 @@ public sealed class AdminController(
             .GroupBy(p => new { p.OrganizationId, p.BranchId }).Select(g => new { g.Key.OrganizationId, g.Key.BranchId, N = g.Count() }).ToListAsync(ct);
         return orgs.Select(o => new
         {
-            o.Id, o.Name, o.Location, o.Phone, o.TeamLeaderId, o.IsActive, o.SharedAccessEnabled,
+            o.Id, o.Name, o.Location, o.Phone, o.TeamLeaderId, o.IsActive, o.SharedAccessEnabled, o.ParentId,
             Customers = people.Where(x => x.OrganizationId == o.Id).Sum(x => x.N),
             Branches = branches.Where(b => b.OrganizationId == o.Id).Select(b => new
             {
@@ -522,7 +524,7 @@ public sealed class AdminController(
     {
         await Need(null, ct);
         var o = await db.Organizations.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
-        var before = new { o.Name, o.Location, o.Phone, o.TeamLeaderId, o.IsActive, o.SharedAccessEnabled };
+        var before = new { o.Name, o.Location, o.Phone, o.TeamLeaderId, o.IsActive, o.SharedAccessEnabled, o.ParentId };
         await ApplyOrgAsync(o, b, ct);
         audit.Write("organization.update", "organization", id, before, b);
         await db.SaveChangesAsync(ct);
@@ -592,6 +594,18 @@ public sealed class AdminController(
         await CheckLeaderAsync(b.TeamLeaderId, ct);
         o.Name = name; o.Location = Short(b.Location, "location"); o.Phone = Clean(b.Phone);
         o.TeamLeaderId = b.TeamLeaderId; o.IsActive = b.IsActive; o.SharedAccessEnabled = b.SharedAccessEnabled; o.UpdatedAt = clock.UtcNow;
+        if (b.SetParent)
+        {
+            if (b.ParentId is Guid pid)
+            {
+                // The parent must exist, and may not be the organization itself or one under it (no loops).
+                var tree = await db.Organizations.AsNoTracking().Select(x => new { x.Id, x.ParentId }).ToDictionaryAsync(x => x.Id, x => x.ParentId, ct);
+                if (!tree.ContainsKey(pid)) throw Err("orgNotFound", "parentId");
+                for (Guid? cur = pid; cur is Guid c; cur = tree.GetValueOrDefault(c))
+                    if (c == o.Id) throw Err("parentLoop", "parentId");
+            }
+            o.ParentId = b.ParentId;
+        }
     }
 
     private async Task ApplyBranchAsync(Branch x, BranchBody b, CancellationToken ct)
@@ -845,6 +859,34 @@ public sealed class AdminController(
         await Need(null, ct);
         return await db.Profiles.AsNoTracking().Where(p => p.OrganizationId != null).OrderBy(p => p.FullName)
             .Select(p => new { p.Id, p.FullName, p.Email, p.Phone, Status = p.AccountStatus, p.OrganizationId, p.BranchId }).ToListAsync(ct);
+    }
+
+    /// <summary>
+    /// Staff per place for the Organizations page: one row per place a person works in (head office or branch),
+    /// with their role, account type, whether they are the admin of that place, and their teams.
+    /// </summary>
+    [HttpGet("organizations/staff")]
+    public async Task<object> OrgStaff(CancellationToken ct)
+    {
+        await Need(null, ct);
+        var rows = await (from s in db.StaffPlacements.AsNoTracking()
+                          join p in db.Profiles on s.UserId equals p.Id
+                          join t in db.AccountTypes on p.AccountTypeId equals (Guid?)t.Id into tj from t in tj.DefaultIfEmpty()
+                          select new { s.UserId, s.OrganizationId, s.BranchId, p.FullName, p.Email, Status = p.AccountStatus,
+                                       TypeEn = t == null ? null : t.NameEn, TypeAr = t == null ? null : t.NameAr, Scope = t == null ? null : t.ScopeLevel }).ToListAsync(ct);
+        var ids = rows.Select(r => r.UserId).Distinct().ToList();
+        var roles = await (from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id
+                           where ids.Contains(ur.UserId) && r.Code != RoleCode.Customer select new { ur.UserId, r.Code }).ToListAsync(ct);
+        var scopes = await db.AdminScopes.AsNoTracking().Where(a => ids.Contains(a.UserId)).Select(a => new { a.UserId, a.OrganizationId, a.BranchId }).ToListAsync(ct);
+        var teams = await (from m in db.TeamMembers join t in db.Teams on m.TeamId equals t.Id
+                           where ids.Contains(m.UserId) select new { m.UserId, t.NameEn, t.NameAr, m.IsLeader }).ToListAsync(ct);
+        return rows.Where(r => roles.Any(x => x.UserId == r.UserId)).OrderBy(r => r.FullName).Select(r => new
+        {
+            Id = r.UserId, r.FullName, r.Email, r.Status, r.OrganizationId, r.BranchId, r.TypeEn, r.TypeAr,
+            Role = roles.Where(x => x.UserId == r.UserId).Select(x => x.Code).OrderByDescending(c => c == RoleCode.Admin).First(),
+            AdminHere = r.Scope is not null && scopes.Any(a => a.UserId == r.UserId && a.OrganizationId == r.OrganizationId && a.BranchId == r.BranchId),
+            Teams = teams.Where(t => t.UserId == r.UserId).Select(t => new { t.NameEn, t.NameAr, t.IsLeader }),
+        });
     }
 
     // ---------------------------------------------------------------- helpers

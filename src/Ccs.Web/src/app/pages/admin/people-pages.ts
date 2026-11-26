@@ -1041,8 +1041,24 @@ export class AdminTeamsPage extends AccordionPage implements OnInit {
 
 // ================================================================== organizations (v1 /admin/organizations)
 
-type PlaceModel = { name: string; location: string; phone: string; teamLeaderId: string | null; isActive: boolean; sharedAccessEnabled: boolean };
+type PlaceModel = { name: string; location: string; phone: string; teamLeaderId: string | null; isActive: boolean; sharedAccessEnabled: boolean; parentId: string | null };
+/** One place a staff member works in (head office = no branch), from GET organizations/staff. */
+interface OrgStaff {
+  id: string; fullName: string; email: string; status: string; organizationId: string; branchId: string | null; role: string;
+  typeEn: string | null; typeAr: string | null; adminHere: boolean; teams: { nameEn: string; nameAr: string; isLeader: boolean }[];
+}
 interface OrgPerson { id: string; fullName: string; email: string; phone: string | null; status: string; organizationId: string; branchId: string | null }
+
+/** Top-level organizations in name order, each followed by the organizations under it (a tree). */
+function treeOrder(rows: OrgRow[]): OrgRow[] {
+  const ids = new Set(rows.map((o) => o.id));
+  const out: OrgRow[] = [];
+  const seen = new Set<string>();
+  const add = (o: OrgRow) => { if (seen.has(o.id)) return; seen.add(o.id); out.push(o); for (const c of rows.filter((x) => x.parentId === o.id)) add(c); };
+  for (const o of rows.filter((x) => !x.parentId || !ids.has(x.parentId))) add(o);
+  for (const o of rows) add(o);   // anything left (a loop in old data) still shows
+  return out;
+}
 
 /** Name, location, telephone and team leader; the Active box only when editing (v1 OrganizationForm / BranchForm). */
 @Component({
@@ -1060,6 +1076,14 @@ interface OrgPerson { id: string; fullName: string; email: string; phone: string
             <option [ngValue]="null">{{ 'Directory.noLeader' | t }}</option>
             @for (p of leaders(); track p.id) { <option [ngValue]="p.id">{{ p.fullName }} ({{ p.email }})</option> }
           </select></label>
+        @if (!branch()) {
+          <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminOrgs.belongsTo' | t }}
+            <select name="parent" [class]="cls.input" [(ngModel)]="m.parentId">
+              <option [ngValue]="null">{{ 'AdminOrgs.topLevel' | t }}</option>
+              @for (o of parentChoices(); track o.id) { <option [ngValue]="o.id">{{ o.name }}</option> }
+            </select>
+            <span class="text-xs font-normal text-muted">{{ 'AdminOrgs.belongsToHint' | t }}</span></label>
+        }
       </div>
       @if (row()) {
         <label class="flex min-h-11 items-center gap-2"><input type="checkbox" name="active" class="h-5 w-5" [(ngModel)]="m.isActive" /> {{ 'Directory.active' | t }}</label>
@@ -1086,15 +1110,17 @@ export class PlaceForm implements OnInit {
   readonly branch = input(false);
   readonly framed = input(false);
   readonly leaders = input<{ id: string; fullName: string; email: string }[]>([]);
+  /** Organizations that may be chosen as the parent (the page leaves out this one and those under it). */
+  readonly parentChoices = input<{ id: string; name: string }[]>([]);
   readonly busy = input(false);
   readonly save = output<PlaceModel>();
   readonly remove = output<void>();
   protected readonly asking = signal(false);
-  protected m: PlaceModel = { name: '', location: '', phone: '', teamLeaderId: null, isActive: true, sharedAccessEnabled: false };
+  protected m: PlaceModel = { name: '', location: '', phone: '', teamLeaderId: null, isActive: true, sharedAccessEnabled: false, parentId: null };
   ngOnInit(): void { this.reset(); }
   reset(): void {
     const r = this.row();
-    this.m = { name: r?.name ?? '', location: r?.location ?? '', phone: r?.phone ?? '', teamLeaderId: r?.teamLeaderId ?? null, isActive: r?.isActive ?? true, sharedAccessEnabled: (r as OrgRow | null)?.sharedAccessEnabled ?? false };
+    this.m = { name: r?.name ?? '', location: r?.location ?? '', phone: r?.phone ?? '', teamLeaderId: r?.teamLeaderId ?? null, isActive: r?.isActive ?? true, sharedAccessEnabled: (r as OrgRow | null)?.sharedAccessEnabled ?? false, parentId: (r as OrgRow | null)?.parentId ?? null };
   }
 }
 
@@ -1117,7 +1143,7 @@ export class PlaceForm implements OnInit {
               <h2 class="text-lg font-bold">{{ (mode() === 'org' ? 'AdminOrgs.addOrgBtn' : 'AdminOrgs.addBranchBtn') | t }}</h2>
               <button type="button" class="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold text-muted hover:bg-bg hover:text-ink" (click)="mode.set(null)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>{{ 'AdminCommon.cancel' | t }}</button>
             </div>
-        @if (mode() === 'org') { <app-place-form [framed]="true" [leaders]="leaderList()" [busy]="busy()" (save)="createOrg($event)" /> }
+        @if (mode() === 'org') { <app-place-form [framed]="true" [leaders]="leaderList()" [parentChoices]="parentsFor(null)" [busy]="busy()" (save)="createOrg($event)" /> }
         @if (mode() === 'branch') {
           <div class="flex flex-col gap-3">
             @if (!activeOrgs().length) { <p class="text-muted">{{ 'AdminOrgs.needOrg' | t }}</p> } @else {
@@ -1147,7 +1173,8 @@ export class PlaceForm implements OnInit {
           <ul class="flex flex-col gap-4">
             @for (o of filtered(); track o.id) {
               
-  <li class="overflow-hidden rounded-xl border bg-surface shadow-card" [class.border-brand]="isOpen(o.id)" [class.border-line]="!isOpen(o.id)">
+  <li class="overflow-hidden rounded-xl border bg-surface shadow-card" [class.border-brand]="isOpen(o.id)" [class.border-line]="!isOpen(o.id)"
+    [style.margin-inline-start.rem]="q().trim() ? 0 : depth(o) * 2">
     <h2><button type="button" [attr.aria-expanded]="isOpen(o.id)" [attr.aria-controls]="'acc-' + o.id" (click)="toggle(o.id)"
       class="flex min-h-16 w-full cursor-pointer items-center gap-3 px-5 py-3 text-start" [class]="isOpen(o.id) ? 'bg-[#f7f9fd]' : 'hover:bg-bg'">
       <svg aria-hidden="true" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
@@ -1158,13 +1185,22 @@ export class PlaceForm implements OnInit {
         <span class="flex flex-wrap items-center gap-2">
           <span class="text-lg font-bold" dir="auto">{{ o.name }}</span>
           <span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="o.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (o.isActive ? 'Directory.active' : 'Directory.inactive') | t }}</span>
+          @if (parentName(o); as pn) { <span class="rounded-full bg-[#efe8fd] px-2 py-0.5 text-xs font-semibold text-[#5b3aa8]" dir="auto">{{ 'AdminOrgs.partOf' | t: { name: pn } }}</span> }
         </span>
         <span class="mt-1 flex flex-wrap gap-1.5 text-xs font-semibold text-muted">
           <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ peopleOf(o.id).length }}</b> {{ 'AdminOrgs.statCustomers' | t }}</span>
+          <span class="rounded-md border border-brand/40 bg-brand-soft px-2 py-0.5 text-brand-ink"><b>{{ staffCount(o.id) }}</b> {{ 'AdminOrgs.statStaff' | t }}</span>
+          @if (childrenOf(o.id).length; as nc) { <span class="rounded-md border border-line bg-surface px-2 py-0.5">{{ 'AdminOrgs.statUnder' | t: { n: nc } }}</span> }
           <span class="rounded-md border border-line bg-surface px-2 py-0.5"><b class="text-ink">{{ o.branches.length }}</b> {{ 'AdminOrgs.statBranches' | t }}</span>
           @if (waitingOf(o.id); as w) { <span class="rounded-md bg-warn-soft px-2 py-0.5 text-warn-ink"><b>{{ w }}</b> {{ 'AdminOrgs.statWaiting' | t }}</span> }
         </span>
       </span>
+      @if (adminOf(o.id, null); as a) {
+        <span class="hidden shrink-0 items-center gap-2 md:flex">
+          <span aria-hidden="true" class="grid size-9 place-items-center rounded-full bg-ink text-xs font-bold text-white">{{ initials(a.fullName) }}</span>
+          <span class="text-sm leading-tight"><span class="block text-xs text-muted">{{ 'AdminOrgs.orgAdmin' | t }}</span><b dir="auto">{{ a.fullName }}</b></span>
+        </span>
+      }
       @if (leaderOf(o.teamLeaderId); as l) {
         <span class="hidden shrink-0 items-center gap-2 md:flex">
           <span aria-hidden="true" class="grid size-9 place-items-center rounded-full bg-brand-soft text-xs font-bold text-brand-ink">{{ initials(l.fullName) }}</span>
@@ -1182,6 +1218,7 @@ export class PlaceForm implements OnInit {
             {{ 'AdminOrgs.tab_' + k | t }}
             @if (k === 'branches') { <span class="rounded-full bg-bg px-2 text-xs">{{ o.branches.length }}</span> }
             @if (k === 'customers') { <span class="rounded-full bg-bg px-2 text-xs">{{ peopleOf(o.id).length }}</span> }
+            @if (k === 'staff') { <span class="rounded-full bg-bg px-2 text-xs">{{ staffCount(o.id) }}</span> }
           </button>
         }
       </div>
@@ -1192,13 +1229,15 @@ export class PlaceForm implements OnInit {
             <div class="rounded-xl border border-line p-3"><dt class="text-xs font-semibold text-muted">{{ 'Directory.location' | t }}</dt><dd class="font-semibold" dir="auto">{{ o.location || '-' }}</dd></div>
             <div class="rounded-xl border border-line p-3"><dt class="text-xs font-semibold text-muted">{{ 'Directory.telephone' | t }}</dt><dd class="font-semibold" dir="ltr">{{ o.phone || '-' }}</dd></div>
             <div class="rounded-xl border border-line p-3"><dt class="text-xs font-semibold text-muted">{{ 'Directory.teamLeader' | t }}</dt><dd class="font-semibold" dir="auto">{{ leaderOf(o.teamLeaderId)?.fullName || '-' }}</dd></div>
+            <div class="rounded-xl border border-line p-3"><dt class="text-xs font-semibold text-muted">{{ 'AdminOrgs.belongsTo' | t }}</dt><dd class="font-semibold" dir="auto">{{ parentName(o) || ('AdminOrgs.topLevel' | t) }}</dd></div>
+            <div class="rounded-xl border border-line p-3"><dt class="text-xs font-semibold text-muted">{{ 'AdminOrgs.under' | t }}</dt><dd class="font-semibold" dir="auto">{{ childNames(o.id) || '-' }}</dd></div>
           </dl>
           <div class="flex flex-wrap gap-2">
             <button type="button" [class]="toggleBtn" [disabled]="busy()" (click)="setOrgActive(o, !o.isActive)">{{ (o.isActive ? 'Directory.deactivate' : 'Directory.activate') | t }}</button>
             <button type="button" [class]="toggleBtn" [attr.aria-expanded]="editOrg === o.id" (click)="editOrg = editOrg === o.id ? null : o.id">{{ 'Directory.editDetails' | t }}</button>
           </div>
           @if (editOrg === o.id) {
-            <div class="rounded-xl border border-line bg-[#fafcff] p-4"><app-place-form [row]="o" [leaders]="leaderList()" [busy]="busy()" (save)="updateOrg(o, $event)" (remove)="deleteOrg(o)" /></div>
+            <div class="rounded-xl border border-line bg-[#fafcff] p-4"><app-place-form [row]="o" [leaders]="leaderList()" [parentChoices]="parentsFor(o.id)" [busy]="busy()" (save)="updateOrg(o, $event)" (remove)="deleteOrg(o)" /></div>
           }
         </div>
       }
@@ -1212,7 +1251,8 @@ export class PlaceForm implements OnInit {
                   <b class="flex-1" dir="auto">{{ b.name }}</b>
                   <span class="rounded-full px-2 py-0.5 text-xs font-bold" [class]="b.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (b.isActive ? 'Directory.active' : 'Directory.inactive') | t }}</span>
                 </div>
-                <p class="text-sm text-muted">{{ 'AdminOrgs.branchCustomers' | t: { count: branchPeople(b.id) } }}</p>
+                <p class="text-sm text-muted">{{ 'AdminOrgs.branchCustomers' | t: { count: branchPeople(b.id) } }} · <b class="text-brand-ink">{{ 'AdminOrgs.branchStaff' | t: { count: placeStaff(o.id, b.id).length } }}</b></p>
+                @if (adminOf(o.id, b.id); as ba) { <p class="rounded-md bg-brand-soft px-2 py-1 text-sm">{{ 'AdminOrgs.branchAdmin' | t }}: <b dir="auto">{{ ba.fullName }}</b></p> }
                 <dl class="flex flex-col gap-0.5 text-sm">
                   <div class="flex gap-1.5"><dt class="text-muted">{{ 'Directory.location' | t }}:</dt><dd dir="auto">{{ b.location || '-' }}</dd></div>
                   <div class="flex gap-1.5"><dt class="text-muted">{{ 'Directory.telephone' | t }}:</dt><dd dir="ltr">{{ b.phone || '-' }}</dd></div>
@@ -1221,6 +1261,7 @@ export class PlaceForm implements OnInit {
                 <div class="mt-auto flex flex-wrap gap-2 pt-1">
                   <button type="button" [class]="toggleBtn" [attr.aria-expanded]="editBranch === b.id" (click)="editBranch = editBranch === b.id ? null : b.id; addBranchFor = null">{{ 'AdminOrgs.edit' | t }}<span class="sr-only"> {{ b.name }}</span></button>
                   <button type="button" [class]="toggleBtn" [disabled]="busy()" (click)="setBranchActive(o, b, !b.isActive)">{{ (b.isActive ? 'Directory.deactivate' : 'Directory.activate') | t }}<span class="sr-only"> {{ b.name }}</span></button>
+                  <button type="button" [class]="toggleBtn" (click)="orgTab[o.id] = 'staff'; sPlace[o.id] = b.id">{{ 'AdminOrgs.tab_staff' | t }}<span class="sr-only"> {{ b.name }}</span></button>
                 </div>
               </li>
             }
@@ -1244,6 +1285,55 @@ export class PlaceForm implements OnInit {
               <h3 class="mb-3 font-bold">{{ 'Directory.addBranch' | t }}</h3>
               <app-place-form [branch]="true" [leaders]="leaderList()" [busy]="busy()" (save)="createBranch(o.id, $event)" />
             </div>
+          }
+        </div>
+      }
+
+      @if (tab === 'staff') {
+        <div class="flex flex-col gap-3 p-5">
+          @if (!staffCount(o.id)) { <p class="text-muted">{{ 'AdminOrgs.noStaff' | t }}</p> } @else {
+            <div class="flex flex-wrap items-center gap-2">
+              <label class="sr-only" [for]="'sq-' + o.id">{{ 'AdminOrgs.searchStaff' | t }}</label>
+              <input [id]="'sq-' + o.id" type="search" dir="auto" [placeholder]="'AdminOrgs.searchStaff' | t" [value]="sq[o.id] ?? ''" (input)="sq[o.id] = $any($event.target).value"
+                class="min-h-11 min-w-56 flex-1 rounded-lg border border-line bg-surface px-3 text-sm" />
+              <div class="flex overflow-hidden rounded-lg border border-line" role="group" [attr.aria-label]="'AdminOrgs.filterRole' | t">
+                @for (f of roleFilters; track f) {
+                  <button type="button" [attr.aria-pressed]="(sRole[o.id] ?? 'all') === f" (click)="sRole[o.id] = f"
+                    class="min-h-11 cursor-pointer px-3 text-xs font-semibold" [class]="(sRole[o.id] ?? 'all') === f ? 'bg-ink text-white' : 'bg-surface hover:bg-bg'">
+                    {{ 'AdminOrgs.role_' + f | t }} <span class="opacity-70">{{ staffOf(o, f, '').length }}</span></button>
+                }
+              </div>
+            </div>
+            @if (sPlace[o.id]) {
+              <p class="text-sm">{{ 'AdminOrgs.onlyPlace' | t: { name: branchName(sPlace[o.id]) } }} <button type="button" class="cursor-pointer font-semibold text-brand-ink underline" (click)="sPlace[o.id] = ''">{{ 'AdminOrgs.showAllPlaces' | t }}</button></p>
+            }
+            @for (g of staffGroups(o); track g.key) {
+              <h3 class="mt-2 flex items-center gap-2 text-sm font-bold text-brand-ink" dir="auto">{{ g.label }} <span class="font-normal text-muted">· {{ g.rows.length }}</span></h3>
+              <div class="overflow-hidden rounded-xl border border-line">
+                <table class="w-full table-fixed text-sm">
+                  <caption class="sr-only">{{ g.label }}</caption>
+                  <thead class="bg-[#f7f9fd] text-xs uppercase tracking-wider text-muted"><tr>
+                    <th scope="col" class="w-[34%] px-3 py-2.5 text-start font-bold">{{ 'AdminOrgs.thName' | t }}</th>
+                    <th scope="col" class="w-[20%] px-3 py-2.5 text-start font-bold">{{ 'AdminOrgs.thRole' | t }}</th>
+                    <th scope="col" class="hidden px-3 py-2.5 text-start font-bold md:table-cell">{{ 'AdminOrgs.thType' | t }}</th>
+                    <th scope="col" class="hidden px-3 py-2.5 text-start font-bold sm:table-cell">{{ 'AdminOrgs.thTeam' | t }}</th>
+                  </tr></thead>
+                  <tbody>
+                    @for (s of g.rows; track s.id) {
+                      <tr class="border-t border-line hover:bg-[#f9fbfe]">
+                        <td class="px-3 py-2.5"><a [routerLink]="'/' + i18n.locale() + '/admin/users'" [queryParams]="{ open: s.id }" class="font-semibold text-brand-ink hover:underline" dir="auto">{{ s.fullName }}</a>
+                          <span class="block truncate text-xs text-muted" dir="ltr">{{ s.email }}</span></td>
+                        <td class="px-3 py-2.5"><span class="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold" [class]="roleTone(s)">{{ roleLabel(s) }}</span>
+                          @if (s.status !== 'active') { <span class="ms-1 text-xs text-muted">{{ 'Status.' + s.status | t }}</span> }</td>
+                        <td class="hidden px-3 py-2.5 text-muted md:table-cell" dir="auto">{{ s.typeEn ? i18n.pick(s.typeEn, s.typeAr ?? s.typeEn) : '-' }}</td>
+                        <td class="hidden px-3 py-2.5 sm:table-cell" dir="auto">{{ teamsLabel(s) }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @empty { <p class="text-muted">{{ 'AdminOrgs.noMatch' | t }}</p> }
+            <p class="text-xs text-muted">{{ 'AdminOrgs.staffNote' | t }}</p>
           }
         </div>
       }
@@ -1318,6 +1408,7 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
   private readonly http = inject(HttpClient);
   protected readonly rows = signal<OrgRow[] | null>(null);
   protected readonly people = signal<OrgPerson[]>([]);
+  protected readonly staff = signal<OrgStaff[]>([]);
   protected readonly mode = signal<'org' | 'branch' | null>(null);
   protected readonly addBtn = 'inline-flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg bg-brand px-5 font-semibold text-white hover:bg-brand-ink sm:flex-none';
   protected readonly toggleBtn = 'min-h-10 cursor-pointer rounded-lg border border-line bg-surface px-4 text-sm font-semibold hover:bg-bg disabled:opacity-60';
@@ -1339,11 +1430,11 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
   async ngOnInit(): Promise<void> { await Promise.all([this.loadLookups(), this.reload()]); }
   protected async reload(): Promise<void> {
     try {
-      const [rows, people] = await Promise.all([this.api.get<OrgRow[]>('organizations'), this.api.get<OrgPerson[]>('organizations/people')]);
+      const [rows, people, staff] = await Promise.all([this.api.get<OrgRow[]>('organizations'), this.api.get<OrgPerson[]>('organizations/people'), this.api.get<OrgStaff[]>('organizations/staff')]);
       // Same order as v1 (Postgres collation): "Al-Qalyubia" before "Alex".
       const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
       for (const o of rows) o.branches.sort(byName);
-      this.rows.set(rows.sort(byName)); this.people.set(people);
+      this.rows.set(treeOrder(rows.sort(byName))); this.people.set(people); this.staff.set(staff);
       if (!this.parent || !rows.some((o) => o.id === this.parent && o.isActive)) this.parent = rows.find((o) => o.isActive)?.id ?? '';
     } catch (e) { this.fail(e); }
   }
@@ -1354,8 +1445,54 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
   protected leaderOf(id: string | null) { return this.leaderList().find((p) => p.id === id) ?? null; }
   protected readonly Math = Math;
   protected readonly pageSize = 25;
-  protected readonly orgTabs = ['details', 'branches', 'customers'] as const;
-  protected orgTab: Record<string, 'details' | 'branches' | 'customers'> = {};
+  protected readonly orgTabs = ['details', 'branches', 'customers', 'staff'] as const;
+  protected orgTab: Record<string, 'details' | 'branches' | 'customers' | 'staff'> = {};
+  /** Staff tab per organization: search text, role filter and one branch ('' = all places). */
+  protected sq: Record<string, string> = {};
+  protected sRole: Record<string, string> = {};
+  protected sPlace: Record<string, string> = {};
+  protected readonly roleFilters = ['all', 'admins', 'leaders', 'agents'];
+  private org(id: string | null): OrgRow | undefined { return (this.rows() ?? []).find((o) => o.id === id); }
+  protected parentName(o: OrgRow): string { return this.org(o.parentId)?.name ?? ''; }
+  protected childrenOf(id: string): OrgRow[] { return (this.rows() ?? []).filter((o) => o.parentId === id); }
+  protected childNames(id: string): string { return this.childrenOf(id).map((o) => o.name).join(', '); }
+  /** How deep in the tree (0 = top), for the indent. */
+  protected depth(o: OrgRow): number { let d = 0; for (let p = this.org(o.parentId); p && d < 10; p = this.org(p.parentId)) d++; return d; }
+  /** Parent choices: every organization except this one and those under it (no loops). */
+  protected parentsFor(id: string | null): { id: string; name: string }[] {
+    const all = this.rows() ?? [];
+    const banned = new Set<string>();
+    if (id) { const stack = [id]; while (stack.length) { const x = stack.pop()!; banned.add(x); for (const c of all.filter((o) => o.parentId === x)) if (!banned.has(c.id)) stack.push(c.id); } }
+    return all.filter((o) => !banned.has(o.id)).map((o) => ({ id: o.id, name: o.name })).sort((a, b) => a.name.localeCompare(b.name));
+  }
+  protected staffCount(org: string): number { return new Set(this.staff().filter((s) => s.organizationId === org).map((s) => s.id)).size; }
+  protected placeStaff(org: string, branch: string | null): OrgStaff[] { return this.staff().filter((s) => s.organizationId === org && s.branchId === branch); }
+  protected adminOf(org: string, branch: string | null): OrgStaff | undefined { return this.placeStaff(org, branch).find((s) => s.adminHere); }
+  private kind(s: OrgStaff): string { return s.adminHere || s.role === 'admin' ? 'admins' : s.role === 'team_leader' ? 'leaders' : s.role === 'agent' ? 'agents' : 'other'; }
+  protected staffOf(o: OrgRow, role: string, place: string): OrgStaff[] {
+    const q = (this.sq[o.id] ?? '').trim().toLowerCase();
+    return this.staff().filter((s) => s.organizationId === o.id && (role === 'all' || this.kind(s) === role) && (!place || s.branchId === place)
+      && (!q || (s.fullName + ' ' + s.email).toLowerCase().includes(q)));
+  }
+  protected staffGroups(o: OrgRow): { key: string; label: string; rows: OrgStaff[] }[] {
+    const rows = this.staffOf(o, this.sRole[o.id] ?? 'all', this.sPlace[o.id] ?? '');
+    const order = (s: OrgStaff) => ['admins', 'leaders', 'agents', 'other'].indexOf(this.kind(s));
+    const sort = (l: OrgStaff[]) => l.sort((a, b) => order(a) - order(b) || a.fullName.localeCompare(b.fullName));
+    const groups = [{ key: '', label: this.i18n.t('AdminOrgs.headOffice'), rows: sort(rows.filter((s) => !s.branchId)) },
+      ...o.branches.map((b) => ({ key: b.id, label: b.name, rows: sort(rows.filter((s) => s.branchId === b.id)) }))];
+    return groups.filter((g) => g.rows.length);
+  }
+  protected roleLabel(s: OrgStaff): string {
+    if (s.adminHere) return this.i18n.t(s.branchId ? 'AdminOrgs.branchAdmin' : 'AdminOrgs.orgAdmin');
+    return this.i18n.t('AdminOrgs.r_' + s.role);
+  }
+  protected roleTone(s: OrgStaff): string {
+    const k = this.kind(s);
+    return k === 'admins' ? 'bg-ink text-white' : k === 'leaders' ? 'bg-warn-soft text-warn-ink' : k === 'agents' ? 'bg-brand-soft text-brand-ink' : 'bg-bg text-muted';
+  }
+  protected teamsLabel(s: OrgStaff): string {
+    return s.teams.map((t) => this.i18n.pick(t.nameEn, t.nameAr) + (t.isLeader ? ' (' + this.i18n.t('AdminOrgs.leads') + ')' : '')).join(', ') || '-';
+  }
   protected editOrg: string | null = null;
   protected editBranch: string | null = null;
   protected addBranchFor: string | null = null;
@@ -1387,13 +1524,13 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
     return list.slice(p * this.pageSize, (p + 1) * this.pageSize);
   }
   private body(r: OrgRow | BranchRow): PlaceModel {
-    return { name: r.name, location: r.location ?? '', phone: r.phone ?? '', teamLeaderId: r.teamLeaderId, isActive: r.isActive, sharedAccessEnabled: (r as OrgRow).sharedAccessEnabled ?? false };
+    return { name: r.name, location: r.location ?? '', phone: r.phone ?? '', teamLeaderId: r.teamLeaderId, isActive: r.isActive, sharedAccessEnabled: (r as OrgRow).sharedAccessEnabled ?? false, parentId: (r as OrgRow).parentId ?? null };
   }
-  protected async createOrg(m: PlaceModel): Promise<void> { if (await this.run(() => this.api.post('organizations', { ...m, isActive: true }))) { this.mode.set(null); await this.loadLookups(); } }
+  protected async createOrg(m: PlaceModel): Promise<void> { if (await this.run(() => this.api.post('organizations', { ...m, isActive: true, setParent: true }))) { this.mode.set(null); await this.loadLookups(); } }
   protected async createBranch(org: string, m: PlaceModel, box?: { open: boolean }): Promise<void> {
     if (await this.run(() => this.api.post('branches', { ...m, isActive: true, organizationId: org }))) { this.mode.set(null); this.addBranchFor = null; if (box) box.open = false; await this.loadLookups(); }
   }
-  protected updateOrg(o: OrgRow, m: PlaceModel): void { void this.run(() => this.api.put('organizations/' + o.id, m)); }
+  protected updateOrg(o: OrgRow, m: PlaceModel): void { void this.run(() => this.api.put('organizations/' + o.id, { ...m, setParent: true })); }
   protected setOrgActive(o: OrgRow, on: boolean): void { void this.run(() => this.api.put('organizations/' + o.id, { ...this.body(o), isActive: on })); }
   protected setBranchActive(o: OrgRow, b: BranchRow, on: boolean): void { void this.run(() => this.api.put('branches/' + b.id, { ...this.body(b), isActive: on, organizationId: o.id })); }
   protected async deleteOrg(o: OrgRow): Promise<void> { if (await this.run(() => this.api.del('organizations/' + o.id), 'AdminV2.deleted')) await this.loadLookups(); }
