@@ -27,6 +27,10 @@ public sealed record CreatedTicket(Guid Id, string Reference);
 public sealed record ChangeStatusCommand(string To, string? Reason, string? Resolution, string? ClosureReason);
 
 public sealed record AssignCommand(Guid TeamId, Guid? AgentId, string? Reason);
+/// <summary>One choice in the agent's Reassign box: kind is agents | leader | queue | auto; Id is the person (agents, leader).</summary>
+public sealed record ReassignOption(string Kind, Guid? Id, string? Name);
+public sealed record ReassignInfo(bool ReasonRequired, bool Once, IReadOnlyList<ReassignOption> Options);
+public sealed record ReassignCommand(string Kind, Guid? AgentId, string? Reason);
 
 /// <summary>
 /// Ticket writes (spec 8, TicketService + AssignmentService core). Each public method is one transaction
@@ -371,6 +375,101 @@ public sealed class TicketService(
         await tx.CommitAsync(ct);
     }
 
+    // ------------------------------------------------------------------ reassign (Settings → Reassign tickets)
+
+    /// <summary>The Reassign tickets rule for the ticket's place: its branch, its organization and the ones above, then the default.</summary>
+    public async Task<ReassignRule> ReassignRuleAsync(Ticket t, CancellationToken ct = default)
+    {
+        var chain = new List<string?>();
+        if (t.OrganizationId is Guid org)
+        {
+            var orgs = await db.Organizations.AsNoTracking().Select(o => new { o.Id, o.ParentId, o.ReassignRule }).ToDictionaryAsync(o => o.Id, ct);
+            for (Guid? cur = org; cur is Guid id && chain.Count <= 30 && orgs.TryGetValue(id, out var o); cur = o.ParentId) chain.Add(o.ReassignRule);
+        }
+        var branch = t.BranchId is Guid b ? await db.Branches.AsNoTracking().Where(x => x.Id == b).Select(x => x.ReassignRule).FirstOrDefaultAsync(ct) : null;
+        return ReassignRule.Resolve(branch, chain, await settings.GetRawAsync(SettingsService.ReassignDefaultKey, ct));
+    }
+
+    /// <summary>
+    /// What the agent assigned to an open ticket may hand it to, or null when they may not reassign it (rule off, not
+    /// theirs, closed, or "only once" already used). Team leaders and administrators keep the normal Assign box.
+    /// </summary>
+    public async Task<ReassignInfo?> ReassignOptionsAsync(AccessContext c, Ticket t, CancellationToken ct = default)
+    {
+        if (!c.Staff || t.AssignedAgentId != c.UserId || t.TeamId is not Guid team) return null;
+        if (t.Status is TicketStatus.Resolved or TicketStatus.Closed) return null;
+        var rule = await ReassignRuleAsync(t, ct);
+        if (!rule.On || rule.To.Count == 0) return null;
+        if (rule.Once && await UsedReassignAsync(t.Id, c.UserId, ct)) return null;
+
+        var people = await (from m in db.TeamMembers
+                            join p in db.Profiles on m.UserId equals p.Id
+                            where m.TeamId == team && m.UserId != c.UserId && p.AccountStatus == AccountStatus.Active
+                                  && (from ur in db.UserRoles join ro in db.Roles on ur.RoleId equals ro.Id
+                                      where ur.UserId == m.UserId && (ro.Code == RoleCode.Agent || ro.Code == RoleCode.TeamLeader) select 1).Any()
+                            orderby p.FullName
+                            select new { m.UserId, m.IsLeader, p.FullName }).ToListAsync(ct);
+        var options = new List<ReassignOption>();
+        if (rule.To.Contains(ReassignRule.Queue)) options.Add(new(ReassignRule.Queue, null, null));
+        if (rule.To.Contains(ReassignRule.Auto)) options.Add(new(ReassignRule.Auto, null, null));
+        foreach (var x in people)
+        {
+            var kind = x.IsLeader ? ReassignRule.Leader : ReassignRule.Agents;
+            if (!rule.To.Contains(kind) || !await access.UserInScopeAsync(x.UserId, t.RequesterId, ct)) continue;
+            options.Add(new(kind, x.UserId, x.FullName));
+        }
+        return options.Count == 0 ? null : new ReassignInfo(rule.ReasonRequired, rule.Once, options);
+    }
+
+    /// <summary>The Reassign box for the caller on this ticket (null: no box).</summary>
+    public async Task<ReassignInfo?> ReassignOptionsAsync(Guid ticketId, CancellationToken ct = default)
+    {
+        var (c, _) = await access.RequireTicketAsync(ticketId, ct);
+        var t = await db.Tickets.AsNoTracking().FirstAsync(x => x.Id == ticketId, ct);
+        return await ReassignOptionsAsync(c, t, ct);
+    }
+
+    /// <summary>An agent has already handed this ticket over (moved it away from themselves).</summary>
+    private Task<bool> UsedReassignAsync(Guid ticketId, Guid me, CancellationToken ct) =>
+        db.TicketAssignments.AnyAsync(a => a.TicketId == ticketId && a.AssignedBy == me && a.FromAgent == me && (a.ToAgent == null || a.ToAgent != me), ct);
+
+    /// <summary>The agent hands their ticket to someone the place's rule allows, back to the team queue, or to the team's automatic rule.</summary>
+    public async Task ReassignAsync(Guid ticketId, ReassignCommand cmd, CancellationToken ct = default)
+    {
+        var (c, _) = await access.RequireTicketAsync(ticketId, ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        var t = await db.Tickets.FirstAsync(x => x.Id == ticketId, ct);
+        var info = await ReassignOptionsAsync(c, t, ct) ?? throw new ForbiddenException("not allowed to reassign this ticket");
+        var pick = info.Options.FirstOrDefault(o => o.Kind == cmd.Kind && (o.Id is null ? cmd.AgentId is null : o.Id == cmd.AgentId))
+                   ?? throw new ValidationFailedException("choose who gets the ticket", "agentId");
+        var reason = (cmd.Reason ?? "").Trim();
+        if (reason.Length > 1000 || (info.ReasonRequired && reason.Length < 3)) throw new ValidationFailedException("a reason is required", "reason");
+
+        var now = clock.UtcNow;
+        var before = new { agent_id = t.AssignedAgentId };
+        var a = new TicketAssignment
+        {
+            Id = Guid.NewGuid(), TicketId = t.Id, FromAgent = c.UserId, ToAgent = pick.Id, FromTeam = t.TeamId, ToTeam = t.TeamId,
+            AssignedBy = c.UserId, Reason = reason.Length == 0 ? null : reason, CreatedAt = now,
+        };
+        db.TicketAssignments.Add(a);
+        t.AssignedAgentId = pick.Id;
+        t.UpdatedAt = now;
+        var payload = await notifications.TicketPayloadAsync(t.Id, new Dictionary<string, object?> { ["reason"] = a.Reason }, ct);
+        if (pick.Id is Guid to) await notifications.NotifyAsync(to, NotificationEvent.TicketAssigned, t.Id, payload, a.Id.ToString(), ct);
+        else if (pick.Kind == ReassignRule.Queue)
+        {
+            var team = await db.Teams.AsNoTracking().FirstAsync(x => x.Id == t.TeamId, ct);
+            var waiting = await notifications.TicketPayloadAsync(t.Id, new Dictionary<string, object?> { ["team"] = team.NameEn, ["teamAr"] = team.NameAr, ["reason"] = a.Reason }, ct);
+            var tell = await db.TeamMembers.Where(m => m.TeamId == team.Id && m.UserId != c.UserId).Select(m => m.UserId).ToListAsync(ct);
+            foreach (var u in tell) await notifications.NotifyAsync(u, NotificationEvent.TeamTicketWaiting, t.Id, waiting, "ticket:" + t.Id, ct);
+        }
+        audit.Write("ticket.reassigned", "ticket", t.Id, before, new { kind = pick.Kind, agent_id = pick.Id, reason = a.Reason });
+        await SaveAsync(ct);
+        if (pick.Kind == ReassignRule.Auto) { await AutoAssignAsync(t, ct, null, exclude: c.UserId); await SaveAsync(ct); }
+        await tx.CommitAsync(ct);
+    }
+
     /// <summary>
     /// Teams per place: the category's kind of team in the customer's branch, then their organization (and the ones above
     /// it), then a central team (Settings → System → Ticket routing). Null when the category has no kind or nothing fits.
@@ -413,7 +512,7 @@ public sealed class TicketService(
     /// The team's method (or the default) then decides: fewest open tickets, take turns, shared with the team (everyone is
     /// told; the first to take it gets it) or the team leader chooses. A category can switch automatic assignment off.
     /// </summary>
-    public async Task<Guid?> AutoAssignAsync(Ticket t, CancellationToken ct = default, string? step = null)
+    public async Task<Guid?> AutoAssignAsync(Ticket t, CancellationToken ct = default, string? step = null, Guid? exclude = null)
     {
         if (t.TeamId is not Guid team || t.AssignedAgentId is not null) return null;
         var catAuto = await db.TicketCategories.Where(x => x.Id == t.CategoryId).Select(x => (bool?)x.AutoAssign).FirstOrDefaultAsync(ct);
@@ -436,7 +535,7 @@ public sealed class TicketService(
         var chosen = await db.CategoryPeople.Where(x => x.CategoryId == t.CategoryId && x.TeamId == team).Select(x => x.UserId).ToListAsync(ct);
         var pool = new List<(Guid UserId, int Load)>();
         foreach (var x in candidates)
-            if ((chosen.Count == 0 || chosen.Contains(x.UserId)) && await access.UserInScopeAsync(x.UserId, t.RequesterId, ct)) pool.Add((x.UserId, x.Load));
+            if (x.UserId != exclude && (chosen.Count == 0 || chosen.Contains(x.UserId)) && await access.UserInScopeAsync(x.UserId, t.RequesterId, ct)) pool.Add((x.UserId, x.Load));
         var leaders = await db.TeamMembers.Where(m => m.TeamId == team && m.IsLeader).Select(m => m.UserId).ToListAsync(ct);
         var by = leaders.Cast<Guid?>().FirstOrDefault() ?? t.CreatedBy ?? t.RequesterId;
         var now = clock.UtcNow;

@@ -508,3 +508,25 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_tickets_branch' AND object_id = OBJECT_ID(N'ccs.tickets'))
     CREATE INDEX IX_tickets_branch ON ccs.tickets (branch_id) WHERE branch_id IS NOT NULL;
 GO
+-- Escalation "Specific leaders" (escalation_picks: the chain steps an agent may choose) and the per-place
+-- Reassign tickets rule (reassign_rule; NULL uses the level above, then the default in app_settings).
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_org_escalation' AND definition LIKE N'%''specific''%')
+BEGIN
+    ALTER TABLE ccs.organizations DROP CONSTRAINT CK_org_escalation;
+    ALTER TABLE ccs.organizations ADD CONSTRAINT CK_org_escalation CHECK (escalation_mode IN ('off','next','any','specific'));
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_branches_escalation' AND definition LIKE N'%''specific''%')
+BEGIN
+    ALTER TABLE ccs.branches DROP CONSTRAINT CK_branches_escalation;
+    ALTER TABLE ccs.branches ADD CONSTRAINT CK_branches_escalation CHECK (escalation_mode IN ('off','next','any','specific'));
+END
+GO
+IF COL_LENGTH(N'ccs.organizations', N'escalation_picks') IS NULL
+    ALTER TABLE ccs.organizations ADD escalation_picks nvarchar(max) NULL CONSTRAINT CK_org_escalation_picks CHECK (escalation_picks IS NULL OR ISJSON(escalation_picks) = 1),
+                                      reassign_rule nvarchar(400) NULL CONSTRAINT CK_org_reassign CHECK (reassign_rule IS NULL OR ISJSON(reassign_rule) = 1);
+GO
+IF COL_LENGTH(N'ccs.branches', N'escalation_picks') IS NULL
+    ALTER TABLE ccs.branches ADD escalation_picks nvarchar(max) NULL CONSTRAINT CK_branches_escalation_picks CHECK (escalation_picks IS NULL OR ISJSON(escalation_picks) = 1),
+                                 reassign_rule nvarchar(400) NULL CONSTRAINT CK_branches_reassign CHECK (reassign_rule IS NULL OR ISJSON(reassign_rule) = 1);
+GO

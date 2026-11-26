@@ -8,6 +8,9 @@ import { Message, NewTicketOptions, TicketDetail } from '../../core/api';
 import { Alert, Req, ReqNote } from '../../shared/ui';
 
 export interface EscalationTarget { id: string; name: string; label: string; ruleKey: string }
+/** Settings → Reassign tickets: one choice in the agent's Reassign box. */
+export interface ReassignOption { kind: 'agents' | 'leader' | 'queue' | 'auto'; id: string | null; name: string | null }
+export interface ReassignInfo { reasonRequired: boolean; once: boolean; options: ReassignOption[] }
 export interface TicketLinkDto { kind: 'duplicate_of' | 'follow_up_of'; direction: 'from' | 'to'; otherId: string | null; otherReference: string | null }
 export interface CancellationDto { id: string; reason: string; status: string; requesterName: string | null; createdAt: string; decisionNote: string | null }
 export interface StaffFieldDto { id: string; key: string; labelEn: string; labelAr: string; type: string; options: string; isRequired: boolean }
@@ -28,6 +31,8 @@ type Msg = { tone: 'success' | 'error'; text: string } | null;
 export class LifecycleApi {
   private readonly http = inject(HttpClient);
   private u(id: string, p: string) { return `/api/tickets/${id}/${p}`; }
+  /** Null when the caller may not reassign this ticket (the server answers 204). */
+  reassign(id: string): Promise<ReassignInfo | null> { return firstValueFrom(this.http.get<ReassignInfo | null>(this.u(id, 'reassign'))); }
   get(id: string): Promise<TicketLifecycle> { return firstValueFrom(this.http.get<TicketLifecycle>(this.u(id, 'lifecycle'))); }
   post<T = unknown>(id: string, p: string, body: unknown = {}): Promise<T> { return firstValueFrom(this.http.post<T>(this.u(id, p), body)); }
   put(id: string, p: string, body: unknown): Promise<unknown> { return firstValueFrom(this.http.put(this.u(id, p), body)); }
@@ -325,6 +330,63 @@ export class StaffLifecycle extends Panel {
   protected saveFields(): void {
     const v = Object.fromEntries(Object.entries(this.values()).map(([k, x]) => [k, x === '' ? null : x]));
     void this.run(() => this.api.put(this.id, 'staff-fields', v), 'CustomFields.saved');
+  }
+}
+
+// ============================================================== reassign (agent hands over their own ticket)
+
+/**
+ * The agent assigned to an open ticket hands it to someone the ticket's organization or branch allows
+ * (Settings → Reassign tickets). Hidden when reassigning is off there, or after an "only once" handover.
+ */
+@Component({
+  selector: 'app-ticket-reassign',
+  imports: [TPipe, Alert, Req, ReqNote],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
+    @if (info(); as x) {
+      <section [class]="cls.card" aria-labelledby="reassign-h">
+        <h2 id="reassign-h" class="text-lg font-bold">{{ 'Reassign.title' | t }}</h2>
+        <p class="mb-4 mt-1 text-sm text-muted">{{ 'Reassign.help' | t }}</p>
+        <form class="flex flex-col gap-4" (submit)="$event.preventDefault(); send()">
+          <div class="flex flex-col gap-1.5"><label for="ra-who" class="text-sm font-semibold">{{ 'Reassign.to' | t }}<app-req /></label>
+            <select id="ra-who" [class]="cls.field" (change)="pick.set(+$any($event.target).value)">
+              @for (o of x.options; track $index) { <option [value]="$index" [selected]="$index === pick()" dir="auto">{{ label(o) }}</option> }
+            </select></div>
+          <div class="flex flex-col gap-1.5"><label for="ra-why" class="text-sm font-semibold">{{ 'Reassign.reason' | t }}@if (x.reasonRequired) { <app-req /> } @else { <span class="font-normal text-muted"> ({{ 'Reassign.optional' | t }})</span> }</label>
+            <textarea id="ra-why" rows="2" maxlength="1000" dir="auto" [class]="cls.area" [placeholder]="'Reassign.reasonHint' | t" [value]="why()" (input)="why.set($any($event.target).value)"></textarea></div>
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+            <span class="min-w-40 flex-1 text-sm text-muted">{{ (x.once ? 'Reassign.onceNote' : 'Reassign.tellNote') | t }}</span>
+            <span class="flex flex-wrap items-center gap-3">@if (x.reasonRequired) { <app-req-note /> }<button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Reassign.submit' | t }}</button></span>
+          </div>
+        </form>
+      </section>
+    }`,
+})
+export class TicketReassign extends Panel {
+  readonly ticket = input.required<TicketDetail>();
+  protected readonly info = signal<ReassignInfo | null>(null);
+  protected readonly pick = signal(0);
+  protected readonly why = signal('');
+
+  constructor() {
+    super();
+    effect(() => { const t = this.ticket(); untracked(() => void this.load(t.id)); });
+  }
+  private async load(id: string): Promise<void> {
+    try { this.info.set(await this.api.reassign(id)); this.pick.set(0); } catch { this.info.set(null); }
+  }
+  protected label(o: ReassignOption): string {
+    if (o.kind === 'queue' || o.kind === 'auto') return this.i18n.t('Reassign.opt_' + o.kind);
+    return `${o.name} · ${this.i18n.t(o.kind === 'leader' ? 'Reassign.leader' : 'Reassign.agent')}`;
+  }
+  protected send(): void {
+    const x = this.info(); const o = x?.options[this.pick()];
+    if (!x || !o) return;
+    if (x.reasonRequired && this.why().trim().length < 3) { this.msg.set({ tone: 'error', text: this.i18n.t('Lifecycle.errors.reasonRequired') }); return; }
+    void this.run(() => this.api.post(this.ticket().id, 'reassign', { kind: o.kind, agentId: o.id, reason: this.why().trim() || null }), 'Reassign.done')
+      .then((ok) => { if (ok) { this.why.set(''); this.info.set(null); } });
   }
 }
 

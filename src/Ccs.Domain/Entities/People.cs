@@ -88,6 +88,8 @@ public class Organization
     public bool IsActive { get; set; } = true;
     public Guid? ParentId { get; set; }
     public string EscalationMode { get; set; } = "any";
+    public string? EscalationPicks { get; set; }
+    public string? ReassignRule { get; set; }
     public Guid? BusinessHoursId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
@@ -103,6 +105,8 @@ public class Branch
     public Guid? TeamLeaderId { get; set; }
     public bool IsActive { get; set; } = true;
     public string? EscalationMode { get; set; }
+    public string? EscalationPicks { get; set; }
+    public string? ReassignRule { get; set; }
     public Guid? BusinessHoursId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }

@@ -10,6 +10,21 @@ public sealed class SettingsService(ICcsDbContext db)
 {
     private Dictionary<string, string>? _cache;
 
+    /// <summary>Settings → Reassign tickets: the rule for places without one of their own (JSON, see ReassignRule).</summary>
+    public const string ReassignDefaultKey = "reassign_default";
+
+    /// <summary>The stored JSON text of a setting, or null.</summary>
+    public async Task<string?> GetRawAsync(string key, CancellationToken ct = default) => (await AllAsync(ct)).GetValueOrDefault(key);
+
+    /// <summary>Stores JSON text as it is (SetAsync would encode it as a string).</summary>
+    public async Task SetRawAsync(string key, string json, CancellationToken ct = default)
+    {
+        var row = await db.AppSettings.FirstOrDefaultAsync(s => s.Key == key, ct);
+        if (row is null) db.AppSettings.Add(new() { Key = key, Value = json });
+        else row.Value = json;
+        _cache = null;
+    }
+
     private async Task<Dictionary<string, string>> AllAsync(CancellationToken ct)
         => _cache ??= await db.AppSettings.AsNoTracking().ToDictionaryAsync(s => s.Key, s => s.Value, ct);
 

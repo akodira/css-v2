@@ -14,6 +14,7 @@ public sealed record CreateTicketBody([Required] Guid TypeId, [Required] Guid Ca
 public sealed record StatusBody([Required] string To, string? Reason, string? Resolution, string? ClosureReason);
 public sealed record MessageBody([Required] string Kind, [Required] string Body);
 public sealed record AssignBody([Required] Guid TeamId, Guid? AgentId, string? Reason);
+public sealed record ReassignBody([Required] string Kind, Guid? AgentId, string? Reason);
 public sealed record PriorityBody([Required] string Priority, string? Reason);
 
 /// <summary>Thin controller: every rule lives in TicketService / TicketQueries / AccessService.</summary>
@@ -61,6 +62,18 @@ public sealed class TicketsController(TicketService tickets, TicketQueries queri
     public async Task<IActionResult> Assign(Guid id, AssignBody b, CancellationToken ct)
     {
         await tickets.AssignAsync(id, new AssignCommand(b.TeamId, b.AgentId, b.Reason), ct);
+        return NoContent();
+    }
+
+    /// <summary>Settings → Reassign tickets: who the assigned agent may hand this ticket to (204 when they may not).</summary>
+    [HttpGet("{id:guid}/reassign"), DisableRateLimiting]
+    public async Task<ActionResult<ReassignInfo>> ReassignOptions(Guid id, CancellationToken ct) =>
+        await tickets.ReassignOptionsAsync(id, ct) is { } info ? Ok(info) : NoContent();
+
+    [HttpPost("{id:guid}/reassign")]
+    public async Task<IActionResult> Reassign(Guid id, ReassignBody b, CancellationToken ct)
+    {
+        await tickets.ReassignAsync(id, new ReassignCommand(b.Kind, b.AgentId, b.Reason), ct);
         return NoContent();
     }
 

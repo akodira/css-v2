@@ -215,7 +215,9 @@ CREATE TABLE ccs.organizations (
     team_leader_id        uniqueidentifier NULL,      -- FK added after profiles
     is_active             bit NOT NULL DEFAULT 1,
     parent_id             uniqueidentifier NULL CONSTRAINT FK_org_parent REFERENCES ccs.organizations(id),
-    escalation_mode       nvarchar(10) NOT NULL DEFAULT N'any' CONSTRAINT CK_org_escalation CHECK (escalation_mode IN ('off','next','any')),
+    escalation_mode       nvarchar(10) NOT NULL DEFAULT N'any' CONSTRAINT CK_org_escalation CHECK (escalation_mode IN ('off','next','any','specific')),
+    escalation_picks      nvarchar(max) NULL CONSTRAINT CK_org_escalation_picks CHECK (escalation_picks IS NULL OR ISJSON(escalation_picks) = 1),
+    reassign_rule         nvarchar(400) NULL CONSTRAINT CK_org_reassign CHECK (reassign_rule IS NULL OR ISJSON(reassign_rule) = 1),
     business_hours_id     uniqueidentifier NULL CONSTRAINT FK_org_bh REFERENCES ccs.business_hours(id),
     created_at            datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     updated_at            datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME(),
@@ -232,7 +234,9 @@ CREATE TABLE ccs.branches (
     phone             nvarchar(16) NULL CONSTRAINT CK_branches_phone CHECK (phone IS NULL OR (phone LIKE '+%' AND LEN(phone) BETWEEN 9 AND 16 AND SUBSTRING(phone,2,15) NOT LIKE '%[^0-9]%')),
     team_leader_id    uniqueidentifier NULL,
     is_active         bit NOT NULL DEFAULT 1,
-    escalation_mode   nvarchar(10) NULL CONSTRAINT CK_branches_escalation CHECK (escalation_mode IN ('off','next','any')),
+    escalation_mode   nvarchar(10) NULL CONSTRAINT CK_branches_escalation CHECK (escalation_mode IN ('off','next','any','specific')),
+    escalation_picks  nvarchar(max) NULL CONSTRAINT CK_branches_escalation_picks CHECK (escalation_picks IS NULL OR ISJSON(escalation_picks) = 1),
+    reassign_rule     nvarchar(400) NULL CONSTRAINT CK_branches_reassign CHECK (reassign_rule IS NULL OR ISJSON(reassign_rule) = 1),
     business_hours_id uniqueidentifier NULL CONSTRAINT FK_branches_bh REFERENCES ccs.business_hours(id),
     created_at        datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     updated_at        datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME()

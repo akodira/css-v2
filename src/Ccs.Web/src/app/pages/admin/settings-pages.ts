@@ -18,6 +18,7 @@ import { EMAIL_ALL_PLACEHOLDERS, FormatBar, GLOBAL_TOKENS, PlaceholderInfo, Plac
 import { RichText, varsOf } from '../../shared/rich-text';
 import { CLS, Msg } from './admin-pages';
 import { CleanupTab } from './cleanup-tab';
+import { ReassignTab } from './reassign-tab';
 import { feedbackFor } from '../../shared/feedback';
 import { RichEditor } from '../../shared/rich-editor';
 import { LockedAccountsPage, LockedCounts, LockoutPolicyPage, SecurityOverview } from './security-pages';
@@ -26,10 +27,10 @@ import { PhoneSettings } from './phone-settings';
 import { RoutingSettings } from './routing-settings';
 
 const CHECK = 'flex min-h-11 items-center gap-2';
-const TABS = ['', 'home', 'menus', 'email', 'templates', 'messages', 'uploads', 'system', 'handover', 'cleanup', 'security'];
+const TABS = ['', 'home', 'menus', 'email', 'templates', 'messages', 'uploads', 'system', 'handover', 'cleanup', 'reassign', 'security'];
 const TAB_LABEL: Record<string, string> = {
   '': 'tabBranding', home: 'tabHome', menus: 'tabMenus', email: 'tabEmail', templates: 'tabTemplates', messages: 'tabMessages',
-  uploads: 'tabUploads', system: 'tabSystem', handover: 'tabHandover', cleanup: 'tabCleanup', security: 'tabSecurity',
+  uploads: 'tabUploads', system: 'tabSystem', handover: 'tabHandover', cleanup: 'tabCleanup', reassign: 'tabReassign', security: 'tabSecurity',
 };
 
 /** Shared helpers for every settings tab: the API, the message line and a save wrapper. */
@@ -1770,7 +1771,7 @@ export class SecurityTab implements OnInit {
 
 @Component({
   selector: 'app-settings-page',
-  imports: [TPipe, RouterLink, BrandingTab, HomeTab, MenusTab, EmailTab, TemplatesTab, MessagesTab, UploadsTab, SystemTab, HandoverTab, CleanupTab, SecurityTab],
+  imports: [TPipe, RouterLink, BrandingTab, HomeTab, MenusTab, EmailTab, TemplatesTab, MessagesTab, UploadsTab, SystemTab, HandoverTab, CleanupTab, ReassignTab, SecurityTab],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       <div><h1 class="text-3xl font-bold tracking-tight">{{ 'AdminGeneral.title' | t }}</h1><p class="mt-1 max-w-prose text-muted">{{ 'AdminGeneral.subtitle' | t }}</p></div>
@@ -1791,6 +1792,7 @@ export class SecurityTab implements OnInit {
         @case ('system') { <app-set-system /> }
         @case ('handover') { <app-set-handover /> }
         @case ('cleanup') { <app-set-cleanup /> }
+        @case ('reassign') { <app-set-reassign /> }
         @case ('security') { <app-set-security [part]="secPart()" /> }
       }
     </main>`,

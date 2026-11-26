@@ -121,7 +121,8 @@ public sealed class TicketLifecycleService(
 
     // ------------------------------------------------------------------ escalation
 
-    private sealed record ChainRow(int Pos, string? Key, Guid Leader, string? Label);
+    /// <summary>One step up the chain. PickKey names the step for "Specific leaders": "branch", or "org:" + organization id.</summary>
+    private sealed record ChainRow(int Pos, string? Key, Guid Leader, string? Label, string PickKey);
 
     /// <summary>escalation_chain(): branch leader (or the team's leader), then each organization leader up the hierarchy.</summary>
     private async Task<List<ChainRow>> ChainAsync(Ticket t, CancellationToken ct)
@@ -129,12 +130,12 @@ public sealed class TicketLifecycleService(
         var req = new { t.OrganizationId, t.BranchId };   // the place the ticket was created in
         var rows = new List<ChainRow>();
         var br = req.BranchId is Guid b ? await db.Branches.AsNoTracking().Where(x => x.Id == b && x.TeamLeaderId != null).Select(x => new { x.TeamLeaderId, x.Name }).FirstOrDefaultAsync(ct) : null;
-        if (br is not null) rows.Add(new ChainRow(0, "branch", br.TeamLeaderId!.Value, br.Name));
+        if (br is not null) rows.Add(new ChainRow(0, "branch", br.TeamLeaderId!.Value, br.Name, "branch"));
         else if (t.TeamId is Guid team)
         {
             var tl = await (from m in db.TeamMembers join p in db.Profiles on m.UserId equals p.Id
                             where m.TeamId == team && m.IsLeader && p.AccountStatus == AccountStatus.Active select m.UserId).FirstOrDefaultAsync(ct);
-            if (tl != Guid.Empty) rows.Add(new ChainRow(0, "branch", tl, null));
+            if (tl != Guid.Empty) rows.Add(new ChainRow(0, "branch", tl, null, "branch"));
         }
         if (req.OrganizationId is Guid org)
         {
@@ -142,23 +143,30 @@ public sealed class TicketLifecycleService(
             var cur = orgs.FirstOrDefault(o => o.Id == org);
             for (var depth = 0; cur is not null && depth <= 30; depth++)
             {
-                if (cur.TeamLeaderId is Guid lid) rows.Add(new ChainRow(1 + depth, cur.ParentId is not null ? "level:" + cur.Id : null, lid, cur.Name));
+                if (cur.TeamLeaderId is Guid lid) rows.Add(new ChainRow(1 + depth, cur.ParentId is not null ? "level:" + cur.Id : null, lid, cur.Name, "org:" + cur.Id));
                 cur = cur.ParentId is Guid pid ? orgs.FirstOrDefault(o => o.Id == pid) : null;
             }
         }
         return rows;
     }
 
-    /// <summary>escalation_targets(): who the caller may escalate this ticket to (organization/branch escalation mode off | next | any).</summary>
+    /// <summary>The escalation setting of the ticket's place: the branch's own, else its organization's ("any" when neither is set).</summary>
+    private async Task<(string Mode, string[] Picks)> EscalationModeAsync(Ticket t, CancellationToken ct)
+    {
+        var br = t.BranchId is Guid bid ? await db.Branches.AsNoTracking().Where(x => x.Id == bid).Select(x => new { x.EscalationMode, x.EscalationPicks }).FirstOrDefaultAsync(ct) : null;
+        var og = t.OrganizationId is Guid oid ? await db.Organizations.AsNoTracking().Where(x => x.Id == oid).Select(x => new { x.EscalationMode, x.EscalationPicks }).FirstOrDefaultAsync(ct) : null;
+        var (mode, json) = br?.EscalationMode is string bm ? (bm, br.EscalationPicks) : (og?.EscalationMode ?? "any", og?.EscalationPicks);
+        string[] picks = [];
+        if (mode == "specific" && !string.IsNullOrWhiteSpace(json))
+            try { picks = JsonSerializer.Deserialize<string[]>(json) ?? []; } catch (JsonException) { picks = []; }
+        return (mode, picks);
+    }
+
+    /// <summary>escalation_targets(): who the caller may escalate this ticket to (place setting off | next | any | specific).</summary>
     private async Task<List<EscalationTarget>> EscalationTargetsAsync(AccessContext c, Ticket t, CancellationToken ct)
     {
         var me = c.UserId;
-        var modes = await (from p in db.Profiles
-                           join o in db.Organizations on p.OrganizationId equals (Guid?)o.Id into oj from o in oj.DefaultIfEmpty()
-                           join b in db.Branches on p.BranchId equals (Guid?)b.Id into bj from b in bj.DefaultIfEmpty()
-                           where p.Id == t.RequesterId select new { Branch = b == null ? null : b.EscalationMode, Org = o == null ? null : o.EscalationMode })
-                          .FirstOrDefaultAsync(ct);
-        var mode = modes?.Branch ?? modes?.Org ?? "any";
+        var (mode, picks) = await EscalationModeAsync(t, ct);
         if (mode == "off") return [];
         var chain = await ChainAsync(t, ct);
         var mine = chain.Where(r => r.Leader == me).ToList();
@@ -171,7 +179,7 @@ public sealed class TicketLifecycleService(
             if (member || t.AssignedAgentId == me) key = "agent";
         }
         if (key is null or "top") return [];
-        var cand = chain.Where(r => r.Pos > pos && r.Leader != me).GroupBy(r => r.Leader).Select(g => g.OrderBy(r => r.Pos).First()).OrderBy(r => r.Pos).ToList();
+        var cand = chain.Where(r => r.Pos > pos && r.Leader != me && (mode != "specific" || picks.Contains(r.PickKey))).GroupBy(r => r.Leader).Select(g => g.OrderBy(r => r.Pos).First()).OrderBy(r => r.Pos).ToList();
         if (mode == "next") cand = cand.Take(1).ToList();
         var ids = cand.Select(r => r.Leader).ToList();
         var names = await db.Profiles.AsNoTracking().Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct);

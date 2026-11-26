@@ -12,7 +12,7 @@ import { liveSearch } from '../../shared/live-search';
 import { CannedApi } from '../help-pages';
 import { AttachmentList, FilePicker, Uploads, checkFiles } from '../../shared/files';
 import { NewTicketOptions } from '../../core/api';
-import { CommentActions, LifecycleApi, StaffLifecycle, TicketLifecycle } from '../tickets/lifecycle';
+import { CommentActions, LifecycleApi, StaffLifecycle, TicketLifecycle, TicketReassign } from '../tickets/lifecycle';
 
 interface StaffExtra {
   requesterPhone: string | null; requesterOrganization?: string | null; requesterBranch?: string | null; teamLeaders: string[];
@@ -255,7 +255,7 @@ export class ConsoleQueuePage {
 /** Ticket workspace: reply or internal note, status change, claim (spec 7). Escalation, links and fields arrive in stage 4. */
 @Component({
   selector: 'app-console-ticket',
-  imports: [RouterLink, NgTemplateOutlet, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, CommentActions, AutoRefreshBar, SlaClockCard, Req, ReqNote, PrioIcon],
+  imports: [RouterLink, NgTemplateOutlet, TPipe, StatusBadge, Alert, AttachmentList, FilePicker, StaffLifecycle, TicketReassign, CommentActions, AutoRefreshBar, SlaClockCard, Req, ReqNote, PrioIcon],
   template: `
     @if (t(); as tk) {
       <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -488,6 +488,7 @@ export class ConsoleQueuePage {
 
               <app-staff-lifecycle part="category" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
               <app-staff-lifecycle part="escalate" [ticket]="tk" [lc]="lc()" [opts]="opts()" (changed)="load()" />
+              <app-ticket-reassign [ticket]="tk" (changed)="load()" />
 
               <!-- Assigned: Assignment stays here, after the other actions. -->
               @if (tk.assignedAgentId) { <ng-container *ngTemplateOutlet="assignTpl" /> }

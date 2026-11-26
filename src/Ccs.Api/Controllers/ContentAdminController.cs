@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Ccs.Application.Access;
 using Ccs.Application.Abstractions;
@@ -26,7 +27,7 @@ public sealed partial class ContentAdminController(CcsDbContext db, AccessServic
     public sealed record FlowBody(FlowRow[] Rows);
     public sealed record LabelBody(string? StaffEn, string? StaffAr, string? CustomerEn, string? CustomerAr, string? DescriptionEn, string? DescriptionAr, string? Tone);
     public sealed record ReasonBody(string? Code, string NameEn, string NameAr, bool CustomerMayReopen, bool IsActive, int SortOrder);
-    public sealed record EscalationBody(Guid[]? OrganizationIds, Guid[]? BranchIds, string Mode);
+    public sealed record EscalationBody(Guid[]? OrganizationIds, Guid[]? BranchIds, string Mode, string[]? Picks = null);
     public sealed record KbCategoryBody(string Slug, string NameEn, string NameAr, int SortOrder, bool IsActive);
     public sealed record KbArticleBody(Guid? CategoryId, string Slug, string TitleEn, string? TitleAr, string BodyEn, string? BodyAr, string Status, string Visibility);
 
@@ -185,33 +186,55 @@ public sealed partial class ContentAdminController(CcsDbContext db, AccessServic
                           join p in db.Profiles on o.TeamLeaderId equals p.Id into lp
                           from p in lp.DefaultIfEmpty()
                           orderby o.Name
-                          select new { o.Id, o.Name, o.ParentId, o.IsActive, Mode = o.EscalationMode, Leader = p == null ? null : p.FullName }).ToListAsync(ct);
+                          select new { o.Id, o.Name, o.ParentId, o.IsActive, Mode = o.EscalationMode, Picks = o.EscalationPicks, Leader = p == null ? null : p.FullName }).ToListAsync(ct);
         var branches = await (from b in db.Branches.AsNoTracking()
                               join p in db.Profiles on b.TeamLeaderId equals p.Id into lp
                               from p in lp.DefaultIfEmpty()
                               orderby b.Name
-                              select new { b.Id, b.OrganizationId, b.Name, b.IsActive, Mode = b.EscalationMode, Leader = p == null ? null : p.FullName }).ToListAsync(ct);
-        return new { orgs, branches };
+                              select new { b.Id, b.OrganizationId, b.Name, b.IsActive, Mode = b.EscalationMode, Picks = b.EscalationPicks, Leader = p == null ? null : p.FullName }).ToListAsync(ct);
+        return new
+        {
+            orgs = orgs.Select(o => new { o.Id, o.Name, o.ParentId, o.IsActive, o.Mode, Picks = PicksOf(o.Picks), o.Leader }),
+            branches = branches.Select(b => new { b.Id, b.OrganizationId, b.Name, b.IsActive, b.Mode, Picks = PicksOf(b.Picks), b.Leader }),
+        };
     }
 
-    /// <summary>Applies one mode to the ticked organizations and branches. "inherit" clears a branch's own setting.</summary>
+    private static string[] PicksOf(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return JsonSerializer.Deserialize<string[]>(json) ?? []; } catch (JsonException) { return []; }
+    }
+
+    /// <summary>
+    /// Applies one mode to the ticked organizations and branches. "inherit" clears a branch's own setting.
+    /// "specific" (Specific leaders) is saved for one place at a time with the chain steps its agents may choose:
+    /// "branch" for the branch leader, "org:" + id for an organization's leader.
+    /// </summary>
     [HttpPut("escalation")]
     public async Task<IActionResult> SaveEscalation(EscalationBody b, CancellationToken ct)
     {
         await Need(null, ct);
-        if (b.Mode is not ("any" or "next" or "off" or "inherit")) throw Err("required", "mode");
+        if (b.Mode is not ("any" or "next" or "off" or "inherit" or "specific")) throw Err("required", "mode");
         var orgIds = b.OrganizationIds ?? []; var branchIds = b.BranchIds ?? [];
         if (orgIds.Length == 0 && branchIds.Length == 0) throw Err("required", "organizationIds");
         if (orgIds.Length > 0 && b.Mode == "inherit") throw Err("required", "mode");
+        string? picks = null;
+        if (b.Mode == "specific")
+        {
+            if (orgIds.Length + branchIds.Length != 1) throw Err("required", "mode");
+            var list = (b.Picks ?? []).Where(x => x == "branch" || (x.StartsWith("org:") && Guid.TryParse(x[4..], out _))).Distinct().ToArray();
+            if (list.Length == 0) throw Err("required", "picks");
+            picks = JsonSerializer.Serialize(list);
+        }
         var now = clock.UtcNow;
         if (orgIds.Length > 0)
-            await db.Organizations.Where(o => orgIds.Contains(o.Id)).ExecuteUpdateAsync(s => s.SetProperty(o => o.EscalationMode, b.Mode).SetProperty(o => o.UpdatedAt, now), ct);
+            await db.Organizations.Where(o => orgIds.Contains(o.Id)).ExecuteUpdateAsync(s => s.SetProperty(o => o.EscalationMode, b.Mode).SetProperty(o => o.EscalationPicks, picks).SetProperty(o => o.UpdatedAt, now), ct);
         if (branchIds.Length > 0)
         {
             string? mode = b.Mode == "inherit" ? null : b.Mode;
-            await db.Branches.Where(x => branchIds.Contains(x.Id)).ExecuteUpdateAsync(s => s.SetProperty(x => x.EscalationMode, mode).SetProperty(x => x.UpdatedAt, now), ct);
+            await db.Branches.Where(x => branchIds.Contains(x.Id)).ExecuteUpdateAsync(s => s.SetProperty(x => x.EscalationMode, mode).SetProperty(x => x.EscalationPicks, picks).SetProperty(x => x.UpdatedAt, now), ct);
         }
-        audit.Write("escalation.update", "organization", null, null, new { b.Mode, orgIds, branchIds });
+        audit.Write("escalation.update", "organization", null, null, new { b.Mode, picks = b.Mode == "specific" ? b.Picks : null, orgIds, branchIds });
         await db.SaveChangesAsync(ct);
         return NoContent();
     }

@@ -54,28 +54,48 @@ export const ADMIN_A_ARTICLES: Article[] = [
     title: { en: "Escalation rules", ar: "قواعد التصعيد" },
     summary: { en: "Decide, for each organization and branch, which leaders an agent can send a ticket to.", ar: "حدد لكل مؤسسة وفرع القادة الذين يمكن للموظف إحالة التذكرة إليهم." },
     rule: { en: "Leaders come from the organization tree: the branch leader first, then each organization leader up to the top.", ar: "يأتي القادة من شجرة المؤسسات: قائد الفرع أولًا ثم قائد كل مؤسسة صعودًا." },
-    optionsTitle: { en: "Three settings", ar: "ثلاثة إعدادات" },
+    optionsTitle: { en: "Four settings", ar: "أربعة إعدادات" },
     options: [
       { name: { en: "Any leader above", ar: "أي قائد أعلى" }, tone: "brand", text: { en: "A dropdown of all of them, nearest first.", ar: "قائمة بكلهم، الأقرب أولًا." } },
       { name: { en: "Next leader only", ar: "القائد التالي فقط" }, tone: "purple", text: { en: "Only the nearest leader above.", ar: "القائد الأقرب فقط." } },
+      { name: { en: "Specific leaders", ar: "قادة محدّدون" }, tone: "brand", text: { en: "Only the leaders you tick for that place.", ar: "القادة الذين تحدّدهم لذلك المكان فقط." } },
       { name: { en: "Escalation off", ar: "إيقاف التصعيد" }, tone: "neutral", text: { en: "Agents cannot escalate.", ar: "لا يستطيع الموظف التصعيد." } },
     ],
     notes: [
       { en: "A branch setting overrides its organization.", ar: "إعداد الفرع يتقدم على إعداد مؤسسته." },
+      { en: "The setting of the place where the ticket was created applies, even if the customer has moved since.", ar: "يُطبَّق إعداد المكان الذي أُنشئت فيه التذكرة، حتى لو انتقل العميل بعد ذلك." },
     ],
   },
   {
     id: "esc-set", kind: "howto", area: "sla", audience: [], path: "/admin/escalation",
     title: { en: "Change who can escalate to whom", ar: "تغيير من يمكنه التصعيد ولمن" },
-    summary: { en: "Apply one setting to several organizations or branches at once.", ar: "طبّق إعدادًا واحدًا على عدة مؤسسات أو فروع دفعة واحدة." },
+    summary: { en: "Set one organization or branch, or several at once.", ar: "اضبط مؤسسة أو فرعًا واحدًا، أو عدة أماكن دفعة واحدة." },
     steps: [
-      { en: "Open **Escalation**. Tick the organizations and/or branches to change. Open **N branches** to see an organization's branches.", ar: "افتح **التصعيد**. حدد المؤسسات و/أو الفروع المطلوبة، وافتح **عدد الفروع** لرؤية فروع المؤسسة." },
-      { en: "Choose **Any leader above**, **Next leader only**, or **Escalation off**. For a branch you can also choose **Same as organization** to remove its own setting.", ar: "اختر **أي قائد أعلى** أو **القائد التالي فقط** أو **إيقاف التصعيد**. وللفرع يمكنك أيضًا اختيار **مثل المؤسسة** لإزالة إعداده الخاص." },
-      { en: "Select **Apply**.", ar: "اختر **تطبيق**." },
+      { en: "Open **Escalation** and click an organization or branch. Its chain, the setting it uses and what its agents see appear on the right.", ar: "افتح **التصعيد** وانقر على مؤسسة أو فرع، فيظهر في الجهة المقابلة تسلسله والإعداد الذي يتبعه وما يراه الموظفون." },
+      { en: "Choose **Any leader above**, **Next leader only**, **Specific leaders** (then tick the leaders) or **Escalation off**, and select **Save**.", ar: "اختر **أي قائد أعلى** أو **القائد التالي فقط** أو **قادة محدّدون** (ثم حدّد القادة) أو **إيقاف التصعيد**، ثم اختر **حفظ**." },
+      { en: "To change several places at once, tick them; a bar appears at the bottom where you choose the setting and select **Apply**.", ar: "لتغيير عدة أماكن معًا حدّدها، فيظهر شريط في الأسفل تختار فيه الإعداد ثم **تطبيق**." },
     ],
     tips: [
-      { en: "Ticking an organization does not tick its branches. To make one branch different, tick only that branch.", ar: "تحديد المؤسسة لا يحدد فروعها. لجعل فرع واحد مختلفًا حدده وحده." },
+      { en: "Ticking an organization ticks all its branches; untick any branch you want to leave out. A branch without its own setting shows **Organization setting**; use **Remove its own setting** to return a branch to it.", ar: "تحديد المؤسسة يحدّد جميع فروعها، ويمكنك إلغاء تحديد أي فرع. الفرع الذي ليس له إعداد خاص يظهر عليه **إعداد المؤسسة**، واستخدم **إزالة الإعداد الخاص** لإعادته إليه." },
       { en: "A reason is always required when escalating. The ticket moves to the chosen leader, who is emailed the reason, and the escalation is saved in the audit log.", ar: "السبب مطلوب دائمًا عند التصعيد. تنتقل التذكرة إلى القائد المختار ويصله بريد بالسبب، ويُحفظ التصعيد في سجل التدقيق." },
+    ],
+  },
+
+  {
+    id: "reassign-overview", kind: "feature", area: "sla", audience: [], path: "/admin/general/settings/reassign",
+    title: { en: "Reassign tickets", ar: "إعادة إسناد التذاكر" },
+    summary: { en: "Let agents hand over the tickets assigned to them, and decide to whom, for everyone or per organization and branch.", ar: "اسمح للموظفين بتسليم التذاكر المسندة إليهم وحدّد لمن، للجميع أو لكل مؤسسة وفرع." },
+    rule: { en: "A branch uses its own setting, else its organization's (and the ones above), else the default. Nothing is allowed until you switch it on.", ar: "يتبع الفرع إعداده الخاص، وإلا إعداد مؤسسته (والمؤسسات الأعلى)، وإلا الإعداد الافتراضي. لا يُسمح بشيء حتى تفعّله." },
+    optionsTitle: { en: "Who can receive the ticket", ar: "من يمكنه استلام التذكرة" },
+    options: [
+      { name: { en: "Other agents in the team", ar: "موظفون آخرون في الفريق" }, tone: "brand", text: { en: "The agent picks one by name.", ar: "يختار الموظف أحدهم بالاسم." } },
+      { name: { en: "The team leader", ar: "قائد الفريق" }, tone: "purple", text: { en: "The leader of the ticket's team.", ar: "قائد فريق التذكرة." } },
+      { name: { en: "Back to the team queue", ar: "العودة إلى قائمة الفريق" }, tone: "neutral", text: { en: "Unassigned; anyone in the team can take it.", ar: "غير مسندة، ويستطيع أي عضو في الفريق أخذها." } },
+      { name: { en: "Let the system choose", ar: "ترك الاختيار للنظام" }, tone: "neutral", text: { en: "The team's automatic rule picks another agent.", ar: "تختار قاعدة الفريق التلقائية موظفًا آخر." } },
+    ],
+    notes: [
+      { en: "You also choose whether a reason is required, and whether an agent can reassign a ticket only once.", ar: "تختار أيضًا ما إذا كان السبب إلزاميًا، وما إذا كان الموظف يستطيع إعادة إسناد التذكرة مرة واحدة فقط." },
+      { en: "The new person is told by notification and email, the ticket history and audit log keep the reason, and the SLA clock keeps running.", ar: "يُبلَّغ الشخص الجديد بإشعار وبريد، ويُحفظ السبب في سجل التذكرة وسجل التدقيق، ويستمر احتساب وقت اتفاقية مستوى الخدمة." },
     ],
   },
 
