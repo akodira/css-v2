@@ -120,6 +120,10 @@ export class PlaceTree {
     this.tickedOrgs.update((l) => (on ? [...new Set([...l, org])] : l.filter((x) => x !== org)));
     this.tickedBranches.update((l) => (on ? [...new Set([...l, ...kids])] : l.filter((x) => !kids.includes(x))));
     if (on && kids.length && !this.open().includes(org)) this.open.update((l) => [...l, org]);
+    if (on) this.selected.set({ kind: 'org', id: org });   // ticking also shows the place on the right
   }
-  protected tickBranch(id: string, on: boolean): void { this.tickedBranches.update((l) => (on ? [...new Set([...l, id])] : l.filter((x) => x !== id))); }
+  protected tickBranch(id: string, on: boolean): void {
+    this.tickedBranches.update((l) => (on ? [...new Set([...l, id])] : l.filter((x) => x !== id)));
+    if (on) this.selected.set({ kind: 'br', id });
+  }
 }
