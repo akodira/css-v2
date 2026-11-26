@@ -294,7 +294,7 @@ const blankField = (): FieldModel => ({ key: '', labelEn: '', labelAr: '', type:
                 <tr class="border-t border-line" [class.bg-brand-soft]="typeEdit() === r.id" [class.opacity-70]="!r.isActive">
                   <td class="px-2 py-3"><div class="flex items-center gap-2"><span class="w-5 text-muted" dir="ltr">{{ i + 1 }}</span>
                     <ng-container *ngTemplateOutlet="moveBtns; context: { first, last, up: moveType(r, -1), down: moveType(r, 1) }" /></div></td>
-                  <td class="px-2 py-3 font-semibold" dir="auto"><div class="flex items-center gap-3">${TILE_TYPE_MD}<div>{{ i18n.pick(r.nameEn, r.nameAr) }}@if (r.code) { <span class="ms-2 rounded-md bg-brand-soft px-1.5 py-0.5 font-mono text-xs font-bold text-brand-ink" dir="ltr">{{ r.code }}</span> }<span class="block text-xs font-normal text-muted" [attr.dir]="i18n.locale() === 'ar' ? 'ltr' : 'rtl'">{{ i18n.locale() === 'ar' ? r.nameEn : r.nameAr }}</span></div></div></td>
+                  <td class="px-2 py-3 font-semibold" dir="auto"><div class="flex items-center gap-3">${TILE_TYPE_MD}<div>{{ i18n.pick(r.nameEn, r.nameAr) }}@if (r.code) { <span class="ms-2 rounded-md bg-brand-soft px-1.5 py-0.5 font-mono text-xs font-bold text-brand-ink" dir="ltr">{{ r.code }}</span> }</div></div></td>
                   <td class="px-2 py-3">{{ 'AdminTicketTypes.linked' | t: { n: r.categoryIds.length } }}</td>
                   <td class="px-2 py-3">{{ r.tickets }}</td>
                   <td class="px-2 py-3"><span class="rounded-full px-2.5 py-1 text-xs font-semibold" [class]="r.isActive ? 'bg-ok-soft text-ok' : 'bg-bg text-muted'">{{ (r.isActive ? 'AdminTicketTypes.visible' : 'AdminTicketTypes.hidden') | t }}</span></td>

@@ -41,8 +41,7 @@ const KIND_TONE: Record<string, string> = {
         @for (x of types(); track x.id) {
           <li class="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4 shadow-card">
             <span class="self-start rounded-full px-2.5 py-0.5 text-xs font-bold" [class]="tone[x.kind] ?? tone['agent']">{{ 'StaffSetup.kinds.' + x.kind | t }}</span>
-            <h2 class="text-lg font-bold"><span dir="auto">{{ i18n.pick(x.nameEn, x.nameAr) }}</span>
-              <span class="block text-sm font-normal text-muted" dir="auto">{{ i18n.locale() === 'ar' ? x.nameEn : x.nameAr }}</span></h2>
+            <h2 class="text-lg font-bold"><span dir="auto">{{ i18n.pick(x.nameEn, x.nameAr) }}</span></h2>
             <p class="text-sm text-muted">{{ 'StaffSetup.kindHint.' + x.kind | t }}</p>
             <p class="text-sm">{{ x.isBuiltin ? ('Permissions.countAll' | t: { total: total }) : ('Permissions.count' | t: { n: x.permissions.length, total: total }) }}</p>
             <div class="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3">
