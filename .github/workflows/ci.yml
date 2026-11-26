@@ -227,7 +227,13 @@ jobs:
             Cfg Post menus @{ area = 'footer'; kind = 'link'; labelEn = 'Help'; labelAr = 'مساعدة'; href = '/kb'; audience = 'all'; newTab = $false; isVisible = $true; sortOrder = 10 } | Out-Null
             $menus = Cfg Get menus $null
             Check "menus listed ($(@($menus).Count))" (@($menus).Count -ge 1)
-            Check 'handover screen data' ($null -ne (Cfg Get handover $null).demo)
+            Check 'handover screen data' ($null -ne (Cfg Get handover $null).candidates)
+            $cu = Cfg Get cleanup $null
+            Check "clean-up options ($($cu.counts.tickets) tickets)" ($null -ne $cu.counts -and $null -ne $cu.teams)
+            $ticketsBefore = $cu.counts.tickets
+            $pv = Cfg Post cleanup/preview @{ tickets = @{ mode = 'filter'; status = 'any' }; notificationsOlderThanDays = 3650 }
+            Check "clean-up preview counts every ticket ($($pv.counts.tickets))" ([int]$pv.counts.tickets -eq [int]$ticketsBefore)
+            Check 'clean-up preview removed nothing' ([int](Cfg Get cleanup $null).counts.tickets -eq [int]$ticketsBefore)
             $rep = Invoke-RestMethod 'https://ccs.test/api/reports/summary?days=30' -Headers $h
             Check "reports overview ($(@($rep.daily).Count) days)" (@($rep.daily).Count -ge 30)
             $bld = Invoke-RestMethod 'https://ccs.test/api/reports/builder?kind=organization' -Headers $h
