@@ -1047,7 +1047,10 @@ interface OrgStaff {
   id: string; fullName: string; email: string; status: string; organizationId: string; branchId: string | null; role: string;
   typeEn: string | null; typeAr: string | null; adminHere: boolean; teams: { nameEn: string; nameAr: string; isLeader: boolean }[];
 }
-interface OrgPerson { id: string; fullName: string; email: string; phone: string | null; status: string; organizationId: string; branchId: string | null }
+interface OrgPerson {
+  id: string; fullName: string; email: string; phone: string | null; status: string; organizationId: string; branchId: string | null;
+  openTickets: number; totalTickets: number; lastActive: string | null;
+}
 
 /** Top-level organizations in name order, each followed by the organizations under it (a tree). */
 function treeOrder(rows: OrgRow[]): OrgRow[] {
@@ -1322,7 +1325,7 @@ export class PlaceForm implements OnInit {
                     @for (s of g.rows; track s.id) {
                       <tr class="border-t border-line hover:bg-[#f9fbfe]">
                         <td class="px-3 py-2.5"><a [routerLink]="'/' + i18n.locale() + '/admin/users'" [queryParams]="{ open: s.id }" class="font-semibold text-brand-ink hover:underline" dir="auto">{{ s.fullName }}</a>
-                          <span class="block truncate text-xs text-muted" dir="ltr">{{ s.email }}</span></td>
+                          <span class="block truncate text-xs text-muted"><bdi dir="ltr">{{ s.email }}</bdi></span></td>
                         <td class="px-3 py-2.5"><span class="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-bold" [class]="roleTone(s)">{{ roleLabel(s) }}</span>
                           @if (s.status !== 'active') { <span class="ms-1 text-xs text-muted">{{ 'Status.' + s.status | t }}</span> }</td>
                         <td class="hidden px-3 py-2.5 text-muted md:table-cell" dir="auto">{{ s.typeEn ? i18n.pick(s.typeEn, s.typeAr ?? s.typeEn) : '-' }}</td>
@@ -1343,57 +1346,52 @@ export class PlaceForm implements OnInit {
           @if (!peopleOf(o.id).length) { <p class="text-muted">{{ 'AdminOrgs.noCustomers' | t }}</p> } @else {
             <div class="flex flex-wrap items-center gap-2">
               <label class="sr-only" [for]="'cq-' + o.id">{{ 'AdminOrgs.searchCustomers' | t }}</label>
-              <input [id]="'cq-' + o.id" type="search" dir="auto" [placeholder]="'AdminOrgs.searchCustomers' | t" [value]="cq[o.id] ?? ''" (input)="cq[o.id] = $any($event.target).value; cPage[o.id] = 0"
+              <input [id]="'cq-' + o.id" type="search" dir="auto" [placeholder]="'AdminOrgs.searchCustomers' | t" [value]="cq[o.id] ?? ''" (input)="cq[o.id] = $any($event.target).value"
                 class="min-h-11 min-w-56 flex-1 rounded-lg border border-line bg-surface px-3 text-sm" />
             </div>
-            <div class="flex flex-wrap gap-1.5" role="group" [attr.aria-label]="'AdminOrgs.filterBranch' | t">
-              @for (f of branchChips(o); track f.id) {
-                <button type="button" [attr.aria-pressed]="(cBranch[o.id] ?? '') === f.id" (click)="cBranch[o.id] = f.id; cPage[o.id] = 0"
-                  class="min-h-9 cursor-pointer rounded-full border px-3 text-xs font-semibold"
-                  [class]="(cBranch[o.id] ?? '') === f.id ? 'border-brand bg-brand text-white' : 'border-line bg-surface text-muted hover:border-brand'">
-                  <span dir="auto">{{ f.label }}</span><span class="ms-1.5 opacity-80">{{ f.count }}</span></button>
+            <div class="flex flex-wrap overflow-hidden rounded-lg border border-line" role="group" [attr.aria-label]="'AdminOrgs.filterStatus' | t">
+              @for (f of custFilters; track f) {
+                <button type="button" [attr.aria-pressed]="(cStatus[o.id] ?? 'all') === f" (click)="cStatus[o.id] = f"
+                  class="min-h-11 cursor-pointer px-3 text-xs font-semibold" [class]="(cStatus[o.id] ?? 'all') === f ? 'bg-ink text-white' : 'bg-surface hover:bg-bg'">
+                  {{ 'AdminOrgs.cf_' + f | t }} <span class="opacity-70">{{ custFiltered(o, f).length }}</span></button>
               }
             </div>
-            @let list = customersOf(o);
-            @if (!list.length) { <p class="text-muted">{{ 'AdminOrgs.noMatch' | t }}</p> } @else {
+            @for (g of custGroups(o); track g.key) {
+              <h3 class="mt-2 flex items-center gap-2 text-sm font-bold text-brand-ink" dir="auto">{{ g.label }} <span class="font-normal text-muted">· {{ g.rows.length }}</span></h3>
               <div class="overflow-hidden rounded-xl border border-line">
-                <table class="w-full text-sm">
-                  <caption class="sr-only">{{ 'AdminOrgs.customers' | t }}</caption>
+                <table class="w-full table-fixed text-sm">
+                  <caption class="sr-only">{{ g.label }}</caption>
                   <thead class="bg-[#f7f9fd] text-xs uppercase tracking-wider text-muted">
                     <tr>
-                      <th scope="col" class="px-3 py-2.5 text-start font-bold">{{ 'AdminOrgs.thCustomer' | t }}</th>
-                      <th scope="col" class="hidden px-3 py-2.5 text-start font-bold sm:table-cell">{{ 'AdminOrgs.thBranch' | t }}</th>
+                      <th scope="col" class="w-[36%] px-3 py-2.5 text-start font-bold">{{ 'AdminOrgs.thCustomer' | t }}</th>
                       <th scope="col" class="hidden px-3 py-2.5 text-start font-bold md:table-cell">{{ 'Directory.telephone' | t }}</th>
                       <th scope="col" class="px-3 py-2.5 text-start font-bold">{{ 'AdminOrgs.thStatus' | t }}</th>
+                      <th scope="col" class="hidden px-3 py-2.5 text-start font-bold sm:table-cell">{{ 'AdminOrgs.thTickets' | t }}</th>
+                      <th scope="col" class="hidden px-3 py-2.5 text-start font-bold lg:table-cell">{{ 'AdminOrgs.thLastActive' | t }}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    @for (m of pageOf(o.id, list); track m.id) {
+                    @for (m of g.rows.slice(0, cMore[o.id + g.key] ? g.rows.length : pageSize); track m.id) {
                       <tr class="border-t border-line hover:bg-[#f9fbfe]">
                         <td class="px-3 py-2.5">
                           <a [routerLink]="'/' + i18n.locale() + '/console/customers/' + m.id" class="font-semibold text-brand-ink hover:underline" dir="auto">{{ m.fullName || m.email }}</a>
-                          <span class="block break-all text-xs text-muted" dir="ltr">{{ m.email }}</span>
-                          <span class="block text-xs text-muted sm:hidden" dir="auto">{{ m.branchId ? branchName(m.branchId) : ('AdminOrgs.noBranch' | t) }}</span>
+                          <span class="block truncate text-xs text-muted"><bdi dir="ltr">{{ m.email }}</bdi></span>
                         </td>
-                        <td class="hidden px-3 py-2.5 sm:table-cell">@if (m.branchId) { <span class="rounded-full bg-brand-soft px-2 py-0.5 text-xs font-semibold text-brand-ink" dir="auto">{{ branchName(m.branchId) }}</span> } @else { <span class="text-xs text-muted">{{ 'AdminOrgs.noBranch' | t }}</span> }</td>
                         <td class="hidden px-3 py-2.5 text-muted md:table-cell" dir="ltr">{{ m.phone || '-' }}</td>
-                        <td class="px-3 py-2.5"><span class="whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold" [class]="statusTone(m.status)">{{ 'Status.' + m.status | t }}</span></td>
+                        <td class="px-3 py-2.5"><span class="rounded-full px-2 py-0.5 text-xs font-semibold" [class]="statusTone(m.status)">{{ 'Status.' + m.status | t }}</span></td>
+                        <td class="hidden px-3 py-2.5 sm:table-cell">
+                          @if (m.totalTickets) { <b class="text-brand-ink">{{ 'AdminOrgs.openN' | t: { n: m.openTickets } }}</b> <span class="text-muted">/ {{ m.totalTickets }}</span> }
+                          @else { <span class="text-muted">{{ 'AdminOrgs.noTickets' | t }}</span> }</td>
+                        <td class="hidden px-3 py-2.5 text-muted lg:table-cell">{{ m.lastActive ? ago(m.lastActive) : ('AdminOrgs.never' | t) }}</td>
                       </tr>
                     }
                   </tbody>
                 </table>
               </div>
-              @if (list.length > pageSize) {
-                @let p = cPage[o.id] ?? 0;
-                <div class="flex flex-wrap items-center justify-between gap-2 text-sm text-muted">
-                  <span>{{ 'AdminOrgs.pageOf' | t: { from: p * pageSize + 1, to: Math.min((p + 1) * pageSize, list.length), total: list.length } }}</span>
-                  <span class="flex gap-2">
-                    <button type="button" [class]="toggleBtn" [disabled]="p === 0" (click)="cPage[o.id] = p - 1">{{ 'AdminOrgs.prev' | t }}</button>
-                    <button type="button" [class]="toggleBtn" [disabled]="(p + 1) * pageSize >= list.length" (click)="cPage[o.id] = p + 1">{{ 'AdminOrgs.next' | t }}</button>
-                  </span>
-                </div>
+              @if (g.rows.length > pageSize && !cMore[o.id + g.key]) {
+                <button type="button" [class]="toggleBtn + ' self-start'" (click)="cMore[o.id + g.key] = true">{{ 'AdminOrgs.showAllN' | t: { n: g.rows.length } }}</button>
               }
-            }
+            } @empty { <p class="text-muted">{{ 'AdminOrgs.noMatch' | t }}</p> }
           }
         </div>
       }
@@ -1496,32 +1494,39 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
   protected editOrg: string | null = null;
   protected editBranch: string | null = null;
   protected addBranchFor: string | null = null;
-  /** Per organization: search text, branch filter ('' all, '-' no branch, else a branch id) and page. */
+  /** Per organization: search text and page. */
   protected cq: Record<string, string> = {};
-  protected cBranch: Record<string, string> = {};
   protected cPage: Record<string, number> = {};
+  /** Customers tab: status filter per organization, and groups opened past the first page. */
+  protected cStatus: Record<string, string> = {};
+  protected cMore: Record<string, boolean> = {};
+  protected readonly custFilters = ['all', 'active', 'pending_approval', 'suspended', 'open'];
+  protected custFiltered(o: OrgRow, f: string): OrgPerson[] {
+    const q = (this.cq[o.id] ?? '').trim().toLowerCase();
+    return this.peopleOf(o.id).filter((p) => (f === 'all' || (f === 'open' ? p.openTickets > 0 : p.status === f))
+      && (!q || [p.fullName, p.email, p.phone ?? ''].join(' ').toLowerCase().includes(q)));
+  }
+  /** Head office first, then each branch; a branch that no longer exists still shows its customers. */
+  protected custGroups(o: OrgRow): { key: string; label: string; rows: OrgPerson[] }[] {
+    const rows = this.custFiltered(o, this.cStatus[o.id] ?? 'all');
+    const known = new Set(o.branches.map((b) => b.id));
+    const groups = [{ key: '', label: this.i18n.t('AdminOrgs.headOffice'), rows: rows.filter((p) => !p.branchId) },
+      ...o.branches.map((b) => ({ key: b.id, label: b.name, rows: rows.filter((p) => p.branchId === b.id) })),
+      { key: '?', label: this.i18n.t('AdminOrgs.otherBranch'), rows: rows.filter((p) => p.branchId && !known.has(p.branchId)) }];
+    return groups.filter((g) => g.rows.length);
+  }
+  /** "2 hours ago", "yesterday", "3 days ago", or the date for older ones. */
+  protected ago(iso: string): string {
+    const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    if (min < 60) return this.i18n.t('AdminOrgs.agoMin', { n: Math.max(1, min) });
+    const h = Math.round(min / 60); if (h < 24) return this.i18n.t('AdminOrgs.agoHour', { n: h });
+    const d = Math.round(h / 24); if (d < 30) return this.i18n.t('AdminOrgs.agoDay', { n: d });
+    return this.i18n.date(iso);
+  }
   protected waitingOf(org: string): number { return this.peopleOf(org).filter((p) => p.status === 'pending_approval').length; }
   protected initials(name: string): string { return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? '').join('').toUpperCase(); }
   protected statusTone(s: string): string {
     return s === 'active' ? 'bg-ok-soft text-ok' : s === 'suspended' ? 'bg-danger-soft text-danger' : s === 'pending_approval' ? 'bg-warn-soft text-warn-ink' : 'bg-bg text-muted';
-  }
-  protected branchChips(o: OrgRow): { id: string; label: string; count: number }[] {
-    const all = this.peopleOf(o.id);
-    const chips = [{ id: '', label: this.i18n.t('AdminOrgs.allBranches'), count: all.length },
-      ...o.branches.map((b) => ({ id: b.id, label: b.name, count: all.filter((p) => p.branchId === b.id).length }))];
-    const none = all.filter((p) => !p.branchId).length;
-    if (none) chips.push({ id: '-', label: this.i18n.t('AdminOrgs.noBranch'), count: none });
-    return chips;
-  }
-  protected customersOf(o: OrgRow): OrgPerson[] {
-    const s = (this.cq[o.id] ?? '').trim().toLowerCase();
-    const b = this.cBranch[o.id] ?? '';
-    return this.peopleOf(o.id).filter((p) => (!b || (b === '-' ? !p.branchId : p.branchId === b))
-      && (!s || [p.fullName, p.email, p.phone ?? ''].join(' ').toLowerCase().includes(s)));
-  }
-  protected pageOf(org: string, list: OrgPerson[]): OrgPerson[] {
-    const p = Math.min(this.cPage[org] ?? 0, Math.max(0, Math.ceil(list.length / this.pageSize) - 1));
-    return list.slice(p * this.pageSize, (p + 1) * this.pageSize);
   }
   private body(r: OrgRow | BranchRow): PlaceModel {
     return { name: r.name, location: r.location ?? '', phone: r.phone ?? '', teamLeaderId: r.teamLeaderId, isActive: r.isActive, sharedAccessEnabled: (r as OrgRow).sharedAccessEnabled ?? false, parentId: (r as OrgRow).parentId ?? null };

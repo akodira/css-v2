@@ -857,8 +857,23 @@ public sealed class AdminController(
     public async Task<object> OrgPeople(CancellationToken ct)
     {
         await Need(null, ct);
-        return await db.Profiles.AsNoTracking().Where(p => p.OrganizationId != null).OrderBy(p => p.FullName)
+        var people = await db.Profiles.AsNoTracking().Where(p => p.OrganizationId != null).OrderBy(p => p.FullName)
             .Select(p => new { p.Id, p.FullName, p.Email, p.Phone, Status = p.AccountStatus, p.OrganizationId, p.BranchId }).ToListAsync(ct);
+        // Tickets they opened (open = not resolved or closed) and when they last signed in or used the site.
+        var tickets = await db.Tickets.AsNoTracking().GroupBy(t => t.RequesterId)
+            .Select(g => new { Id = g.Key, Total = g.Count(), Open = g.Count(t => t.Status != TicketStatus.Resolved && t.Status != TicketStatus.Closed) })
+            .ToDictionaryAsync(x => x.Id, ct);
+        var signIns = await db.AuditLogs.AsNoTracking().Where(a => a.EntityType == "user" && a.Action == "auth.sign_in" && a.EntityId != null)
+            .GroupBy(a => a.EntityId!.Value).Select(g => new { Id = g.Key, At = g.Max(a => a.CreatedAt) }).ToDictionaryAsync(x => x.Id, x => x.At, ct);
+        var sessions = await db.RefreshTokens.AsNoTracking().GroupBy(r => r.UserId)
+            .Select(g => new { Id = g.Key, At = g.Max(r => r.CreatedAt) }).ToDictionaryAsync(x => x.Id, x => x.At, ct);
+        return people.Select(p =>
+        {
+            var t = tickets.GetValueOrDefault(p.Id);
+            DateTimeOffset? a = signIns.TryGetValue(p.Id, out var s1) ? s1 : null, b = sessions.TryGetValue(p.Id, out var s2) ? s2 : null;
+            return new { p.Id, p.FullName, p.Email, p.Phone, p.Status, p.OrganizationId, p.BranchId,
+                         OpenTickets = t?.Open ?? 0, TotalTickets = t?.Total ?? 0, LastActive = a > b || b is null ? a : b };
+        });
     }
 
     /// <summary>

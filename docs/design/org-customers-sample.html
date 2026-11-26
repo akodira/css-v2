@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Organizations customers sample</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root { --bg:#f1f5fb; --surface:#fff; --ink:#0f1b2d; --muted:#52607a; --line:#e2e8f3; --brand:#1f64e6; --brand-ink:#1650b8; --brand-soft:#e5eefd;
+          --ok:#16915a; --ok-soft:#e3f6ec; --warn-soft:#fff4db; --warn-ink:#7a4a00; --danger:#b42318; --danger-soft:#fdecea; --purple-soft:#efe9fd; --purple:#6b46c1;
+          --shadow:0 1px 2px rgb(15 27 61/.05),0 4px 16px rgb(15 27 61/.05); }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:"IBM Plex Sans",system-ui,sans-serif; line-height:1.5; }
+  .wrap { max-width:66rem; margin:0 auto; padding:2rem 1rem 4rem; display:flex; flex-direction:column; gap:1rem; }
+  h1 { margin:0; font-size:1.75rem; } p { margin:0; } .muted { color:var(--muted); } .small { font-size:.85rem; }
+  .note { border-inline-start:4px solid var(--brand); background:var(--surface); padding:.75rem 1rem; border-radius:.5rem; box-shadow:var(--shadow); color:var(--muted); font-size:.9rem; }
+  .note b { color:var(--ink); }
+  .org { background:var(--surface); border:1px solid var(--brand); border-radius:.75rem; box-shadow:var(--shadow); overflow:hidden; }
+  .head { display:flex; align-items:center; gap:.8rem; padding:.9rem 1rem; background:#f7f9fd; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .ico { width:2.4rem; height:2.4rem; border-radius:.6rem; background:var(--purple-soft); display:grid; place-items:center; flex-shrink:0; }
+  .ico svg { width:1.2rem; height:1.2rem; stroke:var(--purple); fill:none; stroke-width:1.8; }
+  .title { flex:1; min-width:14rem; } .title b { font-size:1.05rem; }
+  .badge { font-size:.7rem; font-weight:700; border-radius:999px; padding:.05rem .5rem; margin-inline-start:.4rem; background:var(--ok-soft); color:var(--ok); }
+  .chips { display:flex; gap:.35rem; margin-top:.3rem; flex-wrap:wrap; }
+  .chip { font-size:.75rem; border:1px solid var(--line); background:#fff; border-radius:.4rem; padding:.05rem .45rem; }
+  .chip.c { border-color:var(--brand); background:var(--brand-soft); color:var(--brand-ink); }
+  .tabs { display:flex; gap:1.5rem; padding:0 1rem; border-bottom:1px solid var(--line); font-size:.88rem; font-weight:600; color:var(--muted); }
+  .tabs span { padding:.6rem 0; } .tabs .on { color:var(--brand-ink); border-bottom:2px solid var(--brand); }
+  .tabs .n { background:var(--bg); border-radius:999px; padding:0 .4rem; font-size:.72rem; margin-inline-start:.25rem; }
+  .body { padding:1rem; }
+  .tools { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin-bottom:.8rem; }
+  .tools input { flex:1; min-width:12rem; border:1px solid #c9d3e3; border-radius:.5rem; min-height:2.6rem; padding:0 .7rem; font:inherit; }
+  .seg { display:flex; border:1px solid var(--line); border-radius:.5rem; overflow:hidden; }
+  .seg button { border:0; background:#fff; padding:.5rem .7rem; font:inherit; font-size:.82rem; font-weight:600; cursor:pointer; min-height:2.6rem; }
+  .seg .on { background:var(--ink); color:#fff; } .seg .cnt { opacity:.7; margin-inline-start:.2rem; }
+  .place { font-weight:700; font-size:.88rem; color:var(--brand-ink); margin:1rem 0 .35rem; display:flex; align-items:center; gap:.4rem; }
+  .place:first-of-type { margin-top:0; }
+  .place svg { width:1rem; height:1rem; fill:none; stroke-width:1.8; }
+  .tbl { border:1px solid var(--line); border-radius:.6rem; overflow:hidden; }
+  table { width:100%; border-collapse:collapse; font-size:.85rem; table-layout:fixed; }
+  th { text-align:start; font-size:.72rem; color:var(--muted); font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:.55rem .75rem; background:#f7f9fd; }
+  th:nth-child(1) { width:34%; } th:nth-child(2) { width:18%; } th:nth-child(3) { width:16%; } th:nth-child(4) { width:16%; }
+  td { padding:.55rem .75rem; border-top:1px solid var(--line); vertical-align:middle; }
+  td a { color:var(--brand-ink); font-weight:600; text-decoration:none; } td small { display:block; color:var(--muted); font-size:.75rem; }
+  .st { font-size:.72rem; font-weight:700; border-radius:999px; padding:.1rem .5rem; white-space:nowrap; }
+  .s-active { background:var(--ok-soft); color:var(--ok); } .s-pending { background:var(--warn-soft); color:var(--warn-ink); } .s-susp { background:var(--danger-soft); color:var(--danger); }
+  .tk b { font-weight:700; } .tk .open { color:var(--brand-ink); }
+  .new { font-size:.6rem; background:var(--brand); color:#fff; border-radius:.3rem; padding:0 .25rem; margin-inline-start:.3rem; vertical-align:middle; text-transform:none; letter-spacing:0; }
+  .empty { border:1px dashed #9aa7bd; border-radius:.5rem; padding:.8rem; color:var(--muted); font-size:.85rem; }
+  .compare { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; }
+  @media (max-width:760px) { .compare { grid-template-columns:1fr; } }
+  .box { background:var(--surface); border:1px solid var(--line); border-radius:.6rem; padding:.8rem; font-size:.88rem; box-shadow:var(--shadow); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div><h1>Organizations – customers like staff</h1>
+    <p class="muted">People → Organizations → Customers tab. Same layout as the new Staff tab: grouped by head office and each branch, with quick filters and search. Click the filters; data is the demo company plus a few made-up customers.</p></div>
+  <div class="compare">
+    <div class="box"><b>Today</b><p class="muted small">One long table; branch chips above it; 25 per page. You see a customer's branch only as a small label in each row.</p></div>
+    <div class="box"><b>New</b><p class="muted small">One section per place (Head office, then each branch) with its count; filters by account status; each row shows open and total tickets, and the last sign-in.</p></div>
+  </div>
+  <section class="org" id="org"></section>
+</div>
+<script>
+const HQ = '<svg viewBox="0 0 24 24" style="stroke:#6b46c1"><path d="M6 22V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v18M10 7h4M10 11h4M10 15h4M10 22v-3h4v3"/></svg>';
+const BR = '<svg viewBox="0 0 24 24" style="stroke:#16915a"><path d="M12 21s-7-6.1-7-11.5A7 7 0 0 1 19 9.5C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>';
+// place, name, email, phone, status, open, total, last sign-in
+const C = [
+  ['Head office', 'Mona Ibrahim', 'main.customer1@demo.test', '+20 100 123 4567', 'active', 3, 20, '2 hours ago'],
+  ['Head office', 'Khaled Nabil', 'main.customer2@demo.test', '+20 111 765 4321', 'active', 4, 20, 'yesterday'],
+  ['Head office', 'Samir Fouad', 'samir.fouad@example.com', '+20 122 555 0101', 'pending', 0, 0, 'never'],
+  ['Alexandria Branch', 'Tarek Zaki', 'alex.customer1@demo.test', '-', 'active', 5, 20, '3 days ago'],
+  ['Alexandria Branch', 'Nada Fouad', 'alex.customer2@demo.test', '+20 128 444 9090', 'active', 2, 20, 'today'],
+  ['Cairo Branch', 'Dina Farouk', 'cairo.customer1@demo.test', '-', 'active', 6, 20, 'today'],
+  ['Cairo Branch', 'Ahmed Lotfy', 'cairo.customer2@demo.test', '+20 101 222 3333', 'active', 3, 20, 'last week'],
+  ['Cairo Branch', 'Hesham Adly', 'hesham.adly@example.com', '-', 'suspended', 0, 4, '2 months ago'],
+  ['Giza Branch', 'Mostafa Reda', 'giza.customer1@demo.test', '-', 'active', 4, 20, 'yesterday'],
+  ['Giza Branch', 'Yasmin Adel', 'giza.customer2@demo.test', '+20 155 888 1212', 'active', 1, 20, '5 days ago'],
+];
+const PLACES = ['Head office', 'Alexandria Branch', 'Cairo Branch', 'Giza Branch'];
+const ST = { active: ['s-active', 'Active'], pending: ['s-pending', 'Waiting for approval'], suspended: ['s-susp', 'Suspended'] };
+let f = 'all', q = '';
+function render() {
+  const rows = C.filter(c => (f === 'all' || c[4] === f || (f === 'open' && c[5] > 0)) && (!q || (c[1] + c[2]).toLowerCase().includes(q.toLowerCase())));
+  const cnt = k => C.filter(c => k === 'all' || c[4] === k || (k === 'open' && c[5] > 0)).length;
+  document.getElementById('org').innerHTML = `
+    <div class="head"><span class="ico">${HQ.replace('style="stroke:#6b46c1"', '')}</span>
+      <div class="title"><b>Demo Water Company</b><span class="badge">Active</span>
+        <div class="chips"><span class="chip c"><b>${C.length}</b> customers</span><span class="chip"><b>16</b> staff</span><span class="chip"><b>3</b> branches</span></div></div></div>
+    <div class="tabs"><span>Details</span><span>Branches<span class="n">3</span></span><span class="on">Customers<span class="n">${C.length}</span></span><span>Staff<span class="n">16</span></span></div>
+    <div class="body">
+      <div class="tools"><input id="q" type="search" placeholder="Search customers by name, e-mail or phone" aria-label="Search customers">
+        <div class="seg" role="group" aria-label="Filter">${[['all', 'All'], ['active', 'Active'], ['pending', 'Waiting for approval'], ['suspended', 'Suspended'], ['open', 'With open tickets']]
+          .map(([k, l]) => `<button data-f="${k}" class="${f === k ? 'on' : ''}" aria-pressed="${f === k}">${l}<span class="cnt">${cnt(k)}</span></button>`).join('')}</div></div>
+      ${PLACES.filter(p => rows.some(r => r[0] === p)).map(p => `
+        <div class="place">${p === 'Head office' ? HQ + ' Head office (no branch)' : BR + ' ' + p}<span class="muted small" style="font-weight:400">· ${rows.filter(r => r[0] === p).length}</span></div>
+        <div class="tbl"><table><thead><tr><th>Customer</th><th>Telephone</th><th>Status</th><th>Tickets<span class="new">new</span></th><th>Last sign-in<span class="new">new</span></th></tr></thead><tbody>
+        ${rows.filter(r => r[0] === p).map(r => `<tr><td><a href="#">${r[1]}</a><small>${r[2]}</small></td><td class="muted" dir="ltr">${r[3]}</td>
+          <td><span class="st ${ST[r[4]][0]}">${ST[r[4]][1]}</span></td>
+          <td class="tk">${r[6] ? `<b class="open">${r[5]} open</b> <span class="muted">/ ${r[6]}</span>` : '<span class="muted">none</span>'}</td><td class="muted">${r[7]}</td></tr>`).join('')}
+        </tbody></table></div>`).join('') || '<p class="empty">No customers match.</p>'}
+      <p class="muted small" style="margin-top:.8rem">Click a name to open the customer's profile. Customers waiting for approval also appear on Account approvals.</p>
+    </div>`;
+  document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { f = b.dataset.f; render(); });
+  const i = document.getElementById('q'); i.value = q; i.oninput = e => { q = e.target.value; render(); const n = document.getElementById('q'); n.focus(); n.setSelectionRange(q.length, q.length); };
+}
+render();
+</script>
+</body>
+</html>
