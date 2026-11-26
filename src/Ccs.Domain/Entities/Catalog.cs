@@ -156,6 +156,8 @@ public class SlaPolicy
     public int FirstResponseMinutes { get; set; }
     public int ResolutionMinutes { get; set; }
     public int WarningThresholdPct { get; set; } = 80;
+    /// <summary>"Getting close" level: % of the time used; must be below <see cref="WarningThresholdPct"/>.</summary>
+    public int CloseThresholdPct { get; set; } = 50;
     public bool PauseOnPendingCustomer { get; set; } = true;
     public bool PauseOnPendingInternal { get; set; }
     public Guid? BusinessHoursId { get; set; }

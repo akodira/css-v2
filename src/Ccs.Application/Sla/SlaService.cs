@@ -190,7 +190,7 @@ public sealed class SlaService(ICcsDbContext db, CalendarProvider calendars, Not
                 var s = row.Record;
                 var cal = await calendars.ForTicketAsync(s.TicketId, row.Policy.BusinessHoursId, ct);
                 var ev = SlaClock.Evaluate(new SlaSnapshot(s.FirstRespondedAt, s.FirstResponseDue, s.ResolutionDue,
-                    row.Policy.FirstResponseMinutes, row.Policy.ResolutionMinutes, row.Policy.WarningThresholdPct), now, cal);
+                    row.Policy.FirstResponseMinutes, row.Policy.ResolutionMinutes, row.Policy.WarningThresholdPct, row.Policy.CloseThresholdPct), now, cal);
 
                 if (ev.State != s.State)
                 {

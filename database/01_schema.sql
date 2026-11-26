@@ -459,6 +459,7 @@ CREATE TABLE ccs.sla_policies (
     first_response_minutes    int NOT NULL CONSTRAINT CK_sla_frm CHECK (first_response_minutes > 0),
     resolution_minutes        int NOT NULL CONSTRAINT CK_sla_rm CHECK (resolution_minutes > 0),
     warning_threshold_pct     int NOT NULL DEFAULT 80 CONSTRAINT CK_sla_warn CHECK (warning_threshold_pct BETWEEN 1 AND 99),
+    close_threshold_pct       int NOT NULL CONSTRAINT DF_sla_close DEFAULT 50 CONSTRAINT CK_sla_close CHECK (close_threshold_pct BETWEEN 1 AND 98),
     pause_on_pending_customer bit NOT NULL DEFAULT 1,
     pause_on_pending_internal bit NOT NULL DEFAULT 0,
     business_hours_id         uniqueidentifier NULL CONSTRAINT FK_sla_bh REFERENCES ccs.business_hours(id),
@@ -637,7 +638,7 @@ CREATE TABLE ccs.ticket_sla_records (
     resolved_at          datetimeoffset(7) NULL,
     paused_at            datetimeoffset(7) NULL,
     paused_total_seconds int NOT NULL DEFAULT 0,
-    state                nvarchar(12) NOT NULL DEFAULT N'on_track' CONSTRAINT CK_sla_records_state CHECK (state IN ('on_track','due_soon','breached','paused','completed')),
+    state                nvarchar(12) NOT NULL DEFAULT N'on_track' CONSTRAINT CK_sla_records_state CHECK (state IN ('on_track','close','due_soon','breached','paused','completed')),
     warning_sent_at      datetimeoffset(7) NULL,
     breached_at          datetimeoffset(7) NULL,
     breach_notified_at   datetimeoffset(7) NULL,
@@ -660,7 +661,7 @@ CREATE TABLE ccs.ticket_sla_cycles (
     first_responded_at   datetimeoffset(7) NULL,
     resolved_at          datetimeoffset(7) NULL,
     breached_at          datetimeoffset(7) NULL,
-    state                nvarchar(12) NULL CONSTRAINT CK_sla_cycles_state CHECK (state IN ('on_track','due_soon','breached','paused','completed')),
+    state                nvarchar(12) NULL CONSTRAINT CK_sla_cycles_state CHECK (state IN ('on_track','close','due_soon','breached','paused','completed')),
     paused_total_seconds int NOT NULL DEFAULT 0,
     CONSTRAINT UQ_sla_cycles UNIQUE (ticket_id, cycle_no)
 );

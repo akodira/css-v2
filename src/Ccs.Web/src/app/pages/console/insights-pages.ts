@@ -20,7 +20,7 @@ const TONE: Record<Tone, { box: string; ink: string }> = {
   ok: { box: 'border-s-ok bg-ok-soft', ink: 'text-ok' },
   neutral: { box: 'border-s-muted bg-bg', ink: 'text-ink' },
 };
-interface TeamStrip { green: number; yellow: number; red: number; overdue: number }
+interface TeamStrip { scope: 'all' | 'team' | 'scope'; onTrack: number; close: number; atRisk: number; overdue: number }
 const STATUSES = ['new', 'open', 'in_progress', 'pending_customer', 'pending_internal', 'resolved', 'closed', 'reopened'];
 
 interface Metrics { total: number; resolved: number; open: number; avgFirst: number | null; avgRes: number | null; slaMet: number; slaTotal: number; avgRating: number | null; ratings: number }
@@ -315,18 +315,17 @@ interface SlaData {
           }
         </div>
         @if (strip(); as st) {
-          <section [attr.aria-label]="'SlaClock.strip_title' | t" class="flex flex-col gap-2">
-            <h2 class="text-lg font-bold">{{ 'SlaClock.strip_title' | t }}</h2>
-            <dl class="grid grid-cols-2 gap-4 md:grid-cols-4">
-              @for (s of [['green', 'strip_onTrack', 'ok', ''], ['yellow', 'strip_close', 'warn', ''], ['red', 'strip_red', 'danger', 'due_soon'], ['overdue', 'strip_overdue', 'danger', 'breached']]; track s[0]) {
-                @if (s[3]) {
-                  <a [routerLink]="'/' + i18n.locale() + '/console'" [queryParams]="{ sla: s[3] }" [class]="stat + ' ' + $any(tone)[s[2]].box + ' cursor-pointer hover:brightness-95'"><dt class="text-sm font-semibold" [class]="$any(tone)[s[2]].ink">{{ 'SlaClock.' + s[1] | t }}</dt><dd class="text-3xl font-bold" [class]="$any(tone)[s[2]].ink">{{ $any(st)[s[0]] }}</dd></a>
-                } @else {
-                  <div [class]="stat + ' ' + $any(tone)[s[2]].box"><dt class="text-sm font-semibold" [class]="$any(tone)[s[2]].ink">{{ 'SlaClock.' + s[1] | t }}</dt><dd class="text-3xl font-bold" [class]="$any(tone)[s[2]].ink">{{ $any(st)[s[0]] }}</dd></div>
-                }
+          <section [attr.aria-label]="'SlaClock.title_' + st.scope | t" class="flex flex-col gap-2">
+            <h2 class="text-lg font-bold">{{ 'SlaClock.title_' + st.scope | t }}</h2>
+            <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              @for (s of cards; track s.key) {
+                <li><a [routerLink]="'/' + i18n.locale() + '/console'" [queryParams]="{ sla: s.state }" [class]="stat + ' ' + $any(tone)[s.tone].box + ' flex h-full flex-col gap-1 no-underline hover:brightness-95 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-brand'">
+                  <span class="flex items-center justify-between gap-2 text-sm font-semibold" [class]="$any(tone)[s.tone].ink">{{ 'SlaClock.strip_' + s.key | t }}<span class="text-xs font-medium opacity-80">{{ 'SlaClock.view' | t }}</span></span>
+                  <span class="text-3xl font-bold" [class]="$any(tone)[s.tone].ink">{{ $any(st)[s.key] }}</span>
+                  <span class="text-xs leading-snug text-muted">{{ 'SlaClock.mean_' + s.key | t }}</span></a></li>
               }
-            </dl>
-            <p class="text-xs text-muted">{{ 'SlaClock.strip_hint' | t }}</p>
+            </ul>
+            <p class="text-xs text-muted">{{ 'SlaClock.hint_' + st.scope | t }}</p>
           </section>
         }
         <section><h2 class="mb-1 text-lg font-bold">{{ 'SlaReport.cyclesTitle' | t }}</h2><p class="mb-3 max-w-prose text-sm text-muted">{{ 'SlaReport.cyclesHelp' | t }}</p>
@@ -340,8 +339,8 @@ interface SlaData {
             }
           </div></section>
         <section><h2 class="mb-3 text-lg font-bold">{{ 'SlaReport.now' | t }}</h2>
-          <dl class="grid grid-cols-2 gap-4 md:grid-cols-4">
-            @for (s of [['breached', 'breached', 'danger'], ['due_soon', 'dueSoon', 'warn'], ['paused', 'paused', 'neutral'], ['on_track', 'onTrack', 'ok']]; track s[0]) {
+          <dl class="grid grid-cols-2 gap-4 md:grid-cols-5">
+            @for (s of [['breached', 'breached', 'danger'], ['due_soon', 'dueSoon', 'danger'], ['close', 'close', 'warn'], ['paused', 'paused', 'neutral'], ['on_track', 'onTrack', 'ok']]; track s[0]) {
               <div [class]="stat + ' ' + $any(tone)[s[2]].box"><dt class="text-sm font-semibold" [class]="$any(tone)[s[2]].ink">{{ 'SlaReport.' + s[1] | t }}</dt><dd class="text-3xl font-bold" [class]="$any(tone)[s[2]].ink">{{ x.now[s[0]] ?? 0 }}</dd></div>
             }
           </dl></section>
@@ -367,6 +366,11 @@ export class SlaReportPage {
   protected readonly d = signal<SlaData | null>(null);
   /** "My team" counters, same as above the ticket queue: the server sends them to admins and team leaders only. */
   protected readonly strip = signal<TeamStrip | null>(null);
+  /** Each card opens the queue filtered on the SLA state the server stores. */
+  protected readonly cards = [
+    { key: 'onTrack', state: 'on_track', tone: 'ok' }, { key: 'close', state: 'close', tone: 'warn' },
+    { key: 'atRisk', state: 'due_soon', tone: 'danger' }, { key: 'overdue', state: 'breached', tone: 'danger' },
+  ] as const;
   protected readonly stat = STAT;
   protected readonly tone = TONE;
   constructor() {

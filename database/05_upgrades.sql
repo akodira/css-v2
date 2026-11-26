@@ -466,3 +466,24 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_subcategories_owner_name_ar' AND object_id = OBJECT_ID(N'ccs.ticket_subcategories'))
     CREATE UNIQUE INDEX UX_subcategories_owner_name_ar ON ccs.ticket_subcategories (category_id, organization_id, branch_id, name_ar);
 GO
+-- SLA "Getting close" level per priority (% of the time used; below the warning %), and the stored state 'close'.
+IF COL_LENGTH(N'ccs.sla_policies', N'close_threshold_pct') IS NULL
+    ALTER TABLE ccs.sla_policies ADD close_threshold_pct int NOT NULL CONSTRAINT DF_sla_close DEFAULT 50
+        CONSTRAINT CK_sla_close CHECK (close_threshold_pct BETWEEN 1 AND 98);
+GO
+-- A warning % at or below 50 would put "Getting close" after it: keep the order (close < warning).
+UPDATE ccs.sla_policies SET close_threshold_pct = CASE WHEN warning_threshold_pct > 1 THEN warning_threshold_pct - 1 ELSE 1 END
+WHERE close_threshold_pct >= warning_threshold_pct;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_sla_records_state' AND definition LIKE N'%''close''%')
+BEGIN
+    ALTER TABLE ccs.ticket_sla_records DROP CONSTRAINT CK_sla_records_state;
+    ALTER TABLE ccs.ticket_sla_records ADD CONSTRAINT CK_sla_records_state CHECK (state IN ('on_track','close','due_soon','breached','paused','completed'));
+END
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_sla_cycles_state' AND definition LIKE N'%''close''%')
+BEGIN
+    ALTER TABLE ccs.ticket_sla_cycles DROP CONSTRAINT CK_sla_cycles_state;
+    ALTER TABLE ccs.ticket_sla_cycles ADD CONSTRAINT CK_sla_cycles_state CHECK (state IN ('on_track','close','due_soon','breached','paused','completed'));
+END
+GO

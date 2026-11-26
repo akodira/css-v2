@@ -63,11 +63,41 @@ public class CalendarAndSlaTests
         var start = Local(2026, 11, 9, 9);
         var due = Cairo.AddBusinessMinutes(start, 240);   // normal: 4 h first response
         var snap = new SlaSnapshot(null, due, null, 240, 960, 80);
-        Assert.Equal(SlaState.OnTrack, SlaClock.Evaluate(snap, Local(2026, 11, 9, 12), Cairo).State);     // 3h used, 1h left
+        Assert.Equal(SlaState.OnTrack, SlaClock.Evaluate(snap, Local(2026, 11, 9, 10), Cairo).State);     // 1h used (25%)
+        Assert.Equal(SlaState.Close, SlaClock.Evaluate(snap, Local(2026, 11, 9, 12), Cairo).State);       // 3h used (75%), past the 50% close level
         Assert.Equal(SlaState.DueSoon, SlaClock.Evaluate(snap, Local(2026, 11, 9, 12, 20), Cairo).State); // 40 min left <= 48
         Assert.Equal(SlaState.Breached, SlaClock.Evaluate(snap, Local(2026, 11, 9, 13, 1), Cairo).State);
         Assert.Equal(SlaClock.FirstResponse, SlaClock.Evaluate(snap, start, Cairo).Clock);
     }
+
+    [Fact]
+    public void Close_and_warning_levels_follow_the_policy_and_count_working_minutes()
+    {
+        // Critical-like policy: getting close at 40%, at risk at 70% of a 240 working-minute target.
+        var start = Local(2026, 11, 9, 9);
+        var due = Cairo.AddBusinessMinutes(start, 240);
+        var snap = new SlaSnapshot(null, due, null, 240, 960, 70, 40);
+        Assert.Equal(SlaState.OnTrack, SlaClock.Evaluate(snap, Local(2026, 11, 9, 10, 30), Cairo).State); // 90 min used (37.5%)
+        Assert.Equal(SlaState.Close, SlaClock.Evaluate(snap, Local(2026, 11, 9, 10, 40), Cairo).State);   // 100 min used (41.7%)
+        Assert.Equal(SlaState.DueSoon, SlaClock.Evaluate(snap, Local(2026, 11, 9, 11, 50), Cairo).State); // 170 min used (70.8%)
+
+        // Wed 16:00 + 240 working minutes = Sun 12:00 (Thu holiday, Fri/Sat closed). On Saturday only 60 working
+        // minutes (25%) are used, so the ticket is still on track even though most of the wall-clock time has passed.
+        var wed = Local(2026, 11, 11, 16);
+        var dueSun = Cairo.AddBusinessMinutes(wed, 240);
+        var weekend = new SlaSnapshot(null, dueSun, null, 240, 960, 70, 40);
+        Assert.Equal(SlaState.OnTrack, SlaClock.Evaluate(weekend, Local(2026, 11, 14, 12), Cairo).State);
+    }
+
+    [Theory]
+    [InlineData(50, 80, true)]
+    [InlineData(40, 70, true)]
+    [InlineData(80, 80, false)]
+    [InlineData(90, 80, false)]
+    [InlineData(0, 80, false)]
+    [InlineData(50, 100, false)]
+    public void Close_must_be_below_warning_and_warning_below_100(int close, int warning, bool ok)
+        => Assert.Equal(ok, SlaClock.ValidThresholds(close, warning));
 
     [Fact]
     public void After_first_response_the_resolution_clock_runs()

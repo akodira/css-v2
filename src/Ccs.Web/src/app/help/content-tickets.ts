@@ -114,7 +114,7 @@ export const TICKET_ARTICLES: Article[] = [
       { name: { en: "Assigned to me", ar: "المسندة إليّ" }, tone: "brand", text: { en: "Open tickets assigned to you.", ar: "التذاكر المفتوحة المسندة إليك." } },
       { name: { en: "Unassigned", ar: "غير مسندة" }, tone: "purple", text: { en: "Open tickets in a team queue with no agent yet.", ar: "التذاكر المفتوحة في قائمة فريق دون موظف بعد." } },
       { name: { en: "SLA breached", ar: "تجاوزت اتفاقية الخدمة" }, tone: "danger", text: { en: "Past the deadline for first reply or resolution.", ar: "تجاوزت موعد أول رد أو موعد الحل." } },
-      { name: { en: "Due soon", ar: "يقترب موعدها" }, tone: "warn", text: { en: "Has used 80% of its SLA time and is not overdue yet. The 80% is the warning level set in each SLA policy.", ar: "استهلكت 80% من وقت اتفاقية الخدمة ولم تتأخر بعد. ونسبة 80% هي مستوى التحذير المحدد في كل سياسة." } },
+      { name: { en: "At risk", ar: "معرّضة للتأخر" }, tone: "warn", text: { en: "Has used the warning % of its SLA time (set per priority in SLA settings, 80% by default) and is not overdue yet.", ar: "استهلكت نسبة التنبيه من وقت اتفاقية الخدمة (تُحدَّد لكل أولوية في إعدادات اتفاقية الخدمة، و80% افتراضيًا) ولم تتأخر بعد." } },
       { name: { en: "Closed tickets", ar: "التذاكر المغلقة" }, tone: "neutral", text: { en: "Finished tickets.", ar: "التذاكر المنتهية." } },
     ],
     points: [
@@ -266,7 +266,8 @@ export const TICKET_ARTICLES: Article[] = [
     optionsTitle: { en: "What the clock shows", ar: "ما تعرضه الساعة" },
     options: [
       { name: { en: "On track", ar: "في الموعد" }, tone: "ok", text: { en: "Within the deadline.", ar: "ضمن الموعد." } },
-      { name: { en: "Due soon", ar: "يستحق قريبًا" }, tone: "warn", text: { en: "80% of the time is used (the warning level in the SLA policy).", ar: "استُهلك 80% من الوقت (مستوى التحذير في سياسة اتفاقية الخدمة)." } },
+      { name: { en: "Getting close", ar: "يقترب الموعد" }, tone: "warn", text: { en: "The \"Getting close\" % of the time is used (set per priority, 50% by default). No email is sent.", ar: "استُهلكت نسبة «يقترب الموعد» من الوقت (تُحدَّد لكل أولوية، و50% افتراضيًا) دون إرسال بريد." } },
+      { name: { en: "At risk", ar: "معرّضة للتأخر" }, tone: "danger", text: { en: "The warning % of the time is used (set per priority, 80% by default), and the warning email is sent.", ar: "استُهلكت نسبة التنبيه من الوقت (تُحدَّد لكل أولوية، و80% افتراضيًا) وأُرسل بريد التنبيه." } },
       { name: { en: "Breached", ar: "متجاوز" }, tone: "danger", text: { en: "The deadline has passed.", ar: "انتهى الموعد." } },
       { name: { en: "Paused", ar: "متوقف" }, tone: "neutral", text: { en: "Stopped while the ticket waits for the customer.", ar: "متوقفة أثناء انتظار العميل." } },
     ],

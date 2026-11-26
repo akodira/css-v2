@@ -20,7 +20,6 @@ namespace Ccs.Api.Controllers;
 public sealed class ConsoleController(CcsDbContext db, AccessService access, TicketQueries tickets, IClock clock, Ccs.Infrastructure.Identity.AccountApprovers approvers) : ControllerBase
 {
     private static readonly string[] Open = [TicketStatus.New, TicketStatus.Open, TicketStatus.InProgress, TicketStatus.PendingCustomer, TicketStatus.PendingInternal, TicketStatus.Reopened];
-    private const double YellowBelow = 0.5, RedBelow = 0.2;   // share of the target still left (same as the current clock)
 
     private async Task<Ccs.Domain.Rules.AccessContext> Internal(CancellationToken ct)
     {
@@ -42,32 +41,23 @@ public sealed class ConsoleController(CcsDbContext db, AccessService access, Tic
         var escIds = await tickets.EscalatedIdsAsync(c, ct);
         var escalated = escIds.Count == 0 ? 0 : await q.CountAsync(t => escIds.Contains(t.Id) && Open.Contains(t.Status), ct);
 
-        var showStrip = c.Admin || c.LeaderOfTeams.Count > 0;
-        int green = 0, yellow = 0, red = 0, overdue = 0;
-        if (showStrip)
+        // SLA cards: admins see the whole system, team leaders the teams they lead, viewers their organizations
+        // and branches (VisibleTickets already limits them). The state is the one the SLA job stores every minute
+        // from each priority's levels, counted in working time, so the cards always match the queue filter.
+        var scope = c.Admin ? "all" : c.LeaderOfTeams.Count > 0 ? "team" : c.Viewer ? "scope" : null;
+        object? strip = null;
+        if (scope is not null)
         {
             var lead = c.LeaderOfTeams.ToList();
-            var rows = await (from t in q
-                              join r in db.TicketSlaRecords on t.Id equals r.TicketId
-                              where Open.Contains(t.Status) && (c.Admin || (t.TeamId != null && lead.Contains(t.TeamId.Value)))
-                              select new { t.CreatedAt, SlaResolvedAt = r.ResolvedAt, r.FirstResponseDue, r.ResolutionDue, r.FirstRespondedAt, r.PausedAt, r.PausedTotalSeconds }).ToListAsync(ct);
-            var now = clock.UtcNow;
-            foreach (var r in rows)
-            {
-                // The running clock: first response until someone replies, then resolution.
-                var firstClock = r.FirstRespondedAt is null && r.FirstResponseDue is not null;
-                DateTimeOffset? due = firstClock ? r.FirstResponseDue : r.ResolutionDue;
-                // A resolution clock that already has a resolved time is finished (met/late), not running (same as v1).
-                if (due is null || r.PausedAt is not null || (!firstClock && r.SlaResolvedAt is not null)) continue;
-                var total = Math.Max(1, (due.Value - r.CreatedAt).TotalSeconds - r.PausedTotalSeconds);
-                var left = (due.Value - now).TotalSeconds;
-                if (left <= 0) overdue++;
-                else if (left / total < RedBelow) red++;
-                else if (left / total < YellowBelow) yellow++;
-                else green++;
-            }
+            var byState = await (from t in q
+                                 join r in db.TicketSlaRecords on t.Id equals r.TicketId
+                                 where Open.Contains(t.Status) && (scope != "team" || (t.TeamId != null && lead.Contains(t.TeamId.Value)))
+                                 group r by r.State into g
+                                 select new { State = g.Key, N = g.Count() }).ToListAsync(ct);
+            int N(string s) => byState.FirstOrDefault(x => x.State == s)?.N ?? 0;
+            strip = new { scope, onTrack = N(SlaState.OnTrack), close = N(SlaState.Close), atRisk = N(SlaState.DueSoon), overdue = N(SlaState.Breached) };
         }
-        return new { mine, unassigned, breached, dueSoon, closed, escalated, strip = showStrip ? new { green, yellow, red, overdue } : null };
+        return new { mine, unassigned, breached, dueSoon, closed, escalated, strip };
     }
 
     /// <summary>Customers screen (v1 console_customers): customers this person may see, newest first, max 200,

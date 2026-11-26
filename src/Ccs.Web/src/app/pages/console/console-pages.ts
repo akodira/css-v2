@@ -25,7 +25,7 @@ interface StaffExtra {
 }
 
 const SLA_TONE: Record<string, string> = {
-  on_track: 'bg-ok-soft text-ok', due_soon: 'bg-warn-soft text-warn-ink', breached: 'bg-danger-soft text-danger',
+  on_track: 'bg-ok-soft text-ok', close: 'bg-warn-soft text-warn-ink', due_soon: 'bg-danger-soft text-danger', breached: 'bg-danger-soft text-danger',
   paused: 'bg-bg text-muted border border-line', completed: 'bg-brand-soft text-brand-ink',
 };
 
@@ -53,7 +53,7 @@ const SLA_TONE: Record<string, string> = {
         <div [class]="stat + ' border-s-4 border-s-brand bg-brand-soft'"><dt class="text-sm font-semibold text-brand-ink">{{ 'Console.summary.mine' | t }}</dt><dd class="text-3xl font-bold text-brand-ink">{{ counts()?.mine ?? 0 }}</dd></div>
         <div [class]="stat + ' border-s-4 border-s-violet-500 bg-violet-50'"><dt class="text-sm font-semibold text-violet-800">{{ 'Console.summary.unassigned' | t }}</dt><dd class="text-3xl font-bold text-violet-800">{{ counts()?.unassigned ?? 0 }}</dd></div>
         <div [class]="stat + ' border-s-4 border-s-danger bg-danger-soft'"><dt class="text-sm font-semibold text-danger">{{ 'Console.summary.breached' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ counts()?.breached ?? 0 }}</dd></div>
-        <div [class]="stat + ' border-s-4 border-s-amber-500 bg-warn-soft'"><dt class="text-sm font-semibold text-warn-ink">{{ 'Console.summary.dueSoon' | t }}</dt><dd class="text-3xl font-bold text-warn-ink">{{ counts()?.dueSoon ?? 0 }}</dd></div>
+        <div [class]="stat + ' border-s-4 border-s-danger bg-danger-soft'"><dt class="text-sm font-semibold text-danger">{{ 'Console.summary.dueSoon' | t }}</dt><dd class="text-3xl font-bold text-danger">{{ counts()?.dueSoon ?? 0 }}</dd></div>
         <button type="button" (click)="showClosed()" [attr.aria-current]="status() === 'closed' ? 'true' : null" [class]="stat + ' cursor-pointer border-s-4 border-s-ok bg-ok-soft text-start hover:brightness-95' + (status() === 'closed' ? ' ring-2 ring-ok' : '')"><dt class="text-sm font-semibold text-ok">{{ 'Console.summary.closed' | t }}</dt><dd class="text-3xl font-bold text-ok">{{ counts()?.closed ?? 0 }}</dd></button>
       </dl>
 
@@ -87,7 +87,7 @@ const SLA_TONE: Record<string, string> = {
         <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Console.filters.sla' | t }}
           <select [class]="field" [value]="slaF()" (change)="slaF.set($any($event.target).value)">
             <option value="">{{ 'Console.filters.any' | t }}</option>
-            @for (s of slaStates; track s) { <option [value]="s">{{ 'Sla.' + s | t }}</option> }
+            @for (s of slaStates; track s) { <option [value]="s" [selected]="s === slaF()">{{ 'Sla.' + s | t }}</option> }
           </select></label>
         <label class="flex flex-col gap-1 text-sm font-semibold">{{ 'Console.ticket.team' | t }}
           <select [class]="field" [value]="team()" (change)="team.set($any($event.target).value)">
@@ -96,6 +96,9 @@ const SLA_TONE: Record<string, string> = {
           </select></label>
         @if (filtered()) { <div class="flex items-end"><button type="button" (click)="clearFilters()" class="min-h-11 cursor-pointer px-1 font-semibold text-brand-ink underline">{{ 'Common.clearFilters' | t }}</button></div> }
       </form>
+      @if (slaF()) {
+        <p class="-mt-2"><span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold" [class]="sla[slaF()] ?? ''">{{ 'Console.filters.sla' | t }}: {{ 'Sla.' + slaF() | t }}<button type="button" (click)="slaF.set('')" [attr.aria-label]="'Console.filters.removeSla' | t" class="flex min-h-6 min-w-6 cursor-pointer items-center justify-center rounded-full hover:bg-white/60">✕</button></span></p>
+      }
 
       @if (data() && !data()!.items.length) { <p class="rounded-md border border-line bg-surface p-6 text-muted">{{ 'Console.empty' | t }}</p> }
       @else {
@@ -170,7 +173,7 @@ export class ConsoleQueuePage {
   protected readonly stat = 'rounded-md border border-line bg-surface p-4';
   protected readonly field = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base';
   protected readonly statuses = ['new', 'open', 'in_progress', 'pending_customer', 'pending_internal', 'resolved', 'closed', 'reopened'];
-  protected readonly slaStates = ['on_track', 'due_soon', 'breached', 'paused', 'completed'];
+  protected readonly slaStates = ['on_track', 'close', 'due_soon', 'breached', 'paused', 'completed'];
   /** "All visible" first: it is where every role starts. */
   protected readonly views = ['all', 'mine', 'unassigned', 'escalated'];
   protected readonly columns = ['ticket', 'customer', 'team', 'priority', 'status', 'sla'];
@@ -192,7 +195,7 @@ export class ConsoleQueuePage {
   protected readonly desc = signal(this.qp.get('dir') !== 'asc');
   protected readonly paused = signal(false);
   protected readonly data = signal<Paged<TicketListItem> | null>(null);
-  protected readonly counts = signal<{ mine: number; unassigned: number; breached: number; dueSoon: number; closed: number; escalated: number; strip: { green: number; yellow: number; red: number; overdue: number } | null } | null>(null);
+  protected readonly counts = signal<{ mine: number; unassigned: number; breached: number; dueSoon: number; closed: number; escalated: number; strip: { scope: string; onTrack: number; close: number; atRisk: number; overdue: number } | null } | null>(null);
   protected readonly prios = signal<{ code: string; nameEn: string; nameAr: string }[]>([]);
   protected readonly teams = signal<{ id: string; nameEn: string; nameAr: string }[]>([]);
   protected readonly readOnly = computed(() => !(this.auth.me()?.roles ?? []).some((r) => r === 'agent' || r === 'team_leader' || r === 'admin'));
@@ -216,8 +219,8 @@ export class ConsoleQueuePage {
   showClosed(): void { this.view.set('all'); this.status.set('closed'); this.page.set(1); this.load(); }
   go(d: number): void { this.page.update((p) => p + d); this.load(); }
   clockOf(r: TicketListItem): ClockInput | null {
-    if (!r.firstRespondedAt && r.firstResponseDue) return { dueAt: r.firstResponseDue, startAt: r.createdAt, pausedAt: r.pausedAt, pausedTotalSeconds: r.pausedTotalSeconds };
-    if (r.resolutionDue) return { dueAt: r.resolutionDue, startAt: r.createdAt, pausedAt: r.pausedAt, pausedTotalSeconds: r.pausedTotalSeconds, doneAt: r.resolvedAt };
+    if (!r.firstRespondedAt && r.firstResponseDue) return { dueAt: r.firstResponseDue, startAt: r.createdAt, pausedAt: r.pausedAt, pausedTotalSeconds: r.pausedTotalSeconds, state: r.slaState };
+    if (r.resolutionDue) return { dueAt: r.resolutionDue, startAt: r.createdAt, pausedAt: r.pausedAt, pausedTotalSeconds: r.pausedTotalSeconds, doneAt: r.resolvedAt, state: r.slaState };
     return null;
   }
   dueOf(r: TicketListItem): string | null { return r.firstRespondedAt ? r.resolutionDue : (r.firstResponseDue ?? r.resolutionDue); }
@@ -279,12 +282,12 @@ export class ConsoleQueuePage {
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             @if (s.firstResponseDue) {
               <app-sla-clock-card [label]="'Console.ticket.firstResponse' | t"
-                [clock]="{ dueAt: s.firstResponseDue, startAt: tk.createdAt, pausedTotalSeconds: s.pausedTotalSeconds, pausedAt: s.firstRespondedAt ? null : s.pausedAt, doneAt: s.firstRespondedAt }"
+                [clock]="{ dueAt: s.firstResponseDue, startAt: tk.createdAt, pausedTotalSeconds: s.pausedTotalSeconds, pausedAt: s.firstRespondedAt ? null : s.pausedAt, doneAt: s.firstRespondedAt, state: s.firstRespondedAt ? null : s.state }"
                 [dueText]="s.firstRespondedAt ? ('Console.ticket.metAt' | t) + ' ' + i18n.date(s.firstRespondedAt) : ('Console.ticket.due' | t) + ' ' + i18n.date(s.firstResponseDue)" />
             }
             @if (s.resolutionDue) {
               <app-sla-clock-card [label]="'Console.ticket.resolution' | t"
-                [clock]="{ dueAt: s.resolutionDue, startAt: tk.createdAt, pausedTotalSeconds: s.pausedTotalSeconds, pausedAt: s.pausedAt, doneAt: s.resolvedAt }"
+                [clock]="{ dueAt: s.resolutionDue, startAt: tk.createdAt, pausedTotalSeconds: s.pausedTotalSeconds, pausedAt: s.pausedAt, doneAt: s.resolvedAt, state: s.firstRespondedAt ? s.state : null }"
                 [dueText]="('Console.ticket.due' | t) + ' ' + i18n.date(s.resolutionDue)" />
             }
           </div>

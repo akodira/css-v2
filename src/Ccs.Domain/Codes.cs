@@ -109,6 +109,9 @@ public static class ClosureReasonCode
 public static class SlaState
 {
     public const string OnTrack = "on_track";
+    /// <summary>"Getting close": the policy's close % of the time is used (no email).</summary>
+    public const string Close = "close";
+    /// <summary>"At risk": the policy's warning % is used; the warning is sent.</summary>
     public const string DueSoon = "due_soon";
     public const string Breached = "breached";
     public const string Paused = "paused";

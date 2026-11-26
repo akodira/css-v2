@@ -582,10 +582,11 @@
   },
   "Sla": {
     "on_track": "On track",
-    "due_soon": "Due soon",
+    "due_soon": "At risk",
     "breached": "Breached",
     "paused": "Paused",
-    "completed": "Met"
+    "completed": "Met",
+    "close": "Getting close"
   },
   "Console": {
     "title": "Tickets",
@@ -602,7 +603,7 @@
       "mine": "Assigned to me",
       "unassigned": "Unassigned",
       "breached": "SLA breached",
-      "dueSoon": "Due soon",
+      "dueSoon": "At risk",
       "closed": "Closed tickets"
     },
     "filters": {
@@ -612,7 +613,8 @@
       "any": "Any",
       "active": "Active",
       "search": "Search reference, subject or customer",
-      "searchButton": "Apply"
+      "searchButton": "Apply",
+      "removeSla": "Remove the SLA filter"
     },
     "columns": {
       "ticket": "Ticket",
@@ -942,7 +944,7 @@
     "policies": "Targets by priority",
     "firstResponse": "First response (working minutes)",
     "resolution": "Resolution (working minutes)",
-    "warning": "Warn when this % of the time is used",
+    "warning": "Warn (At risk) when this % of the time is used",
     "pauseCustomer": "Pause the clock while waiting for the customer",
     "pauseInternal": "Pause the clock while waiting for another team",
     "warnNotify": "On warning, tell",
@@ -989,8 +991,8 @@
     },
     "firstResponseHint": "How long the team has to send the first reply after a ticket is opened. Counted in working hours only.",
     "resolutionHint": "How long the team has to fully solve the ticket. This includes the first response time and counts working hours only.",
-    "warningHint": "When this share of the time is used up, an early warning is sent so the ticket can be rescued before it breaches. Example: 80 means a warning at 80%.",
-    "policySummary": "First reply {first} min · Resolution {resolution} min · Warning at {warning}%",
+    "warningHint": "The ticket becomes At risk (red) and the warning email is sent, so it can be rescued before the deadline. Must be below 100.",
+    "policySummary": "First reply {first} min · Resolution {resolution} min · Getting close at {close}% · At risk at {warning}%",
     "hoursSummary": "Working hours and time zone ({zone})",
     "holidaysSummary": "Holidays ({count})",
     "calendars": {
@@ -1059,7 +1061,10 @@
       "orgNote": "Includes its branches unless a branch has its own",
       "add": "Add calendar",
       "addTitle": "Add a calendar"
-    }
+    },
+    "close": "\"Getting close\" when this % of the time is used",
+    "closeHint": "The ticket turns yellow. No email is sent. Must be lower than the warning %.",
+    "bandsText": "Resolution turns \"Getting close\" after {closeMin} working minutes ({close}%) and \"At risk\" after {warnMin} ({warn}%). At 100% the ticket is overdue."
   },
   "SlaReport": {
     "title": "SLA report",
@@ -1071,11 +1076,11 @@
     "none": "No data yet.",
     "now": "Right now",
     "breached": "Breached",
-    "dueSoon": "Due soon",
+    "dueSoon": "At risk",
     "paused": "Paused",
     "onTrack": "On track",
     "atRisk": "Tickets at risk",
-    "atRiskEmpty": "No ticket is breached or due soon.",
+    "atRiskEmpty": "No ticket is overdue or at risk.",
     "clock": "Deadline",
     "target": "Target 90%",
     "reference": "Ticket",
@@ -1085,7 +1090,8 @@
     "cyclesHelp": "Every reopen starts a new SLA cycle. The first cycle is kept as it was, so a reopened ticket never hides a missed first deadline or double counts.",
     "original": "Original handling",
     "afterReopen": "After a reopen",
-    "cycleCount": "{count} cycles"
+    "cycleCount": "{count} cycles",
+    "close": "Getting close"
   },
   "CustomFields": {
     "title": "Additional details",
@@ -1234,7 +1240,8 @@
       "phoneFormat_length": "The number length must be between 4 and 15 digits.",
       "phoneFormat_starts": "Each \"starts with\" value must be digits only and shorter than the number length (up to 10 values).",
       "teamExists": "This place already has a team of that kind.",
-      "onePlace": "Pick one place only: staff work in one place (Settings › System › Ticket routing)."
+      "onePlace": "Pick one place only: staff work in one place (Settings › System › Ticket routing).",
+      "closeAfterWarning": "The \"Getting close\" % must be lower than the warning %, and the warning % must be below 100."
     },
     "cancel": "Cancel"
   },
@@ -3189,21 +3196,30 @@
     "pausedWith": "with {time} left",
     "left": "left",
     "chip_green": "{time}",
-    "chip_yellow": "Yellow {time}",
-    "chip_red": "Red {time}",
+    "chip_yellow": "Getting close {time}",
+    "chip_red": "At risk {time}",
     "state_green": "On track",
     "state_yellow": "Getting close",
-    "state_red": "Due soon",
+    "state_red": "At risk",
     "state_overdue": "Overdue",
     "state_paused": "Paused",
     "state_met": "Met",
     "state_late": "Missed",
-    "strip_title": "My team",
     "strip_onTrack": "On track",
     "strip_close": "Getting close",
-    "strip_red": "Red",
     "strip_overdue": "Overdue",
-    "strip_hint": "Counts for open tickets of your teams (the running clock of each ticket)."
+    "title_all": "All tickets",
+    "title_team": "My team",
+    "title_scope": "My scope",
+    "strip_atRisk": "At risk",
+    "view": "View →",
+    "mean_onTrack": "Plenty of time left. Less of the time is used than the \"Getting close\" level of the ticket's priority.",
+    "mean_close": "Passed the \"Getting close\" level of its priority. Keep an eye on these.",
+    "mean_atRisk": "Passed the warning level of its priority, and the warning email was sent. Act now.",
+    "mean_overdue": "The deadline has passed. Same tickets as \"SLA breached\".",
+    "hint_all": "Open tickets across the whole system, by the running clock of each ticket (first response until the first reply, then resolution). Paused tickets are not counted. Select a card to see its tickets.",
+    "hint_team": "Open tickets of the teams you lead, by the running clock of each ticket (first response until the first reply, then resolution). Paused tickets are not counted. Select a card to see its tickets.",
+    "hint_scope": "Open tickets in the organizations and branches you can see, by the running clock of each ticket (first response until the first reply, then resolution). Paused tickets are not counted. Select a card to see its tickets."
   },
   "StatusInfo": {
     "new_desc": "The ticket was just received and nobody has started on it yet.",

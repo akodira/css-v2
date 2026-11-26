@@ -243,7 +243,7 @@ export const GENERAL_ARTICLES: Article[] = [
     points: [
       { en: "First response met.", ar: "أول استجابة تحققت." },
       { en: "Resolution met (target 90%).", ar: "الحل تحقق (الهدف 90%)." },
-      { en: "Tickets at risk: breached or due soon.", ar: "التذاكر المعرضة للخطر: المتجاوزة أو التي تستحق قريبًا." },
+      { en: "Tickets at risk: overdue or at risk.", ar: "التذاكر المعرّضة للخطر: المتأخرة أو المعرّضة للتأخر." },
     ],
     notes: [
       { en: "Reopened tickets are counted in separate SLA cycles, so a missed first deadline is never hidden.", ar: "تُحتسب التذاكر المعاد فتحها في دورات منفصلة لئلا يُخفى موعد أول فائت." },
@@ -327,7 +327,8 @@ export const GENERAL_FLOWS: Flow[] = [
     summary: { en: "Deadlines run from creation. A warning comes before the deadline and a breach after it. An agent can also escalate by hand.", ar: "تبدأ المواعيد من إنشاء التذكرة. يصل تحذير قبل الموعد وإشعار تجاوز بعده، ويمكن للموظف التصعيد يدويًا." },
     nodes: [
       { label: { en: "Clock starts", ar: "تبدأ الساعة" }, tone: "a" },
-      { label: { en: "Due soon (warning)", ar: "يستحق قريبًا (تحذير)" }, tone: "d" },
+      { label: { en: "Getting close", ar: "يقترب الموعد" }, tone: "d" },
+      { label: { en: "At risk (warning)", ar: "معرّضة للتأخر (تنبيه)" }, tone: "d" },
       { label: { en: "Breached", ar: "متجاوز" }, tone: "d" },
       { label: { en: "Escalated to administrators", ar: "تصعيد إلى المديرين" }, tone: "d" },
     ],

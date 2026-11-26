@@ -6,7 +6,8 @@ public sealed record SlaSnapshot(
     DateTimeOffset? ResolutionDue,
     int FirstResponseMinutes,
     int ResolutionMinutes,
-    int WarningThresholdPct);
+    int WarningThresholdPct,
+    int CloseThresholdPct = 50);
 
 public sealed record SlaEvaluation(string Clock, string State, DateTimeOffset? Due);
 
@@ -25,11 +26,17 @@ public static class SlaClock
         if (due is null) return new SlaEvaluation(clock, SlaState.OnTrack, null);
         if (now > due) return new SlaEvaluation(clock, SlaState.Breached, due);
 
-        // "Due soon" once 80% (the threshold) of the target is used: remaining <= total * (100 - pct) / 100
+        // "At risk" (due_soon) once the warning % of the target is used: remaining <= total * (100 - pct) / 100.
+        // "Getting close" (close) once the close % is used. Both count working minutes when a calendar is given.
         var remaining = WallClock.MinutesBetween(cal, now, due.Value);
-        var state = remaining <= total * (100 - s.WarningThresholdPct) / 100.0 ? SlaState.DueSoon : SlaState.OnTrack;
+        var state = remaining <= total * (100 - s.WarningThresholdPct) / 100.0 ? SlaState.DueSoon
+            : remaining <= total * (100 - s.CloseThresholdPct) / 100.0 ? SlaState.Close
+            : SlaState.OnTrack;
         return new SlaEvaluation(clock, state, due);
     }
+
+    /// <summary>Getting close must come before the warning, and the warning before the deadline.</summary>
+    public static bool ValidThresholds(int closePct, int warningPct) => closePct >= 1 && closePct < warningPct && warningPct <= 99;
 
     /// <summary>
     /// Priority change. Fixes the known issue in spec 4: today the deadline shifts by wall clock.

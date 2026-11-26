@@ -35,7 +35,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
     public sealed record FieldBody(string Key, string LabelEn, string LabelAr, string Type, FieldOptionRow[]? Options, bool IsRequired,
         bool VisibleToCustomer, Guid? CategoryId, bool IsActive, int SortOrder, double? Min, double? Max, int? MinLength, int? MaxLength, string? Pattern);
     public sealed record SlaBody(int FirstResponseMinutes, int ResolutionMinutes, int WarningThresholdPct, bool PauseOnPendingCustomer,
-        bool PauseOnPendingInternal, Guid? BusinessHoursId, string[]? WarnNotify, string[]? BreachNotify);
+        bool PauseOnPendingInternal, Guid? BusinessHoursId, string[]? WarnNotify, string[]? BreachNotify, int? CloseThresholdPct = null);
     public sealed record HoursBody(string Name, string Timezone, Dictionary<string, string[][]> Schedule, bool IsDefault);
     public sealed record HolidayBody(DateOnly Date, string Name);
 
@@ -500,7 +500,7 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
                 {
                     Priority = p.Code, p.NameEn, p.NameAr, p.Color, p.Icon, p.IsActive,
                     FirstResponseMinutes = s?.FirstResponseMinutes ?? 0, ResolutionMinutes = s?.ResolutionMinutes ?? 0,
-                    WarningThresholdPct = s?.WarningThresholdPct ?? 80, PauseOnPendingCustomer = s?.PauseOnPendingCustomer ?? true,
+                    WarningThresholdPct = s?.WarningThresholdPct ?? 80, CloseThresholdPct = s?.CloseThresholdPct ?? 50, PauseOnPendingCustomer = s?.PauseOnPendingCustomer ?? true,
                     PauseOnPendingInternal = s?.PauseOnPendingInternal ?? false, BusinessHoursId = s?.BusinessHoursId, WarnNotify = warn, BreachNotify = breach,
                     HasPolicy = s is not null,
                 };
@@ -519,16 +519,20 @@ public sealed partial class CatalogAdminController(CcsDbContext db, AccessServic
         await Need(Permission.ManageSettings, ct);
         if (!await db.Priorities.AnyAsync(p => p.Code == priority, ct)) throw new NotFoundException();
         if (b.WarningThresholdPct is < 1 or > 99) throw Err("percent", "warningThresholdPct");
+        var close = b.CloseThresholdPct ?? Math.Max(1, Math.Min(50, b.WarningThresholdPct - 1));
+        if (close is < 1 or > 98) throw Err("percent", "closeThresholdPct");
+        if (!SlaClock.ValidThresholds(close, b.WarningThresholdPct)) throw Err("closeAfterWarning", "closeThresholdPct");
         if (b.BusinessHoursId is Guid bh && !await db.BusinessHours.AnyAsync(h => h.Id == bh, ct)) throw Err("notFound", "businessHoursId");
         var warn = (b.WarnNotify ?? []).Where(NotifyRoles.Contains).Distinct().ToArray();
         var breach = (b.BreachNotify ?? []).Where(NotifyRoles.Contains).Distinct().ToArray();
         var pol = await UpsertSlaAsync(priority, b.FirstResponseMinutes, b.ResolutionMinutes, b.BusinessHoursId, ct);
-        var before = new { pol.WarningThresholdPct, pol.PauseOnPendingCustomer, pol.PauseOnPendingInternal, pol.EscalationRules };
+        var before = new { pol.WarningThresholdPct, pol.CloseThresholdPct, pol.PauseOnPendingCustomer, pol.PauseOnPendingInternal, pol.EscalationRules };
         pol.WarningThresholdPct = b.WarningThresholdPct;
+        pol.CloseThresholdPct = close;
         pol.PauseOnPendingCustomer = b.PauseOnPendingCustomer;
         pol.PauseOnPendingInternal = b.PauseOnPendingInternal;
         pol.EscalationRules = JsonSerializer.Serialize(new object[] { new { @event = "warning", notify = warn }, new { @event = "breach", notify = breach } });
-        audit.Write("sla.update", "sla_policy", pol.Id, before, new { priority, b.FirstResponseMinutes, b.ResolutionMinutes, b.WarningThresholdPct, warn, breach });
+        audit.Write("sla.update", "sla_policy", pol.Id, before, new { priority, b.FirstResponseMinutes, b.ResolutionMinutes, b.WarningThresholdPct, CloseThresholdPct = close, warn, breach });
         await db.SaveChangesAsync(ct);
         return NoContent();
     }

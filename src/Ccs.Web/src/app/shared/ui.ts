@@ -325,9 +325,14 @@ export class SortTh {
   }
 }
 
-/** Live SLA countdown chip, same rules as the current clock: green above half the time left, yellow below half, red below a fifth. */
+/**
+ * Live SLA countdown chip. The color comes from the state the server stores every minute (each priority's
+ * "Getting close" and warning levels, counted in working time): on_track green, close yellow, due_soon "At risk" red.
+ * Without a state (older data) it falls back to wall-clock shares: yellow below half the time left, red below a fifth.
+ */
 export type ClockKind = 'green' | 'yellow' | 'red' | 'overdue' | 'paused' | 'met' | 'late';
-export interface ClockInput { dueAt: string; startAt: string; pausedTotalSeconds?: number | null; pausedAt?: string | null; doneAt?: string | null }
+export interface ClockInput { dueAt: string; startAt: string; pausedTotalSeconds?: number | null; pausedAt?: string | null; doneAt?: string | null; state?: string | null }
+const STATE_KIND: Record<string, ClockKind> = { on_track: 'green', close: 'yellow', due_soon: 'red' };
 export function computeClock(c: ClockInput, now: number): { kind: ClockKind; remainingMs: number } {
   const due = Date.parse(c.dueAt), start = Date.parse(c.startAt);
   const total = Math.max(1, due - start - (c.pausedTotalSeconds ?? 0) * 1000);
@@ -336,6 +341,8 @@ export function computeClock(c: ClockInput, now: number): { kind: ClockKind; rem
   const remainingMs = due - at, left = Math.max(0, Math.min(1, remainingMs / total));
   if (c.pausedAt) return { kind: 'paused', remainingMs };
   if (remainingMs <= 0) return { kind: 'overdue', remainingMs };
+  const fromState = c.state ? STATE_KIND[c.state] : undefined;
+  if (fromState) return { kind: fromState, remainingMs };
   return { kind: left < 0.2 ? 'red' : left < 0.5 ? 'yellow' : 'green', remainingMs };
 }
 export function formatDuration(ms: number): string {

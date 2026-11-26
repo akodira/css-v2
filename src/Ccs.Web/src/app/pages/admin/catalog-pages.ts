@@ -19,7 +19,7 @@ interface FieldRow { id: string; key: string; labelEn: string; labelAr: string; 
 interface CatalogData { types: TypeRow[]; categories: CatRow[]; fields: FieldRow[]; teams: TeamOpt[]; kinds?: { id: string; nameEn: string; nameAr: string }[]; priorities: PrioOpt[] }
 
 interface PrioRow { code: string; nameEn: string; nameAr: string; color: string; icon: string; sortOrder: number; isActive: boolean; firstResponseMinutes: number | null; resolutionMinutes: number | null; usedBy: number; tickets: number; isDefault: boolean }
-interface SlaRow { priority: string; nameEn: string; nameAr: string; color: string; icon?: string; isActive: boolean; firstResponseMinutes: number; resolutionMinutes: number; warningThresholdPct: number; pauseOnPendingCustomer: boolean; pauseOnPendingInternal: boolean; businessHoursId: string | null; warnNotify: string[]; breachNotify: string[]; hasPolicy: boolean }
+interface SlaRow { priority: string; nameEn: string; nameAr: string; color: string; icon?: string; isActive: boolean; firstResponseMinutes: number; resolutionMinutes: number; warningThresholdPct: number; closeThresholdPct: number; pauseOnPendingCustomer: boolean; pauseOnPendingInternal: boolean; businessHoursId: string | null; warnNotify: string[]; breachNotify: string[]; hasPolicy: boolean }
 interface HoursRow { id: string; name: string; timezone: string; isDefault: boolean; schedule: Record<string, string[][]>; holidays: { id: string; date: string; name: string }[] }
 
 const PRIO_DOT: Record<string, string> = { red: 'bg-danger', amber: 'bg-amber-500', blue: 'bg-brand', green: 'bg-ok', grey: 'bg-slate-500', light: 'bg-slate-300' };
@@ -774,14 +774,25 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
           <details class="rounded-xl border border-line bg-surface shadow-card">
             <summary class="flex min-h-11 cursor-pointer flex-wrap items-center gap-3 px-5 py-3 font-semibold">
               <span class="inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-semibold" [class]="tone(p.color)"><app-prio-icon [name]="p.icon" [color]="p.color" [size]="12" />{{ i18n.pick(p.nameEn, p.nameAr) }}</span>
-              <span class="text-sm font-normal text-muted">{{ 'AdminSla.policySummary' | t: { first: p.firstResponseMinutes, resolution: p.resolutionMinutes, warning: p.warningThresholdPct } }}</span>
+              <span class="text-sm font-normal text-muted">{{ 'AdminSla.policySummary' | t: { first: p.firstResponseMinutes, resolution: p.resolutionMinutes, close: p.closeThresholdPct, warning: p.warningThresholdPct } }}</span>
             </summary>
             <form class="flex flex-col gap-4 border-t border-line p-5" novalidate (ngSubmit)="savePolicy(p)">
-              <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.firstResponse' | t }}<app-req /></span><input name="fr" type="number" inputmode="numeric" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.firstResponseMinutes" /><span class="text-sm font-normal leading-snug text-muted">{{ 'AdminSla.firstResponseHint' | t }}</span></label>
                 <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.resolution' | t }}<app-req /></span><input name="rs" type="number" inputmode="numeric" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.resolutionMinutes" /><span class="text-sm font-normal leading-snug text-muted">{{ 'AdminSla.resolutionHint' | t }}</span></label>
+                <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.close' | t }}<app-req /></span><input name="cl" type="number" inputmode="numeric" min="1" max="98" [class]="cls.input + ' font-normal'" [(ngModel)]="m.closeThresholdPct" /><span class="text-sm font-normal leading-snug text-muted">{{ 'AdminSla.closeHint' | t }}</span></label>
                 <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'AdminSla.warning' | t }}<app-req /></span><input name="wn" type="number" inputmode="numeric" min="1" [class]="cls.input + ' font-normal'" [(ngModel)]="m.warningThresholdPct" /><span class="text-sm font-normal leading-snug text-muted">{{ 'AdminSla.warningHint' | t }}</span></label>
               </div>
+              @if (bands(m); as b) {
+                <div aria-hidden="true">
+                  <div class="flex h-7 overflow-hidden rounded-md text-xs font-semibold">
+                    <div class="flex items-center justify-center truncate bg-ok-soft px-1 text-ok" [style.width.%]="b.close">{{ 'SlaClock.strip_onTrack' | t }}</div>
+                    <div class="flex items-center justify-center truncate bg-warn-soft px-1 text-warn-ink" [style.width.%]="b.warn - b.close">{{ 'SlaClock.strip_close' | t }}</div>
+                    <div class="flex items-center justify-center truncate bg-danger-soft px-1 text-danger" [style.width.%]="100 - b.warn">{{ 'SlaClock.strip_atRisk' | t }}</div>
+                  </div>
+                </div>
+                <p class="text-sm text-muted">{{ 'AdminSla.bandsText' | t: { close: b.close, warn: b.warn, closeMin: b.closeMin, warnMin: b.warnMin } }}</p>
+              } @else { <p class="text-sm font-medium text-danger" role="alert">{{ 'AdminCommon.errors.closeAfterWarning' | t }}</p> }
               <label class="${CHECK}"><input type="checkbox" name="pc" class="h-5 w-5" [(ngModel)]="m.pauseOnPendingCustomer" />{{ 'AdminSla.pauseCustomer' | t }}</label>
               <label class="${CHECK}"><input type="checkbox" name="pi" class="h-5 w-5" [(ngModel)]="m.pauseOnPendingInternal" />{{ 'AdminSla.pauseInternal' | t }}</label>
               @for (ev of ['warnNotify', 'breachNotify']; track ev) {
@@ -789,7 +800,7 @@ const blankHours = (): HoursModel => ({ name: '', timezone: 'Africa/Cairo', isDe
                   <div class="flex flex-wrap gap-4">@for (r of roles; track r) {
                     <label class="${CHECK}"><input type="checkbox" class="h-5 w-5" [checked]="$any(m)[ev].includes(r)" (change)="toggle($any(m)[ev], r)" />{{ 'AdminSla.roles.' + r | t }}</label> }</div></fieldset>
               }
-              <div><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.save' | t }}</button></div>
+              <div class="flex flex-wrap items-center gap-3"><button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'AdminSla.save' | t }}</button><app-req-note /></div>
             </form>
           </details>
         }
@@ -1117,12 +1128,19 @@ export class AdminSlaPage extends AdminBase implements OnInit {
   }
   protected calName(id: string | null): string { return this.hours().find((h) => h.id === id)?.name ?? this.hours().find((h) => h.isDefault)?.name ?? ''; }
   protected toggle(list: string[], v: string): void { const i = list.indexOf(v); if (i >= 0) list.splice(i, 1); else list.push(v); }
+  /** Preview of the three bands for the resolution clock; null when the levels are out of order. */
+  protected bands(m: SlaRow): { close: number; warn: number; closeMin: number; warnMin: number } | null {
+    const close = Number(m.closeThresholdPct), warn = Number(m.warningThresholdPct), total = Number(m.resolutionMinutes) || 0;
+    if (!Number.isInteger(close) || !Number.isInteger(warn) || close < 1 || close >= warn || warn > 99) return null;
+    return { close, warn, closeMin: Math.round(total * close / 100), warnMin: Math.round(total * warn / 100) };
+  }
   protected savePolicy(p: SlaRow): void {
+    if (!this.bands(this.pol[p.priority])) { this.msg.set({ tone: 'error', text: this.i18n.t('AdminCommon.errors.closeAfterWarning') }); return; }
     void this.run(() => this.api.put('sla/' + p.priority, this.policyBody(this.pol[p.priority])), 'AdminSla.saved');
   }
   private policyBody(m: SlaRow) {
     return {
-      firstResponseMinutes: Number(m.firstResponseMinutes), resolutionMinutes: Number(m.resolutionMinutes), warningThresholdPct: Number(m.warningThresholdPct),
+      firstResponseMinutes: Number(m.firstResponseMinutes), resolutionMinutes: Number(m.resolutionMinutes), warningThresholdPct: Number(m.warningThresholdPct), closeThresholdPct: Number(m.closeThresholdPct),
       pauseOnPendingCustomer: m.pauseOnPendingCustomer, pauseOnPendingInternal: m.pauseOnPendingInternal, businessHoursId: m.businessHoursId,
       warnNotify: m.warnNotify, breachNotify: m.breachNotify,
     };

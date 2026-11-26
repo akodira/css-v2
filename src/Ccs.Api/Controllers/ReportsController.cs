@@ -298,7 +298,7 @@ public sealed class ReportsController(CcsDbContext db, AccessService access, Aud
             resolution = Tally(current.Select(r => (r.ResolutionDue, r.ResolvedAt))),
             original = Cycle(entries.Where(e => e.CycleNo == 1)),
             afterReopen = Cycle(entries.Where(e => e.CycleNo > 1)),
-            now = new[] { SlaState.Breached, SlaState.DueSoon, SlaState.Paused, SlaState.OnTrack }.ToDictionary(s => s, s => current.Count(r => r.State == s)),
+            now = new[] { SlaState.Breached, SlaState.DueSoon, SlaState.Close, SlaState.Paused, SlaState.OnTrack }.ToDictionary(s => s, s => current.Count(r => r.State == s)),
             atRisk = current.Where(r => r.State is SlaState.Breached or SlaState.DueSoon)
                 .Select(r => new { r.Id, r.Reference, r.Subject, r.State, due = r.FirstRespondedAt is null ? r.FirstResponseDue : r.ResolutionDue }),
         };
