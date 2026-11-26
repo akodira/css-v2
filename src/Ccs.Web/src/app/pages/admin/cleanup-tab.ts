@@ -23,7 +23,7 @@ function blank() {
   return {
     tickets: { on: false, mode: 'filter', status: 'closed', before: '', org: '', ids: [] as string[], q: '', hits: [] as TicketHit[] },
     customers: { on: false, all: true, status: 'never', ids: [] as string[], q: '', hits: [] as Person[], deleteTickets: false },
-    staff: { on: false, ids: [] as string[], q: '', hits: [] as Person[] },
+    staff: { on: false, all: false, ids: [] as string[], q: '', hits: [] as Person[] },
     teams: { on: false, ids: [] as string[], moveTickets: '', moveCats: '' },
     places: { on: false, orgs: [] as string[], branches: [] as string[], removePeople: false },
     catalog: { on: false, types: [] as string[], categories: [] as string[], subcategories: [] as string[], fields: [] as string[] },
@@ -130,12 +130,16 @@ const TONE = { del: 'text-danger', keep: 'text-warn-ink', move: 'text-brand-ink'
               <label class="flex cursor-pointer items-start gap-3"><input type="checkbox" class="mt-1 h-5 w-5 shrink-0" [(ngModel)]="s.staff.on" /><span><b class="block">{{ 'AdminCleanup.staff' | t }}</b><small class="text-muted">{{ 'AdminCleanup.staffHint' | t }}</small></span></label>
               @if (s.staff.on) {
                 <div class="flex flex-col gap-2 border-t border-line pt-3">
+                  <label class="flex items-start gap-2 text-sm"><input type="radio" name="sa" class="mt-1" [value]="true" [(ngModel)]="s.staff.all" />{{ 'AdminCleanup.staffAll' | t }}</label>
+                  <label class="flex items-start gap-2 text-sm"><input type="radio" name="sa" class="mt-1" [value]="false" [(ngModel)]="s.staff.all" />{{ 'AdminCleanup.staffPick' | t }}</label>
+                  @if (!s.staff.all) {
                   <form class="flex gap-2" (submit)="$event.preventDefault(); findPeople('staff')"><input type="search" dir="auto" [class]="cls.input" [attr.aria-label]="'AdminCleanup.searchPeople' | t" [placeholder]="'AdminCleanup.searchPeople' | t" [(ngModel)]="s.staff.q" name="sq" /><button type="submit" [class]="cls.btn2">{{ 'AdminCleanup.search' | t }}</button></form>
                   <div class="max-h-48 overflow-auto rounded-lg border border-line">
                     @for (p of s.staff.hits; track p.id) { <label class="flex items-center gap-2 border-b border-line px-3 py-1.5 text-sm"><input type="checkbox" [checked]="s.staff.ids.includes(p.id)" (change)="flip(s.staff.ids, p.id)" /><span dir="auto">{{ p.fullName }}</span><span class="truncate text-muted" dir="ltr">{{ p.email }}</span>@if (p.role) { <span class="ms-auto text-xs text-muted">{{ 'AdminSla.roles.' + p.role | t }}</span> }</label> }
                     @empty { <p class="px-3 py-2 text-sm text-muted">{{ 'AdminCleanup.searchFirst' | t }}</p> }
                   </div>
-                  <p class="text-sm text-muted">{{ 'AdminCleanup.picked' | t: { n: s.staff.ids.length } }} · {{ 'AdminCleanup.staffRule' | t }}</p>
+                  }
+                  <p class="text-sm text-muted">@if (!s.staff.all) { {{ 'AdminCleanup.picked' | t: { n: s.staff.ids.length } }} · }{{ 'AdminCleanup.staffRule' | t }}</p>
                 </div>
               }
             </div>
@@ -160,6 +164,8 @@ const TONE = { del: 'text-danger', keep: 'text-warn-ink', move: 'text-brand-ink'
               <label class="flex cursor-pointer items-start gap-3"><input type="checkbox" class="mt-1 h-5 w-5 shrink-0" [(ngModel)]="s.places.on" /><span><b class="block">{{ 'AdminCleanup.places' | t }}</b><small class="text-muted">{{ 'AdminCleanup.placesHint' | t }}</small></span></label>
               @if (s.places.on) {
                 <div class="flex flex-col gap-3 border-t border-line pt-3">
+                  <label class="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" class="h-5 w-5" [checked]="allPlaces()" [indeterminate]="!allPlaces() && s.places.orgs.length > 0"
+                    (change)="setAllPlaces($any($event.target).checked)" />{{ 'AdminCleanup.placesAll' | t: { n: x.organizations.length } }}</label>
                   <div class="max-h-56 overflow-auto rounded-lg border border-line">
                     @for (g of x.organizations; track g.id) {
                       <label class="flex items-center gap-2 border-b border-line px-3 py-1.5 text-sm font-semibold"><input type="checkbox" [checked]="s.places.orgs.includes(g.id)" (change)="flip(s.places.orgs, g.id)" />{{ g.name }}<span class="ms-auto text-xs font-normal text-muted">{{ 'AdminCleanup.peopleN' | t: { n: g.people } }}</span></label>
@@ -243,6 +249,10 @@ const TONE = { del: 'text-danger', keep: 'text-warn-ink', move: 'text-brand-ink'
         @if (lines().length) {
           <ul class="list-disc ps-5">@for (l of lines(); track l.key) { <li><span class="font-semibold" [class]="l.tone">{{ 'AdminCleanup.verb_' + l.verb | t }}</span> {{ 'AdminCleanup.c_' + l.key | t: { n: l.n, size: size() } }}</li> }</ul>
         } @else { <p class="rounded-lg bg-bg px-3 py-2 text-sm">{{ 'AdminCleanup.nothingMatches' | t }}</p> }
+        @if (emptyParts().length) {
+          <div role="note" class="rounded-lg bg-warn-soft px-3 py-2 text-sm text-warn-ink"><b>{{ 'AdminCleanup.emptyTitle' | t }}</b>
+            <ul class="mt-1 list-disc ps-5">@for (k of emptyParts(); track k) { <li>{{ 'AdminCleanup.empty_' + k | t }}</li> }</ul></div>
+        }
         @if (step() === 'preview') {
           <div class="flex flex-wrap gap-3"><button type="button" [class]="cls.btn2" (click)="step.set('choose')">{{ 'AdminCleanup.back' | t }}</button>
             @if (lines().length) { <button type="button" [class]="cls.btn" (click)="step.set('confirm')">{{ 'AdminCleanup.continue' | t }}</button> }</div>
@@ -304,6 +314,27 @@ export class CleanupTab implements OnInit {
   }
   protected name(t: Named): string { return t.name ?? this.i18n.pick(t.nameEn ?? '', t.nameAr ?? ''); }
   protected flip(list: string[], id: string): void { const i = list.indexOf(id); if (i >= 0) list.splice(i, 1); else list.push(id); }
+  protected allPlaces(): boolean { const o = this.o()?.organizations ?? []; return o.length > 0 && o.every((g) => this.s.places.orgs.includes(g.id)); }
+  protected setAllPlaces(on: boolean): void {
+    this.s.places.orgs = on ? (this.o()?.organizations ?? []).map((g) => g.id) : [];
+    if (on) this.s.places.branches = [];
+  }
+  /** Parts that are ticked but select nothing, so the preview can say why it is empty. */
+  protected emptyParts(): string[] {
+    const s = this.s, c = this.counts() ?? {}, out: string[] = [];
+    if (s.tickets.on && s.tickets.mode === 'pick' && !s.tickets.ids.length) out.push('ticketsPick');
+    else if (s.tickets.on && !c['tickets']) out.push('tickets');
+    if (s.customers.on && !s.customers.all && !s.customers.ids.length) out.push('customersPick');
+    else if (s.customers.on && !c['people'] && !c['peopleAnonymized']) out.push('customers');
+    if (s.staff.on && !s.staff.all && !s.staff.ids.length) out.push('staffPick');
+    if (s.teams.on && !s.teams.ids.length) out.push('teams');
+    if (s.places.on && !s.places.orgs.length && !s.places.branches.length) out.push('places');
+    if (s.catalog.on && !s.catalog.types.length && !s.catalog.categories.length && !s.catalog.subcategories.length && !s.catalog.fields.length) out.push('catalog');
+    if (s.kb.on && !s.kb.articles.length && !s.kb.categories.length) out.push('kb');
+    if (s.canned.on && !s.canned.ids.length) out.push('canned');
+    if (s.calendars.on && !s.calendars.ids.length && !s.calendars.pastHolidays) out.push('calendars');
+    return out;
+  }
   protected anyOn(): boolean { return Object.values(this.s).some((p) => (p as { on: boolean }).on); }
 
   protected async findTickets(): Promise<void> {
@@ -323,7 +354,8 @@ export class CleanupTab implements OnInit {
         ? { mode: 'pick', ids: s.tickets.ids }
         : { mode: 'filter', status: s.tickets.status, createdBefore: s.tickets.before || null, organizationId: s.tickets.org || null }) : null,
       customers: s.customers.on ? { allMatching: s.customers.all, status: s.customers.status, ids: s.customers.all ? null : s.customers.ids, deleteTickets: s.customers.deleteTickets } : null,
-      staffIds: ids(s.staff.on, s.staff.ids),
+      staffIds: s.staff.all ? null : ids(s.staff.on, s.staff.ids),
+      allStaff: s.staff.on && s.staff.all,
       teams: s.teams.on && s.teams.ids.length ? { ids: s.teams.ids, moveTicketsTo: s.teams.moveTickets || null, moveCategoriesTo: s.teams.moveCats || null } : null,
       places: s.places.on ? { organizationIds: s.places.orgs, branchIds: s.places.branches, removePeople: s.places.removePeople } : null,
       catalog: s.catalog.on ? { typeIds: s.catalog.types, categoryIds: s.catalog.categories, subcategoryIds: s.catalog.subcategories, fieldIds: s.catalog.fields } : null,

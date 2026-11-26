@@ -1,1 +1,0 @@
-import{I as Yt}from"./main-ZCQ57BIL.js";import"./chunk-C0o8wKQ5.js";import"./chunk-CyiooE7G.js";export{Yt as PeoplePage};

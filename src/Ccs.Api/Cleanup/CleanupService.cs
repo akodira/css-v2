@@ -24,7 +24,8 @@ public sealed record CleanupRequest(
     Guid[]? CannedIds = null,
     CleanupCalendars? Calendars = null,
     int? NotificationsOlderThanDays = null,
-    bool Sessions = false);
+    bool Sessions = false,
+    bool AllStaff = false);   // every staff account except the one running it (StaffIds is then ignored)
 
 /// <summary>Mode "filter" uses Status / CreatedBefore / OrganizationId; mode "pick" uses Ids.</summary>
 public sealed record CleanupTickets(string Mode, string? Status = null, DateOnly? CreatedBefore = null, Guid? OrganizationId = null, Guid[]? Ids = null);
@@ -165,7 +166,13 @@ public sealed class CleanupService(CcsDbContext db, IClock clock)
                         """, ("@me", me));
                 }
             }
-            if (r.StaffIds is { Length: > 0 })
+            if (r.AllStaff)
+                await Exec("""
+                    INSERT #p (id, kind) SELECT p.id, N'staff' FROM ccs.profiles p
+                    WHERE p.id <> @me AND p.id NOT IN (SELECT id FROM #p)
+                      AND EXISTS (SELECT 1 FROM ccs.user_roles ur JOIN ccs.roles r ON r.id = ur.role_id WHERE ur.user_id = p.id AND r.code <> 'customer');
+                    """, ("@me", me));
+            else if (r.StaffIds is { Length: > 0 })
             {
                 await Fill("#ids", r.StaffIds);
                 await Exec("""

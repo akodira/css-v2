@@ -5152,7 +5152,22 @@
     "runButton": "Remove permanently",
     "doneTitle": "Done.",
     "doneText": "The removal is recorded in the audit log.",
-    "again": "Clean up something else"
+    "again": "Clean up something else",
+    "staffAll": "All staff (never you, never the last admin)",
+    "staffPick": "Only the staff I pick:",
+    "placesAll": "All organizations and their branches ({n})",
+    "emptyTitle": "Ticked but nothing selected:",
+    "empty_tickets": "Tickets: no ticket matches (there may be none left).",
+    "empty_ticketsPick": "Tickets: no ticket is picked.",
+    "empty_customers": "Customers: no customer matches (there may be none left).",
+    "empty_customersPick": "Customers: no customer is picked.",
+    "empty_staffPick": "Staff: nobody is picked. Choose \"All staff\" or search and pick people.",
+    "empty_teams": "Teams: no team is ticked.",
+    "empty_places": "Organizations and branches: none is ticked. Use \"All organizations\" or tick them in the list.",
+    "empty_catalog": "Ticket catalog: nothing is ticked.",
+    "empty_kb": "Knowledge base: nothing is ticked.",
+    "empty_canned": "Canned responses: nothing is ticked.",
+    "empty_calendars": "Calendars: nothing is ticked."
   },
   "PlaceTree": {
     "search": "Search organizations or branches",
