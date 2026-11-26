@@ -11,8 +11,10 @@ export interface BranchLite { id: string; organizationId: string; name: string; 
 export interface TeamLite { id: string; nameEn: string; nameAr: string; isActive: boolean }
 export interface TypeLite { id: string; nameEn: string; nameAr: string; isBuiltin: boolean; scopeLevel: string | null }
 export interface PersonLite { id: string; fullName: string; email: string }
+/** A team leader and where they work (no places = everywhere). */
+export interface LeaderLite extends PersonLite { places: { organizationId: string; branchId: string | null }[] }
 export interface Lookups {
-  orgs: OrgLite[]; branches: BranchLite[]; teams: TeamLite[]; types: TypeLite[]; leaders: PersonLite[];
+  orgs: OrgLite[]; branches: BranchLite[]; teams: TeamLite[]; types: TypeLite[]; leaders: LeaderLite[];
   permissions: string[]; roles: string[]; me: string;
 }
 
@@ -32,6 +34,8 @@ export interface AccessRow { organizationId: string; branchId: string | null }
 export interface AccountTypeRow {
   id: string; nameEn: string; nameAr: string; allAccess: boolean; isBuiltin: boolean; scopeLevel: string | null;
   permissions: string[]; access: AccessRow[]; staff: number; kind: string;
+  /** Set on the default types: they cannot be deleted or renamed, and can go back to defaultPermissions. */
+  defaultKey: string | null; defaultPermissions: string[] | null;
 }
 export interface TypeBody { nameEn: string; nameAr: string; allAccess: boolean; scopeLevel: string | null; permissions: string[]; access: AccessRow[] }
 

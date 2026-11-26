@@ -1249,7 +1249,11 @@
       "backup": "Confirm that you have a recent backup.",
       "confirm": "Type the confirmation word exactly.",
       "reassignTargets": "Tick at least one choice of who can receive the ticket, or switch reassigning off.",
-      "parentLoop": "An organization cannot belong to itself or to one of the organizations under it."
+      "parentLoop": "An organization cannot belong to itself or to one of the organizations under it.",
+      "kindOfficeNoTickets": "Office staff do not work tickets. Untick replying, resolving, closing, category and assigning.",
+      "kindOfficeNeedsOne": "Office staff need at least one task: managing customers, approving customers, the knowledge base, saved replies, categories or settings.",
+      "defaultLocked": "Default account types cannot be deleted.",
+      "notDefault": "Only a default account type can be reset."
     },
     "cancel": "Cancel"
   },
@@ -1956,7 +1960,16 @@
     "otherBranch": "Branch removed",
     "agoMin": "{n, plural, one {# minute ago} other {# minutes ago}}",
     "agoHour": "{n, plural, one {# hour ago} other {# hours ago}}",
-    "agoDay": "{n, plural, one {yesterday} other {# days ago}}"
+    "agoDay": "{n, plural, one {yesterday} other {# days ago}}",
+    "noLeaderHere": "No team leader works here yet",
+    "leaderHintBranch": "Only team leaders who work in this branch or in its whole organization.",
+    "leaderHintOrg": "Only team leaders who work in this organization or its branches.",
+    "leaderNone": "Give someone a team leader account type and choose this place under \"Works in\" on the",
+    "staffPage": "Staff page",
+    "worksIn": "Works in {place}",
+    "worksInBranches": "Works in its branches",
+    "worksEverywhere": "Works everywhere",
+    "leaderBefore": "Chosen before (does not work here)"
   },
   "AdminPriorities": {
     "title": "Priorities",
@@ -2060,7 +2073,7 @@
     "tabTypes": "Account types",
     "tabStaff": "Staff",
     "summaryTypes": "{types} account types · {staff} staff members",
-    "addType": "Add account type",
+    "addType": "Add custom account type",
     "colType": "Account type",
     "colAccess": "Access",
     "colPerms": "Permissions",
@@ -2074,7 +2087,7 @@
     "count": "{n} of {total} permissions",
     "countAll": "{total} of {total} permissions",
     "noteEdit": "Edit opens the form on the next screen. Changing a type changes everyone who has it.",
-    "noteDelete": "Delete appears inside Edit, and only while no staff member has the type. Administrator can never be edited or deleted.",
+    "noteDelete": "Default types cannot be deleted. A custom type can be deleted from Edit while no staff member has it.",
     "lockedNote": "Administrator has every permission in every organization and branch, now and in the future. It cannot be changed or deleted, so the system always has someone who can manage it.",
     "stepName": "Name",
     "nameEn": "Name (English)",
@@ -2158,7 +2171,40 @@
     "chipsNote": "Read only here. Change it on the Account types tab. Struck-through items are not allowed for this account type.",
     "noteAdminPick": "Choosing Administrator fills Access with all organizations and every permission, and asks for confirmation before saving.",
     "noteSafety": "Safety rule: you cannot change your own account type, and the last Administrator cannot be changed.",
-    "noteAuto": "Auto-assign: new tickets reaching a team go to a team member with this switch on who has the fewest open tickets. Team leaders can also set it for their own team under My team. Only people in a team can use it."
+    "noteAuto": "Auto-assign: new tickets reaching a team go to a team member with this switch on who has the fewest open tickets. Team leaders can also set it for their own team under My team. Only people in a team can use it.",
+    "defaultsTitle": "Default account types",
+    "defaultsHelp": "Ready to use. They cannot be deleted or renamed. You can change their permissions and go back to the default at any time.",
+    "customTitle": "Custom account types",
+    "customHelp": "Your own types. Start from a default type, then change its name and permissions.",
+    "changedN": "{n, plural, one {1 permission changed from the default} other {# permissions changed from the default}}",
+    "sameAsDefault": "It has the default permissions.",
+    "defaultBadge": "Default type",
+    "defaultNote": "This is a default type: its name and kind are fixed, and it cannot be deleted. You can change its permissions.",
+    "changedMark": "changed",
+    "reset": "Reset to default",
+    "resetConfirm": "Put back the default permissions? Everyone with this type gets them.",
+    "resetYes": "Yes, reset",
+    "resetDone": "The default permissions are back.",
+    "startFrom": "Start from a default type",
+    "startFromHelp": "Fills in the kind and the permissions. You can change them after.",
+    "startBlank": "Choose a default type (optional)",
+    "customerTitle": "Customer",
+    "customerHint": "Opens tickets and follows their own tickets.",
+    "customerFixed": "Fixed: customers have their own permissions.",
+    "customerWhatTitle": "What customers can do",
+    "customerWhat": "Open tickets, follow and reply to their own tickets, rate a solved ticket and read the knowledge base. Customers never see other people's tickets.",
+    "customersN": "{n, plural, one {1 customer} other {# customers}}",
+    "fixed": "Fixed",
+    "defaultHint": {
+      "administrator": "Everything, everywhere. Built in and locked.",
+      "organization_admin": "Manages the organizations they work in.",
+      "branch_admin": "Manages the branches they work in.",
+      "team_leader": "Answers tickets, leads a team and assigns tickets.",
+      "agent": "Works and answers tickets.",
+      "viewer": "Looks and reports only. Cannot change anything.",
+      "kb_editor": "Writes help articles and the saved replies everyone shares. Does not work tickets.",
+      "registration_officer": "Approves new customer accounts and keeps customer details up to date."
+    }
   },
   "Team": {
     "title": "My team",
@@ -4661,7 +4707,8 @@
       "branch_admin": "Branch admin",
       "team_leader": "Team leader",
       "agent": "Agent",
-      "viewer": "Viewer"
+      "viewer": "Viewer",
+      "office": "Office staff"
     },
     "kindHint": {
       "administrator": "Everything, everywhere. Built in and locked.",
@@ -4669,7 +4716,8 @@
       "branch_admin": "Manages the branches they work in.",
       "team_leader": "An agent who also leads a team and assigns tickets.",
       "agent": "Works and answers tickets.",
-      "viewer": "Looks and reports only. Cannot change anything."
+      "viewer": "Looks and reports only. Cannot change anything.",
+      "office": "Works on customers or content, not on tickets."
     },
     "type": {
       "title": "Account type",

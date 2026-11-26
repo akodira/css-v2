@@ -190,11 +190,13 @@ CREATE TABLE ccs.account_types (
     all_access  bit NOT NULL DEFAULT 0,
     is_builtin  bit NOT NULL DEFAULT 0,
     scope_level nvarchar(20) NULL CONSTRAINT CK_account_types_scope CHECK (scope_level IN ('branch','organization')),
+    default_key nvarchar(30) NULL,
     created_at  datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     updated_at  datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME()
 );
 CREATE UNIQUE INDEX UX_account_types_name_en ON ccs.account_types (name_en);
 CREATE UNIQUE INDEX UX_account_types_name_ar ON ccs.account_types (name_ar);
+CREATE UNIQUE INDEX UX_account_types_default_key ON ccs.account_types (default_key) WHERE default_key IS NOT NULL;
 
 CREATE TABLE ccs.account_type_permissions (
     account_type_id uniqueidentifier NOT NULL CONSTRAINT FK_atp_type REFERENCES ccs.account_types(id) ON DELETE CASCADE,

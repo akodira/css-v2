@@ -154,6 +154,9 @@ if (runJobs)
 // One-time: secrets saved with the old key folder are moved to the SQL Server key ring (no-op afterwards).
 if (!string.IsNullOrWhiteSpace(app.Configuration.GetConnectionString("Ccs")))
     await Ccs.Api.KeyRingMigration.RunAsync(app.Services, app.Configuration, app.Logger);
+// The default account types (Agent, Team leader, ...) are made when missing.
+if (!string.IsNullOrWhiteSpace(app.Configuration.GetConnectionString("Ccs")))
+    await Ccs.Api.DefaultTypesStartup.RunAsync(app.Services, app.Logger);
 
 app.Run();
 

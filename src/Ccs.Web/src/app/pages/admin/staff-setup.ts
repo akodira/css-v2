@@ -7,13 +7,16 @@ import { I18n, TPipe } from '../../core/i18n';
 // Staff and Permissions, Plan B: account type = what a person can do, Works in = where.
 // Shared here: the kind rules (same as Ccs.Domain AccountKinds), the setup guide and the Works in picker.
 
-export const KINDS = ['agent', 'team_leader', 'viewer', 'branch_admin', 'organization_admin'] as const;
+export const KINDS = ['agent', 'team_leader', 'viewer', 'office', 'branch_admin', 'organization_admin'] as const;
+/** Working on tickets: office staff never hold these (same as Ccs.Domain AccountKinds.TicketWork). */
+export const TICKET_WORK = ['reply', 'resolve', 'close', 'change_category', 'assign_self', 'assign_others'];
 /** What a viewer may hold: looking and reporting only. */
 export const VIEWER_PERMS = ['view_unassigned', 'view_others', 'all_teams', 'reports_own', 'reports_all', 'export', 'customers_view'];
 
 /** Can this permission be ticked for this kind? */
 export function permFits(kind: string, p: string): boolean {
   if (kind === 'viewer') return VIEWER_PERMS.includes(p);
+  if (kind === 'office') return !TICKET_WORK.includes(p);
   if (kind === 'agent') return p !== 'assign_others';
   return true;
 }

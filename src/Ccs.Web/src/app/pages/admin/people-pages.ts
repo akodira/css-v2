@@ -1041,6 +1041,8 @@ export class AdminTeamsPage extends AccordionPage implements OnInit {
 
 // ================================================================== organizations (v1 /admin/organizations)
 
+/** The team leader list of one place, in groups by where each leader works. */
+interface LeaderGroup { label: string; rows: { id: string; fullName: string; email: string; where?: string }[] }
 type PlaceModel = { name: string; location: string; phone: string; teamLeaderId: string | null; isActive: boolean; sharedAccessEnabled: boolean; parentId: string | null };
 /** One place a staff member works in (head office = no branch), from GET organizations/staff. */
 interface OrgStaff {
@@ -1066,7 +1068,7 @@ function treeOrder(rows: OrgRow[]): OrgRow[] {
 /** Name, location, telephone and team leader; the Active box only when editing (v1 OrganizationForm / BranchForm). */
 @Component({
   selector: 'app-place-form',
-  imports: [FormsModule, TPipe, Req, ReqNote],
+  imports: [FormsModule, TPipe, Req, ReqNote, RouterLink],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <form [class]="row() ? 'flex flex-col gap-4 border-t border-line pt-4' : framed() ? 'flex flex-col gap-4 rounded-xl border border-line bg-surface p-5' : 'flex flex-col gap-4'" novalidate (ngSubmit)="save.emit({ ...m })">
@@ -1076,9 +1078,15 @@ function treeOrder(rows: OrgRow[]): OrgRow[] {
         <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.telephone' | t }}<input name="phone" dir="ltr" maxlength="24" placeholder="+20 2 1234 5678" [class]="cls.input + ' font-normal'" [(ngModel)]="m.phone" /></label>
         <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'Directory.teamLeader' | t }}
           <select name="leader" [class]="cls.input" [(ngModel)]="m.teamLeaderId">
-            <option [ngValue]="null">{{ 'Directory.noLeader' | t }}</option>
-            @for (p of leaders(); track p.id) { <option [ngValue]="p.id">{{ p.fullName }} ({{ p.email }})</option> }
-          </select></label>
+            <option [ngValue]="null">{{ (hasLeaders() ? 'Directory.noLeader' : 'AdminOrgs.noLeaderHere') | t }}</option>
+            @for (g of leaderGroups(); track g.label) {
+              <optgroup [label]="g.label">
+                @for (p of g.rows; track p.id) { <option [ngValue]="p.id">{{ p.fullName }}{{ p.where ? ' · ' + p.where : ' (' + p.email + ')' }}</option> }
+              </optgroup>
+            }
+          </select>
+          <span class="text-xs font-normal text-muted">@if (hasLeaders()) { {{ (branch() ? 'AdminOrgs.leaderHintBranch' : 'AdminOrgs.leaderHintOrg') | t }} }
+            @else { {{ 'AdminOrgs.leaderNone' | t }} <a [routerLink]="'/' + i18n.locale() + '/admin/users'" class="font-semibold text-brand-ink underline">{{ 'AdminOrgs.staffPage' | t }}</a> }</span></label>
         @if (!branch()) {
           <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminOrgs.belongsTo' | t }}
             <select name="parent" [class]="cls.input" [(ngModel)]="m.parentId">
@@ -1112,7 +1120,10 @@ export class PlaceForm implements OnInit {
   readonly row = input<BranchRow | OrgRow | null>(null);
   readonly branch = input(false);
   readonly framed = input(false);
-  readonly leaders = input<{ id: string; fullName: string; email: string }[]>([]);
+  protected readonly i18n = inject(I18n);
+  /** Only the team leaders who work in this place (see AdminOrgsPage.leaderGroups). */
+  readonly leaderGroups = input<LeaderGroup[]>([]);
+  protected hasLeaders(): boolean { return this.leaderGroups().some((g) => g.rows.length); }
   /** Organizations that may be chosen as the parent (the page leaves out this one and those under it). */
   readonly parentChoices = input<{ id: string; name: string }[]>([]);
   readonly busy = input(false);
@@ -1146,13 +1157,13 @@ export class PlaceForm implements OnInit {
               <h2 class="text-lg font-bold">{{ (mode() === 'org' ? 'AdminOrgs.addOrgBtn' : 'AdminOrgs.addBranchBtn') | t }}</h2>
               <button type="button" class="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-sm font-semibold text-muted hover:bg-bg hover:text-ink" (click)="mode.set(null)"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>{{ 'AdminCommon.cancel' | t }}</button>
             </div>
-        @if (mode() === 'org') { <app-place-form [framed]="true" [leaders]="leaderList()" [parentChoices]="parentsFor(null)" [busy]="busy()" (save)="createOrg($event)" /> }
+        @if (mode() === 'org') { <app-place-form [framed]="true" [leaderGroups]="leaderGroups(null, null, null)" [parentChoices]="parentsFor(null)" [busy]="busy()" (save)="createOrg($event)" /> }
         @if (mode() === 'branch') {
           <div class="flex flex-col gap-3">
             @if (!activeOrgs().length) { <p class="text-muted">{{ 'AdminOrgs.needOrg' | t }}</p> } @else {
               <div class="max-w-sm"><label for="branch-parent" class="mb-1 block text-sm font-semibold">{{ 'AdminOrgs.parentOrg' | t }}</label>
                 <select id="branch-parent" [class]="cls.input" [(ngModel)]="parent">@for (o of activeOrgs(); track o.id) { <option [value]="o.id">{{ o.name }}</option> }</select></div>
-              <app-place-form [branch]="true" [leaders]="leaderList()" [busy]="busy()" (save)="createBranch(parent, $event)" />
+              <app-place-form [branch]="true" [leaderGroups]="leaderGroups(parent, 'new', null)" [busy]="busy()" (save)="createBranch(parent, $event)" />
             }
           </div>
         }
@@ -1240,7 +1251,7 @@ export class PlaceForm implements OnInit {
             <button type="button" [class]="toggleBtn" [attr.aria-expanded]="editOrg === o.id" (click)="editOrg = editOrg === o.id ? null : o.id">{{ 'Directory.editDetails' | t }}</button>
           </div>
           @if (editOrg === o.id) {
-            <div class="rounded-xl border border-line bg-[#fafcff] p-4"><app-place-form [row]="o" [leaders]="leaderList()" [parentChoices]="parentsFor(o.id)" [busy]="busy()" (save)="updateOrg(o, $event)" (remove)="deleteOrg(o)" /></div>
+            <div class="rounded-xl border border-line bg-[#fafcff] p-4"><app-place-form [row]="o" [leaderGroups]="leaderGroups(o.id, null, o.teamLeaderId)" [parentChoices]="parentsFor(o.id)" [busy]="busy()" (save)="updateOrg(o, $event)" (remove)="deleteOrg(o)" /></div>
           }
         </div>
       }
@@ -1279,14 +1290,14 @@ export class PlaceForm implements OnInit {
             @if (editBranch === b.id) {
               <div class="rounded-xl border border-brand bg-[#fafcff] p-4">
                 <h3 class="mb-3 font-bold">{{ 'AdminOrgs.editBranchTitle' | t: { name: b.name } }}</h3>
-                <app-place-form [row]="b" [branch]="true" [leaders]="leaderList()" [busy]="busy()" (save)="updateBranch(o, b, $event)" (remove)="deleteBranch(b)" />
+                <app-place-form [row]="b" [branch]="true" [leaderGroups]="leaderGroups(o.id, b.id, b.teamLeaderId)" [busy]="busy()" (save)="updateBranch(o, b, $event)" (remove)="deleteBranch(b)" />
               </div>
             }
           }
           @if (addBranchFor === o.id) {
             <div class="rounded-xl border border-brand bg-[#fafcff] p-4">
               <h3 class="mb-3 font-bold">{{ 'Directory.addBranch' | t }}</h3>
-              <app-place-form [branch]="true" [leaders]="leaderList()" [busy]="busy()" (save)="createBranch(o.id, $event)" />
+              <app-place-form [branch]="true" [leaderGroups]="leaderGroups(o.id, 'new', null)" [busy]="busy()" (save)="createBranch(o.id, $event)" />
             </div>
           }
         </div>
@@ -1439,6 +1450,42 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
   protected peopleOf(org: string): OrgPerson[] { return this.people().filter((p) => p.organizationId === org); }
   protected branchPeople(b: string): number { return this.people().filter((p) => p.branchId === b).length; }
   protected override branchName(id: string): string { return this.rows()?.flatMap((o) => o.branches).find((b) => b.id === id)?.name ?? ''; }
+  /**
+   * Team leaders a place may pick: for a branch, those who work in it, then those who work in its whole organization;
+   * for an organization, those who work in it (whole organization first, then its branches). Leaders who work everywhere
+   * come last, and the leader chosen before stays in the list even when they no longer work here.
+   */
+  protected leaderGroups(orgId: string | null, branchId: string | null, current: string | null): LeaderGroup[] {
+    // Same array for the same place until the data changes (the form's input must not change on every check).
+    const deps = [this.rows(), this.leaderList(), this.i18n.locale()];
+    if (deps.some((d, i) => d !== this.lgDeps[i])) { this.lgCache.clear(); this.lgDeps = deps; }
+    const key = `${orgId}|${branchId}|${current}`;
+    let hit = this.lgCache.get(key);
+    if (!hit) this.lgCache.set(key, hit = this.buildLeaderGroups(orgId, branchId, current));
+    return hit;
+  }
+  private lgCache = new Map<string, LeaderGroup[]>();
+  private lgDeps: unknown[] = [];
+  private buildLeaderGroups(orgId: string | null, branchId: string | null, current: string | null): LeaderGroup[] {
+    const all = this.leaderList();
+    const org = (this.rows() ?? []).find((o) => o.id === orgId);
+    const seen = new Set<string>();
+    const take = (rows: { id: string; fullName: string; email: string; where?: string }[]) => rows.filter((r) => !seen.has(r.id) && (seen.add(r.id), true));
+    const at = (o: string, b: string | null) => all.filter((l) => l.places.some((p) => p.organizationId === o && p.branchId === b));
+    const groups: LeaderGroup[] = [];
+    if (org && branchId) {
+      const b = org.branches.find((x) => x.id === branchId);
+      if (b) groups.push({ label: this.i18n.t('AdminOrgs.worksIn', { place: b.name }), rows: take(at(org.id, b.id)) });
+      groups.push({ label: this.i18n.t('AdminOrgs.worksIn', { place: org.name }), rows: take(at(org.id, null)) });
+    } else if (org) {
+      groups.push({ label: this.i18n.t('AdminOrgs.worksIn', { place: org.name }), rows: take(at(org.id, null)) });
+      groups.push({ label: this.i18n.t('AdminOrgs.worksInBranches'), rows: take(org.branches.flatMap((b) => at(org.id, b.id).map((l) => ({ ...l, where: b.name })))) });
+    }
+    groups.push({ label: this.i18n.t('AdminOrgs.worksEverywhere'), rows: take(all.filter((l) => !l.places.length)) });
+    const before = current && !seen.has(current) ? all.find((l) => l.id === current) : null;
+    if (before) groups.push({ label: this.i18n.t('AdminOrgs.leaderBefore'), rows: [before] });
+    return groups.filter((g) => g.rows.length);
+  }
   protected leaderLabel(id: string | null): string { const l = this.leaderList().find((p) => p.id === id); return l ? `${l.fullName} (${l.email})` : ''; }
   protected leaderOf(id: string | null) { return this.leaderList().find((p) => p.id === id) ?? null; }
   protected readonly Math = Math;

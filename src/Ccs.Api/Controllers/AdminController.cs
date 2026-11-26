@@ -82,9 +82,20 @@ public sealed class AdminController(
         var branches = await db.Branches.AsNoTracking().OrderBy(b => b.Name).Select(b => new { b.Id, b.OrganizationId, b.Name, b.IsActive }).ToListAsync(ct);
         var teams = await db.Teams.AsNoTracking().OrderBy(t => t.NameEn).Select(t => new { t.Id, t.NameEn, t.NameAr, t.IsActive }).ToListAsync(ct);
         var types = await db.AccountTypes.AsNoTracking().OrderBy(t => t.NameEn).Select(t => new { t.Id, t.NameEn, t.NameAr, t.IsBuiltin, t.ScopeLevel }).ToListAsync(ct);
-        var leaders = await (from p in db.Profiles join ur in db.CcsUserRoles on p.Id equals ur.UserId join r in db.CcsRoles on ur.RoleId equals r.Id
-                             where r.Code == RoleCode.TeamLeader && p.AccountStatus == AccountStatus.Active
-                             orderby p.FullName select new { p.Id, p.FullName, p.Email }).ToListAsync(ct);
+        var leaderRows = await (from p in db.Profiles join ur in db.CcsUserRoles on p.Id equals ur.UserId join r in db.CcsRoles on ur.RoleId equals r.Id
+                                where r.Code == RoleCode.TeamLeader && p.AccountStatus == AccountStatus.Active
+                                      // Team leaders only: branch and organization admins can assign tickets too, but do not lead a place.
+                                      && !db.AccountTypes.Any(t => t.Id == p.AccountTypeId && t.ScopeLevel != null)
+                                orderby p.FullName select new { p.Id, p.FullName, p.Email }).ToListAsync(ct);
+        // Where each leader works, so a place only offers its own leaders. No places = works everywhere.
+        var leaderIds = leaderRows.Select(l => l.Id).ToList();
+        var placed = await db.StaffPlacements.AsNoTracking().Where(x => leaderIds.Contains(x.UserId))
+            .Select(x => new { x.UserId, x.OrganizationId, x.BranchId }).ToListAsync(ct);
+        var leaders = leaderRows.Select(l => new
+        {
+            l.Id, l.FullName, l.Email,
+            Places = placed.Where(x => x.UserId == l.Id).Select(x => new { x.OrganizationId, x.BranchId }).ToList(),
+        });
         return new { orgs, branches, teams, types, leaders, permissions = Permission.Assignable, roles = RoleCode.All, me = c.UserId };
     }
 
@@ -365,14 +376,47 @@ public sealed class AdminController(
         var acc = await db.AccountTypeAccess.AsNoTracking().ToListAsync(ct);
         var counts = await db.Profiles.AsNoTracking().Where(p => p.AccountTypeId != null).GroupBy(p => p.AccountTypeId)
             .Select(g => new { Id = g.Key, N = g.Count() }).ToListAsync(ct);
-        return types.Select(t => new
+        return types.OrderBy(t => DefaultAccountTypes.Order(t.DefaultKey)).Select(t => new
         {
-            t.Id, t.NameEn, t.NameAr, t.AllAccess, t.IsBuiltin, t.ScopeLevel,
+            t.Id, t.NameEn, t.NameAr, t.AllAccess, t.IsBuiltin, t.ScopeLevel, t.DefaultKey,
+            DefaultPermissions = DefaultAccountTypes.Get(t.DefaultKey)?.Permissions,
             Kind = AccountKinds.Of(t.IsBuiltin, t.ScopeLevel, perms.Where(x => x.AccountTypeId == t.Id).Select(x => x.Permission).ToList()),
             Permissions = t.IsBuiltin ? Permission.Assignable : perms.Where(x => x.AccountTypeId == t.Id).Select(x => x.Permission).ToList(),
             Access = acc.Where(x => x.AccountTypeId == t.Id).Select(x => new AccessRow(x.OrganizationId, x.BranchId)),
             Staff = counts.FirstOrDefault(x => x.Id == t.Id)?.N ?? 0,
         });
+    }
+
+    /// <summary>The Customer card on the Permissions page: how many customer accounts there are.</summary>
+    [HttpGet("account-types/customers")]
+    public async Task<object> TypeCustomers(CancellationToken ct)
+    {
+        await Need(null, ct);
+        var count = await (from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id
+                           where r.Code == RoleCode.Customer select ur.UserId).Distinct().CountAsync(ct);
+        return new { count };
+    }
+
+    /// <summary>A default type gets its default permissions back. Its people keep the type.</summary>
+    [HttpPost("account-types/{id:guid}/reset")]
+    public async Task<IActionResult> ResetType(Guid id, CancellationToken ct)
+    {
+        await Need(null, ct);
+        var t = await db.AccountTypes.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
+        if (t.IsBuiltin) throw Err("builtinLocked");
+        var def = DefaultAccountTypes.Get(t.DefaultKey) ?? throw Err("notDefault");
+        var before = await db.AccountTypePermissions.Where(x => x.AccountTypeId == id).Select(x => x.Permission).ToListAsync(ct);
+        var holders = await db.Profiles.Where(p => p.AccountTypeId == id).Select(p => p.Id).ToListAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.AccountTypePermissions.Where(x => x.AccountTypeId == id).ExecuteDeleteAsync(ct);
+        foreach (var p in def.Permissions) db.AccountTypePermissions.Add(new AccountTypePermission { AccountTypeId = id, Permission = p });
+        t.UpdatedAt = clock.UtcNow;
+        audit.Write("account_type.reset", "account_type", id, new { permissions = before }, new { permissions = def.Permissions });
+        await db.SaveChangesAsync(ct);
+        await SyncHoldersAsync(t, holders, ct);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+        return NoContent();
     }
 
     [HttpPost("account-types")]
@@ -397,6 +441,8 @@ public sealed class AdminController(
         await Need(null, ct);
         var t = await db.AccountTypes.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
         if (t.IsBuiltin) throw Err("builtinLocked");
+        // A default type keeps its names and its kind: only its permissions change.
+        if (DefaultAccountTypes.Get(t.DefaultKey) is { } def) b = b with { NameEn = t.NameEn, NameAr = t.NameAr, Kind = def.Kind };
         var before = new { t.NameEn, t.NameAr, t.AllAccess, t.ScopeLevel };
         var oldPerms = await db.AccountTypePermissions.Where(x => x.AccountTypeId == id).Select(x => x.Permission).ToListAsync(ct);
         var oldKind = AccountKinds.Of(false, t.ScopeLevel, oldPerms);
@@ -442,6 +488,7 @@ public sealed class AdminController(
         await Need(null, ct);
         var t = await db.AccountTypes.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
         if (t.IsBuiltin) throw Err("builtinLocked");
+        if (t.DefaultKey is not null) throw Err("defaultLocked", null, 409);
         if (await db.Profiles.AnyAsync(p => p.AccountTypeId == id, ct)) throw Err("typeInUse", null, 409);
         db.AccountTypePermissions.RemoveRange(db.AccountTypePermissions.Where(x => x.AccountTypeId == id));
         db.AccountTypeAccess.RemoveRange(db.AccountTypeAccess.Where(x => x.AccountTypeId == id));

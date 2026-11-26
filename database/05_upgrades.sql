@@ -530,3 +530,11 @@ IF COL_LENGTH(N'ccs.branches', N'escalation_picks') IS NULL
     ALTER TABLE ccs.branches ADD escalation_picks nvarchar(max) NULL CONSTRAINT CK_branches_escalation_picks CHECK (escalation_picks IS NULL OR ISJSON(escalation_picks) = 1),
                                  reassign_rule nvarchar(400) NULL CONSTRAINT CK_branches_reassign CHECK (reassign_rule IS NULL OR ISJSON(reassign_rule) = 1);
 GO
+-- Default account types (Administrator, Agent, Team leader, ...): default_key marks them. The API makes the
+-- missing ones at start-up, so this only adds the column.
+IF COL_LENGTH(N'ccs.account_types', N'default_key') IS NULL
+    ALTER TABLE ccs.account_types ADD default_key nvarchar(30) NULL;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_account_types_default_key' AND object_id = OBJECT_ID(N'ccs.account_types'))
+    CREATE UNIQUE INDEX UX_account_types_default_key ON ccs.account_types (default_key) WHERE default_key IS NOT NULL;
+GO

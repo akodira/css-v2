@@ -54,9 +54,33 @@ public class AccountKindsTests
     [InlineData("reply")]
     [InlineData("reply,assign_others,manage_kb")]
     [InlineData("view_others,all_teams")]
+    [InlineData("manage_kb,customers_view")]
     public void Kind_of_a_type_passes_its_check(string csv)
     {
         var perms = csv.Split(',');
         Assert.Null(AccountKinds.Check(AccountKinds.Of(false, null, perms), perms));
+    }
+
+    [Fact]
+    public void Office_staff_work_on_customers_or_content_not_tickets()
+    {
+        Assert.Equal(AccountKinds.Office, AccountKinds.Of(false, null, [Permission.ManageKb, Permission.CustomersView]));
+        Assert.Null(AccountKinds.Check(AccountKinds.Office, [Permission.ApproveCustomers, Permission.CustomersManage]));
+        Assert.Equal("kindOfficeNoTickets", AccountKinds.Check(AccountKinds.Office, [Permission.ManageKb, Permission.Resolve]));
+        Assert.Equal("kindOfficeNeedsOne", AccountKinds.Check(AccountKinds.Office, [Permission.CustomersView]));
+    }
+
+    /// <summary>Each default type really is its kind, and its default permissions pass that kind's check.</summary>
+    [Fact]
+    public void Default_types_fit_their_kind()
+    {
+        Assert.Equal(8, DefaultAccountTypes.All.Count);
+        Assert.Equal(DefaultAccountTypes.All.Count, DefaultAccountTypes.All.Select(d => d.Key).Distinct().Count());
+        foreach (var d in DefaultAccountTypes.All.Where(d => d.Kind != AccountKinds.Administrator))
+        {
+            Assert.Equal(d.Kind, AccountKinds.Of(false, AccountKinds.ScopeLevelOf(d.Kind), d.Permissions));
+            Assert.Null(AccountKinds.Check(d.Kind, d.Permissions.ToList()));
+            Assert.All(d.Permissions, p => Assert.Contains(p, Permission.Assignable));
+        }
     }
 }

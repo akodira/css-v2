@@ -236,25 +236,13 @@ public static class DemoSeed
         }
         await db.SaveChangesAsync();
 
-        // Account types (made once; the names say they are demo types).
+        // Account types: the default ones (made here when the API has not started yet).
+        await DefaultTypesStartup.EnsureAsync(db);
+        var byKey = await db.AccountTypes.Where(t => t.DefaultKey != null).ToDictionaryAsync(t => t.DefaultKey!);
         var types = new Dictionary<string, AccountType>
         {
-            ["orgadmin"] = await TypeAsync(db, "Demo Organization Admin", "مسؤول مؤسسة (تجريبي)", "organization", false, now,
-                [Permission.Reply, Permission.Resolve, Permission.Close, Permission.ChangeCategory, Permission.AssignSelf, Permission.AssignOthers,
-                 Permission.ViewUnassigned, Permission.ViewOthers, Permission.AllTeams, Permission.ReportsOwn, Permission.ReportsAll, Permission.Export,
-                 Permission.CustomersView, Permission.CustomersManage, Permission.ApproveCustomers, Permission.ManageCanned]),
-            ["branchadmin"] = await TypeAsync(db, "Demo Branch Admin", "مسؤول فرع (تجريبي)", "branch", false, now,
-                [Permission.Reply, Permission.Resolve, Permission.Close, Permission.ChangeCategory, Permission.AssignSelf, Permission.AssignOthers,
-                 Permission.ViewUnassigned, Permission.ViewOthers, Permission.AllTeams, Permission.ReportsOwn, Permission.ReportsAll, Permission.Export,
-                 Permission.CustomersView, Permission.CustomersManage, Permission.ApproveCustomers, Permission.ManageCanned]),
-            ["leader"] = await TypeAsync(db, "Demo Team Leader", "قائد فريق (تجريبي)", null, false, now,
-                [Permission.Reply, Permission.Resolve, Permission.Close, Permission.ChangeCategory, Permission.AssignSelf, Permission.AssignOthers,
-                 Permission.ViewUnassigned, Permission.ViewOthers, Permission.ReportsOwn, Permission.CustomersView, Permission.ManageCanned]),
-            ["agent"] = await TypeAsync(db, "Demo Agent", "وكيل (تجريبي)", null, false, now,
-                [Permission.Reply, Permission.Resolve, Permission.Close, Permission.AssignSelf, Permission.ViewUnassigned, Permission.ViewOthers,
-                 Permission.ReportsOwn, Permission.CustomersView]),
-            ["viewer"] = await TypeAsync(db, "Demo Management Viewer", "مشاهد إداري (تجريبي)", null, true, now,
-                [Permission.ViewOthers, Permission.ViewUnassigned, Permission.AllTeams, Permission.ReportsOwn, Permission.ReportsAll, Permission.Export, Permission.CustomersView]),
+            ["orgadmin"] = byKey[DefaultAccountTypes.OrganizationAdmin], ["branchadmin"] = byKey[DefaultAccountTypes.BranchAdmin],
+            ["leader"] = byKey[DefaultAccountTypes.TeamLeader], ["agent"] = byKey[DefaultAccountTypes.Agent], ["viewer"] = byKey[DefaultAccountTypes.Viewer],
         };
         await db.SaveChangesAsync();
         var roleIds = await db.CcsRoles.ToDictionaryAsync(r => r.Code, r => r.Id);
@@ -305,17 +293,6 @@ public static class DemoSeed
         (await db.Branches.FirstAsync(x => x.Id == s.Place["cairo"].Branch)).ReassignRule =
             new ReassignRule(true, [ReassignRule.Agents, ReassignRule.Leader, ReassignRule.Queue, ReassignRule.Auto], true, false).ToJson();
         await db.SaveChangesAsync();
-    }
-
-    private static async Task<AccountType> TypeAsync(CcsDbContext db, string en, string ar, string? scope, bool all, DateTimeOffset now, string[] perms)
-    {
-        var t = await db.AccountTypes.FirstOrDefaultAsync(x => x.NameEn == en);
-        if (t is not null) return t;
-        t = new AccountType { Id = Guid.NewGuid(), NameEn = en, NameAr = ar, ScopeLevel = scope, AllAccess = all, CreatedAt = now, UpdatedAt = now };
-        db.AccountTypes.Add(t);
-        await db.SaveChangesAsync();   // the type first, then its permissions
-        foreach (var p in perms) db.AccountTypePermissions.Add(new AccountTypePermission { AccountTypeId = t.Id, Permission = p });
-        return t;
     }
 
     // ------------------------------------------------------------------ tickets

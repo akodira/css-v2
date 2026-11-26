@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AccountTypeRow } from '../../core/admin-api';
@@ -23,11 +24,12 @@ export const PERMISSION_TOTAL = ALL_PERMISSIONS.length + 1;
 const KIND_TONE: Record<string, string> = {
   administrator: 'bg-ink text-white', organization_admin: 'bg-[#efe9fb] text-[#5b3fb0]', branch_admin: 'bg-[#e3f5f2] text-[#0b6f63]',
   team_leader: 'bg-brand-soft text-brand-ink', agent: 'bg-brand-soft text-brand-ink', viewer: 'bg-bg text-muted',
+  office: 'bg-[#fdf1e3] text-[#8a4b0b]',
 };
 
 @Component({
   selector: 'app-admin-permissions',
-  imports: [TPipe, Alert, RouterLink, SetupGuide],
+  imports: [TPipe, Alert, RouterLink, SetupGuide, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -37,21 +39,47 @@ const KIND_TONE: Record<string, string> = {
       </div>
       <app-setup-guide page="permissions" />
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
-      <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        @for (x of types(); track x.id) {
-          <li class="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4 shadow-card">
-            <span class="self-start rounded-full px-2.5 py-0.5 text-xs font-bold" [class]="tone[x.kind] ?? tone['agent']">{{ 'StaffSetup.kinds.' + x.kind | t }}</span>
-            <h2 class="text-lg font-bold"><span dir="auto">{{ i18n.pick(x.nameEn, x.nameAr) }}</span></h2>
-            <p class="text-sm text-muted">{{ 'StaffSetup.kindHint.' + x.kind | t }}</p>
-            <p class="text-sm">{{ x.isBuiltin ? ('Permissions.countAll' | t: { total: total }) : ('Permissions.count' | t: { n: x.permissions.length, total: total }) }}</p>
+      <ng-template #card let-x>
+        <li class="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4 shadow-card">
+          <span class="self-start rounded-full px-2.5 py-0.5 text-xs font-bold" [class]="tone[x.kind] ?? tone['agent']">{{ 'StaffSetup.kinds.' + x.kind | t }}</span>
+          <h3 class="text-lg font-bold"><span dir="auto">{{ i18n.pick(x.nameEn, x.nameAr) }}</span></h3>
+          <p class="text-sm text-muted">{{ (x.defaultKey ? 'Permissions.defaultHint.' + x.defaultKey : 'StaffSetup.kindHint.' + x.kind) | t }}</p>
+          <p class="text-sm">{{ x.isBuiltin ? ('Permissions.countAll' | t: { total: total }) : ('Permissions.count' | t: { n: x.permissions.length, total: total }) }}</p>
+          @if (changed(x); as n) { <p class="text-xs font-semibold text-warn-ink">{{ 'Permissions.changedN' | t: { n: n } }}</p> }
+          <div class="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3">
+            <a [routerLink]="'/' + i18n.locale() + '/admin/users'" [queryParams]="{ type: x.id }" class="min-h-9 pt-1.5 text-sm font-semibold text-brand-ink underline">{{ 'StaffSetup.people' | t: { n: x.staff } }}</a>
+            @if (x.isBuiltin) { <a [routerLink]="base + '/types/' + x.id" class="min-h-9 pt-1.5 text-sm text-muted underline">🔒 {{ 'Permissions.view' | t }}</a> }
+            @else { <a [routerLink]="base + '/types/' + x.id" class="min-h-9 pt-1.5 text-sm font-semibold text-brand-ink underline">{{ 'Permissions.edit' | t }}<span class="sr-only"> {{ i18n.pick(x.nameEn, x.nameAr) }}</span></a> }
+          </div>
+        </li>
+      </ng-template>
+      <section aria-labelledby="pt-def" class="flex flex-col gap-3">
+        <div><h2 id="pt-def" class="text-xl font-bold">{{ 'Permissions.defaultsTitle' | t }} <span class="text-sm font-normal text-muted">· {{ defaults().length + 1 }}</span></h2>
+          <p class="text-sm text-muted">{{ 'Permissions.defaultsHelp' | t }}</p></div>
+        <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          @for (x of defaults(); track x.id) { <ng-container *ngTemplateOutlet="card; context: { $implicit: x }" /> }
+          <li class="flex flex-col gap-2 rounded-xl border border-dashed border-line bg-surface p-4 shadow-card">
+            <span class="self-start rounded-full bg-[#fff6db] px-2.5 py-0.5 text-xs font-bold text-[#7a5a00]">{{ 'Permissions.customerTitle' | t }}</span>
+            <h3 class="text-lg font-bold">{{ 'Permissions.customerTitle' | t }}</h3>
+            <p class="text-sm text-muted">{{ 'Permissions.customerHint' | t }}</p>
+            <p class="text-sm">{{ 'Permissions.customerFixed' | t }}</p>
+            <details class="text-sm"><summary class="min-h-9 cursor-pointer pt-1.5 font-semibold text-brand-ink">{{ 'Permissions.customerWhatTitle' | t }}</summary>
+              <p class="text-muted">{{ 'Permissions.customerWhat' | t }}</p></details>
             <div class="mt-auto flex items-center justify-between gap-3 border-t border-line pt-3">
-              <a [routerLink]="'/' + i18n.locale() + '/admin/users'" [queryParams]="{ type: x.id }" class="min-h-9 pt-1.5 text-sm font-semibold text-brand-ink underline">{{ 'StaffSetup.people' | t: { n: x.staff } }}</a>
-              @if (x.isBuiltin) { <a [routerLink]="base + '/types/' + x.id" class="min-h-9 pt-1.5 text-sm text-muted underline">🔒 {{ 'Permissions.view' | t }}</a> }
-              @else { <a [routerLink]="base + '/types/' + x.id" class="min-h-9 pt-1.5 text-sm font-semibold text-brand-ink underline">{{ 'Permissions.edit' | t }}<span class="sr-only"> {{ i18n.pick(x.nameEn, x.nameAr) }}</span></a> }
+              <a [routerLink]="'/' + i18n.locale() + '/console/customers'" class="min-h-9 pt-1.5 text-sm font-semibold text-brand-ink underline">{{ 'Permissions.customersN' | t: { n: customers() } }}</a>
+              <span class="min-h-9 pt-1.5 text-sm text-muted">🔒 {{ 'Permissions.fixed' | t }}</span>
             </div>
           </li>
-        }
-      </ul>
+        </ul>
+      </section>
+      <section aria-labelledby="pt-custom" class="flex flex-col gap-3">
+        <div><h2 id="pt-custom" class="text-xl font-bold">{{ 'Permissions.customTitle' | t }} <span class="text-sm font-normal text-muted">· {{ custom().length }}</span></h2>
+          <p class="text-sm text-muted">{{ 'Permissions.customHelp' | t }}</p></div>
+        <ul class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          @for (x of custom(); track x.id) { <ng-container *ngTemplateOutlet="card; context: { $implicit: x }" /> }
+          <li><a [routerLink]="base + '/types/new'" class="grid h-full min-h-32 place-items-center rounded-xl border-2 border-dashed border-line p-4 font-semibold text-brand-ink hover:bg-surface">+ {{ 'Permissions.addType' | t }}</a></li>
+        </ul>
+      </section>
       <ul class="flex flex-col gap-1 text-sm text-muted"><li>{{ 'Permissions.noteEdit' | t }}</li><li>{{ 'Permissions.noteDelete' | t }}</li></ul>
     </main>`,
 })
@@ -61,6 +89,10 @@ export class AdminPermissionsPage extends AdminBase implements OnInit {
   protected readonly total = PERMISSION_TOTAL;
   protected readonly tone = KIND_TONE;
   protected readonly types = signal<AccountTypeRow[]>([]);
+  protected readonly customers = signal(0);
+  protected readonly defaults = computed(() => this.types().filter((x) => x.defaultKey));
+  protected readonly custom = computed(() => this.types().filter((x) => !x.defaultKey));
+  protected readonly changed = changedFromDefault;
   protected get base(): string { return '/' + this.i18n.locale() + '/admin/permissions'; }
   ngOnInit(): void {
     // The old Staff tab lives on the Staff page now; keep its links working.
@@ -72,8 +104,18 @@ export class AdminPermissionsPage extends AdminBase implements OnInit {
     void this.reload();
   }
   protected async reload(): Promise<void> {
-    try { this.types.set(await this.api.get<AccountTypeRow[]>('account-types')); } catch (e) { this.fail(e); }
+    try {
+      const [types, c] = await Promise.all([this.api.get<AccountTypeRow[]>('account-types'), this.api.get<{ count: number }>('account-types/customers')]);
+      this.types.set(types); this.customers.set(c.count);
+    } catch (e) { this.fail(e); }
   }
+}
+
+/** How many permissions a default type has changed from its default (0 for custom types and the Administrator). */
+export function changedFromDefault(x: AccountTypeRow): number {
+  if (!x.defaultPermissions || x.isBuiltin) return 0;
+  const now = new Set(x.permissions), def = new Set(x.defaultPermissions);
+  return [...now].filter((p) => !def.has(p)).length + [...def].filter((p) => !now.has(p)).length;
 }
 
 /** One account type: 1 name, 2 kind, 3 permissions. The built-in Administrator opens read only. */
@@ -88,25 +130,38 @@ export class AdminPermissionsPage extends AdminBase implements OnInit {
         <h1 class="mt-2 text-3xl font-bold tracking-tight">
           {{ row() ? i18n.pick(row()!.nameEn, row()!.nameAr) : ('Permissions.addType' | t) }}
           @if (locked()) { <span class="ms-3 rounded-md bg-brand-soft px-2 py-1 align-middle text-sm font-semibold text-brand-ink">{{ 'Permissions.builtinLocked' | t }}</span> }
+          @else if (isDefault()) { <span class="ms-3 rounded-md bg-brand-soft px-2 py-1 align-middle text-sm font-semibold text-brand-ink">{{ 'Permissions.defaultBadge' | t }}</span> }
         </h1>
       </div>
       @if (ready()) {
         <form class="flex flex-col gap-6" novalidate (ngSubmit)="save()">
           @if (locked()) { <div role="note" class="rounded-xl border border-brand/30 bg-brand-soft px-5 py-4 text-brand-ink">{{ 'Permissions.lockedNote' | t }}</div> }
+          @else if (isDefault()) { <div role="note" class="rounded-xl border border-brand/30 bg-brand-soft px-5 py-4 text-brand-ink">{{ 'Permissions.defaultNote' | t }}
+            @if (changedCount(); as n) { {{ 'Permissions.changedN' | t: { n: n } }}. } @else { {{ 'Permissions.sameAsDefault' | t }} }</div> }
+          @if (!row()) {
+            <section aria-labelledby="st-from" [class]="card">
+              <h2 id="st-from" class="text-xl font-bold">{{ 'Permissions.startFrom' | t }}</h2>
+              <p class="text-sm text-muted">{{ 'Permissions.startFromHelp' | t }}</p>
+              <select name="from" [class]="cls.input + ' max-w-md'" [ngModel]="from" (ngModelChange)="startFrom($event)" aria-labelledby="st-from">
+                <option value="">{{ 'Permissions.startBlank' | t }}</option>
+                @for (d of starters(); track d.id) { <option [value]="d.defaultKey">{{ i18n.pick(d.nameEn, d.nameAr) }}</option> }
+              </select>
+            </section>
+          }
           <section aria-labelledby="st-name" [class]="card">
             <h2 id="st-name" class="flex items-center gap-3 text-xl font-bold"><span aria-hidden="true" [class]="step">1</span>{{ 'Permissions.stepName' | t }}</h2>
             <div class="grid gap-4 sm:grid-cols-2">
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Permissions.nameEn' | t }}<app-req /></span>
-                <input name="en" dir="ltr" maxlength="80" [disabled]="locked()" [class]="cls.input + ' font-normal'" [(ngModel)]="nameEn" /></label>
+                <input name="en" dir="ltr" maxlength="80" [disabled]="locked() || isDefault()" [class]="cls.input + ' font-normal'" [(ngModel)]="nameEn" /></label>
               <label class="flex flex-col gap-1.5 text-sm font-semibold"><span>{{ 'Permissions.nameAr' | t }}<app-req /></span>
-                <input name="ar" dir="rtl" maxlength="80" [disabled]="locked()" [class]="cls.input + ' font-normal'" [(ngModel)]="nameAr" /></label>
+                <input name="ar" dir="rtl" maxlength="80" [disabled]="locked() || isDefault()" [class]="cls.input + ' font-normal'" [(ngModel)]="nameAr" /></label>
             </div>
           </section>
-          @if (!locked()) {
+          @if (!locked() && !isDefault()) {
             <section aria-labelledby="st-kind" [class]="card">
               <h2 id="st-kind" class="flex items-center gap-3 text-xl font-bold"><span aria-hidden="true" [class]="step">2</span>{{ 'StaffSetup.perm.kind' | t }}<app-req /></h2>
               <p class="text-sm text-muted">{{ 'StaffSetup.perm.kindHelp' | t }}</p>
-              <fieldset class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <fieldset class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <legend class="sr-only">{{ 'StaffSetup.perm.kind' | t }}</legend>
                 @for (k of kinds; track k) {
                   <label class="flex cursor-pointer flex-col gap-1 rounded-xl border-2 border-line p-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand">
@@ -120,7 +175,7 @@ export class AdminPermissionsPage extends AdminBase implements OnInit {
             </section>
           }
           <section aria-labelledby="st-perms" [class]="card">
-            <h2 id="st-perms" class="flex items-center gap-3 text-xl font-bold"><span aria-hidden="true" [class]="step">{{ locked() ? 2 : 3 }}</span>{{ 'StaffSetup.perm.what' | t }}</h2>
+            <h2 id="st-perms" class="flex items-center gap-3 text-xl font-bold"><span aria-hidden="true" [class]="step">{{ locked() || isDefault() ? 2 : 3 }}</span>{{ 'StaffSetup.perm.what' | t }}</h2>
             <p class="text-sm text-muted">{{ (locked() ? 'Permissions.permsLockedHelp' : 'StaffSetup.perm.greyed') | t }}</p>
             <label class="flex min-h-11 items-center gap-2 rounded-lg bg-bg px-3 text-muted"><input type="checkbox" class="h-5 w-5" checked disabled />{{ 'Permissions.viewAlways' | t }}</label>
             <fieldset [disabled]="locked()" class="grid gap-x-10 gap-y-6 sm:grid-cols-2">
@@ -132,6 +187,7 @@ export class AdminPermissionsPage extends AdminBase implements OnInit {
                     <label class="flex min-h-11 items-center gap-2" [class.text-muted]="!locked() && (!fits(p) || needed(p))">
                       <input type="checkbox" class="h-5 w-5" [checked]="perms.has(p)" [disabled]="!locked() && (!fits(p) || needed(p))" (change)="togglePerm(p)" />{{ 'Permissions.perm.' + p | t }}
                       @if (!locked() && needed(p)) { <span class="text-xs">({{ 'StaffSetup.perm.needed' | t }})</span> }
+                      @if (isDefault() && !locked() && perms.has(p) !== defaultHas(p)) { <span class="text-xs font-semibold text-warn-ink">{{ 'Permissions.changedMark' | t }}</span> }
                     </label>
                   }
                   @if (g.key === 'admin') {
@@ -148,7 +204,14 @@ export class AdminPermissionsPage extends AdminBase implements OnInit {
           <div class="flex flex-wrap items-center gap-3">
             @if (!locked()) { <button type="submit" [class]="cls.btn" [disabled]="busy()">{{ 'Permissions.saveType' | t }}</button><app-req-note /> }
             <a [routerLink]="base" class="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-5 font-semibold hover:bg-bg">{{ (locked() ? 'Permissions.backToTypes' : 'Permissions.cancel') | t }}</a>
-            @if (!locked() && row()) {
+            @if (isDefault() && !locked()) {
+              @if (resetAsk()) {
+                <span class="text-sm font-semibold">{{ 'Permissions.resetConfirm' | t }}</span>
+                <button type="button" class="min-h-11 cursor-pointer rounded-lg bg-brand px-4 font-semibold text-white" (click)="reset()">{{ 'Permissions.resetYes' | t }}</button>
+                <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold" (click)="resetAsk.set(false)">{{ 'Directory.cancel' | t }}</button>
+              } @else { <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg disabled:opacity-60" [disabled]="!changedCount()" (click)="resetAsk.set(true)">{{ 'Permissions.reset' | t }}</button> }
+            }
+            @if (!locked() && row() && !isDefault()) {
               @if (row()!.staff > 0) { <span class="text-sm text-muted">{{ 'Permissions.deleteBlocked' | t: { n: row()!.staff } }}</span> }
               @else if (asking()) {
                 <span class="text-sm font-semibold text-danger">{{ 'Directory.deleteConfirm' | t }}</span>
@@ -175,6 +238,13 @@ export class AdminTypePage extends AdminBase implements OnInit {
   protected readonly ready = signal(false);
   protected readonly asking = signal(false);
   protected readonly locked = computed(() => !!this.row()?.isBuiltin);
+  protected readonly isDefault = computed(() => !!this.row()?.defaultKey);
+  protected readonly resetAsk = signal(false);
+  protected readonly starters = signal<AccountTypeRow[]>([]);
+  protected from = '';
+  /** How many permissions differ from the default right now (changes as boxes are ticked). */
+  protected changedCount(): number { const r = this.row(); return r ? changedFromDefault({ ...r, permissions: [...this.perms] }) : 0; }
+  protected defaultHas(p: string): boolean { return !!this.row()?.defaultPermissions?.includes(p); }
   protected readonly kind = signal<string>('agent');
   protected nameEn = '';
   protected nameAr = '';
@@ -182,7 +252,10 @@ export class AdminTypePage extends AdminBase implements OnInit {
   protected get base(): string { return '/' + this.i18n.locale() + '/admin/permissions'; }
   async ngOnInit(): Promise<void> { await this.reload(); }
   protected async reload(): Promise<void> {
-    if (this.id() === 'new') { this.ready.set(true); return; }
+    if (this.id() === 'new') {
+      try { this.starters.set((await this.api.get<AccountTypeRow[]>('account-types')).filter((x) => x.defaultKey && !x.isBuiltin)); } catch { /* the form still works without it */ }
+      this.ready.set(true); return;
+    }
     try {
       const t = (await this.api.get<AccountTypeRow[]>('account-types')).find((x) => x.id === this.id());
       if (!t) { void this.router.navigateByUrl(this.base); return; }
@@ -205,6 +278,18 @@ export class AdminTypePage extends AdminBase implements OnInit {
     const next = new Set([...this.perms].filter((p) => permFits(k, p)));
     for (const p of ALL_PERMISSIONS) if (permNeeded(k, p)) next.add(p);
     this.perms = next;
+  }
+  /** "Start from a default type": its kind and its default permissions; the name stays the admin's to write. */
+  protected startFrom(key: string): void {
+    this.from = key;
+    const d = this.starters().find((x) => x.defaultKey === key);
+    if (!d) return;
+    this.kind.set(d.kind);
+    this.perms = new Set(d.defaultPermissions ?? d.permissions);
+  }
+  protected async reset(): Promise<void> {
+    this.resetAsk.set(false);
+    if (await this.run(() => this.api.post('account-types/' + this.row()!.id + '/reset', {}), 'Permissions.resetDone')) await this.reload();
   }
   protected togglePerm(p: string): void { if (this.perms.has(p)) this.perms.delete(p); else this.perms.add(p); }
   protected async save(): Promise<void> {

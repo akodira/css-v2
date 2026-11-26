@@ -42,6 +42,8 @@ public class AccountType
     public bool AllAccess { get; set; }
     public bool IsBuiltin { get; set; }
     public string? ScopeLevel { get; set; }   // null | branch | organization
+    /// <summary>Set on the default types (see Rules.DefaultAccountTypes): cannot be deleted or renamed.</summary>
+    public string? DefaultKey { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
