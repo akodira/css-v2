@@ -165,7 +165,7 @@ export const GENERAL_ARTICLES: Article[] = [
     steps: [
       { en: "Open **Account approvals**. Each waiting customer shows name, email, phone and registration date.", ar: "افتح **موافقات الحسابات**. يعرض كل عميل منتظر اسمه وبريده وهاتفه وتاريخ تسجيله." },
       { en: "Choose the customer's **Organization** (and branch if needed).", ar: "اختر **مؤسسة** العميل (والفرع عند الحاجة)." },
-      { en: "Select **Approve**, or **Reject** to refuse the account. The customer is emailed either way.", ar: "اختر **موافقة** أو **رفض** لرفض الحساب. يصل العميل بريد في الحالتين." },
+      { en: "Select **Approve**, or **Reject** with a reason the customer will read. The customer is emailed either way, and rejected requests stay under the **Rejected** tab, where you can still approve one.", ar: "اختر **موافقة**، أو **رفض** مع سبب يقرؤه العميل. يصل العميل بريد في الحالتين، وتبقى الطلبات المرفوضة في تبويب **مرفوضة** حيث يمكنك اعتماد أي منها لاحقًا." },
     ],
     tips: [{ en: "The Approved accounts list below shows who approved each customer and when.", ar: "تعرض قائمة الحسابات المعتمدة في الأسفل من وافق على كل عميل ومتى." }],
   },

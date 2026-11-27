@@ -17,6 +17,10 @@ public class Profile
     public bool CanCreateForCustomers { get; set; }
     public DateTimeOffset PasswordChangedAt { get; set; }
     public short PasswordWarnStage { get; set; }
+    /// <summary>Set when an account request is rejected (the account is then suspended); cleared when it is approved after all.</summary>
+    public DateTimeOffset? RejectedAt { get; set; }
+    public Guid? RejectedBy { get; set; }
+    public string? RejectionReason { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

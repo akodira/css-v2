@@ -263,6 +263,9 @@ CREATE TABLE ccs.profiles (
     can_create_for_customers bit NOT NULL DEFAULT 0,
     password_changed_at      datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     password_warn_stage      smallint NOT NULL DEFAULT 0,
+    rejected_at              datetimeoffset(7) NULL,          -- account request rejected (status suspended)
+    rejected_by              uniqueidentifier NULL,           -- no FK: the record outlives the approver
+    rejection_reason         nvarchar(500) NULL,
     created_at               datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     updated_at               datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME()
 );

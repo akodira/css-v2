@@ -1593,11 +1593,14 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
 // ================================================================== approvals (v1 /console/approvals)
 
 interface PendingRow { id: string; fullName: string; email: string; phone: string | null; createdAt: string; organizationId: string | null; branchId: string | null }
+interface RejectedRow { id: string; fullName: string; email: string; phone: string | null; organizationId: string | null; branchId: string | null; organization: string | null; branch: string | null; registeredAt: string; rejectedAt: string; rejectionReason: string | null; rejectedBy: string | null }
+type ApprovalTab = 'waiting' | 'rejected' | 'approved';
+interface ApprovalPick { org: string | null; branch: string | null; reason: string; open: boolean; err: boolean; confirm: boolean; again: boolean }
 interface ApprovedRow { id: string; fullName: string; email: string; phone: string | null; organization: string | null; branch: string | null; registeredAt: string; approvedAt: string | null; approvedBy: string | null }
 
 @Component({
   selector: 'app-admin-approvals',
-  imports: [TPipe, Alert, FormsModule, RouterLink, NgTemplateOutlet],
+  imports: [TPipe, Alert, Req, ReqNote, FormsModule, RouterLink, NgTemplateOutlet],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -1606,7 +1609,18 @@ interface ApprovedRow { id: string; fullName: string; email: string; phone: stri
         <p class="mt-2 max-w-prose text-muted">{{ 'Approvals.subtitle' | t }}</p>
         @if (rows()?.length) { <p role="status" class="mt-3 inline-block rounded-lg bg-warn-soft px-4 py-2 text-sm font-semibold text-warn-ink">{{ 'Approvals.count' | t: { n: rows()!.length } }}</p> }
       </header>
+      <!-- Design: docs/design/account-reject-sample.html -->
+      <div role="tablist" [attr.aria-label]="'Approvals.tabsLabel' | t" class="flex flex-wrap gap-2">
+        @for (x of tabs; track x) {
+          <button type="button" role="tab" [id]="'tab-' + x" [attr.aria-selected]="tab() === x" [attr.aria-controls]="'panel-' + x" (click)="tab.set(x)"
+            class="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border px-4 text-sm font-semibold"
+            [class]="tab() === x ? 'border-chrome bg-chrome text-white' : 'border-line bg-surface text-ink hover:bg-bg'">
+            {{ ('Approvals.tab_' + x) | t }} <span class="tabular-nums">({{ tabCount(x) }})</span></button>
+        }
+      </div>
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
+      @if (tab() === 'waiting') {
+      <div role="tabpanel" id="panel-waiting" aria-labelledby="tab-waiting" class="flex flex-col gap-4">
       @if (rows() && !rows()!.length) { <p class="rounded-md border border-line bg-surface p-6 text-muted">{{ 'Approvals.empty' | t }}</p> }
       <ul class="flex flex-col gap-4">
         @for (u of rows() ?? []; track u.id) {
@@ -1614,31 +1628,70 @@ interface ApprovedRow { id: string; fullName: string; email: string; phone: stri
             <p class="text-lg font-bold" dir="auto">{{ u.fullName || '-' }}</p>
             <p class="mt-0.5 text-sm text-muted"><span dir="ltr">{{ u.email }}</span>@if (u.phone) { · {{ 'Approvals.phone' | t }}: <span dir="ltr">{{ u.phone }}</span> }</p>
             <p class="text-sm text-muted">{{ 'Approvals.registered' | t: { date: i18n.date(u.createdAt) } }}</p>
-            <form class="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end" novalidate (ngSubmit)="approve(u)">
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminUsers.approve.org' | t }}
-                <select [name]="'o' + u.id" [class]="cls.input + ' font-normal'" [(ngModel)]="pick[u.id].org" (ngModelChange)="pick[u.id].branch = null">
-                  <option [ngValue]="null">{{ 'AdminUsers.approve.pickOrg' | t }}</option>
-                  @for (o of activeOrgs(); track o.id) { <option [ngValue]="o.id">{{ o.name }}</option> }
-                </select></label>
-              <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminUsers.approve.branch' | t }}
-                <select [name]="'b' + u.id" [class]="cls.input + ' font-normal'" [(ngModel)]="pick[u.id].branch" [disabled]="!pick[u.id].org">
-                  <option [ngValue]="null">{{ 'AdminUsers.approve.noBranch' | t }}</option>
-                  @for (b of activeBranches(pick[u.id].org); track b.id) { <option [ngValue]="b.id">{{ b.name }}</option> }
-                </select></label>
-              <button type="submit" [class]="cls.btn" [disabled]="busy() || !pick[u.id].org">{{ 'AdminUsers.approve.submit' | t }}</button>
-            </form>
-            <details class="mt-3">
+            <ng-container *ngTemplateOutlet="placeForm; context: { $implicit: u, again: false }" />
+            <details class="mt-3" [open]="pick[u.id].open" (toggle)="pick[u.id].open = $any($event.target).open">
               <summary class="cursor-pointer text-sm font-semibold text-danger">{{ 'AdminUsers.approve.reject.summary' | t }}</summary>
-              <div class="mt-3 flex flex-col gap-2">
-                <label [for]="'ar' + u.id" [class]="cls.label">{{ 'AdminUsers.approve.reject.reason' | t }}</label>
-                <textarea [id]="'ar' + u.id" rows="2" dir="auto" maxlength="500" [class]="cls.input + ' py-2'" [(ngModel)]="pick[u.id].reason"></textarea>
-                <p class="text-sm text-muted">{{ 'AdminUsers.approve.reject.hint' | t }}</p>
-                <div><button type="button" [class]="cls.danger" [disabled]="busy()" (click)="reject(u)">{{ 'AdminUsers.approve.reject.submit' | t }}</button></div>
+              <div class="mt-3 flex flex-col gap-2 rounded-md border border-danger-soft p-4">
+                <div class="flex flex-wrap items-baseline gap-x-2">
+                  <label [for]="'ar' + u.id" class="text-sm font-semibold">{{ 'AdminUsers.approve.reject.reason' | t }}<app-req /></label>
+                  <span class="text-sm text-muted">{{ 'AdminUsers.approve.reject.reasonHint' | t }}</span>
+                </div>
+                <div class="flex flex-wrap gap-2" role="group" [attr.aria-label]="'AdminUsers.approve.reject.quick' | t">
+                  @for (q of quickReasons(); track q) {
+                    <button type="button" class="cursor-pointer rounded-full border border-line bg-surface px-3 py-1.5 text-start text-sm hover:bg-bg" (click)="pick[u.id].reason = q; pick[u.id].err = false">{{ q }}</button>
+                  }
+                </div>
+                <p class="text-sm text-muted">{{ 'AdminUsers.approve.reject.quickHint' | t }}</p>
+                <textarea [id]="'ar' + u.id" rows="3" dir="auto" maxlength="500" [class]="cls.input + ' py-2'" [(ngModel)]="pick[u.id].reason" (ngModelChange)="pick[u.id].err = false; pick[u.id].confirm = false"
+                  [attr.aria-invalid]="pick[u.id].err || null" [attr.aria-describedby]="pick[u.id].err ? 'are' + u.id : null"></textarea>
+                <p class="text-end text-xs text-muted tabular-nums">{{ pick[u.id].reason.length }} / 500</p>
+                @if (pick[u.id].err) { <p [id]="'are' + u.id" role="alert" class="text-sm font-medium text-danger">{{ 'AdminCommon.errors.reasonRequired' | t }}</p> }
+                @if (!pick[u.id].confirm) {
+                  <div class="flex flex-wrap items-center gap-3"><button type="button" [class]="cls.danger" [disabled]="busy()" (click)="askReject(u)">{{ 'AdminUsers.approve.reject.submit' | t }}</button><app-req-note /></div>
+                } @else {
+                  <div class="flex flex-wrap items-center gap-3 border-t border-dashed border-line pt-3">
+                    <p class="text-sm"><strong dir="auto">{{ 'AdminUsers.approve.reject.confirmQ' | t: { name: u.fullName || u.email } }}</strong> {{ 'AdminUsers.approve.reject.hint' | t }}</p>
+                    <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="reject(u)">{{ 'AdminUsers.approve.reject.yes' | t }}</button>
+                    <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="pick[u.id].confirm = false">{{ 'AdminUsers.approve.reject.cancel' | t }}</button>
+                  </div>
+                }
               </div>
             </details>
           </li>
         }
       </ul>
+      </div>
+      }
+      @if (tab() === 'rejected') {
+      <section role="tabpanel" id="panel-rejected" aria-labelledby="tab-rejected" class="flex flex-col gap-3">
+        <p class="max-w-prose text-sm text-muted">{{ 'Approvals.rejectedSubtitle' | t }}</p>
+        @if (!refused().length) { <p class="rounded-md border border-line bg-surface p-6 text-muted">{{ 'Approvals.rejectedEmpty' | t }}</p> }
+        <ul class="flex flex-col gap-4">
+          @for (u of refused(); track u.id) {
+            <li class="rounded-md border border-line bg-surface p-5">
+              <div class="flex flex-wrap items-start justify-between gap-3">
+                <div class="min-w-0">
+                  <p class="text-lg font-bold" dir="auto">{{ u.fullName || '-' }} <span class="ms-1 rounded-full bg-danger-soft px-2.5 py-0.5 align-middle text-xs font-semibold text-danger">{{ 'Approvals.rejectedBadge' | t }}</span></p>
+                  <p class="mt-0.5 text-sm text-muted"><span dir="ltr">{{ u.email }}</span>@if (u.phone) { · {{ 'Approvals.phone' | t }}: <span dir="ltr">{{ u.phone }}</span> }</p>
+                  <p class="text-sm text-muted" dir="auto">{{ u.organization || ('Approvals.noPlace' | t) }}@if (u.branch) { · {{ u.branch }} }</p>
+                </div>
+                @if (!pick[u.id].again) { <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="pick[u.id].again = true">{{ 'Approvals.approveAgain' | t }}</button> }
+              </div>
+              <div class="mt-3 rounded-md bg-bg p-3">
+                <p class="text-xs font-semibold text-muted">{{ 'Approvals.reasonLabel' | t }}</p>
+                <p class="mt-1 whitespace-pre-line" dir="auto">{{ u.rejectionReason || ('Approvals.noReason' | t) }}</p>
+              </div>
+              <p class="mt-2 text-sm text-muted" dir="auto">{{ (u.rejectedBy ? 'Approvals.rejectedByOn' : 'Approvals.rejectedOn') | t: { name: u.rejectedBy, date: i18n.date(u.rejectedAt) } }}</p>
+              @if (pick[u.id].again) {
+                <ng-container *ngTemplateOutlet="placeForm; context: { $implicit: u, again: true }" />
+                <p class="mt-2 text-sm text-muted">{{ 'Approvals.approveAgainHint' | t }}</p>
+              }
+            </li>
+          }
+        </ul>
+      </section>
+      }
+      @if (tab() === 'approved') {
       <section aria-labelledby="approved-h" class="flex flex-col gap-3">
         <div class="flex flex-wrap items-baseline gap-3">
           <h2 id="approved-h" class="text-2xl font-bold tracking-tight">{{ 'Approvals.approvedTitle' | t }}</h2>
@@ -1720,7 +1773,27 @@ interface ApprovedRow { id: string; fullName: string; email: string; phone: stri
           </div>
         }
       </section>
+      }
     </main>
+
+    <ng-template #placeForm let-u let-again="again">
+      <form class="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end" novalidate (ngSubmit)="approve(u)">
+        <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminUsers.approve.org' | t }}
+          <select [name]="'o' + u.id" [class]="cls.input + ' font-normal'" [(ngModel)]="pick[u.id].org" (ngModelChange)="pick[u.id].branch = null">
+            <option [ngValue]="null">{{ 'AdminUsers.approve.pickOrg' | t }}</option>
+            @for (o of activeOrgs(); track o.id) { <option [ngValue]="o.id">{{ o.name }}</option> }
+          </select></label>
+        <label class="flex flex-col gap-1.5 text-sm font-semibold">{{ 'AdminUsers.approve.branch' | t }}
+          <select [name]="'b' + u.id" [class]="cls.input + ' font-normal'" [(ngModel)]="pick[u.id].branch" [disabled]="!pick[u.id].org">
+            <option [ngValue]="null">{{ 'AdminUsers.approve.noBranch' | t }}</option>
+            @for (b of activeBranches(pick[u.id].org); track b.id) { <option [ngValue]="b.id">{{ b.name }}</option> }
+          </select></label>
+        <span class="flex flex-wrap gap-2">
+          <button type="submit" [class]="cls.btn" [disabled]="busy() || !pick[u.id].org">{{ (again ? 'Approvals.approveAgainSubmit' : 'AdminUsers.approve.submit') | t }}</button>
+          @if (again) { <button type="button" [class]="cls.btn2" (click)="pick[u.id].again = false">{{ 'AdminUsers.approve.reject.cancel' | t }}</button> }
+        </span>
+      </form>
+    </ng-template>
 
     <ng-template #who let-u>
       <div class="flex min-w-0 items-center gap-3">
@@ -1754,6 +1827,12 @@ interface ApprovedRow { id: string; fullName: string; email: string; phone: stri
 export class AdminApprovalsPage extends AdminBase implements OnInit {
   protected readonly rows = signal<PendingRow[] | null>(null);
   protected readonly done = signal<ApprovedRow[]>([]);
+  protected readonly refused = signal<RejectedRow[]>([]);
+  protected readonly tabs: ApprovalTab[] = ['waiting', 'rejected', 'approved'];
+  protected readonly tab = signal<ApprovalTab>('waiting');
+  protected tabCount(t: ApprovalTab): number { return t === 'waiting' ? (this.rows()?.length ?? 0) : t === 'rejected' ? this.refused().length : this.done().length; }
+  /** Common reasons the approver can start from (in the approver's language; the text stays editable). */
+  protected readonly quickReasons = computed(() => [1, 2, 3].map((n) => this.i18n.t('AdminUsers.approve.reject.r' + n)));
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   // Approved accounts table: search, filters, sort and pages (design docs/design/approved-accounts-sample.html).
@@ -1790,18 +1869,21 @@ export class AdminApprovalsPage extends AdminBase implements OnInit {
     const day = (s: string) => { const d = new Date(s); return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); };
     return { days: Math.max(0, Math.round((day(u.approvedAt) - day(u.registeredAt)) / 864e5)) };
   }
-  protected pick: Record<string, { org: string | null; branch: string | null; reason: string }> = {};
+  protected pick: Record<string, ApprovalPick> = {};
   protected readonly activeOrgs = computed(() => (this.lk()?.orgs ?? []).filter((o) => (o as { isActive?: boolean }).isActive !== false));
   protected activeBranches(org: string | null) { return this.branchesOf(org).filter((b) => (b as { isActive?: boolean }).isActive !== false); }
   async ngOnInit(): Promise<void> { await Promise.all([this.loadLookups(), this.reload()]); }
   protected async reload(): Promise<void> {
     try {
-      const [rows, done] = await Promise.all([this.api.get<PendingRow[]>('users?kind=pending'), this.api.get<ApprovedRow[]>('approved')]);
-      for (const u of rows) this.pick[u.id] ??= { org: u.organizationId, branch: u.branchId, reason: '' };
-      this.rows.set(rows); this.done.set(done);
+      const [rows, done, refused] = await Promise.all([this.api.get<PendingRow[]>('users?kind=pending'), this.api.get<ApprovedRow[]>('approved'), this.api.get<RejectedRow[]>('rejected')]);
+      const blank = (org: string | null, branch: string | null): ApprovalPick => ({ org, branch, reason: '', open: false, err: false, confirm: false, again: false });
+      for (const u of [...rows, ...refused]) this.pick[u.id] ??= blank(u.organizationId, u.branchId);
+      this.rows.set(rows); this.done.set(done); this.refused.set(refused);
     } catch (e) { this.fail(e); }
   }
-  protected approve(u: PendingRow): void { const p = this.pick[u.id]; void this.run(() => this.api.post(`users/${u.id}/approve`, { organizationId: p.org, branchId: p.branch }), 'AdminV2.approved'); }
-  protected reject(u: PendingRow): void { void this.run(() => this.api.post(`users/${u.id}/reject`, { reason: this.pick[u.id].reason }), 'AdminV2.rejected'); }
+  protected approve(u: { id: string }): void { const p = this.pick[u.id]; void this.run(() => this.api.post(`users/${u.id}/approve`, { organizationId: p.org, branchId: p.branch }), 'AdminV2.approved'); }
+  /** First click checks the reason (the customer reads it), then asks to confirm. */
+  protected askReject(u: PendingRow): void { const p = this.pick[u.id]; p.reason = p.reason.trim(); if (p.reason.length < 10) { p.err = true; return; } p.confirm = true; }
+  protected reject(u: PendingRow): void { void this.run(() => this.api.post(`users/${u.id}/reject`, { reason: this.pick[u.id].reason.trim() }), 'AdminV2.rejected'); }
 }
 

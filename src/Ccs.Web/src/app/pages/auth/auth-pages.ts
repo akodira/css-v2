@@ -39,12 +39,13 @@ abstract class FormBase {
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly fieldErrors = signal<Record<string, string>>({});
-  /** The last "account locked" answer (its time), shown by errText(). */
+  /** The last "account locked" or "not approved" answer (its time or reason), shown by errText(). */
   protected readonly lock = signal<ApiProblem | null>(null);
   protected link(path: string): string { return `/${this.i18n.locale()}${path}`; }
   /** The error line: the locked message with its time, or the plain message for the code. */
   protected errText(): string {
     const c = this.error() ?? 'generic', l = this.lock();
+    if (c === 'rejected') return this.i18n.t(l?.reason ? 'Auth.errors.rejected' : 'Auth.errors.rejectedNoReason', { reason: l?.reason ?? '' });
     if (c !== 'accountLocked' || !l) return this.i18n.t('Auth.errors.' + c);
     return l.until ? this.i18n.t('Auth.errors.lockedUntil', { time: this.i18n.shortDate(l.until) }) : this.i18n.t('Auth.errors.lockedAdmin');
   }
@@ -69,7 +70,7 @@ abstract class FormBase {
     try { await work(); }
     catch (e) {
       const p = problemOf(e);
-      if (p.code === 'accountLocked') this.lock.set(p);
+      if (p.code === 'accountLocked' || p.code === 'rejected') this.lock.set(p);
       if (p.field) this.fieldErrors.set({ [p.field]: p.code });
       else this.error.set(this.i18n.has('Auth.errors.' + p.code) ? p.code : 'generic');
     } finally { this.pending.set(false); this.captchaReset.update((n) => n + 1); }

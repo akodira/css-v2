@@ -28,7 +28,14 @@ public sealed class NotificationService(ICcsDbContext db, IClock clock)
     {
         if (userId is not Guid uid) return;
         var active = await db.Profiles.AnyAsync(p => p.Id == uid && p.AccountStatus == AccountStatus.Active, ct);
-        if (!active) return;
+        // An account request's own answers (waiting, not approved) reach an account that is not active yet: by email only.
+        if (!active)
+        {
+            if (evt is not (NotificationEvent.AccountPending or NotificationEvent.AccountRejected)) return;
+            var json0 = payload as string ?? JsonSerializer.Serialize(payload, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            await AddAsync(uid, evt, ticketId, "email", json0, $"{evt}:{source}:{uid}:email", ct);
+            return;
+        }
 
         var staff = await (from ur in db.UserRoles join r in db.Roles on ur.RoleId equals r.Id
                            where ur.UserId == uid && r.Code != RoleCode.Customer select 1).AnyAsync(ct);

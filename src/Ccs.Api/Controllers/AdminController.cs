@@ -338,14 +338,16 @@ public sealed class AdminController(
     public async Task<IActionResult> Approve(Guid id, ApproveBody b, CancellationToken ct)
     {
         var c = await Need(Permission.ApproveCustomers, ct);
-        var p = await PendingAsync(c, id, ct);
+        var p = await PendingAsync(c, id, ct, allowRejected: true);   // "Approve after all" on the Rejected tab too
         await CheckPlacementAsync(b.OrganizationId, b.BranchId, ct);
         RequirePlacementInScope(c, b.OrganizationId, b.BranchId);
+        var was = p.AccountStatus;
         p.OrganizationId = b.OrganizationId;
         p.BranchId = b.BranchId;
         p.AccountStatus = AccountStatus.Active;
+        p.RejectedAt = null; p.RejectedBy = null; p.RejectionReason = null;
         p.UpdatedAt = clock.UtcNow;
-        audit.Write("user.approve", "profile", id, new { status = AccountStatus.PendingApproval }, new { status = p.AccountStatus, p.OrganizationId, p.BranchId });
+        audit.Write("user.approve", "profile", id, new { status = was }, new { status = p.AccountStatus, p.OrganizationId, p.BranchId });
         await db.SaveChangesAsync(ct);
         await notify.NotifyAsync(id, "account_approved", null, new { name = p.FullName }, "admin", ct);
         await db.SaveChangesAsync(ct);
@@ -357,12 +359,49 @@ public sealed class AdminController(
     {
         var c = await Need(Permission.ApproveCustomers, ct);
         var p = await PendingAsync(c, id, ct);
+        // The customer reads this reason (email and sign-in), so it is required.
+        var reason = b.Reason?.Trim() ?? "";
+        if (reason.Length < 10) throw Err("reasonRequired", "reason");
+        if (reason.Length > 500) throw Err("reasonTooLong", "reason");
+        var now = clock.UtcNow;
         p.AccountStatus = AccountStatus.Suspended;
-        p.UpdatedAt = clock.UtcNow;
-        audit.Write("user.reject", "profile", id, new { status = AccountStatus.PendingApproval }, new { status = p.AccountStatus, reason = b.Reason?.Trim() });
+        p.RejectedAt = now; p.RejectedBy = c.UserId; p.RejectionReason = reason;
+        p.UpdatedAt = now;
+        audit.Write("user.reject", "profile", id, new { status = AccountStatus.PendingApproval }, new { status = p.AccountStatus, reason });
         await RevokeSessionsAsync(id, ct);
         await db.SaveChangesAsync(ct);
+        await notify.NotifyAsync(id, NotificationEvent.AccountRejected, null, new { name = p.FullName, reason }, "admin:" + now.ToUnixTimeSeconds(), ct);
+        await db.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    /// <summary>The Rejected tab: rejected account requests the caller could have handled, newest first.</summary>
+    [HttpGet("rejected")]
+    public async Task<object> Rejected(CancellationToken ct)
+    {
+        var c = await Need(Permission.ApproveCustomers, ct);
+        var rows = await (from p in db.Profiles.AsNoTracking()
+                          where p.AccountStatus == AccountStatus.Suspended && p.RejectedAt != null
+                          join o in db.Organizations on p.OrganizationId equals (Guid?)o.Id into os from o in os.DefaultIfEmpty()
+                          join br in db.Branches on p.BranchId equals (Guid?)br.Id into bs from br in bs.DefaultIfEmpty()
+                          join a in db.Profiles on p.RejectedBy equals (Guid?)a.Id into ar from a in ar.DefaultIfEmpty()
+                          orderby p.RejectedAt descending
+                          select new
+                          {
+                              p.Id, p.FullName, p.Email, p.Phone, p.OrganizationId, p.BranchId,
+                              Organization = o == null ? null : o.Name, Branch = br == null ? null : br.Name,
+                              RegisteredAt = p.CreatedAt, p.RejectedAt, p.RejectionReason, RejectedBy = a == null ? null : a.FullName,
+                          }).Take(500).ToListAsync(ct);
+        if (c.Admin) return rows;
+        var mine = new List<object>();
+        var cache = new Dictionary<(Guid?, Guid?), List<Guid>>();
+        foreach (var r in rows)
+        {
+            if (!cache.TryGetValue((r.OrganizationId, r.BranchId), out var who))
+                cache[(r.OrganizationId, r.BranchId)] = who = await approvers.ForAsync(r.OrganizationId, r.BranchId, ct);
+            if (who.Contains(c.UserId)) mine.Add(r);
+        }
+        return mine;
     }
 
     // ---------------------------------------------------------------- account types
@@ -963,12 +1002,13 @@ public sealed class AdminController(
         return (c, p, role);
     }
 
-    private async Task<Profile> PendingAsync(AccessContext c, Guid id, CancellationToken ct)
+    private async Task<Profile> PendingAsync(AccessContext c, Guid id, CancellationToken ct, bool allowRejected = false)
     {
         var p = await db.Profiles.FirstOrDefaultAsync(x => x.Id == id, ct) ?? throw new NotFoundException();
         // Same rule as the pending list: only the request's own approvers (system admins: all).
         if (!await approvers.CanHandleAsync(c, p, ct)) throw new NotFoundException();
-        if (p.AccountStatus != AccountStatus.PendingApproval) throw Err("not_pending_approval");
+        var rejected = allowRejected && p.AccountStatus == AccountStatus.Suspended && p.RejectedAt is not null;
+        if (p.AccountStatus != AccountStatus.PendingApproval && !rejected) throw Err("not_pending_approval");
         return p;
     }
 

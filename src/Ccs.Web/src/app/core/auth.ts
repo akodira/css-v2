@@ -38,13 +38,14 @@ export interface Me {
 }
 
 /** Problem response from the API: { status, title, code, field? }. */
-/** remaining: sign-in attempts left before a lock (only when 2 or fewer); until / autoUnlock: when a locked account opens again. */
-export interface ApiProblem { status: number; code: string; field?: string; remaining?: number; until?: string | null; autoUnlock?: boolean }
+/** remaining: sign-in attempts left before a lock (only when 2 or fewer); until / autoUnlock: when a locked account opens again;
+ *  reason: why an account request was not approved (only after the right password). */
+export interface ApiProblem { status: number; code: string; field?: string; remaining?: number; until?: string | null; autoUnlock?: boolean; reason?: string }
 
 export function problemOf(err: unknown): ApiProblem {
   if (err instanceof HttpErrorResponse) {
-    const body = err.error as { code?: string; title?: string; field?: string; remaining?: number; until?: string | null; autoUnlock?: boolean } | null;
-    return { status: err.status, code: body?.code ?? (err.status === 0 ? 'generic' : 'generic'), field: body?.field, remaining: body?.remaining, until: body?.until, autoUnlock: body?.autoUnlock };
+    const body = err.error as { code?: string; title?: string; field?: string; remaining?: number; until?: string | null; autoUnlock?: boolean; reason?: string } | null;
+    return { status: err.status, code: body?.code ?? (err.status === 0 ? 'generic' : 'generic'), field: body?.field, remaining: body?.remaining, until: body?.until, autoUnlock: body?.autoUnlock, reason: body?.reason };
   }
   return { status: 0, code: 'generic' };
 }

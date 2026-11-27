@@ -538,3 +538,15 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'UX_account_types_default_key' AND object_id = OBJECT_ID(N'ccs.account_types'))
     CREATE UNIQUE INDEX UX_account_types_default_key ON ccs.account_types (default_key) WHERE default_key IS NOT NULL;
 GO
+-- Rejected account requests: who rejected, when and why (shown to the customer and on the Rejected tab).
+IF COL_LENGTH(N'ccs.profiles', N'rejected_at') IS NULL
+    ALTER TABLE ccs.profiles ADD rejected_at datetimeoffset(7) NULL, rejected_by uniqueidentifier NULL, rejection_reason nvarchar(500) NULL;
+GO
+-- Earlier rejections were kept only in the activity log: copy the latest one onto each account still suspended.
+UPDATE p SET rejected_at = l.created_at, rejected_by = l.actor_id,
+       rejection_reason = NULLIF(LTRIM(RTRIM(COALESCE(JSON_VALUE(l.[after], '$.reason'), JSON_VALUE(l.[after], '$.Reason')))), N'')
+  FROM ccs.profiles p
+ CROSS APPLY (SELECT TOP (1) a.created_at, a.actor_id, a.[after] FROM ccs.audit_logs a
+               WHERE a.action = N'user.reject' AND a.entity_id = p.id ORDER BY a.created_at DESC) l
+ WHERE p.account_status = N'suspended' AND p.rejected_at IS NULL;
+GO

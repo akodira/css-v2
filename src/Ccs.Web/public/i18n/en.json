@@ -240,7 +240,9 @@
       "lockedAdmin": "For your security, your account is locked after too many failed sign-in attempts. Please contact us to unlock it.",
       "passwordReused": "You used this password recently. Choose a password you have not used before.",
       "sessionEnded": "This device was signed out. Please sign in again.",
-      "mfaSetupRequired": "Set up two-step verification on your account page to continue."
+      "mfaSetupRequired": "Set up two-step verification on your account page to continue.",
+      "rejected": "Your account request was not approved. Reason: {reason}",
+      "rejectedNoReason": "Your account request was not approved. Contact support."
     },
     "password": {
       "show": "Show password",
@@ -380,9 +382,18 @@
       "submit": "Approve and activate",
       "reject": {
         "summary": "Reject this account instead",
-        "reason": "Reason (optional, sent to the customer)",
-        "hint": "The customer gets an email and cannot sign in.",
-        "submit": "Reject account"
+        "reason": "Reason",
+        "hint": "They get an email with this reason and cannot sign in.",
+        "submit": "Reject account",
+        "reasonHint": "The customer reads it exactly as you write it.",
+        "quick": "Common reasons",
+        "quickHint": "A common reason fills the box. You can still change the text.",
+        "r1": "We could not find a customer account with these details.",
+        "r2": "Please register with the email on your contract.",
+        "r3": "This branch does not serve your area.",
+        "confirmQ": "Reject {name}?",
+        "yes": "Yes, reject",
+        "cancel": "Cancel"
       }
     },
     "leadsLine": "Leads",
@@ -1253,7 +1264,9 @@
       "kindOfficeNoTickets": "Office staff do not work tickets. Untick replying, resolving, closing, category and assigning.",
       "kindOfficeNeedsOne": "Office staff need at least one task: managing customers, approving customers, the knowledge base, saved replies, categories or settings.",
       "defaultLocked": "Default account types cannot be deleted.",
-      "notDefault": "Only a default account type can be reset."
+      "notDefault": "Only a default account type can be reset.",
+      "reasonRequired": "Write the reason the customer will read (at least 10 characters).",
+      "reasonTooLong": "The reason can be 500 characters at most."
     },
     "cancel": "Cancel"
   },
@@ -2782,7 +2795,22 @@
     "pageOf": "Page {page} of {pages} · {size} per page",
     "prev": "Previous page",
     "next": "Next page",
-    "addedDirectly": "Added directly"
+    "addedDirectly": "Added directly",
+    "tabsLabel": "Account requests",
+    "tab_waiting": "Waiting",
+    "tab_rejected": "Rejected",
+    "tab_approved": "Approved",
+    "rejectedSubtitle": "Account requests that were not approved, with the reason the customer received. Approve one after all if it was a mistake.",
+    "rejectedEmpty": "No rejected account requests.",
+    "rejectedBadge": "Rejected",
+    "noPlace": "No organization chosen",
+    "reasonLabel": "Reason sent to the customer",
+    "noReason": "No reason was written. It was rejected before a reason was required.",
+    "rejectedByOn": "Rejected by {name} on {date}",
+    "rejectedOn": "Rejected on {date}",
+    "approveAgain": "Approve after all",
+    "approveAgainSubmit": "Approve account",
+    "approveAgainHint": "The customer gets the approval email and can sign in."
   },
   "AdminHandover": {
     "transferTitle": "Transfer administrator",

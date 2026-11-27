@@ -422,6 +422,9 @@ public sealed class AuthService(
     private static void EnsureActive(Profile p)
     {
         if (p.AccountStatus == AccountStatus.Active) return;
+        // Called only once the person proved the account is theirs (password or code), so the reason may be shown.
+        if (p.AccountStatus == AccountStatus.Suspended && p.RejectedAt is not null)
+            throw new AuthError("rejected", 403, null, new Dictionary<string, object?> { ["reason"] = p.RejectionReason ?? "" });
         throw p.AccountStatus switch
         {
             AccountStatus.PendingApproval => new AuthError("pendingApproval", 403),
