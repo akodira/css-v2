@@ -37,7 +37,24 @@ export const GENERAL_ARTICLES: Article[] = [
       { en: "Enter your current password and the new one twice.", ar: "أدخل كلمة المرور الحالية ثم الجديدة مرتين." },
       { en: "Save. Use the eye button to check what you typed.", ar: "احفظ. استخدم زر العين للتحقق مما كتبته." },
     ],
-    tips: [{ en: "An administrator may require passwords to be renewed after a set period. You will then be asked to renew it by a code sent to your email.", ar: "قد يطلب المدير تجديد كلمات المرور بعد مدة محددة، وعندها يُطلب منك التجديد برمز يصل إلى بريدك." }],
+    tips: [
+      { en: "An administrator may require passwords to be renewed after a set period, or ask everyone for a new password. You will then be asked to choose one with a code sent to your email.", ar: "قد يطلب المدير تجديد كلمات المرور بعد مدة محددة، أو يطالب الجميع بكلمة مرور جديدة، وعندها يُطلب منك اختيارها برمز يصل إلى بريدك." },
+    ],
+  },
+  {
+    id: "a-reset-by-admin", kind: "howto", area: "account", audience: [...both], path: "/login",
+    title: { en: "Your password was reset by an administrator", ar: "أعاد المسؤول تعيين كلمة مرورك" },
+    summary: { en: "What the email means and how to get back in.", ar: "معنى الرسالة وكيف تعود إلى حسابك." },
+    steps: [
+      { en: "Open the email **Your password was reset**. It shows who reset it and a temporary password in a box.", ar: "افتح رسالة **أُعيد تعيين كلمة مرورك**، وتعرض من أعاد التعيين وكلمة مرور مؤقتة داخل إطار." },
+      { en: "Select **Sign in** in the email and sign in with your email and the temporary password.", ar: "اختر **تسجيل الدخول** في الرسالة، وسجّل الدخول ببريدك وكلمة المرور المؤقتة." },
+      { en: "We email you a 6-digit code at once. Enter it on the screen that opens, with your own new password twice.", ar: "نرسل إليك فورًا رمزًا من 6 أرقام، فأدخله في الشاشة التي تظهر مع كلمة مرورك الجديدة مرتين." },
+      { en: "Sign in with your new password.", ar: "سجّل الدخول بكلمة مرورك الجديدة." },
+    ],
+    tips: [
+      { en: "The temporary password works only once. If you got the email **Please set a new password** instead, sign in with your current password and follow the same code step.", ar: "كلمة المرور المؤقتة صالحة لمرة واحدة فقط. وإذا وصلتك بدلًا منها رسالة **يُرجى تعيين كلمة مرور جديدة**، فسجّل الدخول بكلمة مرورك الحالية واتبع خطوة الرمز نفسها." },
+      { en: "Did not expect the email? Contact your administrator: someone may have asked for it on your behalf.", ar: "لم تكن تتوقع الرسالة؟ تواصل مع مسؤول النظام، فربما طلبها أحد نيابةً عنك." },
+    ],
   },
   {
     id: "a-forgot", kind: "howto", area: "account", audience: [...both], path: "/forgot-password",
@@ -92,6 +109,10 @@ export const GENERAL_ARTICLES: Article[] = [
       { en: "Enter your name, email, mobile number, organization and branch, and a password of at least 10 characters.", ar: "أدخل اسمك وبريدك ورقم جوالك ومؤسستك وفرعك وكلمة مرور من 10 أحرف على الأقل." },
       { en: "Enter the 6-digit code we email you, or press **Confirm email** in that email and then **Continue**. No code, or it expired? Select **Send a new code**.", ar: "أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه إلى بريدك، أو اضغط **تأكيد البريد** في الرسالة ثم **متابعة**. لم يصلك الرمز أو انتهت صلاحيته؟ اختر **إرسال رمز جديد**." },
       { en: "Wait for the administrator to approve your account. You are emailed, then you can sign in.", ar: "انتظر موافقة المدير على حسابك. ستصلك رسالة بعدها يمكنك الدخول." },
+    ],
+    tips: [
+      { en: "Registered before but never entered the code? Registering again with the same email shows **Send a new code**: select it and finish with the new code. Your first password stays; use **Forgot password** later if you need to.", ar: "سجّلت من قبل ولم تُدخل الرمز؟ عند التسجيل مرة أخرى بالبريد نفسه يظهر زر **إرسال رمز جديد**، فاختره وأكمل بالرمز الجديد. وتبقى كلمة المرور الأولى كما هي، ويمكنك لاحقًا استخدام **نسيت كلمة المرور** إن احتجت." },
+      { en: "A sign-up that is not confirmed is removed after a few days (7 unless the administrator changed it). You can then register again from the start.", ar: "يُحذف طلب التسجيل غير المؤكد بعد أيام (7 ما لم يغيّرها المدير)، ويمكنك بعدها التسجيل من البداية." },
     ],
   },
 
@@ -166,8 +187,13 @@ export const GENERAL_ARTICLES: Article[] = [
       { en: "Open **Account approvals**. Each waiting customer shows name, email, phone and registration date.", ar: "افتح **موافقات الحسابات**. يعرض كل عميل منتظر اسمه وبريده وهاتفه وتاريخ تسجيله." },
       { en: "Choose the customer's **Organization** (and branch if needed).", ar: "اختر **مؤسسة** العميل (والفرع عند الحاجة)." },
       { en: "Select **Approve**, or **Reject** with a reason the customer will read. The customer is emailed either way, and rejected requests stay under the **Rejected** tab, where you can still approve one.", ar: "اختر **موافقة**، أو **رفض** مع سبب يقرؤه العميل. يصل العميل بريد في الحالتين، وتبقى الطلبات المرفوضة في تبويب **مرفوضة** حيث يمكنك اعتماد أي منها لاحقًا." },
+      { en: "A rejected email cannot register again. To free it, open the **Rejected** tab, select **Delete request** on the card, then **Yes, delete**. The account is removed for good and the person can register again from the start.", ar: "لا يمكن التسجيل مجددًا ببريد مرفوض. ولتحريره افتح تبويب **مرفوضة**، واختر **حذف الطلب** على البطاقة، ثم **نعم، احذف**، فيُحذف الحساب نهائيًا ويمكن للشخص التسجيل من البداية." },
     ],
-    tips: [{ en: "The Approved accounts list below shows who approved each customer and when.", ar: "تعرض قائمة الحسابات المعتمدة في الأسفل من وافق على كل عميل ومتى." }],
+    tips: [
+      { en: "The Approved accounts list below shows who approved each customer and when.", ar: "تعرض قائمة الحسابات المعتمدة في الأسفل من وافق على كل عميل ومتى." },
+      { en: "You are emailed when a new request arrives. If it is still waiting after the set number of working days (2 unless changed), you get a reminder, and again after each further period.", ar: "تصلك رسالة عند وصول طلب جديد، وإذا ظل منتظرًا بعد عدد أيام العمل المحدد (2 ما لم يُغيَّر) يصلك تذكير، ثم تذكير آخر بعد كل مدة مماثلة." },
+      { en: "**Delete request** needs the permission to manage customers.", ar: "يتطلب **حذف الطلب** صلاحية إدارة العملاء." },
+    ],
   },
   {
     id: "s-people", kind: "feature", area: "customers", audience: [...s], path: "/console/people",
@@ -336,7 +362,7 @@ export const GENERAL_FLOWS: Flow[] = [
   {
     id: "f-approval", area: "customers", audience: [], perm: "approve_customers",
     title: { en: "New customer approval", ar: "الموافقة على عميل جديد" },
-    summary: { en: "The customer registers and verifies by email. Then a person with approval rights chooses their organization and approves.", ar: "يسجّل العميل ويؤكد بريده، ثم يختار صاحب صلاحية الموافقة مؤسسته ويوافق." },
+    summary: { en: "The customer registers and verifies by email. Then a person with approval rights chooses their organization and approves. Waiting requests remind the approvers; unconfirmed sign-ups are removed after the set days.", ar: "يسجّل العميل ويؤكد بريده، ثم يختار صاحب صلاحية الموافقة مؤسسته ويوافق. وتُذكّر الطلبات المنتظرة المعتمدين، وتُحذف طلبات التسجيل غير المؤكدة بعد الأيام المحددة." },
     nodes: [
       { label: { en: "Customer registers", ar: "العميل يسجّل" }, tone: "a" },
       { label: { en: "Email verified", ar: "تأكيد البريد" } },

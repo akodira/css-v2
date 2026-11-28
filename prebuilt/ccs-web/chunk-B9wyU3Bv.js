@@ -1,1 +1,0 @@
-import{F as Xt}from"./main-7XKBXZP2.js";import"./chunk-DjCjfIAE.js";import"./chunk-CyiooE7G.js";export{Xt as PeoplePage};

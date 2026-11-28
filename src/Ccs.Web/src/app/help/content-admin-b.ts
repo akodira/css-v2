@@ -41,6 +41,7 @@ export const ADMIN_B_ARTICLES: Article[] = [
     steps: [
       { en: "Open **Settings**, the **Security** tab, then **Sign-up and registration**.", ar: "افتح **الإعدادات** ثم تبويب **الأمان** ثم **التسجيل وإنشاء الحسابات**." },
       { en: "Under **Registration**, choose one of the four modes.", ar: "ضمن **التسجيل** اختر أحد الأوضاع الأربعة." },
+      { en: "Set **Remove sign-ups not confirmed after** (days, default 7; 0 keeps them) and **Remind the approvers every** (working days, default 2; 0 switches reminders off).", ar: "اضبط **حذف طلبات التسجيل غير المؤكدة بعد** (أيام، والافتراضي 7، و0 للإبقاء عليها) و**تذكير المعتمدين كل** (أيام عمل، والافتراضي 2، و0 لإيقاف التذكير)." },
       { en: "Save the settings.", ar: "احفظ الإعدادات." },
       { en: "If you chose an approval mode, give the right people the **Approve or reject new customer accounts** permission under Permissions. They then see **Account approvals** in their menu.", ar: "إذا اخترت وضعًا بموافقة فامنح الأشخاص المناسبين صلاحية **الموافقة على الحسابات الجديدة أو رفضها** ضمن الصلاحيات. ستظهر لهم **موافقات الحسابات** في القائمة." },
     ],
@@ -154,6 +155,8 @@ export const ADMIN_B_ARTICLES: Article[] = [
         { en: "Confirm email, password reset code, sign-in code.", ar: "تأكيد البريد، رمز استعادة كلمة المرور، رمز الدخول." },
         { en: "Account waiting for approval, approved, rejected.", ar: "حساب بانتظار الموافقة، موافقة، رفض." },
         { en: "Promoted to staff, password expiring.", ar: "ترقية إلى موظف، قرب انتهاء كلمة المرور." },
+        { en: "Password reset by an administrator (with the temporary password), asked to set a new password.", ar: "إعادة تعيين كلمة المرور من المسؤول (مع كلمة المرور المؤقتة)، وطلب تعيين كلمة مرور جديدة." },
+        { en: "To approvers: a new account request, and a reminder while it waits.", ar: "إلى المعتمدين: طلب حساب جديد، وتذكير ما دام منتظرًا." },
       ] },
     ],
     notes: [
