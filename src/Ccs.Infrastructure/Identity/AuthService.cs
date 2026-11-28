@@ -220,7 +220,13 @@ public sealed class AuthService(
         string? phone = null;
         if (!string.IsNullOrWhiteSpace(r.Phone))
             phone = (await settings.GetPhoneFormatAsync(ct)).Normalize(r.Phone) ?? throw new AuthError("phoneInvalid", 400, "phone");
-        if (await users.FindByEmailAsync(email) is not null) throw new AuthError("emailTaken", 400, "email");
+        if (await users.FindByEmailAsync(email) is { } existing)
+        {
+            // Registered before and never confirmed: point to a new code. The first request is kept as it is
+            // (replacing its password would let someone else set the password of an address they do not own).
+            var waiting = await db.Profiles.AnyAsync(p => p.Id == existing.Id && p.AccountStatus == AccountStatus.PendingVerification, ct);
+            throw new AuthError(waiting ? "emailPending" : "emailTaken", 400, "email");
+        }
         if (phone is not null && await db.Profiles.AnyAsync(p => p.Phone == phone, ct)) throw new AuthError("phoneTaken", 400, "phone");
 
         bool picks = registrationMode is "pick_approval" or "pick_auto";

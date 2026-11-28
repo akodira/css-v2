@@ -242,7 +242,8 @@
       "sessionEnded": "This device was signed out. Please sign in again.",
       "mfaSetupRequired": "Set up two-step verification on your account page to continue.",
       "rejected": "Your account request was not approved. Reason: {reason}",
-      "rejectedNoReason": "Your account request was not approved. Contact support."
+      "rejectedNoReason": "Your account request was not approved. Contact support.",
+      "emailPending": "You registered with this email before but did not enter the code. Get a new code to finish. Your first password stays; use Forgot password later if you need to."
     },
     "password": {
       "show": "Show password",
@@ -2818,7 +2819,7 @@
     "tab_waiting": "Waiting",
     "tab_rejected": "Rejected",
     "tab_approved": "Approved",
-    "rejectedSubtitle": "Account requests that were not approved, with the reason the customer received. Approve one after all if it was a mistake.",
+    "rejectedSubtitle": "Account requests that were not approved, with the reason the customer received. Approve one after all if it was a mistake, or delete it so the email can be used to register again.",
     "rejectedEmpty": "No rejected account requests.",
     "rejectedBadge": "Rejected",
     "noPlace": "No organization chosen",
@@ -2828,7 +2829,11 @@
     "rejectedOn": "Rejected on {date}",
     "approveAgain": "Approve after all",
     "approveAgainSubmit": "Approve account",
-    "approveAgainHint": "The customer gets the approval email and can sign in."
+    "approveAgainHint": "The customer gets the approval email and can sign in.",
+    "delete": "Delete request",
+    "deleteQ": "Delete the request from {name}?",
+    "deleteHint": "The account is removed for good. The email can then be used to register again.",
+    "deleteYes": "Yes, delete"
   },
   "AdminHandover": {
     "transferTitle": "Transfer administrator",

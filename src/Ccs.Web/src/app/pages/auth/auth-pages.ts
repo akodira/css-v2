@@ -316,7 +316,12 @@ const SELECT = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 te
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
             <app-text-field name="fullName" [label]="'Auth.fields.fullName' | t" autocomplete="name" [maxLength]="120" [required]="true" [(value)]="fullName" [error]="fieldErrors()['fullName']" />
             <div [class]="pair()">
-              <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
+              <div class="flex flex-col gap-1.5">
+                <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
+                @if (fieldErrors()['email'] === 'emailPending') {
+                  <button type="button" class="${SOFT_BTN}" [disabled]="pending()" (click)="resendPending()">{{ 'Auth.confirmPage.resend' | t }}</button>
+                }
+              </div>
               <div class="flex flex-col gap-1.5">
                 <app-text-field name="phone" type="tel" [label]="'Auth.fields.phone' | t" autocomplete="tel-national" dir="ltr" [maxLength]="16" [required]="true" [hint]="'Auth.fields.phoneHint' | t: ph()" [smallHint]="nl()" [(value)]="phone" [error]="fieldErrors()['phone']" />
                 @if (phone()) { <p class="text-sm font-semibold" [class]="phoneOk() ? 'text-ok' : 'text-muted'" aria-live="polite">{{ phoneOk() ? ('Auth.phoneLooksRight' | t: ph()) : ('Auth.phoneCount' | t: { n: phone().length, len: ph().len }) }}</p> }
@@ -410,6 +415,15 @@ export class RegisterPage extends FormBase {
       await this.router.navigate([this.link('/register/confirm')], { fragment: 'email=' + encodeURIComponent(this.email().trim()) });
     });
   }
+
+  /** The email registered before and never confirmed: send it a new code and go to the confirm screen. */
+  resendPending(): void {
+    const email = this.email().trim();
+    void this.run(async () => {
+      await firstValueFrom(this.http.post('/api/auth/resend-signup-code', { email }));
+      await this.router.navigate([this.link('/register/confirm')], { fragment: 'email=' + encodeURIComponent(email) + '&sent=1' });
+    });
+  }
 }
 
 /**
@@ -456,6 +470,7 @@ export class ConfirmEmailPage extends FormBase {
     const given = new URLSearchParams(f ?? '');
     const email = given.get('email'), code = (given.get('code') ?? '').replace(/\D/g, '').slice(0, 6);
     if (email) this.email.set(email);
+    if (given.get('sent') === '1') this.resent.set(true);
     if (code.length === 6) { this.code.set(code); this.fromLink = true; this.resent.set(false); this.error.set(null); }
   });
   protected readonly mode = computed(() => this.site.info()?.site?.registrationMode ?? 'approval');

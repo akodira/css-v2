@@ -1595,7 +1595,7 @@ export class AdminOrgsPage extends AccordionPage implements OnInit {
 interface PendingRow { id: string; fullName: string; email: string; phone: string | null; createdAt: string; organizationId: string | null; branchId: string | null }
 interface RejectedRow { id: string; fullName: string; email: string; phone: string | null; organizationId: string | null; branchId: string | null; organization: string | null; branch: string | null; registeredAt: string; rejectedAt: string; rejectionReason: string | null; rejectedBy: string | null }
 type ApprovalTab = 'waiting' | 'rejected' | 'approved';
-interface ApprovalPick { org: string | null; branch: string | null; reason: string; open: boolean; err: boolean; confirm: boolean; again: boolean }
+interface ApprovalPick { org: string | null; branch: string | null; reason: string; open: boolean; err: boolean; confirm: boolean; again: boolean; del: boolean }
 interface ApprovedRow { id: string; fullName: string; email: string; phone: string | null; organization: string | null; branch: string | null; registeredAt: string; approvedAt: string | null; approvedBy: string | null }
 
 @Component({
@@ -1675,8 +1675,23 @@ interface ApprovedRow { id: string; fullName: string; email: string; phone: stri
                   <p class="mt-0.5 text-sm text-muted"><span dir="ltr">{{ u.email }}</span>@if (u.phone) { · {{ 'Approvals.phone' | t }}: <span dir="ltr">{{ u.phone }}</span> }</p>
                   <p class="text-sm text-muted" dir="auto">{{ u.organization || ('Approvals.noPlace' | t) }}@if (u.branch) { · {{ u.branch }} }</p>
                 </div>
-                @if (!pick[u.id].again) { <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="pick[u.id].again = true">{{ 'Approvals.approveAgain' | t }}</button> }
+                @if (!pick[u.id].again && !pick[u.id].del) {
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="pick[u.id].again = true">{{ 'Approvals.approveAgain' | t }}</button>
+                    @if (canDelete()) { <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="pick[u.id].del = true">{{ 'Approvals.delete' | t }}</button> }
+                  </div>
+                }
               </div>
+              @if (pick[u.id].del) {
+                <div role="alertdialog" [attr.aria-label]="'Approvals.deleteQ' | t: { name: u.fullName || u.email }" class="mt-3 flex flex-col gap-3 rounded-md border border-danger bg-danger-soft p-4">
+                  <p class="font-semibold text-danger" dir="auto">{{ 'Approvals.deleteQ' | t: { name: u.fullName || u.email } }}</p>
+                  <p class="text-sm">{{ 'Approvals.deleteHint' | t }}</p>
+                  <div class="flex flex-wrap gap-2">
+                    <button type="button" [class]="cls.danger" [disabled]="busy()" (click)="remove(u)">{{ 'Approvals.deleteYes' | t }}</button>
+                    <button type="button" [class]="cls.btn2" [disabled]="busy()" (click)="pick[u.id].del = false">{{ 'AdminUsers.approve.reject.cancel' | t }}</button>
+                  </div>
+                </div>
+              }
               <div class="mt-3 rounded-md bg-bg p-3">
                 <p class="text-xs font-semibold text-muted">{{ 'Approvals.reasonLabel' | t }}</p>
                 <p class="mt-1 whitespace-pre-line" dir="auto">{{ u.rejectionReason || ('Approvals.noReason' | t) }}</p>
@@ -1858,6 +1873,10 @@ export class AdminApprovalsPage extends AdminBase implements OnInit {
   protected readonly pageList = computed(() => Array.from({ length: this.pages() }, (_, i) => i + 1));
   /** Rows open the customer's profile for people who may view customers (the profile needs that permission). */
   protected readonly canOpen = computed(() => this.auth.has('customers_view') || !!this.auth.me()?.roles.includes('admin'));
+  /** Deleting a rejected request needs the right to manage customers (the same rule as the Customers list). */
+  protected readonly canDelete = computed(() => this.auth.has('customers_manage') || !!this.auth.me()?.roles.includes('admin'));
+  /** The email is free again: the person can register with it from the start. */
+  protected remove(u: RejectedRow): void { void this.run(() => this.api.del('users/' + u.id), 'AdminV2.deleted'); }
   protected profileLink(u: ApprovedRow): string { return `/${this.i18n.locale()}/console/customers/${u.id}`; }
   protected open(u: ApprovedRow): void { if (this.canOpen()) void this.router.navigateByUrl(this.profileLink(u)); }
   protected initials(name: string): string { return (name || '?').trim().split(/\s+/).map((w) => [...w][0] ?? '').slice(0, 2).join('').toUpperCase(); }
@@ -1876,7 +1895,7 @@ export class AdminApprovalsPage extends AdminBase implements OnInit {
   protected async reload(): Promise<void> {
     try {
       const [rows, done, refused] = await Promise.all([this.api.get<PendingRow[]>('users?kind=pending'), this.api.get<ApprovedRow[]>('approved'), this.api.get<RejectedRow[]>('rejected')]);
-      const blank = (org: string | null, branch: string | null): ApprovalPick => ({ org, branch, reason: '', open: false, err: false, confirm: false, again: false });
+      const blank = (org: string | null, branch: string | null): ApprovalPick => ({ org, branch, reason: '', open: false, err: false, confirm: false, again: false, del: false });
       for (const u of [...rows, ...refused]) this.pick[u.id] ??= blank(u.organizationId, u.branchId);
       this.rows.set(rows); this.done.set(done); this.refused.set(refused);
     } catch (e) { this.fail(e); }
