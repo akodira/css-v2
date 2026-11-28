@@ -1,0 +1,1 @@
+import{z as Zt}from"./main-N36WNCVQ.js";import"./chunk-DjCjfIAE.js";import"./chunk-CyiooE7G.js";export{Zt as PeoplePage};

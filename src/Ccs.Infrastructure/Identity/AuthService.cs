@@ -316,13 +316,14 @@ public sealed class AuthService(
     /// <summary>account_approvers(): see <see cref="AccountApprovers"/>.</summary>
     public Task<List<Guid>> ApproversAsync(Profile p, CancellationToken ct) => approvers.ForAsync(p.OrganizationId, p.BranchId, ct);
 
-    /// <summary>my_password_status().expired: expiry switched on and the password is older than the allowed days.</summary>
+    /// <summary>my_password_status().expired: an admin asked for a new password, or expiry is on and the password is older than the allowed days.</summary>
     private async Task<bool> PasswordExpiredAsync(Guid userId, CancellationToken ct)
     {
+        var row = await db.Profiles.Where(p => p.Id == userId).Select(p => new { p.PasswordChangedAt, p.MustChangePassword }).FirstOrDefaultAsync(ct);
+        if (row is null) return false;
+        if (row.MustChangePassword) return true;
         var policy = await settings.GetPasswordPolicyAsync(ct);
-        if (!policy.ExpiryEnabled) return false;
-        var changed = await db.Profiles.Where(p => p.Id == userId).Select(p => (DateTimeOffset?)p.PasswordChangedAt).FirstOrDefaultAsync(ct);
-        return changed is DateTimeOffset at && clock.UtcNow >= at.AddDays(policy.ExpiryDays);
+        return policy.ExpiryEnabled && clock.UtcNow >= row.PasswordChangedAt.AddDays(policy.ExpiryDays);
     }
 
     // ------------------------------------------------------------------ password reset by code
@@ -375,6 +376,7 @@ public sealed class AuthService(
         var p = await db.Profiles.FirstAsync(x => x.Id == userId, ct);
         p.PasswordChangedAt = clock.UtcNow;
         p.PasswordWarnStage = 0;
+        p.MustChangePassword = false;
         p.UpdatedAt = clock.UtcNow;
         audit.Write("auth.password_changed", "user", userId, null, null, userId);
         await db.SaveChangesAsync(ct);

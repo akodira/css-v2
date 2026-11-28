@@ -1,4 +1,5 @@
 import { PageAbout } from '../../shared/page-about';
+import { BulkPasswordReset } from '../../shared/bulk-password-reset';
 import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, OnInit, computed, forwardRef, inject, input, output, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -240,7 +241,7 @@ interface CustomerRow { id: string; fullName: string; email: string; phone: stri
 /** Customers screen, same as v1 /console/customers: add form (admins), search, and a table of the customers this person may see. */
 @Component({
   selector: 'app-admin-customers',
-  imports: [TPipe, Alert, AddPanel, PersonForm, RouterLink, FormsModule, PageAbout, forwardRef(() => PeoplePage)],
+  imports: [TPipe, Alert, AddPanel, PersonForm, RouterLink, FormsModule, PageAbout, forwardRef(() => PeoplePage), BulkPasswordReset],
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
       @if (scoped() && !isAdmin()) {
@@ -256,6 +257,7 @@ interface CustomerRow { id: string; fullName: string; email: string; phone: stri
           }
         </div>
       }
+      @if (canBulk()) { <app-bulk-password-reset kind="customers" /> }
       @if (isAdmin()) { <app-page-about key="customers" tile="person" [points]="['person', 'building', 'check', 'history']" /> }
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       <form role="search" class="flex flex-wrap gap-2" (ngSubmit)="search()">
@@ -306,6 +308,7 @@ export class AdminCustomersPage extends AdminBase implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   protected readonly isAdmin = computed(() => !!this.auth.me()?.roles.includes('admin'));
+  protected readonly canBulk = computed(() => this.isAdmin() || this.auth.has('customers_manage'));
   /** Organization or branch admin: may add customers inside their scope. */
   protected readonly scoped = computed(() => !this.isAdmin() && !!this.auth.me()?.scopeLevel);
   protected readonly rows = signal<CustomerRow[] | null>(null);

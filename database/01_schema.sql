@@ -267,6 +267,7 @@ CREATE TABLE ccs.profiles (
     rejected_by              uniqueidentifier NULL,           -- no FK: the record outlives the approver
     rejection_reason         nvarchar(500) NULL,
     email_verified_at        datetimeoffset(7) NULL,          -- sign-up code entered (approval reminders count from here)
+    must_change_password     bit NOT NULL DEFAULT 0,          -- bulk reset: set a new password at the next sign-in
     created_at               datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     updated_at               datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME()
 );

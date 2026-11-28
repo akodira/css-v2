@@ -558,3 +558,7 @@ GO
 UPDATE ccs.profiles SET email_verified_at = updated_at
  WHERE account_status = N'pending_approval' AND email_verified_at IS NULL;
 GO
+-- Bulk password reset: the person sets a new password at the next sign-in.
+IF COL_LENGTH(N'ccs.profiles', N'must_change_password') IS NULL
+    ALTER TABLE ccs.profiles ADD must_change_password bit NOT NULL CONSTRAINT DF_profiles_must_change_password DEFAULT 0;
+GO

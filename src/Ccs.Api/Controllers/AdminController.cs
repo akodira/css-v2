@@ -32,6 +32,7 @@ public sealed class AdminController(
         Guid? AccountTypeId, Guid? OrganizationId, Guid? BranchId, string? Status, bool AutoAssign, bool CanCreateForCustomers,
         bool MoveOpenTickets = false);
     public sealed record PasswordBody(string Password);
+    public sealed record BulkPasswordBody(string Kind);
     public sealed record StatusBody(string Status);
     public sealed record ApproveBody(Guid OrganizationId, Guid? BranchId);
     public sealed record RejectBody(string? Reason);
@@ -290,10 +291,42 @@ public sealed class AdminController(
         if (!r.Succeeded) throw Err("passwordWeak", "password");
         p.PasswordChangedAt = clock.UtcNow;
         p.PasswordWarnStage = 0;
+        p.MustChangePassword = false;
         await RevokeSessionsAsync(id, ct);
         audit.Write("user.password_reset", "profile", id, null, null);
         await db.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    /// <summary>
+    /// Bulk reset: everyone on the Staff list (admins only) or the Customers list (within the caller's scope) must set a
+    /// new password at the next sign-in, where a code is emailed. Their sessions end now. The caller is never included.
+    /// </summary>
+    [HttpPost("users/bulk-password-reset")]
+    public async Task<object> BulkPasswordReset(BulkPasswordBody b, CancellationToken ct)
+    {
+        var customers = b.Kind == "customers";
+        if (!customers && b.Kind != "staff") throw Err("kind", "kind");
+        var c = await Need(customers ? Permission.CustomersManage : null, ct);
+        var customerIds = from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id where r.Code == RoleCode.Customer select ur.UserId;
+        var anyRole = db.CcsUserRoles.Select(ur => ur.UserId);
+        var q = db.Profiles.Where(p => p.Id != c.UserId && p.AccountStatus != AccountStatus.PendingVerification && p.AccountStatus != AccountStatus.PendingApproval);
+        q = customers ? q.Where(p => customerIds.Contains(p.Id)) : q.Where(p => anyRole.Contains(p.Id) && !customerIds.Contains(p.Id));
+        if (customers && !c.Admin)
+        {
+            var scoped = access.CustomersInScope(db.Profiles, c);
+            q = q.Where(p => scoped.Any(s => s.Id == p.Id));
+        }
+        var ids = await q.Select(p => p.Id).ToListAsync(ct);
+        if (ids.Count > 0)
+        {
+            var now = clock.UtcNow;
+            await db.Profiles.Where(p => ids.Contains(p.Id)).ExecuteUpdateAsync(s => s.SetProperty(p => p.MustChangePassword, true).SetProperty(p => p.UpdatedAt, now), ct);
+            await db.RefreshTokens.Where(t => ids.Contains(t.UserId) && t.RevokedAt == null).ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now), ct);
+        }
+        audit.Write("user.bulk_password_reset", "profile", null, null, new { kind = b.Kind, count = ids.Count });
+        await db.SaveChangesAsync(ct);
+        return new { count = ids.Count };
     }
 
     /// <summary>Deletes a person with no history; otherwise answers inUse so the screen offers Suspend.</summary>

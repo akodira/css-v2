@@ -12,6 +12,8 @@ import { STAFF_KEY, STAFF_TILE_SWITCH, TILE_TEAM } from '../../shared/tiles';
 import { PhoneInput, phoneDigits } from '../../shared/phone';
 import { PwEye } from '../../shared/pw-eye';
 import { AdminBase, CLS, TurnBack } from './admin-pages';
+import { ResetPassword } from '../../shared/reset-password';
+import { BulkPasswordReset } from '../../shared/bulk-password-reset';
 import { PlacePicker, SetupGuide, roleOfType } from './staff-setup';
 
 // Batch 4A: Staff, Teams, Organizations and Approvals laid out as in v1 (OrgAccordion rows, role cards, add bars).
@@ -196,7 +198,7 @@ interface StaffData { me: string; orgs: Pick[]; branches: BranchPick[]; staff: S
 /** One person: account type (what), Works in (where), teams and ticket switches, saved together; then status, details and turn back. */
 @Component({
   selector: 'app-staff-body',
-  imports: [TPipe, FormsModule, RouterLink, TurnBack, Req, Alert, PlacePicker, PhoneInput],
+  imports: [TPipe, FormsModule, RouterLink, TurnBack, Req, Alert, PlacePicker, PhoneInput, ResetPassword],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     @let u = user();
@@ -211,7 +213,10 @@ interface StaffData { me: string; orgs: Pick[]; branches: BranchPick[]; staff: S
           @if (u.mfa && !u.isSelf) { <button type="button" [class]="quiet + ' mt-2'" [disabled]="busy()" (click)="act.emit({ kind: 'mfa' })">{{ 'Mfa.reset' | t }}</button> }
         </div>
         @if (!u.isSelf && u.status !== 'pending_verification' && u.status !== 'pending_approval') {
-          <button type="button" [class]="quiet" [disabled]="busy()" (click)="act.emit({ kind: 'status', value: u.status === 'suspended' ? 'active' : 'suspended' })">{{ (u.status === 'suspended' ? 'AdminUsers.reactivate' : 'AdminUsers.suspend') | t }}</button>
+          <div class="flex flex-wrap gap-2">
+            <app-reset-password [userId]="u.id" [name]="u.fullName || u.email" [disabled]="busy()" [btnClass]="quiet" />
+            <button type="button" [class]="quiet" [disabled]="busy()" (click)="act.emit({ kind: 'status', value: u.status === 'suspended' ? 'active' : 'suspended' })">{{ (u.status === 'suspended' ? 'AdminUsers.reactivate' : 'AdminUsers.suspend') | t }}</button>
+          </div>
         }
       </div>
 
@@ -388,7 +393,7 @@ export class StaffBody implements OnInit {
 
 @Component({
   selector: 'app-admin-staff',
-  imports: [TPipe, Alert, AddPanel, FormsModule, PhoneInput, StaffBody, Req, ReqNote, PwEye, SetupGuide, PlacePicker],
+  imports: [TPipe, Alert, AddPanel, FormsModule, PhoneInput, StaffBody, Req, ReqNote, PwEye, SetupGuide, PlacePicker, BulkPasswordReset],
   changeDetection: ChangeDetectionStrategy.Default,
   template: `
     <main class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -431,6 +436,7 @@ export class StaffBody implements OnInit {
         </div>
         </app-add>
       </div>
+      <app-bulk-password-reset kind="staff" />
       <app-setup-guide #guide page="staff" [autoNeeds]="wantNeeds()" (needs)="showNeeds(guide.needIds())" />
       @if (msg(); as m) { <app-alert [tone]="m.tone">{{ m.text }}</app-alert> }
       @if (data() && !data()!.staff.length) { <p class="text-muted">{{ 'AdminUsers.empty' | t }}</p> }

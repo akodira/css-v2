@@ -23,6 +23,8 @@ public class Profile
     public string? RejectionReason { get; set; }
     /// <summary>When the person entered the sign-up code: approval reminders count working days from here.</summary>
     public DateTimeOffset? EmailVerifiedAt { get; set; }
+    /// <summary>Set by an admin's bulk reset: the next sign-in asks for a new password (like an expired one), cleared once it is changed.</summary>
+    public bool MustChangePassword { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

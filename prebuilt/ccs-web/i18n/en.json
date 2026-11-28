@@ -5392,5 +5392,15 @@
     "agent": "agent",
     "leader": "team leader",
     "done": "The ticket was reassigned."
+  },
+  "BulkPw": {
+    "button": "Ask everyone for a new password",
+    "q": {
+      "staff": "Ask all staff to set a new password?",
+      "customers": "Ask all customers on this list to set a new password?"
+    },
+    "hint": "Everyone except you is signed out now. At their next sign-in they get a code by email and choose a new password. Accounts still waiting for email confirmation or approval are not included.",
+    "yes": "Yes, ask everyone",
+    "done": "Done. {n} people must set a new password at their next sign-in."
   }
 }
