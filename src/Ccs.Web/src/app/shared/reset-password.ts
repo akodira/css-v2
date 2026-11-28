@@ -68,7 +68,8 @@ import { Alert } from './ui';
             <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg" (click)="close()">{{ 'AdminCommon.cancel' | t }}</button>
           </div>
         } @else {
-          <p role="status" class="rounded-lg bg-ok-soft px-3 py-2.5 text-sm font-medium text-ok">{{ 'ResetPw.done' | t: { name: name() } }}</p>
+          @if (emailed()) { <p role="status" class="rounded-lg bg-ok-soft px-3 py-2.5 text-sm font-medium text-ok">{{ 'ResetPw.doneEmailed' | t: { name: name() } }}</p> }
+          @else { <p role="status" class="rounded-lg bg-warn-soft px-3 py-2.5 text-sm font-medium text-warn-ink">{{ 'ResetPw.doneNoEmail' | t: { name: name() } }}</p> }
           <div class="flex flex-wrap items-center gap-2">
             <code class="min-h-11 flex-1 rounded-lg border border-dashed border-line bg-bg px-3 py-2.5 font-mono text-lg font-semibold tracking-wide" dir="ltr">{{ done() }}</code>
             <button type="button" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-3 font-semibold hover:bg-bg" (click)="copy(done()!)">{{ copied() ? ('ResetPw.copied' | t) : ('ResetPw.copy' | t) }}</button>
@@ -101,6 +102,8 @@ export class ResetPassword {
   protected readonly copied = signal(false);
   /** The password that was set; shown until the window is closed. */
   protected readonly done = signal<string | null>(null);
+  /** The person got the password by email (it then works once). */
+  protected readonly emailed = signal(false);
 
   protected readonly policy = computed(() => {
     const p = this.site.info()?.passwordPolicy;
@@ -131,7 +134,8 @@ export class ResetPassword {
     if (this.how() === 'type' && !this.rules().every((r) => this.checks()[r])) { this.err.set(this.i18n.t('ResetPw.rulesNotMet')); return; }
     this.busy.set(true); this.err.set('');
     try {
-      await firstValueFrom(this.http.post(this.url() ?? `/api/admin/users/${this.userId()}/password`, { password: pw }));
+      const r = await firstValueFrom(this.http.post<{ emailed?: boolean } | null>(this.url() ?? `/api/admin/users/${this.userId()}/password`, { password: pw }));
+      this.emailed.set(!!r?.emailed);
       this.done.set(pw); this.copied.set(false);
     } catch (e) { this.err.set(adminError(this.i18n, e)); }
     finally { this.busy.set(false); }

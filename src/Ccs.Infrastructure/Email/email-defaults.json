@@ -399,6 +399,30 @@
         "body": "طلبت الحد الأقصى من رموز الدخول المسموح به في اليوم، لذلك لن تُرسَل رموز أخرى حتى الغد.\nيُرجى تسجيل الدخول بكلمة المرور. وإذا لم تطلب هذه الرموز فغيّر كلمة المرور.",
         "button": ""
       }
+    },
+    "auth_password_reset": {
+      "en": {
+        "subject": "Your password was reset",
+        "button": "Sign in",
+        "body": "{by} reset the password of your account ({email}). Sign in with the temporary password below.\n{password}\nIt works once: when you sign in with it, we email you a code and you choose your own password. If you did not expect this, contact your administrator."
+      },
+      "ar": {
+        "subject": "أُعيد تعيين كلمة مرورك",
+        "button": "تسجيل الدخول",
+        "body": "أعاد {by} تعيين كلمة مرور حسابك ({email}). سجّل الدخول بكلمة المرور المؤقتة الواردة أدناه.\n{password}\nوهي صالحة لمرة واحدة: فعند تسجيل الدخول بها نرسل إليك رمزًا بالبريد لتختار كلمة مرورك. وإن لم تكن تتوقع ذلك، فتواصل مع مسؤول النظام."
+      }
+    },
+    "auth_password_change_required": {
+      "en": {
+        "subject": "Please set a new password",
+        "button": "Sign in",
+        "body": "{by} asked you to set a new password for your account ({email}). The next time you sign in with your current password, we email you a code and you choose a new one."
+      },
+      "ar": {
+        "subject": "يُرجى تعيين كلمة مرور جديدة",
+        "button": "تسجيل الدخول",
+        "body": "طلب {by} منك تعيين كلمة مرور جديدة لحسابك ({email}). وعند تسجيل الدخول التالي بكلمة مرورك الحالية، نرسل إليك رمزًا بالبريد لتختار كلمة مرور جديدة."
+      }
     }
   },
   "greeting": {

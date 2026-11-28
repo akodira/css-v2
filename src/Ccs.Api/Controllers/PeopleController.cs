@@ -276,7 +276,7 @@ public sealed partial class PeopleController(CcsDbContext db, AccessService acce
 
     /// <summary>A new password for one staff member the caller manages; their sessions end.</summary>
     [HttpPost("api/console/people/{id:guid}/password")]
-    public async Task<IActionResult> Password(Guid id, PasswordBody b, CancellationToken ct)
+    public async Task<object> Password(Guid id, PasswordBody b, [FromServices] AuthService auth, CancellationToken ct)
     {
         var me = await MeAsync(ct);
         RequireReset(me);
@@ -290,15 +290,21 @@ public sealed partial class PeopleController(CcsDbContext db, AccessService acce
         await db.RefreshTokens.Where(t => t.UserId == id && t.RevokedAt == null).ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, clock.UtcNow), ct);
         audit.Write("user.password_reset", "profile", id, null, null);
         await db.SaveChangesAsync(ct);
-        return NoContent();
+        var emailed = await auth.SendAdminResetAsync(id, b.Password ?? "", await NameOfAsync(me.C.UserId, ct), ct);
+        if (emailed) { p.MustChangePassword = true; await db.SaveChangesAsync(ct); }
+        return new { emailed };
     }
+
+    private Task<string> NameOfAsync(Guid id, CancellationToken ct) =>
+        db.Profiles.Where(x => x.Id == id).Select(x => x.FullName).FirstAsync(ct);
 
     /// <summary>Every staff member the caller manages must set a new password at the next sign-in; their sessions end.</summary>
     [HttpPost("api/console/people/bulk-password-reset")]
-    public async Task<object> BulkPassword(CancellationToken ct)
+    public async Task<object> BulkPassword([FromServices] AuthService auth, [FromServices] IServiceScopeFactory scopes, CancellationToken ct)
     {
         var me = await MeAsync(ct);
         RequireReset(me);
+        if (!await auth.EmailReadyAsync(ct)) throw Err("emailOff", null, 409);
         var ids = (await PeopleAsync(me, ct))
             .Where(x => !x.Roles.Contains(RoleCode.Customer) && x.Status is AccountStatus.Active or AccountStatus.Suspended)
             .Select(x => x.Id).ToList();
@@ -310,6 +316,7 @@ public sealed partial class PeopleController(CcsDbContext db, AccessService acce
         }
         audit.Write("user.bulk_password_reset", "profile", null, null, new { kind = "staff", scoped = true, count = ids.Count });
         await db.SaveChangesAsync(ct);
+        if (ids.Count > 0) AuthService.QueueChangeRequiredEmails(scopes, ids, await NameOfAsync(me.C.UserId, ct));
         return new { count = ids.Count };
     }
 

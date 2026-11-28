@@ -282,9 +282,9 @@ public sealed class AdminController(
     }
 
     [HttpPost("users/{id:guid}/password")]
-    public async Task<IActionResult> Password(Guid id, PasswordBody b, CancellationToken ct)
+    public async Task<object> Password(Guid id, PasswordBody b, [FromServices] AuthService auth, CancellationToken ct)
     {
-        var (_, p, _) = await TargetAsync(id, ct);
+        var (c, p, _) = await TargetAsync(id, ct);
         var u = await users.FindByIdAsync(id.ToString()) ?? throw new NotFoundException();
         var token = await users.GeneratePasswordResetTokenAsync(u);
         var r = await users.ResetPasswordAsync(u, token, b.Password ?? "");
@@ -295,19 +295,28 @@ public sealed class AdminController(
         await RevokeSessionsAsync(id, ct);
         audit.Write("user.password_reset", "profile", id, null, null);
         await db.SaveChangesAsync(ct);
-        return NoContent();
+        // The person gets the temporary password by email; it then works once (they choose their own at sign-in).
+        // If the email cannot be sent, it stays their password until they change it, so nobody is locked out.
+        var emailed = await auth.SendAdminResetAsync(id, b.Password ?? "", await NameOfAsync(c.UserId, ct), ct);
+        if (emailed) { p.MustChangePassword = true; await db.SaveChangesAsync(ct); }
+        return new { emailed };
     }
+
+    private Task<string> NameOfAsync(Guid id, CancellationToken ct) =>
+        db.Profiles.Where(x => x.Id == id).Select(x => x.FullName).FirstAsync(ct);
 
     /// <summary>
     /// Bulk reset: everyone on the Staff list (admins only) or the Customers list (within the caller's scope) must set a
     /// new password at the next sign-in, where a code is emailed. Their sessions end now. The caller is never included.
     /// </summary>
     [HttpPost("users/bulk-password-reset")]
-    public async Task<object> BulkPasswordReset(BulkPasswordBody b, CancellationToken ct)
+    public async Task<object> BulkPasswordReset(BulkPasswordBody b, [FromServices] AuthService auth, [FromServices] IServiceScopeFactory scopes, CancellationToken ct)
     {
         var customers = b.Kind == "customers";
         if (!customers && b.Kind != "staff") throw Err("kind", "kind");
         var c = await Need(customers ? Permission.CustomersManage : null, ct);
+        // Without email nobody could get the code to choose a new password: they would all be locked out.
+        if (!await auth.EmailReadyAsync(ct)) throw Err("emailOff", null, 409);
         var customerIds = from ur in db.CcsUserRoles join r in db.CcsRoles on ur.RoleId equals r.Id where r.Code == RoleCode.Customer select ur.UserId;
         var anyRole = db.CcsUserRoles.Select(ur => ur.UserId);
         var q = db.Profiles.Where(p => p.Id != c.UserId && p.AccountStatus != AccountStatus.PendingVerification && p.AccountStatus != AccountStatus.PendingApproval);
@@ -326,6 +335,7 @@ public sealed class AdminController(
         }
         audit.Write("user.bulk_password_reset", "profile", null, null, new { kind = b.Kind, count = ids.Count });
         await db.SaveChangesAsync(ct);
+        if (ids.Count > 0) AuthService.QueueChangeRequiredEmails(scopes, ids, await NameOfAsync(c.UserId, ct));
         return new { count = ids.Count };
     }
 

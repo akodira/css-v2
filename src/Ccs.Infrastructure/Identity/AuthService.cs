@@ -10,6 +10,7 @@ using Ccs.Infrastructure.Email;
 using Ccs.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Ccs.Infrastructure.Identity;
@@ -512,19 +513,55 @@ public sealed class AuthService(
     }
 
     /// <summary>Account emails (auth_*) are sent by the API directly, not queued (spec 6).</summary>
-    private async Task SendAccountEmailAsync(string template, Profile p, string? code, int minutes, CancellationToken ct, string? link = null)
+    private async Task<bool> SendAccountEmailAsync(string template, Profile p, string? code, int minutes, CancellationToken ct, string? link = null,
+        IReadOnlyDictionary<string, string>? extra = null)
     {
         var values = new Dictionary<string, string> { ["name"] = p.FullName, ["email"] = p.Email, ["minutes"] = minutes.ToString() };
         if (code is not null) values["code"] = code;
+        if (extra is not null) foreach (var (k, v) in extra) values[k] = v;
         var email = await mailer.BuildAsync(template, p.PreferredLocale, values, link, code, ct);
-        if (email is null) return;
-        try { await sender.SendAsync(new OutgoingEmail(p.Email, email.Subject, email.Html, email.Text), ct); }
+        if (email is null) return false;
+        try { await sender.SendAsync(new OutgoingEmail(p.Email, email.Subject, email.Html, email.Text), ct); return true; }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             log.LogError(ex, "Account email {Template} to {UserId} failed", template, p.Id);
             throw new AuthError("emailFailed", 503);
         }
     }
+
+    // ------------------------------------------------------------------ passwords reset by an administrator
+
+    /// <summary>Email sending is switched on and has a server: people can receive the code they need to choose a new password.</summary>
+    public Task<bool> EmailReadyAsync(CancellationToken ct = default) =>
+        db.EmailSettings.AsNoTracking().AnyAsync(s => s.UseSmtp && s.Host != null && s.Host != "", ct);
+
+    /// <summary>Emails the temporary password an administrator set. False when it could not be sent (the password then stays usable).</summary>
+    public async Task<bool> SendAdminResetAsync(Guid userId, string password, string by, CancellationToken ct = default)
+    {
+        var p = await db.Profiles.AsNoTracking().FirstAsync(x => x.Id == userId, ct);
+        try { return await SendAccountEmailAsync("auth_password_reset", p, password, 0, ct, "/login", new Dictionary<string, string> { ["password"] = password, ["by"] = by }); }
+        catch (AuthError) { return false; }
+    }
+
+    /// <summary>Tells one person an administrator asked everyone to set a new password at the next sign-in.</summary>
+    public async Task<bool> SendChangeRequiredAsync(Guid userId, string by, CancellationToken ct = default)
+    {
+        var p = await db.Profiles.AsNoTracking().FirstOrDefaultAsync(x => x.Id == userId, ct);
+        if (p is null) return false;
+        try { return await SendAccountEmailAsync("auth_password_change_required", p, null, 0, ct, "/login", new Dictionary<string, string> { ["by"] = by }); }
+        catch (AuthError) { return false; }
+    }
+
+    /// <summary>Bulk reset: the emails go out after the answer, one by one, so a long list does not hold the page.</summary>
+    public static void QueueChangeRequiredEmails(IServiceScopeFactory scopes, IReadOnlyList<Guid> ids, string by) =>
+        _ = Task.Run(async () =>
+        {
+            await using var scope = scopes.CreateAsyncScope();
+            var auth = scope.ServiceProvider.GetRequiredService<AuthService>();
+            var sent = 0;
+            foreach (var id in ids) if (await auth.SendChangeRequiredAsync(id, by)) sent++;
+            scope.ServiceProvider.GetRequiredService<ILogger<AuthService>>().LogInformation("Bulk password reset: {Sent} of {Total} emails sent", sent, ids.Count);
+        });
 
     private static string NewCode(int length)
     {

@@ -1280,7 +1280,8 @@
       "notDefault": "Only a default account type can be reset.",
       "reasonRequired": "Write the reason the customer will read (at least 10 characters).",
       "reasonTooLong": "The reason can be 500 characters at most.",
-      "kindResetAdminsOnly": "Only organization and branch admin types can reset staff passwords. Untick it, or pick one of those kinds."
+      "kindResetAdminsOnly": "Only organization and branch admin types can reset staff passwords. Untick it, or pick one of those kinds.",
+      "emailOff": "Set up email sending first (Settings → Email). People need an emailed code to choose their new password, or they could not sign in."
     },
     "cancel": "Cancel"
   },
@@ -2537,7 +2538,9 @@
       "new_signin_admin": "Admins: an admin account signed in from a new device",
       "team_ticket_waiting": "New ticket waiting in a team list (to staff)",
       "ticket_no_team": "No team for a new ticket (to admins)",
-      "approval_reminder": "Account: reminder, request still waiting (to approvers)"
+      "approval_reminder": "Account: reminder, request still waiting (to approvers)",
+      "auth_password_reset": "Account: password reset by an administrator",
+      "auth_password_change_required": "Account: asked to set a new password"
     },
     "tplWho": {
       "ticket_created": "Sent to the customer.",
@@ -2580,7 +2583,9 @@
       "new_signin_admin": "Sent to the other system admins when an admin account signs in from a new device. {person} and {email} are the account.",
       "team_ticket_waiting": "Sent to the whole team when the team shares tickets, or to the team leaders when they choose who handles it. {team} is the team.",
       "ticket_no_team": "Sent to the customer's organization admins (or system admins) when no team of the needed kind serves the customer's place. {team} is the kind of team.",
-      "approval_reminder": "Sent to the approvers every few working days while a request waits (Settings, Security, Sign-up and registration). {days} is how long it has waited."
+      "approval_reminder": "Sent to the approvers every few working days while a request waits (Settings, Security, Sign-up and registration). {days} is how long it has waited.",
+      "auth_password_reset": "Sent to the person who owns the account.",
+      "auth_password_change_required": "Sent to the person who owns the account."
     },
     "menuArea": {
       "header": "Customer side menu",
@@ -5000,7 +5005,7 @@
   },
   "ResetPw": {
     "title": "Reset password for {name}",
-    "help": "They are signed out everywhere. Give them the new password; they can change it under My Account.",
+    "help": "They are signed out everywhere and get the new password by email. It works once: at their next sign-in they choose their own.",
     "how": "How to set the password",
     "make": "Make one for me",
     "makeHelp": "A strong random password.",
@@ -5011,9 +5016,10 @@
     "copied": "Copied ✓",
     "newPassword": "New password",
     "set": "Set password",
-    "done": "Password changed. Give it to {name} now: it is not shown again after you close this window.",
     "finish": "Done",
-    "rulesNotMet": "The password does not meet all the rules yet."
+    "rulesNotMet": "The password does not meet all the rules yet.",
+    "doneEmailed": "Password changed and emailed to {name}. At their next sign-in they must choose their own password.",
+    "doneNoEmail": "Password changed, but the email could not be sent. Give it to {name} now: it is not shown again after you close this window. It keeps working until they change it."
   },
   "PhoneSettings": {
     "title": "Phone numbers",
@@ -5401,7 +5407,7 @@
       "staff": "Ask all staff to set a new password?",
       "customers": "Ask all customers on this list to set a new password?"
     },
-    "hint": "Everyone except you is signed out now. At their next sign-in they get a code by email and choose a new password. Accounts still waiting for email confirmation or approval are not included.",
+    "hint": "Everyone except you is signed out now and gets an email asking them to set a new password. At their next sign-in we email them a code to choose it. Accounts still waiting for email confirmation or approval are not included.",
     "yes": "Yes, ask everyone",
     "done": "Done. {n} people must set a new password at their next sign-in."
   }

@@ -465,8 +465,8 @@ public sealed partial class SettingsController(
 
     /// <summary>v1 SAMPLE values for previews and tests.</summary>
     private static Dictionary<string, string> SampleValues(string locale) => locale == "ar"
-        ? new() { ["name"] = "كمال", ["reference"] = "REQ-26-0123", ["subject"] = "مشكلة في تسجيل الدخول", ["reason"] = "لا يوجد رد منذ 24 ساعة", ["code"] = "482913", ["minutes"] = "10", ["days"] = "3", ["customer"] = "نور حسن", ["customerEmail"] = "nour@example.com" }
-        : new() { ["name"] = "Kamal", ["reference"] = "REQ-26-0123", ["subject"] = "Login issue on the portal", ["reason"] = "No reply for 24 hours", ["code"] = "482913", ["minutes"] = "10", ["days"] = "3", ["customer"] = "Nour Hassan", ["customerEmail"] = "nour@example.com" };
+        ? new() { ["name"] = "كمال", ["reference"] = "REQ-26-0123", ["subject"] = "مشكلة في تسجيل الدخول", ["reason"] = "لا يوجد رد منذ 24 ساعة", ["code"] = "482913", ["minutes"] = "10", ["days"] = "3", ["customer"] = "نور حسن", ["customerEmail"] = "nour@example.com", ["password"] = "Tq7!mK2#pR9x", ["by"] = "سارة عادل" }
+        : new() { ["name"] = "Kamal", ["reference"] = "REQ-26-0123", ["subject"] = "Login issue on the portal", ["reason"] = "No reply for 24 hours", ["code"] = "482913", ["minutes"] = "10", ["days"] = "3", ["customer"] = "Nour Hassan", ["customerEmail"] = "nour@example.com", ["password"] = "Tq7!mK2#pR9x", ["by"] = "Sara Adel" };
 
     [HttpGet("templates")]
     public async Task<object> Templates(CancellationToken ct)

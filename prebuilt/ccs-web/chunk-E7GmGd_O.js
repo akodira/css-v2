@@ -1,1 +1,0 @@
-import{P as Xt}from"./main-OUC2BWDB.js";import"./chunk-DjCjfIAE.js";import"./chunk-CyiooE7G.js";export{Xt as PeoplePage};

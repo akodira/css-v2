@@ -42,6 +42,20 @@ public class SignupFlowTests
     }
 
     [Fact]
+    public async Task Admin_reset_email_carries_the_temporary_password_and_a_sign_in_button()
+    {
+        var values = new Dictionary<string, string> { ["name"] = "Ahmed", ["email"] = "a@x.test", ["minutes"] = "0", ["password"] = "Tq7!mK2#pR9x", ["by"] = "Sara Adel" };
+        var en = await Mailer().BuildAsync("auth_password_reset", "en", values, "/login", "Tq7!mK2#pR9x");
+        Assert.Contains("Tq7!mK2#pR9x", en!.Text);
+        Assert.Contains("Tq7!mK2#pR9x", en.Html);
+        Assert.Contains("Sara Adel", en.Text);
+        Assert.Contains("https://ccs.test/en/login", en.Html);
+        var ar = await Mailer().BuildAsync("auth_password_change_required", "ar", values, "/login", null);
+        Assert.Contains("Sara Adel", ar!.Text);
+        Assert.DoesNotContain("{", ar.Subject);
+    }
+
+    [Fact]
     public async Task Saved_wording_without_the_code_still_gets_it()
     {
         db.EmailTemplates.Add(new EmailTemplate { Event = "auth_signup", Locale = "ar", Subject = "أكّد بريدك", Body = "أهلًا {name}. أكّد بريدك." });
