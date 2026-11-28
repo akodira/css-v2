@@ -550,3 +550,11 @@ UPDATE p SET rejected_at = l.created_at, rejected_by = l.actor_id,
                WHERE a.action = N'user.reject' AND a.entity_id = p.id ORDER BY a.created_at DESC) l
  WHERE p.account_status = N'suspended' AND p.rejected_at IS NULL;
 GO
+-- When the sign-up code was entered: approval reminders count working days from it.
+IF COL_LENGTH(N'ccs.profiles', N'email_verified_at') IS NULL
+    ALTER TABLE ccs.profiles ADD email_verified_at datetimeoffset(7) NULL;
+GO
+-- Requests already waiting: count from their last change.
+UPDATE ccs.profiles SET email_verified_at = updated_at
+ WHERE account_status = N'pending_approval' AND email_verified_at IS NULL;
+GO

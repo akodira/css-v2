@@ -136,6 +136,8 @@ public static class NotificationEvent
     public const string AccountApproved = "account_approved";
     public const string AccountRejected = "account_rejected";
     public const string ApprovalRequested = "approval_requested";
+    /// <summary>To the approvers: an account request has waited for approval for N working days (repeats every N).</summary>
+    public const string ApprovalReminder = "approval_reminder";
     public const string AccountPromoted = "account_promoted";
     public const string CustomerReminder = "customer_reminder";
     public const string CustomerFinalWarning = "customer_final_warning";

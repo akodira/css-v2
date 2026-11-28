@@ -61,6 +61,7 @@ public static class DependencyInjection
         services.AddScoped<LockoutService>();
         services.AddScoped<AccountSecurity>();
         services.AddScoped<AccountApprovers>();
+        services.AddScoped<AccountRequestTimers>();
         services.AddScoped<TemplateMailer>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
         services.AddScoped<EmailDispatcher>();

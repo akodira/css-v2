@@ -71,6 +71,11 @@
         "body": "{customer} ({customerEmail}) verified their email and is waiting for approval. Choose an organization and approve or reject the account.",
         "button": "Review accounts"
       },
+      "approval_reminder": {
+        "title": "Still waiting for approval: {customer}",
+        "body": "{customer} ({customerEmail}) has been waiting {days} working day(s) for approval. Approve or reject the account so they are not left waiting.",
+        "button": "Review accounts"
+      },
       "account_promoted": {
         "title": "Your account is now a staff account",
         "body": "Hello {name}, an administrator gave you a staff role. Sign in to open the staff workspace.",
@@ -206,6 +211,11 @@
         "body": "أكّد {customer} ({customerEmail}) بريده الإلكتروني وهو بانتظار الاعتماد. اختر المؤسسة ثم اعتمد الحساب أو ارفضه.",
         "button": "مراجعة الحسابات"
       },
+      "approval_reminder": {
+        "title": "لا يزال بانتظار الاعتماد: {customer}",
+        "body": "ينتظر {customer} ({customerEmail}) اعتماد حسابه منذ {days} يوم عمل. اعتمد الحساب أو ارفضه حتى لا يطول انتظاره.",
+        "button": "مراجعة الحسابات"
+      },
       "account_promoted": {
         "title": "أصبح حسابك حساب موظف",
         "body": "مرحبًا {name}، منحك أحد المديرين دورًا وظيفيًا. سجّل الدخول لفتح مساحة العمل.",
@@ -273,12 +283,12 @@
     "auth_signup": {
       "en": {
         "subject": "Confirm your email address",
-        "body": "Welcome, {name}. Confirm your email address to activate your account.",
+        "body": "Welcome, {name}. Enter the code below on the sign-up screen to confirm your email address. It works for {minutes} minutes.\n{code}\nYou can also press the button below.",
         "button": "Confirm email"
       },
       "ar": {
         "subject": "أكّد بريدك الإلكتروني",
-        "body": "أهلًا {name}. أكّد بريدك الإلكتروني لتفعيل حسابك.",
+        "body": "أهلًا {name}. أدخل الرمز أدناه في شاشة التسجيل لتأكيد بريدك الإلكتروني، وهو صالح لمدة {minutes} دقيقة.\n{code}\nويمكنك أيضًا الضغط على الزر أدناه.",
         "button": "تأكيد البريد"
       }
     },
@@ -401,6 +411,7 @@
     "account_approved",
     "account_rejected",
     "approval_requested",
+    "approval_reminder",
     "password_expiring",
     "account_locked",
     "account_locked_admin",

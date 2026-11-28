@@ -21,6 +21,8 @@ public class Profile
     public DateTimeOffset? RejectedAt { get; set; }
     public Guid? RejectedBy { get; set; }
     public string? RejectionReason { get; set; }
+    /// <summary>When the person entered the sign-up code: approval reminders count working days from here.</summary>
+    public DateTimeOffset? EmailVerifiedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }

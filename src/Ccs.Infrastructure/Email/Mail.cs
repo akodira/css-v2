@@ -139,6 +139,9 @@ public sealed class TemplateMailer(CcsDbContext db, IOptions<AppUrlOptions> urls
         design = design with { LogoUrl = design.LogoUrl is null || headerLogo is null ? null : $"{siteUrl}/api/site/branding/{headerLogo}" };
         var footerLogo = site.FooterLogoPath ?? site.WordmarkPath ?? site.LogoPath;
         var extras = new EmailExtras(greet, siteUrl, footerLogo is null ? null : $"{siteUrl}/api/site/branding/{footerLogo}", SocialLinks.Parse(site.SocialLinks));
+        // A code email always carries its code: wording saved without {code} gets it on a line of its own.
+        if (code is not null && !EmailRenderer.FillText(body, values).Contains(code))
+            body = body.TrimEnd() + "\n\n" + (locale == "ar" ? "الرمز: {code}" : "Your code: {code}");
         // Account emails: the code shows in the large box when the design asks for it and the text contains it (v1).
         var showBox = code is not null && design.LargeCodeBox && EmailRenderer.FillText(body, values).Contains(code);
         if (showBox) body = System.Text.RegularExpressions.Regex.Replace(EmailRenderer.FillText(body, values).Replace(code!, ""), @"[:：]\s*(\n|$)", "$1");

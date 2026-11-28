@@ -205,7 +205,7 @@
     "callbackError": "The link is invalid or has expired. Please try again.",
     "errors": {
       "invalidCredentials": "Incorrect email or password.",
-      "emailNotConfirmed": "Verify your email first. Check your inbox for the link.",
+      "emailNotConfirmed": "Confirm your email first: enter the 6-digit code we sent you.",
       "suspended": "This account is suspended. Contact support.",
       "generic": "Something went wrong. Please try again.",
       "rateLimited": "Too many attempts. Please wait a few minutes and try again.",
@@ -311,7 +311,14 @@
     "phoneDigits": "A phone number has {len} digits, e.g. {example}. You have typed {n}.",
     "phoneCount": "{n} of {len} digits",
     "phoneLooksRight": "{len} of {len} digits ✓",
-    "capsLock": "Caps Lock is on"
+    "capsLock": "Caps Lock is on",
+    "confirmPage": {
+      "open": "Enter the code from the email, or get a new one",
+      "fromLink": "Your code is filled in. Press Continue to confirm your email address.",
+      "noCode": "No code, or it has expired?",
+      "resend": "Send a new code",
+      "resent": "If this email is waiting for confirmation, a new code is on its way. Codes sent before it no longer work."
+    }
   },
   "Account": {
     "title": "My Account",
@@ -945,6 +952,11 @@
       "ticket_no_team": {
         "title": "No team for {reference}",
         "body": "\"{subject}\" needs a {team} team, but the customer's place has none. Assign it by hand or add the team."
+      },
+      "approval_reminder": {
+        "title": "Still waiting for approval: {customer}",
+        "body": "{customer} ({customerEmail}) has been waiting {days} working day(s) for approval. Approve or reject the account so they are not left waiting.",
+        "button": "Review accounts"
       }
     },
     "markRead": "Mark as read",
@@ -1472,7 +1484,11 @@
     "tnReset_monthly_help": "Back to 1 on the first of each month. The number must include the year and the month.",
     "tnReset_never": "Never",
     "tnReset_never_help": "One counter that keeps growing.",
-    "tnCodesHint": "Ticket type codes (for example CMP, REQ) are set on the Ticket types page. One counter is shared by all types."
+    "tnCodesHint": "Ticket type codes (for example CMP, REQ) are set on the Ticket types page. One counter is shared by all types.",
+    "unconfirmedDays": "Remove sign-ups not confirmed after (days, 0 = keep)",
+    "unconfirmedDaysHint": "The person never entered the code. Removing the request lets them register again with the same email.",
+    "approvalReminderDays": "Remind the approvers every (working days, 0 = off)",
+    "approvalReminderDaysHint": "While a request waits for approval. Working days follow the branch or organization calendar."
   },
   "Customers": {
     "title": "Customers",
@@ -2517,7 +2533,8 @@
       "new_signin": "Account: new sign-in from a new device",
       "new_signin_admin": "Admins: an admin account signed in from a new device",
       "team_ticket_waiting": "New ticket waiting in a team list (to staff)",
-      "ticket_no_team": "No team for a new ticket (to admins)"
+      "ticket_no_team": "No team for a new ticket (to admins)",
+      "approval_reminder": "Account: reminder, request still waiting (to approvers)"
     },
     "tplWho": {
       "ticket_created": "Sent to the customer.",
@@ -2559,7 +2576,8 @@
       "new_signin": "Sent when an account signs in from a browser and device not used on it recently (Settings, Security, New sign-in alerts). {device}, {at} and {ip} describe the sign-in.",
       "new_signin_admin": "Sent to the other system admins when an admin account signs in from a new device. {person} and {email} are the account.",
       "team_ticket_waiting": "Sent to the whole team when the team shares tickets, or to the team leaders when they choose who handles it. {team} is the team.",
-      "ticket_no_team": "Sent to the customer's organization admins (or system admins) when no team of the needed kind serves the customer's place. {team} is the kind of team."
+      "ticket_no_team": "Sent to the customer's organization admins (or system admins) when no team of the needed kind serves the customer's place. {team} is the kind of team.",
+      "approval_reminder": "Sent to the approvers every few working days while a request waits (Settings, Security, Sign-up and registration). {days} is how long it has waited."
     },
     "menuArea": {
       "header": "Customer side menu",

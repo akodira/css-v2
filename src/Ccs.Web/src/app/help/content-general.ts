@@ -90,7 +90,7 @@ export const GENERAL_ARTICLES: Article[] = [
     steps: [
       { en: "Select **Create an account** on the sign-in page.", ar: "اختر **إنشاء حساب** في صفحة الدخول." },
       { en: "Enter your name, email, mobile number, organization and branch, and a password of at least 10 characters.", ar: "أدخل اسمك وبريدك ورقم جوالك ومؤسستك وفرعك وكلمة مرور من 10 أحرف على الأقل." },
-      { en: "Open the verification link we email you.", ar: "افتح رابط التحقق الذي أرسلناه إلى بريدك." },
+      { en: "Enter the 6-digit code we email you, or press **Confirm email** in that email and then **Continue**. No code, or it expired? Select **Send a new code**.", ar: "أدخل الرمز المكوّن من 6 أرقام الذي أرسلناه إلى بريدك، أو اضغط **تأكيد البريد** في الرسالة ثم **متابعة**. لم يصلك الرمز أو انتهت صلاحيته؟ اختر **إرسال رمز جديد**." },
       { en: "Wait for the administrator to approve your account. You are emailed, then you can sign in.", ar: "انتظر موافقة المدير على حسابك. ستصلك رسالة بعدها يمكنك الدخول." },
     ],
   },

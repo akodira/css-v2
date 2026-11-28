@@ -3,7 +3,7 @@ import { CanActivateFn, CanMatchFn, Router, Routes } from '@angular/router';
 import { Auth, STAFF_ROLES, requireRole } from './core/auth';
 import { I18n, isLocale } from './core/i18n';
 import { PublicLayout, Shell } from './layout/layouts';
-import { ForgotPage, LoginCodePage, LoginPage, MfaPage, RegisterPage, ResetPage } from './pages/auth/auth-pages';
+import { ConfirmEmailPage, ForgotPage, LoginCodePage, LoginPage, MfaPage, RegisterPage, ResetPage } from './pages/auth/auth-pages';
 import { MyTicketsPage, NewTicketPage, TicketDetailPage } from './pages/tickets/customer-pages';
 import { ConsoleQueuePage, ConsoleTicketPage } from './pages/console/console-pages';
 import { DashboardPage } from './pages/console/dashboard-page';
@@ -72,6 +72,7 @@ export const routes: Routes = [
           { path: 'login/code', canActivate: [guestOnly], component: LoginCodePage },
           { path: 'mfa', component: MfaPage },
           { path: 'register', canActivate: [guestOnly], component: RegisterPage },
+          { path: 'register/confirm', component: ConfirmEmailPage },
           { path: 'forgot-password', component: ForgotPage },
           { path: 'reset-password', component: ResetPage },
         ],

@@ -92,6 +92,14 @@ public sealed class AuthController(AuthService auth, CcsDbContext db, CaptchaVer
         return NoContent();
     }
 
+    /// <summary>A new sign-up code (the old one expired or the email was lost). Same answer for any email.</summary>
+    [HttpPost("resend-signup-code")]
+    public async Task<IActionResult> ResendSignupCode(EmailBody body, CancellationToken ct)
+    {
+        await auth.ResendSignupCodeAsync(body.Email, ct);
+        return Accepted();
+    }
+
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword(EmailBody body, CancellationToken ct)
     {

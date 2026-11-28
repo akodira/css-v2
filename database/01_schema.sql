@@ -266,6 +266,7 @@ CREATE TABLE ccs.profiles (
     rejected_at              datetimeoffset(7) NULL,          -- account request rejected (status suspended)
     rejected_by              uniqueidentifier NULL,           -- no FK: the record outlives the approver
     rejection_reason         nvarchar(500) NULL,
+    email_verified_at        datetimeoffset(7) NULL,          -- sign-up code entered (approval reminders count from here)
     created_at               datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME(),
     updated_at               datetimeoffset(7) NOT NULL DEFAULT SYSUTCDATETIME()
 );

@@ -1416,6 +1416,14 @@ export class UploadsTab extends Tab implements OnInit {
             <span><span class="font-semibold">{{ 'AdminSettings.reg_' + r | t }}</span><span class="block text-sm text-muted">{{ 'AdminSettings.reg_' + r + '_help' | t }}</span></span></label>
         }</fieldset>
         <p class="text-sm text-muted">{{ 'AdminSettings.regNote' | t }}</p>
+        <div class="grid gap-4 md:grid-cols-2">
+          <div class="flex flex-col gap-1.5"><label for="signup_unconfirmed_days" [class]="cls.label">{{ 'AdminSettings.unconfirmedDays' | t }}</label>
+            <input id="signup_unconfirmed_days" name="signup_unconfirmed_days" type="number" min="0" max="90" dir="ltr" [class]="cls.input" [(ngModel)]="n['signup_unconfirmed_days']" />
+            <p class="text-xs text-muted">{{ 'AdminSettings.unconfirmedDaysHint' | t }}</p></div>
+          <div class="flex flex-col gap-1.5"><label for="approval_reminder_days" [class]="cls.label">{{ 'AdminSettings.approvalReminderDays' | t }}</label>
+            <input id="approval_reminder_days" name="approval_reminder_days" type="number" min="0" max="30" dir="ltr" [class]="cls.input" [(ngModel)]="n['approval_reminder_days']" />
+            <p class="text-xs text-muted">{{ 'AdminSettings.approvalReminderDaysHint' | t }}</p></div>
+        </div>
         ${SAVE}
       </form>
       }
@@ -1477,7 +1485,7 @@ export class SystemTab extends Tab implements OnInit {
   protected readonly modes = ['closed', 'approval', 'pick_approval', 'pick_auto'];
   private readonly defaults: Record<string, number> = {
     reopen_window_days: 30, auto_close_days: 5, min_reply_chars: 20, auto_refresh_seconds: 30, idle_timeout_minutes: 5, pending_reminder_1_day: 2, pending_reminder_2_day: 4, pending_final_day: 7,
-    no_response_close_days: 10, resolved_reminder_day: 3, pending_internal_reminder_days: 3, password_min_length: 10, password_expiry_days: 90, password_warn_1_days: 7, password_warn_2_days: 4, password_warn_3_days: 1,
+    no_response_close_days: 10, resolved_reminder_day: 3, pending_internal_reminder_days: 3, signup_unconfirmed_days: 7, approval_reminder_days: 2, password_min_length: 10, password_expiry_days: 90, password_warn_1_days: 7, password_warn_2_days: 4, password_warn_3_days: 1,
   };
   protected readonly loaded = signal(false);
   protected n: Record<string, number> = {};
@@ -1546,7 +1554,9 @@ export class SystemTab extends Tab implements OnInit {
     const minutes = Number(this.n['idle_timeout_minutes']);
     if (await this.save(() => this.put('system', { settings: this.pick(['idle_timeout_minutes']) }))) this.auth.applyIdleMinutes(minutes);
   }
-  protected saveReg(): void { void this.save(() => this.put('registration', { mode: this.reg })); }
+  protected saveReg(): void {
+    void this.save(async () => { await this.put('registration', { mode: this.reg }); await this.put('system', { settings: this.pick(['signup_unconfirmed_days', 'approval_reminder_days']) }); });
+  }
   protected async saveCaptcha(): Promise<void> { if (await this.save(() => this.put('captcha', { enabled: this.cap.enabled, siteKey: this.cap.siteKey, secret: this.cap.secret || null }))) { if (this.cap.secret || !this.cap.enabled) this.cap.fault = null; if (this.cap.secret) this.cap.hasSecret = true; this.cap.secret = ''; } }
 }
 

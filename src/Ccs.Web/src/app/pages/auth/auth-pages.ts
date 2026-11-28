@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, DestroyRef, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Auth, problemOf, ApiProblem } from '../../core/auth';
 import { I18n, TPipe } from '../../core/i18n';
 import { SiteService } from '../../core/api';
@@ -108,6 +109,7 @@ abstract class FormBase {
           @if (left(); as n) { <p class="-mt-2 text-sm font-medium text-danger" role="alert">{{ 'Auth.login.attemptsLeft' | t: { n } }}</p> }
           <label class="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" class="h-5 w-5" [checked]="remember()" (change)="remember.set($any($event.target).checked)" /> {{ 'AuthLook.remember' | t }}</label>
           @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
+          @if (error() === 'emailNotConfirmed') { <a [routerLink]="link('/register/confirm')" [fragment]="confirmFragment()" class="-mt-1 text-sm ${LINK}">{{ 'Auth.confirmPage.open' | t }}</a> }
           <app-submit [pending]="pending()">{{ 'Auth.login.submit' | t }}</app-submit>
         </form>
         @if (nl()) {
@@ -147,6 +149,8 @@ export class LoginPage extends FormBase {
   protected readonly remember = signal(!!this.remembered());
   protected readonly password = signal('');
   protected readonly reason = computed(() => this.route.snapshot.queryParamMap.get('reason'));
+  /** The confirm screen opens with the typed email filled in. */
+  protected confirmFragment(): string | undefined { const v = this.identifier().trim(); return v.includes('@') ? 'email=' + encodeURIComponent(v) : undefined; }
   protected readonly notice = computed(() => this.i18n.pick(this.site.info()?.site?.loginNoticeEn, this.site.info()?.site?.loginNoticeAr));
   protected readonly contactEmail = computed(() => this.site.info()?.site?.contactEmail ?? '');
   protected readonly contactPhone = computed(() => this.site.info()?.site?.contactPhone ?? '');
@@ -305,21 +309,9 @@ const SELECT = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 te
 
 @Component({
   selector: 'app-register',
-  imports: [AuthShell, Card, Alert, RichText, TextField, OtpInput, Submit, Req, RouterLink, TPipe, NewPasswordFields, Turnstile],
+  imports: [AuthShell, Card, Alert, RichText, TextField, Submit, Req, RouterLink, TPipe, NewPasswordFields, Turnstile],
   template: `
-    <app-auth-shell [wide]="!done()">
-      @if (done()) {
-        <app-card [heading]="'Auth.register.sentTitle' | t" icon="mail" [back]="link('/login')">
-          <app-alert tone="success">{{ (mode() === 'pick_auto' ? 'V2.confirm.bodyAuto' : 'V2.confirm.body') | t }}</app-alert>
-          <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); confirm()">
-            <app-otp-input [label]="'Auth.code.label' | t" [hint]="'V2.confirm.hint' | t" [(value)]="code" (complete)="confirm()" />
-            @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
-            @if (confirmed()) { <app-alert tone="success">{{ (mode() === 'pick_auto' ? 'V2.confirm.doneAuto' : 'V2.confirm.done') | t }}</app-alert> }
-            <app-submit [pending]="pending()">{{ 'Auth.code.submit' | t }}</app-submit>
-          </form>
-          <a [routerLink]="link('/login')" class="text-sm ${LINK}">{{ 'Auth.register.login' | t }}</a>
-        </app-card>
-      } @else {
+    <app-auth-shell [wide]="true">
         <app-card [heading]="'Auth.register.title' | t" [subtitle]="'Auth.register.subtitle' | t" icon="userAdd" [back]="link('/login')">
           <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); submit()">
             <app-text-field name="fullName" [label]="'Auth.fields.fullName' | t" autocomplete="name" [maxLength]="120" [required]="true" [(value)]="fullName" [error]="fieldErrors()['fullName']" />
@@ -361,7 +353,6 @@ const SELECT = 'min-h-11 w-full rounded-lg border border-line bg-surface px-3 te
           </form>
           <p class="text-sm text-muted" [class]="nl() ? 'border-t border-line pt-4 text-center' : ''">{{ 'Auth.register.haveAccount' | t }} <a [routerLink]="link('/login')" class="${LINK}">{{ 'Auth.register.login' | t }}</a></p>
         </app-card>
-      }
     </app-auth-shell>`,
   changeDetection: ChangeDetectionStrategy.Default,
 })
@@ -376,11 +367,8 @@ export class RegisterPage extends FormBase {
   private readonly phoneClean = effect(() => { const v = this.phone(), d = phoneDigits(v); if (d !== v) this.phone.set(d); });
   protected readonly password = signal('');
   protected readonly confirmPw = signal('');
-  protected readonly code = signal('');
   protected readonly orgId = signal('');
   protected readonly branchId = signal('');
-  protected readonly done = signal(false);
-  protected readonly confirmed = signal(false);
   protected readonly orgs = signal<SignupOrg[]>([]);
   protected readonly mode = computed(() => this.site.info()?.site?.registrationMode ?? 'approval');
   protected readonly branches = computed(() => this.orgs().find((o) => o.id === this.orgId())?.branches ?? []);
@@ -419,15 +407,85 @@ export class RegisterPage extends FormBase {
         locale: this.i18n.locale(), organizationId: this.orgId() || null, branchId: this.branchId() || null,
         captchaToken: this.captchaToken() || null,
       }));
-      this.done.set(true);
+      await this.router.navigate([this.link('/register/confirm')], { fragment: 'email=' + encodeURIComponent(this.email().trim()) });
     });
   }
+}
+
+/**
+ * Confirm the email with the sign-up code. Opened after registering, from the email's button (email and code
+ * filled in from the part after #, which never reaches the server) or from sign-in when the email is not confirmed.
+ * Nothing is sent until the person presses Continue, so mail scanners opening the link confirm nothing.
+ */
+@Component({
+  selector: 'app-confirm-email',
+  imports: [AuthShell, Card, Alert, RichText, TextField, OtpInput, Submit, RouterLink, TPipe],
+  template: `
+    <app-auth-shell>
+      <app-card [heading]="'Auth.register.sentTitle' | t" icon="mail" [back]="link('/login')">
+        @if (confirmed()) {
+          <app-alert tone="success">{{ (mode() === 'pick_auto' ? 'V2.confirm.doneAuto' : 'V2.confirm.done') | t }}</app-alert>
+          <a [routerLink]="link('/login')" class="${SOFT_BTN}">{{ 'Auth.register.login' | t }}</a>
+        } @else {
+          <app-alert tone="success">{{ (fromLink ? 'Auth.confirmPage.fromLink' : mode() === 'pick_auto' ? 'V2.confirm.bodyAuto' : 'V2.confirm.body') | t }}</app-alert>
+          <form class="flex flex-col gap-4" novalidate (submit)="$event.preventDefault(); confirm()">
+            <app-text-field name="email" type="email" [label]="'Auth.fields.email' | t" autocomplete="email" dir="ltr" [required]="true" [(value)]="email" [error]="fieldErrors()['email']" />
+            <app-otp-input [label]="'Auth.code.label' | t" [hint]="'V2.confirm.hint' | t" [(value)]="code" (complete)="typedCode()" />
+            @if (error()) { <app-alert><app-rich [text]="errText()" [compact]="true" /></app-alert> }
+            @if (resent()) { <app-alert tone="success">{{ 'Auth.confirmPage.resent' | t }}</app-alert> }
+            <app-submit [pending]="pending()">{{ 'Auth.code.submit' | t }}</app-submit>
+          </form>
+          <p class="text-sm text-muted">{{ 'Auth.confirmPage.noCode' | t }}
+            <button type="button" class="cursor-pointer ${LINK} disabled:opacity-50" [disabled]="pending()" (click)="resend()">{{ 'Auth.confirmPage.resend' | t }}</button></p>
+          <a [routerLink]="link('/login')" class="text-sm ${LINK}">{{ 'Auth.register.login' | t }}</a>
+        }
+      </app-card>
+    </app-auth-shell>`,
+  changeDetection: ChangeDetectionStrategy.Default,
+})
+export class ConfirmEmailPage extends FormBase {
+  private readonly http = inject(HttpClient);
+  protected readonly email = signal('');
+  protected readonly code = signal('');
+  /** Opened from the email's button: the code is already in the boxes, and the person presses Continue. */
+  protected fromLink = false;
+  protected readonly confirmed = signal(false);
+  protected readonly resent = signal(false);
+  /** The part after # fills the boxes, also when the screen is already open and only that part changes. */
+  private readonly fill = this.route.fragment.pipe(takeUntilDestroyed()).subscribe((f) => {
+    const given = new URLSearchParams(f ?? '');
+    const email = given.get('email'), code = (given.get('code') ?? '').replace(/\D/g, '').slice(0, 6);
+    if (email) this.email.set(email);
+    if (code.length === 6) { this.code.set(code); this.fromLink = true; this.resent.set(false); this.error.set(null); }
+  });
+  protected readonly mode = computed(() => this.site.info()?.site?.registrationMode ?? 'approval');
+
+  private emailOk(): boolean {
+    if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(this.email().trim())) return true;
+    this.error.set(null);
+    this.fieldErrors.set({ email: 'emailInvalid' });
+    return false;
+  }
+
+  /** Typing the sixth digit sends it, as on the other code screens. */
+  protected typedCode(): void { if (!this.fromLink) this.confirm(); }
 
   confirm(): void {
-    if (this.pending() || this.confirmed()) return;
+    if (this.pending() || this.confirmed() || !this.emailOk()) return;
+    this.resent.set(false);
     void this.run(async () => {
       await firstValueFrom(this.http.post('/api/auth/confirm-email', { email: this.email().trim(), code: this.code().trim() }));
       this.confirmed.set(true);
+    });
+  }
+
+  resend(): void {
+    if (this.pending() || !this.emailOk()) return;
+    this.resent.set(false);
+    void this.run(async () => {
+      await firstValueFrom(this.http.post('/api/auth/resend-signup-code', { email: this.email().trim() }));
+      this.code.set('');
+      this.resent.set(true);
     });
   }
 }

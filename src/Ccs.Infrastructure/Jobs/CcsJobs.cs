@@ -1,5 +1,6 @@
 using Ccs.Application.Sla;
 using Ccs.Infrastructure.Email;
+using Ccs.Infrastructure.Identity;
 using Hangfire;
 using Microsoft.Extensions.Logging;
 
@@ -9,7 +10,7 @@ namespace Ccs.Infrastructure.Jobs;
 /// The background jobs of spec 4 and 6, on Hangfire with SQL Server storage.
 /// Hangfire runs each job in its own DI scope, so services get a fresh DbContext per run.
 /// </summary>
-public sealed class CcsJobs(SlaService sla, LifecycleService lifecycle, EmailDispatcher emails, ILogger<CcsJobs> log)
+public sealed class CcsJobs(SlaService sla, LifecycleService lifecycle, EmailDispatcher emails, AccountRequestTimers requests, ILogger<CcsJobs> log)
 {
     /// <summary>Every minute: SLA states, warnings, breaches (sla_tick).</summary>
     [DisableConcurrentExecution(timeoutInSeconds: 50)]
@@ -41,10 +42,20 @@ public sealed class CcsJobs(SlaService sla, LifecycleService lifecycle, EmailDis
         if (sent > 0) log.LogInformation("Sent {Count} notification emails", sent);
     }
 
+    /// <summary>Every 30 minutes: remove sign-ups never confirmed, remind approvers of requests left waiting.</summary>
+    [DisableConcurrentExecution(timeoutInSeconds: 600)]
+    [AutomaticRetry(Attempts = 0)]
+    public async Task AccountRequestsTickAsync()
+    {
+        var r = await requests.TickAsync();
+        if (r.Removed > 0 || r.Reminders > 0) log.LogInformation("Account requests tick: {@Result}", r);
+    }
+
     public static void Schedule(IRecurringJobManager jobs)
     {
         jobs.AddOrUpdate<CcsJobs>("sla-tick", j => j.SlaTickAsync(), Cron.Minutely());
         jobs.AddOrUpdate<CcsJobs>("lifecycle-tick", j => j.LifecycleTickAsync(), "*/15 * * * *");
         jobs.AddOrUpdate<CcsJobs>("send-emails", j => j.SendEmailsAsync(), Cron.Minutely());
+        jobs.AddOrUpdate<CcsJobs>("account-requests", j => j.AccountRequestsTickAsync(), "*/30 * * * *");
     }
 }

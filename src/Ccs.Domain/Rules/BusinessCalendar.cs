@@ -126,6 +126,35 @@ public sealed class BusinessCalendar
         return new DateTimeOffset(dt, tz.GetUtcOffset(dt)).ToUniversalTime();
     }
 
+    /// <summary>
+    /// The opening time of the Nth working day after <paramref name="since"/>: closed days and holidays are skipped.
+    /// "Waiting 2 working days" from Thursday afternoon is due Monday at opening (Friday and Saturday closed).
+    /// </summary>
+    public DateTimeOffset WorkingDaysBoundary(DateTimeOffset since, int days)
+    {
+        var day = LocalDate(since);
+        for (int left = Math.Max(days, 0), i = 0; left > 0 && i <= MaxDays; i++)
+        {
+            day = day.AddDays(1);
+            if (DayWindows(day).Any()) left--;
+        }
+        return DayWindows(day).Select(w => (DateTimeOffset?)w.Start).FirstOrDefault() ?? ToUtc(day, new TimeOnly(9, 0));
+    }
+
+    /// <summary>The same rule with no calendar: Africa/Cairo, Sunday to Thursday, 09:00.</summary>
+    public static DateTimeOffset WorkingDaysBoundaryDefault(DateTimeOffset since, int days)
+    {
+        var tz = ResolveTimeZone("Africa/Cairo");
+        var day = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(since, tz).DateTime);
+        for (var left = Math.Max(days, 0); left > 0;)
+        {
+            day = day.AddDays(1);
+            if (day.DayOfWeek is not (DayOfWeek.Friday or DayOfWeek.Saturday)) left--;
+        }
+        var dt = day.ToDateTime(new TimeOnly(9, 0));
+        return new DateTimeOffset(dt, tz.GetUtcOffset(dt)).ToUniversalTime();
+    }
+
     public DateOnly LocalDate(DateTimeOffset instant) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, TimeZone).DateTime);
 
     private DateTimeOffset ToUtc(DateOnly day, TimeOnly time)
@@ -148,4 +177,7 @@ public static class WallClock
 
     public static DateTimeOffset LifecycleBoundary(BusinessCalendar? cal, DateTimeOffset since, int days) =>
         cal?.LifecycleBoundary(since, days) ?? BusinessCalendar.LifecycleBoundaryDefault(since, days);
+
+    public static DateTimeOffset WorkingDaysBoundary(BusinessCalendar? cal, DateTimeOffset since, int days) =>
+        cal?.WorkingDaysBoundary(since, days) ?? BusinessCalendar.WorkingDaysBoundaryDefault(since, days);
 }

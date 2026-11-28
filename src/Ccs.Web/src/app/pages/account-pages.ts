@@ -452,6 +452,7 @@ interface NotificationRow { id: string; eventType: string; ticketId: string | nu
             <p class="mt-2 text-sm text-muted">{{ i18n.date(n.createdAt) }}</p>
             <div class="mt-3 flex flex-wrap items-center gap-3">
               @if (n.ticketId) { <a [routerLink]="ticketLink(n.ticketId)" (click)="read(n)" class="flex min-h-11 items-center font-semibold text-brand-ink underline">{{ 'Notifications.open' | t }}</a> }
+              @else if (pathLink(n); as to) { <a [routerLink]="to" (click)="read(n)" class="flex min-h-11 items-center font-semibold text-brand-ink underline">{{ 'Notifications.open' | t }}</a> }
               @if (!n.readAt) { <button type="button" (click)="read(n)" class="min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-3 text-sm font-semibold">{{ 'Notifications.markRead' | t }}</button> }
             </div>
           </li>
@@ -471,6 +472,8 @@ export class NotificationsPage {
   private params(n: NotificationRow): Record<string, unknown> { try { return JSON.parse(n.payload) as Record<string, unknown>; } catch { return {}; } }
   title(n: NotificationRow): string { return this.i18n.t(`Notifications.events.${n.eventType}.title`, this.params(n)); }
   body(n: NotificationRow): string { return this.i18n.t(`Notifications.events.${n.eventType}.body`, this.params(n)); }
+  /** Notifications that are not about a ticket may name a page of the app (Account requests, say). */
+  pathLink(n: NotificationRow): string | null { const p = this.params(n)['path']; return typeof p === 'string' && p.startsWith('/') && !p.startsWith('//') ? `/${this.i18n.locale()}${p}` : null; }
   ticketLink(id: string): string { return `/${this.i18n.locale()}${this.auth.isStaff() ? '/console/tickets/' : '/tickets/'}${id}`; }
   read(n: NotificationRow): void { void firstValueFrom(this.http.post(`/api/notifications/${n.id}/read`, {})).then(() => { this.load(); void this.auth.loadMe(); }); }
   markAll(): void { void firstValueFrom(this.http.post('/api/notifications/read-all', {})).then(() => { this.load(); void this.auth.loadMe(); }); }

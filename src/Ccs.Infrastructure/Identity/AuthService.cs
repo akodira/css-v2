@@ -269,14 +269,42 @@ public sealed class AuthService(
         if (profile.AccountStatus != AccountStatus.PendingVerification) return;
         profile.AccountStatus = registrationMode == "pick_auto" ? AccountStatus.Active : AccountStatus.PendingApproval;
         profile.UpdatedAt = clock.UtcNow;
+        profile.EmailVerifiedAt = profile.UpdatedAt;
         if (profile.AccountStatus == AccountStatus.PendingApproval)
         {
             await notifications.NotifyAsync(profile.Id, NotificationEvent.AccountPending, null, new { name = profile.FullName }, profile.Id.ToString(), ct);
             foreach (var approver in await ApproversAsync(profile, ct))
                 await notifications.NotifyAsync(approver, NotificationEvent.ApprovalRequested, null,
-                    new { name = profile.FullName, email = profile.Email }, profile.Id.ToString(), ct);
+                    ApprovalPayload(profile), profile.Id.ToString(), ct);
         }
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>What the approvers' emails show: who is waiting, and the Account requests page as the button.</summary>
+    public static Dictionary<string, object?> ApprovalPayload(Profile p, int? days = null)
+    {
+        var d = new Dictionary<string, object?> { ["customer"] = p.FullName, ["customerEmail"] = p.Email, ["path"] = "/admin/approvals" };
+        if (days is int n) d["days"] = n;
+        return d;
+    }
+
+    /// <summary>
+    /// A new sign-up code for an account still waiting for email confirmation. Same answer for any other email,
+    /// once a minute and a few times a day at most.
+    /// </summary>
+    public async Task ResendSignupCodeAsync(string email, CancellationToken ct = default)
+    {
+        var user = await users.FindByEmailAsync(email.Trim().ToLowerInvariant());
+        if (user is null) return;
+        if (!await db.Profiles.AnyAsync(p => p.Id == user.Id && p.AccountStatus == AccountStatus.PendingVerification, ct)) return;
+        var now = clock.UtcNow;
+        var lastMinute = now.AddSeconds(-60);
+        if (await db.AuthCodes.AnyAsync(c => c.UserId == user.Id && c.Purpose == "signup" && c.CreatedAt > lastMinute, ct))
+            throw new AuthError("rateLimited", 429);
+        var dayAgo = now.AddDays(-1);
+        if (await db.AuthCodes.CountAsync(c => c.UserId == user.Id && c.Purpose == "signup" && c.CreatedAt > dayAgo, ct) >= RecoveryCodesPerDay)
+            throw new AuthError("rateLimited", 429);
+        await SendCodeAsync(user, "signup", "auth_signup", ct);
     }
 
     /// <summary>account_approvers(): see <see cref="AccountApprovers"/>.</summary>
@@ -443,7 +471,9 @@ public sealed class AuthService(
         });
         await db.SaveChangesAsync(ct);
         var profile = await db.Profiles.AsNoTracking().FirstAsync(p => p.Id == user.Id, ct);
-        await SendAccountEmailAsync(template, profile, code, ResetCodeMinutes, ct);
+        // Sign-up: the button opens the confirm screen with the code filled in (after #, so it never reaches the server logs).
+        var link = purpose == "signup" ? $"/register/confirm#email={Uri.EscapeDataString(profile.Email)}&code={code}" : null;
+        await SendAccountEmailAsync(template, profile, code, ResetCodeMinutes, ct, link);
     }
 
     private Task<int> RecoveryCodesTodayAsync(Guid userId, CancellationToken ct)
@@ -474,11 +504,11 @@ public sealed class AuthService(
     }
 
     /// <summary>Account emails (auth_*) are sent by the API directly, not queued (spec 6).</summary>
-    private async Task SendAccountEmailAsync(string template, Profile p, string? code, int minutes, CancellationToken ct)
+    private async Task SendAccountEmailAsync(string template, Profile p, string? code, int minutes, CancellationToken ct, string? link = null)
     {
         var values = new Dictionary<string, string> { ["name"] = p.FullName, ["email"] = p.Email, ["minutes"] = minutes.ToString() };
         if (code is not null) values["code"] = code;
-        var email = await mailer.BuildAsync(template, p.PreferredLocale, values, null, code, ct);
+        var email = await mailer.BuildAsync(template, p.PreferredLocale, values, link, code, ct);
         if (email is null) return;
         try { await sender.SendAsync(new OutgoingEmail(p.Email, email.Subject, email.Html, email.Text), ct); }
         catch (Exception ex) when (ex is not OperationCanceledException)
