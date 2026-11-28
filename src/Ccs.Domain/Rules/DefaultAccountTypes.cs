@@ -25,13 +25,13 @@ public static class DefaultAccountTypes
         [
             Permission.Reply, Permission.Resolve, Permission.Close, Permission.ChangeCategory, Permission.AssignSelf, Permission.AssignOthers,
             Permission.ViewUnassigned, Permission.ViewOthers, Permission.AllTeams, Permission.ReportsOwn, Permission.ReportsAll, Permission.Export,
-            Permission.CustomersView, Permission.CustomersManage, Permission.ApproveCustomers, Permission.ManageCanned,
+            Permission.CustomersView, Permission.CustomersManage, Permission.ApproveCustomers, Permission.ManageCanned, Permission.ResetStaffPasswords,
         ]),
         new(BranchAdmin, AccountKinds.BranchAdmin, "Branch admin", "مشرف فرع",
         [
             Permission.Reply, Permission.Resolve, Permission.Close, Permission.ChangeCategory, Permission.AssignSelf, Permission.AssignOthers,
             Permission.ViewUnassigned, Permission.ViewOthers, Permission.ReportsOwn, Permission.ReportsAll, Permission.Export,
-            Permission.CustomersView, Permission.CustomersManage, Permission.ApproveCustomers,
+            Permission.CustomersView, Permission.CustomersManage, Permission.ApproveCustomers, Permission.ResetStaffPasswords,
         ]),
         new(TeamLeader, AccountKinds.TeamLeader, "Team leader", "قائد فريق",
         [

@@ -568,8 +568,15 @@ IF OBJECT_ID(N'ccs.CK_atp_permission', N'C') IS NOT NULL
     ALTER TABLE ccs.account_type_permissions DROP CONSTRAINT CK_atp_permission;
 GO
 IF OBJECT_ID(N'ccs.CK_atp_permission', N'C') IS NULL
+BEGIN
     ALTER TABLE ccs.account_type_permissions ADD CONSTRAINT CK_atp_permission CHECK (permission IN (
         'reply','resolve','close','change_category','assign_self','assign_others','view_unassigned','view_others',
         'all_teams','reports_own','reports_all','export','customers_view','customers_manage','manage_kb',
         'manage_catalog','manage_settings','manage_canned','approve_customers','reset_staff_passwords'));
+    -- Once, with the new rule: the default Organization admin and Branch admin types get it (admins can untick it later).
+    EXEC(N'INSERT INTO ccs.account_type_permissions (account_type_id, permission)
+          SELECT t.id, N''reset_staff_passwords'' FROM ccs.account_types t
+           WHERE t.default_key IN (N''organization_admin'', N''branch_admin'')
+             AND NOT EXISTS (SELECT 1 FROM ccs.account_type_permissions x WHERE x.account_type_id = t.id AND x.permission = N''reset_staff_passwords'')');
+END
 GO
