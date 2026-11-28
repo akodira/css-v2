@@ -1,5 +1,7 @@
+import { HttpClient } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, input, signal } from '@angular/core';
-import { AdminApi, adminError } from '../core/admin-api';
+import { firstValueFrom } from 'rxjs';
+import { adminError } from '../core/admin-api';
 import { I18n, TPipe } from '../core/i18n';
 import { Alert } from './ui';
 
@@ -31,9 +33,11 @@ import { Alert } from './ui';
     </div>`,
 })
 export class BulkPasswordReset {
-  private readonly api = inject(AdminApi);
+  private readonly http = inject(HttpClient);
   private readonly i18n = inject(I18n);
   readonly kind = input.required<'staff' | 'customers'>();
+  /** Scoped admins use the People address (only the staff they manage). */
+  readonly url = input('/api/admin/users/bulk-password-reset');
   protected readonly asking = signal(false);
   protected readonly busy = signal(false);
   protected readonly result = signal<{ tone: 'success' | 'error'; text: string } | null>(null);
@@ -41,7 +45,7 @@ export class BulkPasswordReset {
   protected async run(): Promise<void> {
     this.busy.set(true);
     try {
-      const r = await this.api.post<{ count: number }>('users/bulk-password-reset', { kind: this.kind() });
+      const r = await firstValueFrom(this.http.post<{ count: number }>(this.url(), { kind: this.kind() }));
       this.result.set({ tone: 'success', text: this.i18n.t('BulkPw.done', { n: r.count }) });
       this.asking.set(false);
     } catch (e) {

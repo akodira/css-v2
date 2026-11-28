@@ -203,7 +203,7 @@ CREATE TABLE ccs.account_type_permissions (
     permission      nvarchar(40) NOT NULL CONSTRAINT CK_atp_permission CHECK (permission IN (
         'reply','resolve','close','change_category','assign_self','assign_others','view_unassigned','view_others',
         'all_teams','reports_own','reports_all','export','customers_view','customers_manage','manage_kb',
-        'manage_catalog','manage_settings','manage_canned','approve_customers')),
+        'manage_catalog','manage_settings','manage_canned','approve_customers','reset_staff_passwords')),
     CONSTRAINT PK_account_type_permissions PRIMARY KEY (account_type_id, permission)
 );
 

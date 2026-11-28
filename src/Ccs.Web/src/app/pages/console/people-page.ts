@@ -9,6 +9,9 @@ import { STAFF_KEY, STAFF_TILE_SWITCH } from '../../shared/tiles';
 import { PhoneInput, phoneDigits } from '../../shared/phone';
 import { PwEye } from '../../shared/pw-eye';
 import { CLS, Msg } from '../admin/admin-pages';
+import { Auth } from '../../core/auth';
+import { ResetPassword } from '../../shared/reset-password';
+import { BulkPasswordReset } from '../../shared/bulk-password-reset';
 
 interface POrg { id: string; name: string }
 interface PBranch { id: string; organizationId: string; name: string }
@@ -25,7 +28,7 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
  */
 @Component({
   selector: 'app-people',
-  imports: [TPipe, FormsModule, Alert, PwEye, AddPanel, Req, ReqNote, PhoneInput],
+  imports: [TPipe, FormsModule, Alert, PwEye, AddPanel, Req, ReqNote, PhoneInput, ResetPassword, BulkPasswordReset],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div [class]="mode() === 'staff' ? 'mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8' : 'flex flex-col gap-6'">
@@ -67,6 +70,7 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
           </app-add>
         } }
       </div>
+      @if (mode() === 'staff' && canReset()) { <app-bulk-password-reset kind="staff" url="/api/console/people/bulk-password-reset" /> }
       @if (createMsg(); as m) { @if (m.tone === 'success') { <app-alert tone="success">{{ m.text }}</app-alert> } }
       @if (d(); as d) {
         @if (d.orgs.length === 0) {
@@ -100,7 +104,9 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
                   @if (open() === p.id) {
                     <div class="flex flex-col gap-4 border-t border-line p-4">
                       @if (p.status === 'active' || p.status === 'suspended') {
-                        <div><button type="button" [class]="btn" [disabled]="busy()" (click)="setStatus(p)">{{ (p.status === 'suspended' ? 'People.reactivate' : 'People.suspend') | t }}</button></div>
+                        <div class="flex flex-wrap gap-2">
+                          @if (canReset() && !p.roles.includes('customer')) { <app-reset-password [userId]="p.id" [name]="p.fullName || p.email" [url]="'/api/console/people/' + p.id + '/password'" [disabled]="busy()" [btnClass]="btn" /> }
+                          <button type="button" [class]="btn" [disabled]="busy()" (click)="setStatus(p)">{{ (p.status === 'suspended' ? 'People.reactivate' : 'People.suspend') | t }}</button></div>
                       }
                       @if (isLeader(p) && br()?.branches?.length) {
                         <form class="flex flex-wrap items-end gap-3" (ngSubmit)="setLeads(p)">
@@ -151,6 +157,9 @@ const BTN = 'min-h-11 cursor-pointer rounded-lg border border-line bg-surface px
     </div>`,
 })
 export class PeoplePage {
+  private readonly auth = inject(Auth);
+  /** Administrators, and organization / branch admins whose type allows it. */
+  protected readonly canReset = computed(() => !!this.auth.me()?.roles.includes('admin') || this.auth.has('reset_staff_passwords'));
   protected readonly i18n = inject(I18n);
   private readonly http = inject(HttpClient);
   protected readonly cls = CLS;

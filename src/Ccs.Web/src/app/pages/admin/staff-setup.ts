@@ -15,6 +15,7 @@ export const VIEWER_PERMS = ['view_unassigned', 'view_others', 'all_teams', 'rep
 
 /** Can this permission be ticked for this kind? */
 export function permFits(kind: string, p: string): boolean {
+  if (p === 'reset_staff_passwords') return kind === 'organization_admin' || kind === 'branch_admin' || kind === 'administrator';
   if (kind === 'viewer') return VIEWER_PERMS.includes(p);
   if (kind === 'office') return !TICKET_WORK.includes(p);
   if (kind === 'agent') return p !== 'assign_others';

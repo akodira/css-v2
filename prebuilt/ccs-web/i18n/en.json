@@ -1279,7 +1279,8 @@
       "defaultLocked": "Default account types cannot be deleted.",
       "notDefault": "Only a default account type can be reset.",
       "reasonRequired": "Write the reason the customer will read (at least 10 characters).",
-      "reasonTooLong": "The reason can be 500 characters at most."
+      "reasonTooLong": "The reason can be 500 characters at most.",
+      "kindResetAdminsOnly": "Only organization and branch admin types can reset staff passwords. Untick it, or pick one of those kinds."
     },
     "cancel": "Cancel"
   },
@@ -2168,7 +2169,8 @@
       "manage_settings": "Manage settings (SLA, priorities)",
       "manage_users": "Manage users and permissions",
       "manage_canned": "Manage saved replies shared with everyone",
-      "approve_customers": "Approve or reject new customer accounts"
+      "approve_customers": "Approve or reject new customer accounts",
+      "reset_staff_passwords": "Reset passwords of the staff they manage"
     },
     "saveType": "Save account type",
     "cancel": "Cancel",

@@ -562,3 +562,14 @@ GO
 IF COL_LENGTH(N'ccs.profiles', N'must_change_password') IS NULL
     ALTER TABLE ccs.profiles ADD must_change_password bit NOT NULL CONSTRAINT DF_profiles_must_change_password DEFAULT 0;
 GO
+-- New permission: organization and branch admins may reset the passwords of the staff they manage.
+IF OBJECT_ID(N'ccs.CK_atp_permission', N'C') IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_atp_permission' AND definition LIKE N'%reset_staff_passwords%')
+    ALTER TABLE ccs.account_type_permissions DROP CONSTRAINT CK_atp_permission;
+GO
+IF OBJECT_ID(N'ccs.CK_atp_permission', N'C') IS NULL
+    ALTER TABLE ccs.account_type_permissions ADD CONSTRAINT CK_atp_permission CHECK (permission IN (
+        'reply','resolve','close','change_category','assign_self','assign_others','view_unassigned','view_others',
+        'all_teams','reports_own','reports_all','export','customers_view','customers_manage','manage_kb',
+        'manage_catalog','manage_settings','manage_canned','approve_customers','reset_staff_passwords'));
+GO

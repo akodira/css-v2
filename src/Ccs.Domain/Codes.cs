@@ -69,6 +69,8 @@ public static class Permission
     public const string ManageKb = "manage_kb";
     public const string ManageCatalog = "manage_catalog";
     public const string ManageSettings = "manage_settings";
+    /// <summary>Organization and branch admins: reset the passwords of the staff they manage (below their rank, in their places).</summary>
+    public const string ResetStaffPasswords = "reset_staff_passwords";
     // Granted by flags, never stored on an account type:
     public const string CreateForCustomer = "create_for_customer";
     public const string ManageUsers = "manage_users";
@@ -78,7 +80,7 @@ public static class Permission
     [
         Reply, Resolve, Close, ChangeCategory, AssignSelf, AssignOthers, ViewUnassigned, ViewOthers, AllTeams,
         ReportsOwn, ReportsAll, Export, CustomersView, CustomersManage, ManageKb, ManageCatalog, ManageSettings,
-        ManageCanned, ApproveCustomers,
+        ManageCanned, ApproveCustomers, ResetStaffPasswords,
     ];
 
     /// <summary>my_permissions() for a staff member with no account type (legacy "full staff").</summary>

@@ -84,6 +84,8 @@ export class ResetPassword {
   private readonly i18n = inject(I18n);
   /** The person's id and name (shown in the title). */
   readonly userId = input.required<string>();
+  /** Where to send the new password; scoped admins use the People address. */
+  readonly url = input<string | null>(null);
   readonly name = input('');
   readonly disabled = input(false);
   readonly btnClass = input('min-h-11 cursor-pointer rounded-lg border border-line bg-surface px-4 font-semibold hover:bg-bg disabled:opacity-60');
@@ -129,7 +131,7 @@ export class ResetPassword {
     if (this.how() === 'type' && !this.rules().every((r) => this.checks()[r])) { this.err.set(this.i18n.t('ResetPw.rulesNotMet')); return; }
     this.busy.set(true); this.err.set('');
     try {
-      await firstValueFrom(this.http.post(`/api/admin/users/${this.userId()}/password`, { password: pw }));
+      await firstValueFrom(this.http.post(this.url() ?? `/api/admin/users/${this.userId()}/password`, { password: pw }));
       this.done.set(pw); this.copied.set(false);
     } catch (e) { this.err.set(adminError(this.i18n, e)); }
     finally { this.busy.set(false); }

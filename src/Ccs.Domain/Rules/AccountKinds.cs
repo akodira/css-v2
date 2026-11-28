@@ -50,7 +50,10 @@ public static class AccountKinds
     };
 
     /// <summary>Null when the permissions fit the kind, otherwise the error code to show.</summary>
-    public static string? Check(string kind, IReadOnlyCollection<string> permissions) => kind switch
+    public static string? Check(string kind, IReadOnlyCollection<string> permissions) =>
+        permissions.Contains(Permission.ResetStaffPasswords) && kind is not (Administrator or OrganizationAdmin or BranchAdmin) ? "kindResetAdminsOnly" : CheckKind(kind, permissions);
+
+    private static string? CheckKind(string kind, IReadOnlyCollection<string> permissions) => kind switch
     {
         Viewer => permissions.All(ViewerPermissions.Contains) ? null : "kindViewerOnly",
         Agent => !permissions.Contains(Permission.Reply) ? "kindNeedsReply"

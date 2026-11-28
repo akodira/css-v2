@@ -83,4 +83,14 @@ public class AccountKindsTests
             Assert.All(d.Permissions, p => Assert.Contains(p, Permission.Assignable));
         }
     }
+
+    [Fact]
+    public void Only_admin_kinds_may_reset_staff_passwords()
+    {
+        Assert.Null(AccountKinds.Check(AccountKinds.BranchAdmin, [Permission.Reply, Permission.ResetStaffPasswords]));
+        Assert.Null(AccountKinds.Check(AccountKinds.OrganizationAdmin, [Permission.ResetStaffPasswords]));
+        Assert.Equal("kindResetAdminsOnly", AccountKinds.Check(AccountKinds.TeamLeader, [Permission.Reply, Permission.AssignOthers, Permission.ResetStaffPasswords]));
+        Assert.Equal("kindResetAdminsOnly", AccountKinds.Check(AccountKinds.Office, [Permission.CustomersManage, Permission.ResetStaffPasswords]));
+        Assert.Equal("kindResetAdminsOnly", AccountKinds.Check(AccountKinds.Viewer, [Permission.ResetStaffPasswords]));
+    }
 }

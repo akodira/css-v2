@@ -27,6 +27,7 @@ public sealed partial class PeopleController(CcsDbContext db, AccessService acce
     public sealed record StatusBody(string Status);
     public sealed record TypeBody(Guid AccountTypeId);
     public sealed record PickBody(Guid[] Orgs, Guid[] Branches);
+    public sealed record PasswordBody(string Password);
 
     private static AuthError Err(string code, string? field = null, int status = 400) => new(code, status, field);
     private static int Rank(string? level) => level switch { "organization" => 2, "branch" => 1, _ => 0 };
@@ -265,6 +266,51 @@ public sealed partial class PeopleController(CcsDbContext db, AccessService acce
         audit.Write("user.account_type_changed", "profile", id, new { accountTypeId = old }, new { accountTypeId = type.Id });
         await db.SaveChangesAsync(ct);
         return NoContent();
+    }
+
+    /// <summary>Resetting staff passwords needs the permission on the caller's account type (Administrators always may).</summary>
+    private static void RequireReset(Me me)
+    {
+        if (!me.C.Admin && !me.C.Has(Permission.ResetStaffPasswords)) throw new ForbiddenException();
+    }
+
+    /// <summary>A new password for one staff member the caller manages; their sessions end.</summary>
+    [HttpPost("api/console/people/{id:guid}/password")]
+    public async Task<IActionResult> Password(Guid id, PasswordBody b, CancellationToken ct)
+    {
+        var me = await MeAsync(ct);
+        RequireReset(me);
+        var target = await TargetAsync(me, id, ct);
+        if (target.Roles.Contains(RoleCode.Customer)) throw Err("notStaff");
+        var u = await users.FindByIdAsync(id.ToString()) ?? throw new NotFoundException();
+        var token = await users.GeneratePasswordResetTokenAsync(u);
+        if (!(await users.ResetPasswordAsync(u, token, b.Password ?? "")).Succeeded) throw Err("passwordWeak", "password");
+        var p = await db.Profiles.FirstAsync(x => x.Id == id, ct);
+        p.PasswordChangedAt = clock.UtcNow; p.PasswordWarnStage = 0; p.MustChangePassword = false; p.UpdatedAt = clock.UtcNow;
+        await db.RefreshTokens.Where(t => t.UserId == id && t.RevokedAt == null).ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, clock.UtcNow), ct);
+        audit.Write("user.password_reset", "profile", id, null, null);
+        await db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
+    /// <summary>Every staff member the caller manages must set a new password at the next sign-in; their sessions end.</summary>
+    [HttpPost("api/console/people/bulk-password-reset")]
+    public async Task<object> BulkPassword(CancellationToken ct)
+    {
+        var me = await MeAsync(ct);
+        RequireReset(me);
+        var ids = (await PeopleAsync(me, ct))
+            .Where(x => !x.Roles.Contains(RoleCode.Customer) && x.Status is AccountStatus.Active or AccountStatus.Suspended)
+            .Select(x => x.Id).ToList();
+        if (ids.Count > 0)
+        {
+            var now = clock.UtcNow;
+            await db.Profiles.Where(p => ids.Contains(p.Id)).ExecuteUpdateAsync(s => s.SetProperty(p => p.MustChangePassword, true).SetProperty(p => p.UpdatedAt, now), ct);
+            await db.RefreshTokens.Where(t => ids.Contains(t.UserId) && t.RevokedAt == null).ExecuteUpdateAsync(s => s.SetProperty(t => t.RevokedAt, now), ct);
+        }
+        audit.Write("user.bulk_password_reset", "profile", null, null, new { kind = "staff", scoped = true, count = ids.Count });
+        await db.SaveChangesAsync(ct);
+        return new { count = ids.Count };
     }
 
     // ---------------------------------------------------------------- main Administrator: placement and scope

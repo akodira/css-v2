@@ -16,7 +16,7 @@ export const PERMISSION_GROUPS = [
   { key: 'tickets', perms: ['reply', 'resolve', 'close', 'change_category', 'assign_self', 'assign_others', 'view_unassigned', 'view_others', 'all_teams'] },
   { key: 'reports', perms: ['reports_own', 'reports_all', 'export'] },
   { key: 'customers', perms: ['customers_view', 'customers_manage', 'approve_customers'] },
-  { key: 'admin', perms: ['manage_kb', 'manage_catalog', 'manage_settings', 'manage_canned'] },
+  { key: 'admin', perms: ['manage_kb', 'manage_catalog', 'manage_settings', 'manage_canned', 'reset_staff_passwords'] },
 ];
 export const ALL_PERMISSIONS = PERMISSION_GROUPS.flatMap((g) => g.perms);
 export const PERMISSION_TOTAL = ALL_PERMISSIONS.length + 1;
